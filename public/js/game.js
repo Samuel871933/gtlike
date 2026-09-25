@@ -74,10 +74,12 @@
 
   // Carte : un clic sur une case la sélectionne et remplit le panneau « Cible » (sans recharger la page).
   const PILL = 'self-start rounded-[3px] border px-2 py-0.5 font-display text-[10px] font-bold tracking-[0.12em] uppercase';
+  let mapWasDragged = false;
   document.addEventListener('click', (e) => {
     const tile = e.target.closest('[data-map-tile]');
     const panel = document.querySelector('[data-map-target]');
     if (!tile || !panel || e.ctrlKey || e.metaKey) return;
+    if (mapWasDragged) { e.preventDefault(); mapWasDragged = false; return; }
     e.preventDefault();
     document.querySelectorAll('[data-map-tile][data-selected]').forEach((t) => t.removeAttribute('data-selected'));
     tile.setAttribute('data-selected', '');
@@ -88,8 +90,8 @@
     const mine = d.kind === 'current' || d.kind === 'own';
     const box = $('tile');
     box.className = box.className.replace(/\bbg-\S+/g, '').trim() + ' ' + d.bg;
-    const svg = tile.querySelector('svg');
-    box.innerHTML = isVillage && svg ? svg.outerHTML.replace(/\bw-(\d+|\[\d+px\])/, 'w-[30px]') : '';
+    const visual = tile.querySelector('[data-map-visual]');
+    box.innerHTML = visual ? visual.outerHTML.replace('village-marker ', 'village-marker village-marker--large ').replace('terrain-sprite ', 'terrain-sprite terrain-sprite--large ') : '';
     $('name').textContent = d.name;
     $('coords').textContent = `${d.x}|${d.y} · Continent ${d.k}`;
     $('rel').textContent = d.rel || '';
@@ -112,6 +114,72 @@
       $('profile').href = `${base}/players/${d.playerId}`;
       show('profileBox', Boolean(d.playerId));
     }
+  });
+
+  // Carte draggable : le cadre reste fixe ; au relâchement, on charge la zone correspondant au geste.
+  document.querySelectorAll('[data-map-drag]').forEach((viewport) => {
+    const grid = viewport.querySelector('[data-map-grid]');
+    if (!grid) return;
+    let drag = null;
+    const finish = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      viewport.classList.remove('is-dragging');
+      drag = null;
+      if (Math.hypot(dx, dy) < 10) return;
+      mapWasDragged = true;
+      const tile = Number(viewport.dataset.tileSize) || 56;
+      const x = Math.round(Number(viewport.dataset.centerX) - dx / tile);
+      const y = Math.round(Number(viewport.dataset.centerY) - dy / tile);
+      const url = new URL(window.location.href);
+      url.searchParams.set('x', x);
+      url.searchParams.set('y', y);
+      url.searchParams.delete('sx');
+      url.searchParams.delete('sy');
+      window.location.href = url.toString();
+    };
+    viewport.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('.map-controls')) return;
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      viewport.setPointerCapture(e.pointerId);
+      viewport.classList.add('is-dragging');
+    });
+    viewport.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (Math.hypot(dx, dy) > 4) e.preventDefault();
+    });
+    viewport.addEventListener('pointerup', finish);
+    viewport.addEventListener('pointercancel', finish);
+  });
+
+  // Carte globale : rendu léger en canvas, même avec plusieurs milliers de villages.
+  document.querySelectorAll('[data-world-map]').forEach((canvas) => {
+    const source = canvas.closest('.world-map-overlay').querySelector('[data-world-map-data]');
+    const villages = JSON.parse(source.textContent);
+    const ctx = canvas.getContext('2d');
+    const worldSize = Number(canvas.dataset.worldSize);
+    const colors = { current: '#f4c451', own: '#f4c451', tribe: '#5794e8', ally: '#55c8dc', nap: '#aa79d6', enemy: '#dc654b', other: '#bd855b', barb: '#8b8d86' };
+    const w = canvas.width;
+    ctx.fillStyle = '#34452b'; ctx.fillRect(0, 0, w, w);
+    ctx.strokeStyle = 'rgba(8,16,8,.28)'; ctx.lineWidth = 1;
+    for (let n = 100; n < worldSize; n += 100) { const p = n / worldSize * w; ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, w); ctx.moveTo(0, p); ctx.lineTo(w, p); ctx.stroke(); }
+    for (const v of villages) {
+      const x = v.x / worldSize * w; const y = v.y / worldSize * w;
+      const r = v.kind === 'current' ? 4 : v.kind === 'own' ? 3 : 2;
+      ctx.fillStyle = colors[v.kind] || colors.other;
+      ctx.fillRect(Math.round(x - r / 2), Math.round(y - r / 2), r, r);
+    }
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.max(0, Math.min(worldSize - 1, Math.round((e.clientX - rect.left) / rect.width * worldSize)));
+      const y = Math.max(0, Math.min(worldSize - 1, Math.round((e.clientY - rect.top) / rect.height * worldSize)));
+      const url = new URL(canvas.dataset.mapUrl, window.location.origin);
+      url.searchParams.set('x', x); url.searchParams.set('y', y); url.searchParams.delete('world');
+      window.location.href = url.toString();
+    });
   });
 
   // Confirmation des actions irréversibles.

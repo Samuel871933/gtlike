@@ -142,3 +142,71 @@
   --color-shield-edge: #140e08;
   --color-shield-mark: #3a2208;
 }
+
+/* Carte du monde : villages progressifs et déplacement direct. */
+.map-viewport { cursor: grab; touch-action: none; user-select: none; }
+.map-page-layout { display: grid; grid-template-columns: 190px max-content 300px; align-items: start; justify-content: center; gap: 16px; }
+@media (max-width: 1180px) { .map-page-layout { grid-template-columns: minmax(0, 1fr) 300px; } .map-page-layout > aside:first-child { grid-column: 1 / -1; } }
+@media (max-width: 800px) { .map-page-layout { grid-template-columns: minmax(0, 1fr); } }
+.map-viewport.is-dragging { cursor: grabbing; }
+.map-tile {
+  background-image: linear-gradient(rgb(20 27 17 / .08), rgb(20 27 17 / .08)), url('/img/map/terrain-grass.webp');
+  background-size: auto, 504px 504px;
+  background-position: center, var(--terrain-x) var(--terrain-y);
+  box-shadow: none;
+}
+.map-tile:hover { filter: brightness(1.16); box-shadow: inset 0 0 0 2px rgb(240 208 138 / .45); }
+.map-viewport.is-dragging .map-tile { pointer-events: none; }
+.terrain-sprite { display: block; width: 62px; height: 62px; background: center / contain no-repeat; filter: drop-shadow(0 2px 1px rgb(0 0 0 / .42)); transform: rotate(var(--decor-rotate, 0deg)) scale(var(--decor-scale, 1)); }
+.terrain-sprite--forest { background-image: url('/img/map/terrain-forest.png'); }
+.terrain-sprite--hill { background-image: url('/img/map/terrain-hill.png'); }
+.terrain-sprite--water { background-image: url('/img/map/terrain-water.png'); }
+.terrain-sprite--large { width: 76px; height: 76px; }
+.map-target-tile { background-image: url('/img/map/terrain-grass.webp'); background-size: 220px 220px; }
+
+.village-marker {
+  --village-color: var(--color-rel-other);
+  position: relative;
+  display: block;
+  width: 66px;
+  height: 66px;
+  filter: drop-shadow(0 2px 1px rgb(0 0 0 / .9));
+}
+.village-marker::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 18px;
+  right: 18px;
+  bottom: 1px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--village-color);
+  box-shadow: 0 0 5px var(--village-color), 0 1px 2px #000;
+  opacity: .9;
+}
+.village-sprite {
+  position: absolute;
+  inset: -7px -4px -1px;
+  z-index: 1;
+  background-image: var(--village-image);
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center bottom;
+}
+.village-marker--1 { --village-image: url('/img/map/village-level-1.png'); }
+.village-marker--2 { --village-image: url('/img/map/village-level-2.png'); }
+.village-marker--3 { --village-image: url('/img/map/village-level-3.png'); }
+.village-marker--4 { --village-image: url('/img/map/village-level-4.png'); }
+.village-marker--5 { --village-image: url('/img/map/village-level-5.png'); }
+.village-marker--6 { --village-image: url('/img/map/village-level-6.png'); }
+.village-marker--current, .village-marker--own { --village-color: var(--color-rel-own); }
+.village-marker--tribe { --village-color: var(--color-rel-tribe); }
+.village-marker--ally { --village-color: var(--color-rel-ally); }
+.village-marker--nap { --village-color: var(--color-rel-nap); }
+.village-marker--enemy { --village-color: var(--color-rel-enemy); }
+.village-marker--barb { --village-color: var(--color-rel-barb); filter: saturate(.72) drop-shadow(0 2px 1px rgb(0 0 0 / .85)); }
+.village-marker--current { filter: drop-shadow(0 0 4px var(--color-rel-own)) drop-shadow(0 2px 1px #000); }
+.village-marker--large { width: 92px; height: 92px; }
+.village-special { position: absolute; z-index: 3; top: 0; right: 1px; color: var(--color-gold-200); font-size: 13px; text-shadow: 0 1px 2px #000; }
+[data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }

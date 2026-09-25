@@ -583,6 +583,11 @@ router.get('/victory', ah(async (req, res) => {
 
 router.get('/map', ah(async (req, res) => {
   const { village, cfg } = req.ctx;
+  const mapSizes = [7, 9, 11, 13, 15];
+  const miniSizes = [25, 35, 50, 70];
+  const displaySize = mapSizes.includes(Number(req.query.size)) ? Number(req.query.size) : 11;
+  const miniSize = miniSizes.includes(Number(req.query.mini)) ? Number(req.query.mini) : 35;
+  const showWorldMap = req.query.world === '1';
   const clamp = (v, d) => {
     const n = Number.parseInt(v, 10);
     return Number.isFinite(n) ? Math.min(cfg.mapSize - 1, Math.max(0, n)) : d;
@@ -594,15 +599,16 @@ router.get('/map', ah(async (req, res) => {
   // Case sélectionnée (panneau « Cible ») : celle visée, sinon le village courant.
   const sx = clamp(req.query.sx, typed || req.query.x ? cx : village.x);
   const sy = clamp(req.query.sy, typed || req.query.y ? cy : village.y);
-  const [area, overviewArea, player, movements] = await Promise.all([
-    MapService.area(village.worldId, cx, cy, 15),
-    MapService.area(village.worldId, cx, cy, 25),
+  const [area, overviewArea, player, movements, worldVillages] = await Promise.all([
+    MapService.area(village.worldId, cx, cy, displaySize),
+    MapService.area(village.worldId, cx, cy, miniSize),
     Player.findByPk(village.playerId),
     CommandService.overview(village.id),
+    showWorldMap ? MapService.worldMap(village.worldId) : Promise.resolve([]),
   ]);
   const relations = await TribeService.relationsOf(player.tribeId);
   const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => ({ x: c.target.x, y: c.target.y }));
-  res.render('map', { page: 'map', area, overviewArea, cx, cy, sx, sy, relations, attacks });
+  res.render('map', { page: 'map', area, overviewArea, cx, cy, sx, sy, relations, attacks, displaySize, miniSize, mapSizes, miniSizes, showWorldMap, worldVillages });
 }));
 
 module.exports = router;

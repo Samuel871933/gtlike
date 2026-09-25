@@ -1,8 +1,7 @@
 <%- include('partials/header', { title: 'Carte' }) %>
 <%
   const vid = ctx.village.id;
-  const step = 5;
-  const link = (x, y) => `/village/${vid}/map?x=${x}&y=${y}`;
+  const link = (x, y) => `/village/${vid}/map?x=${x}&y=${y}&size=${displaySize}&mini=${miniSize}`;
   const REL = {
     current: ['fill-rel-own', 'Ce village', 'bg-rel-own', 'border-rel-own bg-rel-own/13 text-rel-own'],
     own: ['fill-rel-own', 'Ton village', 'bg-rel-own', 'border-rel-own bg-rel-own/13 text-rel-own'],
@@ -20,7 +19,14 @@
     h ^= h >>> 16;
     return (h >>> 0) / 4294967296;
   };
-  const terrain = (x, y) => { const r = rnd(x, y, 1); return r < 0.13 ? 'forest' : r < 0.155 ? 'hill' : r < 0.175 ? 'water' : 'grass'; };
+  const terrain = (x, y) => {
+    const local = rnd(x, y, 1);
+    const biome = (rnd(Math.floor(x / 4), Math.floor(y / 4), 11) + rnd(Math.floor((x + 2) / 4), Math.floor((y + 2) / 4), 19)) / 2;
+    if (biome < 0.34 && local < 0.34) return 'forest';
+    if (biome > 0.76 && local < 0.07) return 'hill';
+    if (biome > 0.47 && biome < 0.58 && local < 0.055) return 'water';
+    return 'grass';
+  };
   const kindOf = (v) => {
     if (!v) return null;
     if (!v.playerId) return 'barb';
@@ -31,12 +37,14 @@
   };
   const TILE_BG = { forest: 'bg-forest', hill: 'bg-hill', water: 'bg-water' };
   const tileBg = (x, y, t) => TILE_BG[t] || (rnd(x, y, 7) < 0.5 ? 'bg-grass-1' : 'bg-grass-2');
-  const shieldWidth = (kind, pts) => kind === 'current' ? 'w-8' : pts < 400 ? 'w-4' : pts < 1000 ? 'w-5' : pts < 1800 ? 'w-6' : 'w-7';
-  const shieldOf = (v, kind, w) => shield(REL[kind][0], { cls: w || shieldWidth(kind, v.points), emblem: kind === 'current' || kind === 'own' ? 'cross' : v.special ? 'star' : '', glow: kind === 'current' });
+  // Six silhouettes, comme sur les cartes de stratégie classiques. Le palier dépend des points ;
+  // le rendu colorimétrique est ensuite adapté par le style de jeu Roman / Viking en CSS.
+  const villageLevel = (pts) => pts < 300 ? 1 : pts < 1000 ? 2 : pts < 3000 ? 3 : pts < 6000 ? 4 : pts < 9000 ? 5 : 6;
+  const villageOf = (v, kind, size = '') => `<span data-map-visual class="village-marker village-marker--${kind} village-marker--${villageLevel(v.points)} ${size}" aria-hidden="true"><span class="village-sprite"></span>${v.special ? '<span class="village-special">★</span>' : ''}</span>`;
   const TERRAIN_SVG = {
-    forest: '<svg class="size-12" viewBox="0 0 48 48" aria-hidden="true"><g class="fill-forest-deep"><circle cx="12" cy="14" r="7"/><circle cx="26" cy="11" r="8"/><circle cx="38" cy="17" r="7"/><circle cx="17" cy="28" r="8"/><circle cx="32" cy="30" r="7"/><circle cx="12" cy="40" r="6"/><circle cx="25" cy="41" r="6"/><circle cx="38" cy="40" r="5"/></g><g class="fill-forest-leaf"><circle cx="10" cy="12" r="3"/><circle cx="24" cy="9" r="3.5"/><circle cx="36" cy="15" r="3"/><circle cx="15" cy="26" r="3.5"/><circle cx="30" cy="28" r="3"/><circle cx="23" cy="39" r="2.5"/></g></svg>',
-    hill: '<svg class="size-12" viewBox="0 0 48 48" aria-hidden="true"><path d="M4 40 C12 18 20 12 26 20 C30 14 38 16 44 40z" class="fill-hill-light"/><path d="M26 20 C30 14 38 16 44 40 H34 C32 30 30 24 26 20z" class="fill-hill-shade"/><path d="M12 32 C16 26 20 24 24 28" class="stroke-hill-line" fill="none" stroke-width="1.2"/></svg>',
-    water: '<svg class="size-12 stroke-water-line" viewBox="0 0 48 48" fill="none" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M8 18c4-3 7 3 11 0s7 3 11 0 6 1 9 0"/><path d="M8 30c4-3 7 3 11 0s7 3 11 0 6 1 9 0"/></svg>',
+    forest: '<span data-map-visual class="terrain-sprite terrain-sprite--forest" aria-hidden="true"></span>',
+    hill: '<span data-map-visual class="terrain-sprite terrain-sprite--hill" aria-hidden="true"></span>',
+    water: '<span data-map-visual class="terrain-sprite terrain-sprite--water" aria-hidden="true"></span>',
   };
   const TERRAIN_NAME = { forest: 'Forêt', hill: 'Colline', water: 'Lac', grass: 'Terrain libre' };
   const TERRAIN_DESC = {
@@ -55,7 +63,7 @@
     if (!v) return { ...base, name: TERRAIN_NAME[t], desc: TERRAIN_DESC[t] };
     const kind = kindOf(v);
     return {
-      ...base, kind, id: v.id, name: v.name, rel: REL[kind][1], pill: REL[kind][3], points: num(v.points),
+      ...base, kind, level: villageLevel(v.points), id: v.id, name: v.name, rel: REL[kind][1], pill: REL[kind][3], points: num(v.points),
       owner: v.Player ? v.Player.name : 'Barbares', playerId: v.Player ? v.Player.id : '', tribe: v.Player && v.Player.Tribe ? v.Player.Tribe.tag : '—',
       special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
     };
@@ -80,22 +88,46 @@
   }
   const legend = [['own', 'Tes villages'], ['tribe', 'Ta tribu'], ['ally', 'Alliés'], ['nap', 'PNA'], ['enemy', 'Ennemis'], ['other', 'Autres'], ['barb', 'Barbares']];
   const MINI_TERRAIN = { forest: 'bg-mini-forest', hill: 'bg-mini-hill', water: 'bg-mini-water' };
-  const tileRing = (x, y) => (x % 100 === 99 || y % 100 === 99) ? 'shadow-[inset_-2px_-2px_0_rgba(0,0,0,0.7)]'
-    : (x % 5 === 4 || y % 5 === 4) ? 'shadow-[inset_-1px_-1px_0_rgba(0,0,0,0.45)]' : 'shadow-[inset_-1px_-1px_0_rgba(0,0,0,0.18)]';
+  const tileRing = () => '';
   const selRing = 'data-selected:shadow-[inset_0_0_0_2px_var(--color-gold-200),inset_0_0_12px_var(--color-glow-select)]';
 %>
-<div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+<div class="map-page-layout">
+  <aside class="flex flex-col gap-4">
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Affichage') %>
+      <form method="get" class="<%= ui.panelBody %> gap-3" data-map-settings>
+        <input type="hidden" name="x" value="<%= cx %>"><input type="hidden" name="y" value="<%= cy %>">
+        <label class="flex flex-col gap-1.5 text-[12px] font-bold text-parchment-400">
+          Taille de la carte
+          <select name="size" class="<%= ui.inputSm %>">
+            <% for (const n of mapSizes) { %><option value="<%= n %>" <%= n === displaySize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1.5 text-[12px] font-bold text-parchment-400">
+          Taille de la minimap
+          <select name="mini" class="<%= ui.inputSm %>">
+            <% for (const n of miniSizes) { %><option value="<%= n %>" <%= n === miniSize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
+          </select>
+        </label>
+        <button class="<%= btn('gold', 'sm') %>">Appliquer</button>
+        <p class="text-[12px] leading-relaxed text-parchment-600">Une vue plus petite tient entièrement à l’écran. La minimap peut couvrir une zone beaucoup plus large.</p>
+      </form>
+      <%- corners() %>
+    </section>
+  </aside>
+
   <section class="<%= ui.panel %> min-w-0">
     <%- panelHead(`Continent ${continent(cx, cy)}`, `
       <form method="get" class="flex items-center gap-2">
+        <input type="hidden" name="size" value="${displaySize}"><input type="hidden" name="mini" value="${miniSize}">
         <span class="mr-2.5 hidden text-[13px] text-parchment-500 tabular-nums sm:inline">${x0}–${x0 + size - 1} × ${y0}–${y0 + size - 1}</span>
         <label for="goto" class="text-[13px] text-parchment-500">Aller à</label>
         <input id="goto" name="c" type="text" inputmode="numeric" placeholder="${cx}|${cy}" class="${ui.inputSm} w-[92px] tabular-nums">
         <button class="${btn('dark', 'sm')}">OK</button>
       </form>`, { tag: 'h1' }) %>
 
-    <div class="flex items-center justify-center gap-3 overflow-x-auto bg-map-edge px-3 pt-4.5 pb-5">
-      <div class="relative shrink-0 border-2 border-bronze-500 shadow-[0_0_0_1px_#000,0_0_0_5px_var(--color-bar-hi),0_0_0_6px_var(--color-bronze-700),0_10px_30px_rgba(0,0,0,0.6)]">
+    <div class="map-viewport relative flex items-center justify-center overflow-hidden bg-map-edge px-3 py-4" data-map-drag data-center-x="<%= cx %>" data-center-y="<%= cy %>" data-tile-size="56">
+      <div class="map-grid relative shrink-0 border-2 border-bronze-500 shadow-[0_0_0_1px_#000,0_0_0_5px_var(--color-bar-hi),0_0_0_6px_var(--color-bronze-700),0_10px_30px_rgba(0,0,0,0.6)]" data-map-grid>
         <div class="flex h-[26px] border-b border-bronze-700 bg-linear-to-b from-panel-hi to-panel-edge">
           <div class="w-9 shrink-0"></div>
           <% for (const cell of area.rows[0]) { %><div class="flex w-14 shrink-0 items-center justify-center font-display text-[11px] font-bold text-gold-400 tabular-nums"><%= cell.x %></div><% } %>
@@ -105,40 +137,57 @@
             <div class="flex h-14 w-9 shrink-0 items-center justify-center border-r border-bronze-700 bg-linear-to-r from-panel-hi to-panel-edge font-display text-[11px] font-bold text-gold-400 tabular-nums"><%= row[0].y %></div>
             <% for (const cell of row) { const d = cellData(cell); const v = cell.village; const t = v ? 'grass' : terrain(cell.x, cell.y); %>
               <a href="<%= link(cx, cy) %>&sx=<%= cell.x %>&sy=<%= cell.y %>" data-map-tile="<%= JSON.stringify(d) %>"<%- cell.x === sx && cell.y === sy ? ' data-selected' : '' %>
-                 class="flex size-14 shrink-0 items-center justify-center <%= d.bg %> <%= tileRing(cell.x, cell.y) %> <%= selRing %> transition hover:brightness-125"
+                 class="map-tile flex size-14 shrink-0 items-center justify-center <%= d.bg %> <%= tileRing(cell.x, cell.y) %> <%= selRing %> transition"
+                 style="--terrain-x:<%= -(((cell.x % 9) + 9) % 9) * 56 %>px;--terrain-y:<%= -(((cell.y % 9) + 9) % 9) * 56 %>px;--decor-rotate:<%= Math.floor(rnd(cell.x, cell.y, 31) * 4) * 90 %>deg;--decor-scale:<%= (0.9 + rnd(cell.x, cell.y, 37) * 0.22).toFixed(2) %>"
                  aria-label="<%= d.name %> <%= cell.x %>|<%= cell.y %>" title="<%= d.name %> (<%= cell.x %>|<%= cell.y %>)<%= v ? ` · ${d.points} pts · ${d.owner}` : '' %>">
-                <% if (v) { %><%- shieldOf(v, d.kind) %><% } else if (TERRAIN_SVG[t]) { %><%- TERRAIN_SVG[t] %><% } %>
+                <% if (v) { %><%- villageOf(v, d.kind) %><% } else if (TERRAIN_SVG[t]) { %><%- TERRAIN_SVG[t] %><% } %>
               </a>
             <% } %>
           </div>
         <% } %>
         <% if (arrowPath) { %>
-          <svg class="pointer-events-none absolute top-[27px] left-[37px] size-[840px]" viewBox="0 0 840 840" aria-hidden="true">
+          <svg class="pointer-events-none absolute top-[27px] left-[37px]" style="width:<%= size * 56 %>px;height:<%= size * 56 %>px" viewBox="0 0 <%= size * 56 %> <%= size * 56 %>" aria-hidden="true">
             <path d="<%= arrowPath %>" class="stroke-blood-450" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
             <path d="<%= arrowHeads %>" class="fill-blood-450"/>
           </svg>
         <% } %>
-        <div class="pointer-events-none absolute top-[27px] left-[37px] size-[840px] shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]"></div>
+        <div class="pointer-events-none absolute top-[27px] left-[37px] shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]" style="width:<%= size * 56 %>px;height:<%= size * 56 %>px"></div>
+        <a href="<%= link(ctx.village.x, ctx.village.y) %>" class="map-controls absolute top-8 right-2 z-10 <%= ui.iconBtnOn %> shadow-lg" aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></a>
       </div>
-      <%# Déplacement de la carte %>
-      <div class="flex shrink-0 flex-col gap-1.5 rounded-md border border-bronze-700 bg-plate-strong p-1.5">
-        <a href="<%= link(cx, cy - step) %>" class="<%= ui.iconBtn %>" aria-label="Vers le nord" title="Vers le nord"><%- icon('chevronUp', 'size-3.5', 2.4) %></a>
-        <a href="<%= link(cx - step, cy) %>" class="<%= ui.iconBtn %>" aria-label="Vers l’ouest" title="Vers l’ouest"><%- icon('chevronLeft', 'size-3.5', 2.4) %></a>
-        <a href="<%= link(ctx.village.x, ctx.village.y) %>" class="<%= ui.iconBtnOn %>" aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></a>
-        <a href="<%= link(cx + step, cy) %>" class="<%= ui.iconBtn %>" aria-label="Vers l’est" title="Vers l’est"><%- icon('chevronRight', 'size-3.5', 2.4) %></a>
-        <a href="<%= link(cx, cy + step) %>" class="<%= ui.iconBtn %>" aria-label="Vers le sud" title="Vers le sud"><%- icon('chevronDown', 'size-3.5', 2.4) %></a>
-      </div>
+
+      <% if (showWorldMap) {
+        const worldData = worldVillages.map((v) => ({ x: v.x, y: v.y, kind: kindOf(v), points: v.points }));
+        const barbCount = worldVillages.filter((v) => !v.playerId).length;
+        const ownCount = worldVillages.filter((v) => v.playerId === ctx.village.playerId).length;
+      %>
+        <section class="world-map-overlay absolute inset-3 z-20 flex flex-col overflow-hidden rounded-md border-2 border-bronze-500 bg-panel-lo shadow-[0_12px_50px_rgba(0,0,0,.85)]">
+          <header class="flex items-center justify-between border-b border-bronze-700 bg-linear-to-b from-panel-hi to-panel-edge px-4 py-2.5">
+            <div><h2 class="font-display text-base font-bold text-gold-200">Carte du monde</h2><p class="text-[11px] text-parchment-500"><%= ctx.world.name %> · <%= ctx.cfg.mapSize %> × <%= ctx.cfg.mapSize %></p></div>
+            <a href="<%= link(cx, cy) %>" class="<%= ui.iconBtn %>" aria-label="Fermer la carte du monde" title="Fermer">×</a>
+          </header>
+          <div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_190px] gap-4 p-4">
+            <canvas class="world-map-canvas aspect-square h-full max-h-full w-full rounded border border-bronze-600 bg-mini-bg" width="700" height="700" data-world-map data-world-size="<%= ctx.cfg.mapSize %>" data-map-url="<%= link(cx, cy) %>"></canvas>
+            <div class="flex flex-col gap-3">
+              <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Villages</div><div class="<%= ui.tileValue %>"><%= num(worldVillages.length) %></div></div>
+              <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Barbares</div><div class="<%= ui.tileValue %>"><%= num(barbCount) %></div></div>
+              <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Tes villages</div><div class="<%= ui.tileValue %>"><%= num(ownCount) %></div></div>
+              <p class="text-[12px] leading-relaxed text-parchment-500">Cliquez sur la carte globale pour recentrer la vue locale.</p>
+            </div>
+          </div>
+          <script type="application/json" data-world-map-data><%- JSON.stringify(worldData).replace(/</g, '\\u003c') %></script>
+        </section>
+      <% } %>
     </div>
 
     <div class="border-t border-bronze-900 px-4.5 py-3.5">
       <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-sm text-parchment-300">
         <% for (const [k, label] of legend) { %>
-          <span class="flex items-center gap-[7px]"><%- shield(REL[k][0], { cls: 'w-3.5' }) %><%= label %></span>
+          <span class="flex items-center gap-[7px]"><span class="size-2.5 rounded-full <%= REL[k][2] %> shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"></span><%= label %></span>
         <% } %>
-        <span class="flex items-center gap-[7px]"><%- shield(REL.barb[0], { cls: 'w-3.5', emblem: 'star' }) %>Village spécial</span>
+        <span class="flex items-center gap-[7px]"><span class="text-gold-200">★</span>Village spécial</span>
         <span class="flex items-center gap-[7px]"><span class="w-4.5 border-t-2 border-dashed border-blood-450"></span>Attaque en cours</span>
       </div>
-      <p class="mt-2 text-sm text-parchment-600">Taille du blason = points · cliquez une case pour afficher la cible</p>
+      <p class="mt-2 text-sm text-parchment-600">6 apparences selon les points · faites glisser la carte pour vous déplacer · cliquez une case pour afficher la cible</p>
     </div>
     <%- corners() %>
   </section>
@@ -149,8 +198,8 @@
       <%- panelHead('Cible') %>
       <div class="<%= ui.panelBody %>">
         <div class="flex items-center gap-3.5">
-          <span class="flex size-15 shrink-0 items-center justify-center rounded-md border-2 border-bronze-500 shadow-[inset_0_0_12px_rgba(0,0,0,0.6),0_0_0_1px_#000] <%= sel.bg %>" data-t="tile">
-            <% if (selCell.village) { %><%- shieldOf(selCell.village, sel.kind, 'w-[30px]') %><% } %>
+          <span class="map-target-tile flex size-20 shrink-0 items-center justify-center rounded-md border border-bronze-600 shadow-[inset_0_0_16px_rgba(0,0,0,0.45),0_0_0_1px_#000] <%= sel.bg %>" data-t="tile">
+            <% if (selCell.village) { %><%- villageOf(selCell.village, sel.kind, 'village-marker--large') %><% } else if (TERRAIN_SVG[terrain(sel.x, sel.y)]) { %><%- TERRAIN_SVG[terrain(sel.x, sel.y)] %><% } %>
           </span>
           <div class="flex min-w-0 flex-1 flex-col gap-1">
             <span class="font-display text-[17px] leading-tight font-bold text-parchment-100" data-t="name"><%= sel.name %></span>
@@ -188,15 +237,17 @@
     <section class="<%= ui.panel %>">
       <%- panelHead('Vue d’ensemble') %>
       <div class="<%= ui.panelBody %>">
+        <a href="<%= link(cx, cy) %>&world=1" class="<%= btn('dark', 'sm') %>"><%- icon('map', 'size-3.5') %>Afficher la carte du monde</a>
         <div class="relative aspect-square w-full max-w-[350px] self-center border-2 border-bronze-500 shadow-[0_0_0_1px_#000,inset_0_0_20px_rgba(0,0,0,0.6)]">
-          <div class="grid size-full grid-cols-25 bg-mini-bg">
+          <div class="grid size-full bg-mini-bg" style="grid-template-columns:repeat(<%= miniSize %>,minmax(0,1fr))">
             <% for (const row of overviewArea.rows) { for (const cell of row) { const v = cell.village;
                  const t = v ? 'grass' : terrain(cell.x, cell.y);
                  const cls = v ? REL[kindOf(v)][2] : (MINI_TERRAIN[t] || (rnd(cell.x, cell.y, 7) < 0.5 ? 'bg-mini-grass-1' : 'bg-mini-grass-2')); %>
               <a href="<%= link(cell.x, cell.y) %>" class="<%= cls %> hover:brightness-150" tabindex="-1" aria-hidden="true"></a>
             <% } } %>
           </div>
-          <div class="pointer-events-none absolute top-[20%] left-[20%] size-[60%] border-2 border-gold-200 shadow-[0_0_0_1px_#000,0_0_12px_var(--color-glow-select)]"></div>
+          <% const framePct = Math.min(100, displaySize / miniSize * 100); const framePos = (100 - framePct) / 2; %>
+          <div class="pointer-events-none absolute border-2 border-gold-200 shadow-[0_0_0_1px_#000,0_0_12px_var(--color-glow-select)]" style="top:<%= framePos %>%;left:<%= framePos %>%;width:<%= framePct %>%;height:<%= framePct %>%"></div>
         </div>
         <p class="text-center text-[13px] text-parchment-600">Cliquez la vue d’ensemble pour recentrer la carte.</p>
       </div>

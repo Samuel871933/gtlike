@@ -4,6 +4,16 @@ const { Op } = require('sequelize');
 const { sequelize, Village, Player, Tribe } = require('../models');
 
 class MapService {
+  /** Tous les villages du monde, pour la carte globale en canevas. */
+  static async worldMap(worldId) {
+    return Village.findAll({
+      where: { worldId },
+      attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
+      include: [{ model: Player, attributes: ['id', 'name', 'tribeId'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
+      order: [['id', 'ASC']],
+    });
+  }
+
   /** Villages dans un carré de `size` cases centré sur (cx, cy). */
   static async area(worldId, cx, cy, size = 15) {
     const half = Math.floor(size / 2);
