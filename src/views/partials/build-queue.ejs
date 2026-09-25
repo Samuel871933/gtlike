@@ -1,0 +1,29 @@
+<%# File de construction (à placer dans un panelBody). %>
+<% if (ctx.buildOrders.length) { %>
+  <% for (const o of ctx.buildOrders) { const running = new Date(o.startsAt) <= now; const start = new Date(o.startsAt).getTime(); const end = new Date(o.endsAt).getTime();
+       const pct = running ? Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100)) : 0; %>
+    <div class="<%= running ? ui.boxGold : ui.box %> flex items-center gap-3 p-2.5 ">
+      <span class="<%= running ? ui.medallionGold : ui.medallion %> size-[38px]"><%- buildingIcon(o.building, 'size-[19px]') %></span>
+      <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div class="flex flex-wrap justify-between gap-x-2">
+          <span class="truncate font-bold"><%= buildingName(o.building) %> <span class="font-medium text-parchment-500">niveau <%= o.level %></span></span>
+          <% if (running) { %>
+            <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span>
+          <% } else { %>
+            <span class="font-extrabold text-parchment-500 tabular-nums"><%= duration((end - start) / 1000) %></span>
+          <% } %>
+        </div>
+        <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%"<%- running ? ` data-progress-start="${start}" data-progress-end="${end}"` : '' %>></span></span>
+        <span class="text-[13px] text-parchment-500">Achèvement <%= when(o.endsAt, now) %></span>
+      </div>
+      <form method="post" action="/village/<%= ctx.village.id %>/build/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="<%= ui.iconBtnSm %>" title="Annuler" aria-label="Annuler"><%- icon('close', 'size-3', 2.6) %></button>
+      </form>
+    </div>
+  <% } %>
+  <p class="text-xs text-parchment-600">
+    File <%= ctx.buildOrders.length %>/<%= ctx.cfg.buildQueueSlots %> · une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources.
+  </p>
+<% } else { %>
+  <p class="text-parchment-500">Aucune construction en cours.</p>
+<% } %>

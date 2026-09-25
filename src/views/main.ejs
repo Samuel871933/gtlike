@@ -1,0 +1,92 @@
+<%- include('partials/header', { title: 'Quartier général' }) %>
+<% const unbuilt = 'flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-bronze-700 bg-radial-[at_35%_30%] from-well-hi to-well-lo to-75% text-parchment-600 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55)]'; %>
+<div class="flex flex-col gap-5">
+  <%- include('partials/building-header', { buildingId: 'main' }) %>
+
+  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
+    <%# Construire %>
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead('Construire', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${available.length} bâtiment${available.length > 1 ? 's' : ''}</span>`) %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Bâtiment</th><th class="max-md:hidden">Coût</th><th class="max-md:hidden">Durée</th><th class="text-right">Action</th></tr></thead>
+          <tbody>
+          <% for (const o of available) { const reason = o.blockers[0] || (o.lacksResources ? 'Ressources insuffisantes' : null); %>
+            <tr>
+              <td class="md:min-w-64">
+                <div class="flex items-center gap-3">
+                  <span class="relative shrink-0">
+                    <span class="<%= o.current > 0 ? ui.medallion : unbuilt %> size-[42px]"><%- buildingIcon(o.type.id, 'size-[21px]') %></span>
+                    <% if (o.current > 0) { %><span class="absolute -right-2 -bottom-1.5 <%= ui.levelBadge %>"><%= o.current %></span><% } %>
+                  </span>
+                  <div class="flex min-w-0 flex-col gap-0.5">
+                    <a href="/village/<%= ctx.village.id %>/<%= buildingPath(o.type.id, ctx.cfg) %>" class="<%= ui.linkPlain %> font-bold"><%= o.type.name %> <span class="font-medium text-parchment-500"><%= o.current > 0 ? `niveau ${o.current}` : 'non construit' %></span></a>
+                    <span class="text-[13px] leading-snug text-parchment-500"><%= o.type.description %></span>
+                    <span class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span></span>
+                  </div>
+                </div>
+              </td>
+              <td class="max-md:hidden"><%- include('partials/cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %></td>
+              <td class="whitespace-nowrap max-md:hidden text-parchment-300 tabular-nums">
+                <span class="inline-flex items-center gap-1.5"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span>
+              </td>
+              <td class="text-right">
+                <form method="post" action="/village/<%= ctx.village.id %>/build" class="inline-flex flex-col items-end gap-1"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="building" value="<%= o.type.id %>">
+                  <button class="<%= btn('gold', 'sm', 'min-w-28') %>" <%= reason ? 'disabled' : '' %>><%= o.level === 1 ? 'Construire' : `Niveau ${o.level}` %></button>
+                  <% if (reason) { %><span class="text-xs whitespace-nowrap text-blood-300"><%= reason %></span><% } %>
+                </form>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+      <%- corners() %>
+    </section>
+
+    <aside class="flex flex-col gap-4 max-xl:order-first">
+      <%# Constructions en cours %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Constructions en cours', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.cfg.buildQueueSlots}</span>`) %>
+        <div class="<%= ui.panelBody %>">
+          <%- include('partials/build-queue') %>
+        </div>
+        <%- corners() %>
+      </section>
+
+      <% if (locked.length) { %>
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Pas encore disponible') %>
+          <ul class="flex flex-col">
+            <% for (const o of locked) { %>
+              <li class="flex items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0">
+                <span class="<%= unbuilt %> size-8"><%- buildingIcon(o.type.id, 'size-4') %></span>
+                <span class="flex min-w-0 flex-col">
+                  <span class="font-bold text-parchment-300"><%= o.type.name %></span>
+                  <span class="text-[13px] text-parchment-500"><%= o.missing.map((m) => `${buildingName(m.building)} niveau ${m.level}`).join(' · ') %></span>
+                </span>
+              </li>
+            <% } %>
+          </ul>
+          <%- corners() %>
+        </section>
+      <% } %>
+
+      <% if (maxed.length) { %>
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Niveau maximum') %>
+          <div class="<%= ui.panelBody %>">
+            <div class="flex flex-wrap gap-1.5">
+              <% for (const o of maxed) { %>
+                <span class="<%= ui.chip %>"><span class="text-gold-400"><%- buildingIcon(o.type.id, 'size-3.5') %></span><%= o.type.name %> <strong class="text-parchment-100 tabular-nums">(<%= o.current %>)</strong></span>
+              <% } %>
+            </div>
+          </div>
+          <%- corners() %>
+        </section>
+      <% } %>
+    </aside>
+  </div>
+</div>
+<%- include('partials/footer') %>

@@ -1,0 +1,24 @@
+<%- include('partials/header', { title: 'Inscription', hero: true, lobbyPage: 'register' }) %>
+<section class="<%= ui.panel %> mx-auto mt-6 w-full max-w-md sm:mt-14">
+  <%- panelHead('Créer un compte', '', { tag: 'h1' }) %>
+  <div class="flex flex-col gap-4 px-4.5 pt-4 pb-5">
+    <p class="text-parchment-400">Un compte, tous les mondes.</p>
+    <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
+    <form method="post" action="/register" class="flex flex-col gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="<%= ui.label %>">Pseudo
+        <input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="24" required autofocus class="<%= ui.input %> w-full">
+      </label>
+      <label class="<%= ui.label %>">E-mail
+        <input type="email" name="email" value="<%= form.email || '' %>" required class="<%= ui.input %> w-full">
+      </label>
+      <label class="<%= ui.label %>">Mot de passe
+        <input type="password" name="password" minlength="8" required class="<%= ui.input %> w-full">
+        <span class="text-xs text-parchment-600">8 caractères minimum.</span>
+      </label>
+      <button class="<%= btn('red', 'lg', 'w-full') %>">Créer mon compte</button>
+    </form>
+    <p class="text-center text-sm text-parchment-500">Déjà inscrit ? <a href="/login" class="<%= ui.link %>">Connexion</a></p>
+  </div>
+  <%- corners() %>
+</section>
+<%- include('partials/footer') %>

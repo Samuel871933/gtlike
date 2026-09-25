@@ -1,0 +1,33 @@
+# Dépendances
+node_modules/
+
+# Base SQLite locale et autres données d'exécution
+/data/
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.db
+
+# Configuration locale (ne jamais versionner les secrets)
+.env
+.env.*
+!.env.example
+
+# CSS compilé par Tailwind (npm run build:css)
+public/css/app.css
+
+# Journaux
+/logs/
+*.log
+npm-debug.log*
+
+# Tests et couverture
+/coverage/
+.nyc_output/
+
+# Éditeurs et système
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

@@ -1,0 +1,144 @@
+<%- include('partials/header', { title: player.name }) %>
+<%
+  const vid = ctx.village.id;
+  const kills = [['ODA (attaque)', player.killsAttacker, 'attack'], ['ODD (défense)', player.killsDefender, 'wall'], ['ODS (soutien)', player.killsSupporter, 'support'], ['Total', player.killsAttacker + player.killsDefender + player.killsSupporter, 'sword']];
+  const fmt = (a) => a.value == null ? '—' : a.def.rank ? `${num(a.value)}ᵉ` : num(a.value);
+  // Icône de chaque succès et de chaque succès quotidien.
+  const achIcon = {
+    points: 'ranking', topscorer: 'crown', continent: 'map', robber: 'coin', plunderer: 'attack', conqueror: 'flag', leader: 'sword',
+    hero: 'support', vandal: 'catapult', wallbreaker: 'wall', butcher: 'axe', kingslayer: 'crown', reinforcement: 'support',
+    counterspy: 'eye', warlord: 'attack', lucky: 'victory', unlucky: 'victory', merchant: 'market', croesus: 'coin',
+    brothers: 'tribe', paladin: 'helm', worldWinner: 'victory', phoenix: 'bolt',
+  };
+  const dailyIcon = { dailyPlunderer: 'attack', dailyAttacker: 'sword', dailyDefender: 'wall', dailyConqueror: 'crown', dailyRobber: 'coin', dailySupporter: 'support' };
+  // Palier atteint : rien, bois, bronze, argent, or.
+  const medal = 'flex shrink-0 items-center justify-center rounded-full border-[1.5px] bg-radial-[at_35%_30%] from-well-hi to-well-lo to-75% shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55),0_2px_4px_rgba(0,0,0,0.5)]';
+  const tierMedal = ['border-bronze-800 text-parchment-700', 'border-wood text-wood', 'border-bronze-300 text-bronze-200', 'border-iron text-iron', 'border-gold-400 text-gold-200'];
+  const tierPip = ['bg-black/60', 'bg-wood', 'bg-bronze-300', 'bg-iron', 'bg-gold-400'];
+  const tierText = ['text-parchment-600', 'text-wood', 'text-bronze-200', 'text-iron', 'text-gold-200'];
+  const tierTile = ['border-bronze-900 bg-black/25', 'border-bronze-800 bg-black/30', 'border-bronze-700 bg-black/30', 'border-bronze-600 bg-black/30', 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/2'];
+  const score = achievements.reduce((n, a) => n + a.tier, 0);
+  const unlocked = achievements.filter((a) => a.tier).length;
+%>
+<%# Profil %>
+<section class="<%= ui.panel %>">
+  <%- panelHead(player.name, !isMe ? `<a href="/village/${vid}/messages/new?to=${encodeURIComponent(player.name)}" class="${btn('gold', 'sm')}">${icon('messages', 'size-3.5', 2.2)}Envoyer un message</a>` : '', { tag: 'h1' }) %>
+  <div class="<%= ui.panelBody %> gap-4">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex min-w-0 items-center gap-3">
+        <span class="<%= ui.medallionGold %> size-[52px]"><%- icon('profile', 'size-6') %></span>
+        <span class="flex min-w-0 flex-col gap-1">
+          <span class="truncate font-display text-lg font-bold text-parchment-100"><%= player.name %></span>
+          <span class="flex flex-wrap items-center gap-2 text-sm text-parchment-500">
+            <% if (player.Tribe) { %>Tribu
+              <a href="/village/<%= vid %>/tribes/<%= player.Tribe.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-bold"><span class="<%= ui.tagGold %>"><%= player.Tribe.tag %></span><%= player.Tribe.name %></a>
+            <% } else { %>Sans tribu<% } %>
+          </span>
+        </span>
+      </div>
+      <dl class="grid grid-cols-3 gap-2 lg:w-[420px]">
+        <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Rang</dt><dd class="<%= ui.tileValue %> font-display text-gold-200"><%= rank %></dd></div>
+        <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Points</dt><dd class="<%= ui.tileValue %>"><%= num(player.points) %></dd></div>
+        <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Villages</dt><dd class="<%= ui.tileValue %>"><%= villages.length %></dd></div>
+      </dl>
+    </div>
+    <p class="<%= ui.sectionLabel %>">Adversaires vaincus</p>
+    <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <% for (const [label, value, ic] of kills) { %>
+        <div class="<%= ui.tile %> flex items-center gap-2.5">
+          <span class="<%= ui.medallion %> size-8"><%- icon(ic, 'size-4') %></span>
+          <span class="flex min-w-0 flex-col"><dt class="<%= ui.tileLabel %>"><%= label %></dt><dd class="<%= ui.tileValue %>"><%= num(value) %></dd></span>
+        </div>
+      <% } %>
+    </dl>
+  </div>
+  <%- corners() %>
+</section>
+
+<div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+  <%# Succès %>
+  <section class="<%= ui.panel %> min-w-0">
+    <%- panelHead('Succès', `<span class="flex items-center gap-3 text-[13px] text-parchment-500"><span class="tabular-nums">${unlocked} / ${achievements.length} débloqués</span><span class="${ui.tagGold} tabular-nums">${score} points</span></span>`) %>
+    <div class="<%= ui.panelBody %> gap-4">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-parchment-500">
+        <% TIER_NAMES.forEach((name, i) => { %>
+          <span class="inline-flex items-center gap-1.5"><span class="size-2 rotate-45 <%= tierPip[i + 1] %>" aria-hidden="true"></span><span class="capitalize"><%= name %></span> <span class="text-parchment-600"><%= i + 1 %> pt<%= i ? 's' : '' %></span></span>
+        <% }) %>
+      </div>
+      <ul class="grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-3">
+        <% for (const a of achievements) {
+             const next = a.def.tiers[a.tier];
+             const multi = a.def.tiers.length > 1;
+             const pct = next != null && !a.def.rank && a.value != null ? Math.max(0, Math.min(100, (a.value / next) * 100)) : null; %>
+          <li class="flex gap-3 rounded border p-3 <%= tierTile[a.tier] %>">
+            <span class="<%= medal %> <%= tierMedal[a.tier] %> size-11 <%= a.tier ? '' : 'opacity-60' %>"><%- icon(achIcon[a.def.key] || 'victory', 'size-5') %></span>
+            <span class="flex min-w-0 flex-1 flex-col gap-1">
+              <span class="flex items-start justify-between gap-2">
+                <span class="font-bold <%= a.tier ? 'text-parchment-100' : 'text-parchment-400' %>"><%= a.def.name %></span>
+                <% if (a.tier && multi) { %><span class="shrink-0 font-display text-[10px] font-bold tracking-[0.12em] uppercase <%= tierText[a.tier] %>"><%= TIER_NAMES[a.tier - 1] %></span><% } %>
+                <% if (a.tier && !multi) { %><span class="shrink-0 text-gold-400"><%- icon('check', 'size-4', 2.4) %></span><% } %>
+              </span>
+              <span class="text-xs leading-snug text-parchment-500"><%= a.def.description %></span>
+              <% if (multi) { %>
+                <span class="mt-1 flex items-center gap-2">
+                  <span class="flex gap-1" title="<%= a.tier ? TIER_NAMES[a.tier - 1] : 'Aucun palier' %>">
+                    <% a.def.tiers.forEach((_, i) => { %><span class="size-2 rotate-45 <%= i < a.tier ? tierPip[i + 1] : 'bg-black/60 ring-1 ring-bronze-800' %>" aria-hidden="true"></span><% }) %>
+                  </span>
+                  <span class="ml-auto text-xs text-parchment-400 tabular-nums"><%= fmt(a) %><%= next != null ? ` / ${a.def.rank ? num(next) + 'ᵉ' : num(next)}` : ' · palier maximal' %></span>
+                </span>
+                <% if (pct != null) { %><span class="<%= ui.track %> h-1"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%"></span></span><% } %>
+              <% } %>
+            </span>
+          </li>
+        <% } %>
+      </ul>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <aside class="flex min-w-0 flex-col gap-5">
+    <%# Villages %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Villages', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${villages.length}</span>`) %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %> text-sm [&_td]:px-3 [&_th]:px-3">
+          <thead><tr><th>Village · coordonnées</th><th class="text-right">Points</th><th></th></tr></thead>
+          <tbody>
+          <% for (const v of villages) { %>
+            <tr>
+              <td>
+                <span class="block font-bold text-parchment-100"><%= v.name %></span>
+                <span class="block text-[13px] whitespace-nowrap text-parchment-400 tabular-nums"><%= v.x %>|<%= v.y %> <span class="text-parchment-600"><%= continent(v.x, v.y) %></span></span>
+              </td>
+              <td class="text-right font-extrabold tabular-nums"><%= num(v.points) %></td>
+              <td class="text-right whitespace-nowrap">
+                <a href="/village/<%= vid %>/map?x=<%= v.x %>&y=<%= v.y %>" class="<%= ui.link %> text-[13px]">Carte</a>
+                <% if (!isMe) { %><a href="/village/<%= vid %>/place?x=<%= v.x %>&y=<%= v.y %>" class="<%= ui.link %> ml-2.5 text-[13px]">Troupes</a><% } %>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+      <%- corners() %>
+    </section>
+
+    <%# Succès quotidiens %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Succès quotidiens', `<span class="text-[13px] text-parchment-500">4 points chacun</span>`) %>
+      <div class="<%= ui.panelBody %>">
+        <ul class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <% for (const d of daily) { %>
+            <li class="flex flex-col items-center gap-1.5 rounded border px-1.5 pt-3 pb-2.5 text-center <%= d.count ? tierTile[4] : tierTile[0] %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
+              <span class="<%= medal %> <%= d.count ? tierMedal[4] : tierMedal[0] %> size-10"><%- icon(dailyIcon[d.def.key] || 'victory', 'size-5') %></span>
+              <span class="text-xl leading-none font-extrabold tabular-nums <%= d.count ? 'text-gold-200' : 'text-parchment-600' %>"><%= d.count %></span>
+              <span class="text-xs leading-tight <%= d.count ? 'text-parchment-300' : 'text-parchment-500' %>"><%= d.def.name %></span>
+            </li>
+          <% } %>
+        </ul>
+      </div>
+      <%- corners() %>
+    </section>
+  </aside>
+</div>
+<%- include('partials/footer') %>

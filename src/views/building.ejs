@@ -1,0 +1,41 @@
+<%- include('partials/header', { title: registry.building(buildingId).name }) %>
+<% const t = registry.building(buildingId); const lvl = ctx.state.level(buildingId); const statHead = buildingStat(buildingId, 1, ctx.cfg); %>
+<div class="flex flex-col gap-5">
+  <%- include('partials/building-header', { buildingId }) %>
+
+  <section class="<%= ui.panel %>">
+    <% let right = '';
+       if (option && !option.maxed) {
+         const reason = option.blockers[0] || (option.lacksResources ? 'Ressources insuffisantes' : null);
+         right = `<form method="post" action="/village/${ctx.village.id}/build" class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1"><input type="hidden" name="_csrf" value="${csrfToken}">
+           <input type="hidden" name="building" value="${buildingId}">
+           ${reason ? `<span class="text-xs text-blood-300">${esc(reason)}</span>` : ''}
+           <button class="${btn('gold', 'sm')}" ${reason ? 'disabled' : ''}>${option.level === 1 ? 'Construire' : `Niveau ${option.level}`}</button>
+         </form>`;
+       } %>
+    <%- panelHead('Niveaux suivants', right) %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %>">
+        <thead><tr><th>Niveau</th><% if (statHead) { %><th><%= statHead.label %></th><% } %><th>Coût</th><th>Durée (QG actuel)</th></tr></thead>
+        <tbody>
+        <% for (let l = Math.max(1, lvl); l <= Math.min(t.maxLevel, lvl + 5); l++) { const st = buildingStat(buildingId, l, ctx.cfg); %>
+          <tr class="<%= l === lvl ? ui.rowActive : '' %>">
+            <td class="whitespace-nowrap">
+              <span class="inline-flex items-center gap-2">
+                <span class="<%= l === lvl ? ui.levelBadge : 'flex h-[22px] min-w-6 items-center justify-center rounded-[3px] border border-bronze-700 bg-black/35 px-1 font-display text-xs font-extrabold text-parchment-300' %>"><%= l %></span>
+                <% if (l === lvl) { %><span class="<%= ui.tagGold %>">actuel</span><% } %>
+              </span>
+            </td>
+            <% if (st) { %><td class="font-bold whitespace-nowrap tabular-nums <%= l === lvl ? 'text-gold-200' : 'text-parchment-200' %>"><%= st.value %></td><% } %>
+            <td><%- l > lvl ? include('partials/cost', { cost: t.costFor(l), pop: t.popFor(l), have: null }) : '<span class="text-parchment-600">—</span>' %></td>
+            <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= l > lvl ? duration(t.buildTimeFor(l, ctx.state.level('main'), ctx.cfg)) : '—' %></td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+    <p class="border-t border-bronze-900 px-4.5 py-3 text-sm text-parchment-500">Niveau maximal : <span class="font-bold text-parchment-300 tabular-nums"><%= t.maxLevel %></span>. Les constructions se lancent aussi depuis le <a href="/village/<%= ctx.village.id %>/main" class="<%= ui.link %>">quartier général</a>.</p>
+    <%- corners() %>
+  </section>
+</div>
+<%- include('partials/footer') %>

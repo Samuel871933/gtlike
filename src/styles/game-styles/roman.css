@@ -1,0 +1,15 @@
+/*
+  Style de jeu « Romain » (style par défaut).
+  Ses couleurs et polices sont les valeurs de @theme (app.css) : rien à redéfinir, seulement les images
+  propres au style. Un autre style (viking…) redéfinit ici n'importe quel jeton --color-*, --font-*
+  et --game-image-* : tout l'intérieur du jeu suit, la page d'accueil (hors jeu) n'est pas concernée.
+*/
+
+/* Variante Tailwind pour un ajustement de mise en page propre au style : roman:rounded-none, etc. */
+@custom-variant roman (&:where([data-game-style="roman"], [data-game-style="roman"] *));
+
+@layer theme {
+  [data-game-style="roman"] {
+    --game-image-village: url("/img/game-styles/roman/village.svg");
+  }
+}

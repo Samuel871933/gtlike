@@ -1,0 +1,14 @@
+<%# Liste compacte d'unités : { spear: 10, axe: 3 } ; `losses` optionnel. %>
+<% const entries = Object.entries(units || {}).filter(([, n]) => n > 0); %>
+<% if (!entries.length) { %>
+  <span class="text-parchment-600">—</span>
+<% } else { %>
+  <span class="inline-flex flex-wrap gap-1.5">
+    <% for (const [id, n] of entries) { const lost = typeof losses !== 'undefined' && losses ? losses[id] || 0 : 0; %>
+      <span class="<%= ui.chip %> py-0.5" title="<%= unitName(id) %>">
+        <span class="text-gold-400"><%- unitIcon(id, 'size-3.5') %></span><%= unitName(id) %> <strong class="text-parchment-100 tabular-nums"><%= num(n) %></strong>
+        <% if (lost) { %><span class="text-blood-300 tabular-nums">−<%= num(lost) %></span><% } %>
+      </span>
+    <% } %>
+  </span>
+<% } %>

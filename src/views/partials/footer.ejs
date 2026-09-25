@@ -1,0 +1,32 @@
+</main>
+<% if (ctx) { %>
+<footer class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-2 px-3 pb-8 text-[13px] text-parchment-600 lg:px-6">
+  <a href="/village/<%= ctx.village.id %>/victory" class="text-parchment-500 no-underline hover:text-gold-200"><%= ctx.world.name %> · Fin du monde</a>
+  <span>Heure du serveur : <span class="tabular-nums" data-clock="<%= now.getTime() %>"><%= now.toLocaleString('fr-FR') %></span></span>
+</footer>
+<% } else { %>
+<footer class="relative z-10 mt-14 shrink-0 border-t-2 border-bronze-500 bg-linear-to-b from-[#16110c] to-[#0b0806] shadow-[0_-1px_0_#000]">
+<div class="mx-auto flex w-full max-w-[1440px] flex-col gap-7 px-4 pt-10 pb-7 sm:px-8 lg:px-16">
+  <div class="flex flex-wrap items-start justify-between gap-8">
+    <div class="flex flex-col gap-2.5">
+      <span class="flex items-center gap-2 text-gold-400"><%- laurel('size-[26px]') %><span class="font-display text-lg font-extrabold tracking-[0.16em] <%= ui.goldText %>">GTLIKE</span></span>
+      <span class="text-sm text-parchment-600">Jeu de stratégie médiéval par navigateur.</span>
+    </div>
+    <% if (user) { %>
+      <div class="flex flex-col gap-2">
+        <span class="font-display text-[13px] font-bold tracking-[0.14em] text-gold-400 uppercase">Jeu</span>
+        <a href="/worlds" class="text-[15px] text-parchment-400 no-underline hover:text-gold-200">Mondes</a>
+        <a href="/account" class="text-[15px] text-parchment-400 no-underline hover:text-gold-200">Mon compte</a>
+      </div>
+    <% } %>
+  </div>
+  <div class="flex flex-wrap justify-between gap-2 border-t border-bronze-900 pt-4.5 text-[13px] text-parchment-600">
+    <span>© <%= now.getFullYear() %> GTLike</span>
+    <span>Heure du serveur : <span class="tabular-nums" data-clock="<%= now.getTime() %>"><%= now.toLocaleString('fr-FR') %></span></span>
+  </div>
+</div>
+</footer>
+<% } %>
+<script src="/js/game.js"></script>
+</body>
+</html>

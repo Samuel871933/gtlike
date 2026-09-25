@@ -1,0 +1,11 @@
+<%# Coût en ressources (icônes colorées) ; `have` optionnel : ressources manquantes en rouge ; `pop` optionnel. %>
+<span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 font-bold whitespace-nowrap tabular-nums">
+  <% for (const r of RESOURCES) { const short = typeof have !== 'undefined' && have && have[r.id] < cost[r.id]; %>
+    <span class="inline-flex items-center gap-1 <%= short ? 'text-blood-450' : 'text-parchment-200' %>" title="<%= r.label %><%= short ? ' (insuffisant)' : '' %>">
+      <span class="<%= r.text %>"><%- icon(r.icon, 'size-3.5', 2) %></span><%= num(cost[r.id]) %>
+    </span>
+  <% } %>
+  <% if (typeof pop !== 'undefined') { %>
+    <span class="inline-flex items-center gap-1 text-parchment-400" title="Population"><%- icon('pop', 'size-3.5', 2) %><%= num(pop) %></span>
+  <% } %>
+</span>

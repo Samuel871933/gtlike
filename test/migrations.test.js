@@ -1,0 +1,69 @@
+'use strict';
+
+process.env.SQLITE_STORAGE = ':memory:';
+delete process.env.DATABASE_URL;
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { sequelize } = require('../src/models');
+const { createMigrator } = require('../src/migrator');
+const AuthService = require('../src/services/AuthService');
+const WorldService = require('../src/services/WorldService');
+
+const qi = sequelize.getQueryInterface();
+
+test.after(() => sequelize.close());
+
+test('les migrations créent exactement le schéma des modèles', async () => {
+  await qi.dropAllTables();
+  await createMigrator().up();
+
+  for (const model of Object.values(sequelize.models)) {
+    const table = model.getTableName();
+    const columns = Object.keys(await qi.describeTable(table)).sort();
+    const expected = Object.values(model.getAttributes()).map((a) => a.field).sort();
+    assert.deepEqual(columns, expected, `colonnes de ${table}`);
+
+    const indexes = (await qi.showIndex(table)).map((i) => i.fields.map((f) => f.attribute).join(',')).sort();
+    for (const index of model.options.indexes || []) {
+      assert.ok(indexes.includes(index.fields.join(',')), `index ${table}(${index.fields})`);
+    }
+  }
+
+  // Le jeu fonctionne sur la base migrée.
+  await WorldService.createWorld({ slug: 'w1', name: 'Monde 1', config: {} });
+  const user = await AuthService.register({ username: 'Alice', email: 'a@example.com', password: 'motdepasse' });
+  const { village } = await WorldService.join(user, 'w1');
+  assert.ok(village.id);
+  assert.equal((await createMigrator().pending()).length, 0);
+
+  // Sur la base migrée, un joueur qui a écrit peut être supprimé : ses messages restent, sans auteur.
+  const bobUser = await AuthService.register({ username: 'Bob', email: 'b@example.com', password: 'motdepasse' });
+  await WorldService.join(bobUser, 'w1');
+  const MessageService = require('../src/services/MessageService');
+  const AccountService = require('../src/services/AccountService');
+  const { Player, ConversationMessage } = require('../src/models');
+  const alice = await Player.findOne({ where: { name: 'Alice' } });
+  await MessageService.start(alice.id, { to: 'Bob', subject: 'x', body: 'y' });
+  await AccountService.deleteAccount(user.id, 'motdepasse');
+  const [msg] = await ConversationMessage.findAll();
+  assert.equal(msg.playerId, null);
+});
+
+test('une base créée avant les migrations (par sync) est reprise sans erreur', async () => {
+  await qi.dropAllTables();
+  await sequelize.sync();
+  const done = await createMigrator().up();
+  assert.ok(done.length >= 1, 'la migration initiale est enregistrée');
+  assert.equal((await createMigrator().pending()).length, 0);
+});
+
+test('une ancienne base à laquelle il manque des colonnes est complétée', async () => {
+  await qi.dropAllTables();
+  await sequelize.sync();
+  await qi.removeColumn('Players', 'tribeRole');
+  await qi.removeColumn('Villages', 'grownAt');
+  await createMigrator().up();
+  assert.ok((await qi.describeTable('Players')).tribeRole);
+  assert.ok((await qi.describeTable('Villages')).grownAt);
+});

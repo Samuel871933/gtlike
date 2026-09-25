@@ -1,0 +1,23 @@
+<%- include('partials/header', { title: 'Nouveau message' }) %>
+<div class="mx-auto flex w-full max-w-2xl flex-col gap-5">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Nouveau message', `<a href="/village/${ctx.village.id}/messages" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Messages</a>`, { tag: 'h1' }) %>
+    <form method="post" action="/village/<%= ctx.village.id %>/messages" class="<%= ui.panelBody %> gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="<%= ui.label %>">Destinataires
+        <input name="to" value="<%= form.to %>" required placeholder="Pseudo1, Pseudo2" class="<%= ui.input %> w-full">
+        <span class="text-xs text-parchment-600">Séparez les pseudos par des virgules (<%= max %> maximum).</span>
+      </label>
+      <label class="<%= ui.label %>">Objet
+        <input name="subject" value="<%= form.subject %>" maxlength="100" required class="<%= ui.input %> w-full">
+      </label>
+      <label class="<%= ui.label %>">Message
+        <textarea name="body" rows="8" maxlength="5000" required class="<%= ui.textarea %> w-full"><%= form.body %></textarea>
+      </label>
+      <div class="flex justify-end">
+        <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
+      </div>
+    </form>
+    <%- corners() %>
+  </section>
+</div>
+<%- include('partials/footer') %>

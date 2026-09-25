@@ -1,0 +1,39 @@
+{
+  "name": "gtlike",
+  "version": "1.0.0",
+  "description": "Jeu de strat\u00e9gie navigateur par mondes, inspir\u00e9 de Guerre Tribale",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "prestart": "npm run build:css",
+    "dev": "concurrently -k -n css,app -c magenta,cyan \"npm:watch:css\" \"nodemon --watch src -e js,ejs src/server.js\"",
+    "build:css": "tailwindcss -i src/styles/app.css -o public/css/app.css --minify",
+    "watch:css": "tailwindcss -i src/styles/app.css -o public/css/app.css --watch",
+    "seed": "node scripts/seed.js",
+    "test": "node --test test/*.test.js",
+    "migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-session-sequelize": "^8.0.6",
+    "dotenv": "^18.0.3",
+    "ejs": "^6.0.1",
+    "express": "^4.22.3",
+    "express-session": "^1.19.0",
+    "pg": "^8.23.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.8",
+    "sqlite3": "^6.0.1",
+    "umzug": "^3.8.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "concurrently": "^10.0.5",
+    "nodemon": "^3.1.14",
+    "tailwindcss": "^4.3.3"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}

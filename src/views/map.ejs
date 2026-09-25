@@ -1,0 +1,207 @@
+<%- include('partials/header', { title: 'Carte' }) %>
+<%
+  const vid = ctx.village.id;
+  const step = 5;
+  const link = (x, y) => `/village/${vid}/map?x=${x}&y=${y}`;
+  const REL = {
+    current: ['fill-rel-own', 'Ce village', 'bg-rel-own', 'border-rel-own bg-rel-own/13 text-rel-own'],
+    own: ['fill-rel-own', 'Ton village', 'bg-rel-own', 'border-rel-own bg-rel-own/13 text-rel-own'],
+    tribe: ['fill-rel-tribe', 'Ta tribu', 'bg-rel-tribe', 'border-rel-tribe bg-rel-tribe/13 text-rel-tribe'],
+    ally: ['fill-rel-ally', 'Allié', 'bg-rel-ally', 'border-rel-ally bg-rel-ally/13 text-rel-ally'],
+    nap: ['fill-rel-nap', 'PNA', 'bg-rel-nap', 'border-rel-nap bg-rel-nap/13 text-rel-nap'],
+    enemy: ['fill-rel-enemy', 'Ennemi', 'bg-rel-enemy', 'border-rel-enemy bg-rel-enemy/13 text-rel-enemy'],
+    other: ['fill-rel-other', 'Joueur', 'bg-rel-other', 'border-rel-other bg-rel-other/13 text-rel-other'],
+    barb: ['fill-rel-barb', 'Barbare', 'bg-rel-barb-dim', 'border-rel-barb bg-rel-barb/13 text-rel-barb'],
+  };
+  // Décor des cases vides (forêts, collines, lacs), déterministe comme sur la carte de Guerre Tribale.
+  const rnd = (a, b, s) => {
+    let h = Math.imul(a, 374761393) + Math.imul(b, 668265263) + Math.imul(s, 1442695041);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+  const terrain = (x, y) => { const r = rnd(x, y, 1); return r < 0.13 ? 'forest' : r < 0.155 ? 'hill' : r < 0.175 ? 'water' : 'grass'; };
+  const kindOf = (v) => {
+    if (!v) return null;
+    if (!v.playerId) return 'barb';
+    if (v.id === ctx.village.id) return 'current';
+    if (v.playerId === ctx.village.playerId) return 'own';
+    const rel = v.Player && v.Player.tribeId ? relations.get(v.Player.tribeId) : null;
+    return rel === 'own' ? 'tribe' : rel || 'other';
+  };
+  const TILE_BG = { forest: 'bg-forest', hill: 'bg-hill', water: 'bg-water' };
+  const tileBg = (x, y, t) => TILE_BG[t] || (rnd(x, y, 7) < 0.5 ? 'bg-grass-1' : 'bg-grass-2');
+  const shieldWidth = (kind, pts) => kind === 'current' ? 'w-8' : pts < 400 ? 'w-4' : pts < 1000 ? 'w-5' : pts < 1800 ? 'w-6' : 'w-7';
+  const shieldOf = (v, kind, w) => shield(REL[kind][0], { cls: w || shieldWidth(kind, v.points), emblem: kind === 'current' || kind === 'own' ? 'cross' : v.special ? 'star' : '', glow: kind === 'current' });
+  const TERRAIN_SVG = {
+    forest: '<svg class="size-12" viewBox="0 0 48 48" aria-hidden="true"><g class="fill-forest-deep"><circle cx="12" cy="14" r="7"/><circle cx="26" cy="11" r="8"/><circle cx="38" cy="17" r="7"/><circle cx="17" cy="28" r="8"/><circle cx="32" cy="30" r="7"/><circle cx="12" cy="40" r="6"/><circle cx="25" cy="41" r="6"/><circle cx="38" cy="40" r="5"/></g><g class="fill-forest-leaf"><circle cx="10" cy="12" r="3"/><circle cx="24" cy="9" r="3.5"/><circle cx="36" cy="15" r="3"/><circle cx="15" cy="26" r="3.5"/><circle cx="30" cy="28" r="3"/><circle cx="23" cy="39" r="2.5"/></g></svg>',
+    hill: '<svg class="size-12" viewBox="0 0 48 48" aria-hidden="true"><path d="M4 40 C12 18 20 12 26 20 C30 14 38 16 44 40z" class="fill-hill-light"/><path d="M26 20 C30 14 38 16 44 40 H34 C32 30 30 24 26 20z" class="fill-hill-shade"/><path d="M12 32 C16 26 20 24 24 28" class="stroke-hill-line" fill="none" stroke-width="1.2"/></svg>',
+    water: '<svg class="size-12 stroke-water-line" viewBox="0 0 48 48" fill="none" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M8 18c4-3 7 3 11 0s7 3 11 0 6 1 9 0"/><path d="M8 30c4-3 7 3 11 0s7 3 11 0 6 1 9 0"/></svg>',
+  };
+  const TERRAIN_NAME = { forest: 'Forêt', hill: 'Colline', water: 'Lac', grass: 'Terrain libre' };
+  const TERRAIN_DESC = {
+    forest: 'Une forêt dense. Rien à piller ici.',
+    hill: 'Une hauteur dégagée, sans village.',
+    water: 'Un lac, sans village.',
+    grass: 'Une plaine inoccupée.',
+  };
+  const { x0, y0, size } = area;
+  // Données de chaque case, lues par game.js pour remplir le panneau « Cible » sans recharger la page.
+  const cellData = (cell) => {
+    const v = cell.village;
+    const t = v ? 'grass' : terrain(cell.x, cell.y);
+    const d = Math.hypot(cell.x - ctx.village.x, cell.y - ctx.village.y);
+    const base = { x: cell.x, y: cell.y, k: continent(cell.x, cell.y), dist: d ? `${(Math.round(d * 10) / 10).toLocaleString('fr-FR')} cases` : '—', bg: tileBg(cell.x, cell.y, t) };
+    if (!v) return { ...base, name: TERRAIN_NAME[t], desc: TERRAIN_DESC[t] };
+    const kind = kindOf(v);
+    return {
+      ...base, kind, id: v.id, name: v.name, rel: REL[kind][1], pill: REL[kind][3], points: num(v.points),
+      owner: v.Player ? v.Player.name : 'Barbares', playerId: v.Player ? v.Player.id : '', tribe: v.Player && v.Player.Tribe ? v.Player.Tribe.tag : '—',
+      special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
+    };
+  };
+  const byCoord = new Map(area.rows.flat().map((c) => [`${c.x}|${c.y}`, c]));
+  const selCell = byCoord.get(`${sx}|${sy}`) || { x: sx, y: sy, village: null };
+  const sel = cellData(selCell);
+  // Flèches des attaques en cours depuis ce village (si le village et la cible sont visibles).
+  const inView = (x, y) => x >= x0 && x < x0 + size && y >= y0 && y < y0 + size;
+  const px = (x) => (x - x0) * 56 + 28;
+  const py = (y) => (y - y0) * 56 + 28;
+  let arrowPath = '';
+  let arrowHeads = '';
+  if (inView(ctx.village.x, ctx.village.y)) {
+    for (const a of attacks.filter((a) => inView(a.x, a.y))) {
+      const [sx0, sy0, x1, y1] = [px(ctx.village.x), py(ctx.village.y), px(a.x), py(a.y)];
+      const dx = x1 - sx0; const dy = y1 - sy0; const L = Math.hypot(dx, dy) || 1; const ux = dx / L; const uy = dy / L;
+      const ex = x1 - ux * 13; const ey = y1 - uy * 13; const bx = ex - ux * 8; const by = ey - uy * 8;
+      arrowPath += `M${(sx0 + ux * 18).toFixed(1)} ${(sy0 + uy * 18).toFixed(1)}L${ex.toFixed(1)} ${ey.toFixed(1)}`;
+      arrowHeads += `M${ex.toFixed(1)} ${ey.toFixed(1)}L${(bx - uy * 5).toFixed(1)} ${(by + ux * 5).toFixed(1)}L${(bx + uy * 5).toFixed(1)} ${(by - ux * 5).toFixed(1)}Z`;
+    }
+  }
+  const legend = [['own', 'Tes villages'], ['tribe', 'Ta tribu'], ['ally', 'Alliés'], ['nap', 'PNA'], ['enemy', 'Ennemis'], ['other', 'Autres'], ['barb', 'Barbares']];
+  const MINI_TERRAIN = { forest: 'bg-mini-forest', hill: 'bg-mini-hill', water: 'bg-mini-water' };
+  const tileRing = (x, y) => (x % 100 === 99 || y % 100 === 99) ? 'shadow-[inset_-2px_-2px_0_rgba(0,0,0,0.7)]'
+    : (x % 5 === 4 || y % 5 === 4) ? 'shadow-[inset_-1px_-1px_0_rgba(0,0,0,0.45)]' : 'shadow-[inset_-1px_-1px_0_rgba(0,0,0,0.18)]';
+  const selRing = 'data-selected:shadow-[inset_0_0_0_2px_var(--color-gold-200),inset_0_0_12px_var(--color-glow-select)]';
+%>
+<div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+  <section class="<%= ui.panel %> min-w-0">
+    <%- panelHead(`Continent ${continent(cx, cy)}`, `
+      <form method="get" class="flex items-center gap-2">
+        <span class="mr-2.5 hidden text-[13px] text-parchment-500 tabular-nums sm:inline">${x0}–${x0 + size - 1} × ${y0}–${y0 + size - 1}</span>
+        <label for="goto" class="text-[13px] text-parchment-500">Aller à</label>
+        <input id="goto" name="c" type="text" inputmode="numeric" placeholder="${cx}|${cy}" class="${ui.inputSm} w-[92px] tabular-nums">
+        <button class="${btn('dark', 'sm')}">OK</button>
+      </form>`, { tag: 'h1' }) %>
+
+    <div class="flex items-center justify-center gap-3 overflow-x-auto bg-map-edge px-3 pt-4.5 pb-5">
+      <div class="relative shrink-0 border-2 border-bronze-500 shadow-[0_0_0_1px_#000,0_0_0_5px_var(--color-bar-hi),0_0_0_6px_var(--color-bronze-700),0_10px_30px_rgba(0,0,0,0.6)]">
+        <div class="flex h-[26px] border-b border-bronze-700 bg-linear-to-b from-panel-hi to-panel-edge">
+          <div class="w-9 shrink-0"></div>
+          <% for (const cell of area.rows[0]) { %><div class="flex w-14 shrink-0 items-center justify-center font-display text-[11px] font-bold text-gold-400 tabular-nums"><%= cell.x %></div><% } %>
+        </div>
+        <% for (const row of area.rows) { %>
+          <div class="flex">
+            <div class="flex h-14 w-9 shrink-0 items-center justify-center border-r border-bronze-700 bg-linear-to-r from-panel-hi to-panel-edge font-display text-[11px] font-bold text-gold-400 tabular-nums"><%= row[0].y %></div>
+            <% for (const cell of row) { const d = cellData(cell); const v = cell.village; const t = v ? 'grass' : terrain(cell.x, cell.y); %>
+              <a href="<%= link(cx, cy) %>&sx=<%= cell.x %>&sy=<%= cell.y %>" data-map-tile="<%= JSON.stringify(d) %>"<%- cell.x === sx && cell.y === sy ? ' data-selected' : '' %>
+                 class="flex size-14 shrink-0 items-center justify-center <%= d.bg %> <%= tileRing(cell.x, cell.y) %> <%= selRing %> transition hover:brightness-125"
+                 aria-label="<%= d.name %> <%= cell.x %>|<%= cell.y %>" title="<%= d.name %> (<%= cell.x %>|<%= cell.y %>)<%= v ? ` · ${d.points} pts · ${d.owner}` : '' %>">
+                <% if (v) { %><%- shieldOf(v, d.kind) %><% } else if (TERRAIN_SVG[t]) { %><%- TERRAIN_SVG[t] %><% } %>
+              </a>
+            <% } %>
+          </div>
+        <% } %>
+        <% if (arrowPath) { %>
+          <svg class="pointer-events-none absolute top-[27px] left-[37px] size-[840px]" viewBox="0 0 840 840" aria-hidden="true">
+            <path d="<%= arrowPath %>" class="stroke-blood-450" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+            <path d="<%= arrowHeads %>" class="fill-blood-450"/>
+          </svg>
+        <% } %>
+        <div class="pointer-events-none absolute top-[27px] left-[37px] size-[840px] shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]"></div>
+      </div>
+      <%# Déplacement de la carte %>
+      <div class="flex shrink-0 flex-col gap-1.5 rounded-md border border-bronze-700 bg-plate-strong p-1.5">
+        <a href="<%= link(cx, cy - step) %>" class="<%= ui.iconBtn %>" aria-label="Vers le nord" title="Vers le nord"><%- icon('chevronUp', 'size-3.5', 2.4) %></a>
+        <a href="<%= link(cx - step, cy) %>" class="<%= ui.iconBtn %>" aria-label="Vers l’ouest" title="Vers l’ouest"><%- icon('chevronLeft', 'size-3.5', 2.4) %></a>
+        <a href="<%= link(ctx.village.x, ctx.village.y) %>" class="<%= ui.iconBtnOn %>" aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></a>
+        <a href="<%= link(cx + step, cy) %>" class="<%= ui.iconBtn %>" aria-label="Vers l’est" title="Vers l’est"><%- icon('chevronRight', 'size-3.5', 2.4) %></a>
+        <a href="<%= link(cx, cy + step) %>" class="<%= ui.iconBtn %>" aria-label="Vers le sud" title="Vers le sud"><%- icon('chevronDown', 'size-3.5', 2.4) %></a>
+      </div>
+    </div>
+
+    <div class="border-t border-bronze-900 px-4.5 py-3.5">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-sm text-parchment-300">
+        <% for (const [k, label] of legend) { %>
+          <span class="flex items-center gap-[7px]"><%- shield(REL[k][0], { cls: 'w-3.5' }) %><%= label %></span>
+        <% } %>
+        <span class="flex items-center gap-[7px]"><%- shield(REL.barb[0], { cls: 'w-3.5', emblem: 'star' }) %>Village spécial</span>
+        <span class="flex items-center gap-[7px]"><span class="w-4.5 border-t-2 border-dashed border-blood-450"></span>Attaque en cours</span>
+      </div>
+      <p class="mt-2 text-sm text-parchment-600">Taille du blason = points · cliquez une case pour afficher la cible</p>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <aside class="flex flex-col gap-4">
+    <%# Cible : rempli côté serveur pour la case sélectionnée, puis mis à jour par game.js au clic. %>
+    <section class="<%= ui.panel %>" data-map-target>
+      <%- panelHead('Cible') %>
+      <div class="<%= ui.panelBody %>">
+        <div class="flex items-center gap-3.5">
+          <span class="flex size-15 shrink-0 items-center justify-center rounded-md border-2 border-bronze-500 shadow-[inset_0_0_12px_rgba(0,0,0,0.6),0_0_0_1px_#000] <%= sel.bg %>" data-t="tile">
+            <% if (selCell.village) { %><%- shieldOf(selCell.village, sel.kind, 'w-[30px]') %><% } %>
+          </span>
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <span class="font-display text-[17px] leading-tight font-bold text-parchment-100" data-t="name"><%= sel.name %></span>
+            <span class="text-[13px] text-parchment-500 tabular-nums" data-t="coords"><%= sel.x %>|<%= sel.y %> · Continent <%= sel.k %></span>
+            <span class="self-start rounded-[3px] border px-2 py-0.5 font-display text-[10px] font-bold tracking-[0.12em] uppercase <%= selCell.village ? sel.pill : 'hidden' %>"
+                  data-t="rel"><%= sel.rel %></span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5 <%= selCell.village ? '' : 'hidden' %>" data-t="stats">
+          <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Propriétaire</div><div class="<%= ui.tileValue %> truncate" data-t="owner"><%= sel.owner %></div></div>
+          <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Tribu</div><div class="<%= ui.tileValue %> truncate" data-t="tribe"><%= sel.tribe %></div></div>
+          <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Points</div><div class="<%= ui.tileValue %>" data-t="points"><%= sel.points %></div></div>
+          <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Distance</div><div class="<%= ui.tileValue %>" data-t="dist"><%= sel.dist %></div></div>
+        </div>
+        <p class="text-sm font-bold text-gold-400 <%= sel.special ? '' : 'hidden' %>" data-t="special"><%= sel.special %></p>
+        <p class="text-[15px] leading-relaxed text-parchment-400 <%= selCell.village ? 'hidden' : '' %>" data-t="desc"><%= sel.desc || '' %></p>
+
+        <%# Actions : son propre village / autre village %>
+        <div class="grid grid-cols-2 gap-2 <%= sel.kind === 'current' || sel.kind === 'own' ? '' : 'hidden' %>" data-t="own">
+          <a href="/village/<%= sel.id || vid %>" class="<%= btn('gold', 'md') %>" data-t="open">Ouvrir le village</a>
+          <a href="/village/<%= sel.id || vid %>/recruit/barracks" class="<%= btn('dark', 'md') %>" data-t="recruit">Recruter</a>
+        </div>
+        <div class="flex flex-col gap-2 <%= selCell.village && sel.kind !== 'current' && sel.kind !== 'own' ? '' : 'hidden' %>" data-t="other">
+          <a href="/village/<%= vid %>/place?x=<%= sel.x %>&y=<%= sel.y %>" class="<%= btn('red', 'md') %>" data-t="attack"><%- icon('attack', 'size-3.5', 2.2) %>Envoyer des troupes</a>
+          <div class="grid grid-cols-2 gap-2">
+            <a href="/village/<%= vid %>/market?tab=send&x=<%= sel.x %>&y=<%= sel.y %>" class="<%= btn('dark', 'md') %>" data-t="market">Ressources</a>
+            <div class="grid <%= sel.playerId ? '' : 'hidden' %>" data-t="profileBox"><a href="/village/<%= vid %>/players/<%= sel.playerId || '' %>" class="<%= btn('dark', 'md') %>" data-t="profile">Profil</a></div>
+          </div>
+        </div>
+      </div>
+      <%- corners() %>
+    </section>
+
+    <%# Vue d'ensemble : 25 × 25 cases autour du centre, le cadre montre la zone affichée. %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Vue d’ensemble') %>
+      <div class="<%= ui.panelBody %>">
+        <div class="relative aspect-square w-full max-w-[350px] self-center border-2 border-bronze-500 shadow-[0_0_0_1px_#000,inset_0_0_20px_rgba(0,0,0,0.6)]">
+          <div class="grid size-full grid-cols-25 bg-mini-bg">
+            <% for (const row of overviewArea.rows) { for (const cell of row) { const v = cell.village;
+                 const t = v ? 'grass' : terrain(cell.x, cell.y);
+                 const cls = v ? REL[kindOf(v)][2] : (MINI_TERRAIN[t] || (rnd(cell.x, cell.y, 7) < 0.5 ? 'bg-mini-grass-1' : 'bg-mini-grass-2')); %>
+              <a href="<%= link(cell.x, cell.y) %>" class="<%= cls %> hover:brightness-150" tabindex="-1" aria-hidden="true"></a>
+            <% } } %>
+          </div>
+          <div class="pointer-events-none absolute top-[20%] left-[20%] size-[60%] border-2 border-gold-200 shadow-[0_0_0_1px_#000,0_0_12px_var(--color-glow-select)]"></div>
+        </div>
+        <p class="text-center text-[13px] text-parchment-600">Cliquez la vue d’ensemble pour recentrer la carte.</p>
+      </div>
+      <%- corners() %>
+    </section>
+  </aside>
+</div>
+<%- include('partials/footer') %>

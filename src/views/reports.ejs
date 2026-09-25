@@ -1,0 +1,80 @@
+<%- include('partials/header', { title: 'Rapports' }) %>
+<%
+  const vid = ctx.village.id;
+  // Pastille de type : couleur (palette de la charte) + icône du médaillon.
+  const kind = (r) => {
+    if (r.type === 'support') return { medal: ui.medallionOlive, icon: 'support', dot: 'bg-olive-300' };
+    if (r.type === 'trade') return { medal: ui.medallionGold, icon: 'market', dot: 'bg-gold-400' };
+    if (r.type === 'award') return { medal: ui.medallionGold, icon: 'victory', dot: 'bg-rel-nap' };
+    if (r.type === 'scavenge') return { medal: ui.medallionOlive, icon: 'farm', dot: 'bg-olive-500' };
+    if (r.type === 'world') return { medal: ui.medallionGold, icon: 'crown', dot: 'bg-rel-special' };
+    if (r.data.visit) return { medal: ui.medallion, icon: 'moon', dot: 'bg-parchment-600' };
+    if (r.data.attackerWins == null) return { medal: ui.medallion, icon: 'eye', dot: 'bg-parchment-600' };
+    const good = r.type === 'attack' ? r.data.attackerWins : !r.data.attackerWins;
+    return good
+      ? { medal: ui.medallionOlive, icon: r.type === 'attack' ? 'attack' : 'wall', dot: 'bg-olive-300' }
+      : { medal: ui.medallionRed, icon: r.type === 'attack' ? 'attack' : 'wall', dot: 'bg-blood-500' };
+  };
+  const tabs = [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']];
+  const link = (f, p) => `/village/${vid}/reports?filter=${f}${p > 1 ? `&page=${p}` : ''}`;
+%>
+<div class="flex flex-col gap-5">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Rapports', `
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="text-[13px] font-bold text-parchment-500 tabular-nums">${total}</span>
+        <form method="post" action="/village/${vid}/reports/bulk"><input type="hidden" name="_csrf" value="${csrfToken}">
+          <button name="action" value="read-all" class="${btn('dark', 'sm')}">${icon('check', 'size-3.5', 2.2)}Tout marquer comme lu</button>
+        </form>
+      </div>`, { tag: 'h1' }) %>
+
+    <div class="overflow-x-auto border-b border-bronze-900 px-4.5 py-3">
+      <%- segTabs(tabs.map(([id, name]) => [link(id, 1), name, filter === id])) %>
+    </div>
+
+    <% if (!reports.length) { %>
+      <p class="px-4.5 py-4 text-parchment-500">Aucun rapport.</p>
+    <% } else { %>
+      <form method="post" action="/village/<%= vid %>/reports/bulk" data-bulk><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="flex flex-wrap items-center gap-2 border-b border-bronze-900 bg-black/25 px-4.5 py-2.5">
+          <label class="<%= ui.checkLabel %> mr-2 text-sm">
+            <input type="checkbox" data-check-all class="<%= ui.checkbox %>"> Tout
+          </label>
+          <button name="action" value="read" class="<%= btn('dark', 'sm') %>">Marquer lus</button>
+          <button name="action" value="unread" class="<%= btn('dark', 'sm') %>">Marquer non lus</button>
+          <button name="action" value="delete" class="<%= btn('danger', 'sm') %>"><%- icon('trash', 'size-3.5', 2) %>Supprimer</button>
+        </div>
+        <ul>
+          <% for (const r of reports) { const k = kind(r); %>
+            <li class="flex min-h-13.5 items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 <%= r.isRead ? '' : 'bg-gold-400/5' %>">
+              <input type="checkbox" name="ids" value="<%= r.id %>" class="<%= ui.checkbox %>" aria-label="Sélectionner">
+              <a href="/village/<%= vid %>/reports/<%= r.id %>" class="group flex min-w-0 flex-1 items-center gap-3 no-underline">
+                <span class="relative">
+                  <span class="<%= k.medal %> size-8 <%= r.isRead ? 'opacity-70' : '' %>"><%- icon(k.icon, 'size-[15px]', 2.1) %></span>
+                  <span class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border border-night <%= k.dot %>" aria-hidden="true"></span>
+                </span>
+                <span class="flex min-w-0 flex-1 flex-col">
+                  <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-extrabold text-parchment-100' %>"><%= r.title %></span>
+                  <span class="text-xs text-parchment-500 tabular-nums sm:hidden"><%= when(r.happenedAt, now) %></span>
+                </span>
+                <% if (!r.isRead) { %>
+                  <span class="size-2 shrink-0 rounded-full bg-gold-400 shadow-[0_0_6px_var(--color-gold-400)]" title="Non lu"></span><span class="sr-only">Non lu</span>
+                <% } %>
+                <span class="hidden shrink-0 text-[13px] text-parchment-500 tabular-nums sm:block"><%= when(r.happenedAt, now) %></span>
+              </a>
+            </li>
+          <% } %>
+        </ul>
+      </form>
+      <% if (pages > 1) { %>
+        <div class="flex items-center justify-between gap-3 border-t border-bronze-900 px-4.5 py-3">
+          <% if (pageNumber > 1) { %><a href="<%= link(filter, pageNumber - 1) %>" class="<%= btn('dark', 'sm') %>"><%- icon('chevronLeft', 'size-3.5', 2.2) %>Précédents</a><% } else { %><span></span><% } %>
+          <span class="text-sm text-parchment-500 tabular-nums">Page <%= pageNumber %> / <%= pages %></span>
+          <% if (pageNumber < pages) { %><a href="<%= link(filter, pageNumber + 1) %>" class="<%= btn('dark', 'sm') %>">Suivants<%- icon('chevronRight', 'size-3.5', 2.2) %></a><% } else { %><span></span><% } %>
+        </div>
+      <% } %>
+    <% } %>
+    <%- corners() %>
+  </section>
+</div>
+<%- include('partials/footer') %>

@@ -1,0 +1,236 @@
+<%- include('partials/header', { title: 'Point de ralliement' }) %>
+<%
+  const vid = ctx.village.id;
+  const typeName = { attack: 'Attaque', support: 'Soutien', return: 'Retour', relocate: 'Déménagement' };
+  const moveStyle = {
+    attack: { medal: ui.medallionRed, verb: 'text-blood-300', icon: 'attack' },
+    return: { medal: ui.medallionOlive, verb: 'text-olive-300', icon: 'return' },
+    support: { medal: ui.medallionGold, verb: 'text-gold-200', icon: 'support' },
+    relocate: { medal: ui.medallionGold, verb: 'text-gold-200', icon: 'relocate' },
+  };
+  const available = new Set(allUnits.map((u) => u.id));
+  const groups = UNIT_GROUPS.map(([name, ids]) => [name, ids.filter((id) => available.has(id))]).filter(([, ids]) => ids.length);
+  const tabs = include('partials/place-tabs', { placeTab: tab });
+  const mapHref = (v) => `/village/${vid}/map?x=${v.x}&y=${v.y}`;
+  const moveHead = `<div class="hidden grid-cols-[minmax(0,1fr)_150px_110px_40px] gap-4 border-b border-bronze-900 bg-black/25 px-4.5 py-2.5 font-display text-[11px] font-bold tracking-[0.12em] text-parchment-500 sm:grid"><span>ORDRE</span><span>ARRIVÉE</span><span class="text-right">DANS</span><span></span></div>`;
+%>
+<div class="flex flex-col gap-5">
+<%- include('partials/building-header', { buildingId: 'place' }) %>
+
+<% if (tab === 'commands') { %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Envoyer des troupes', tabs) %>
+  <% if (!units.length) { %>
+    <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Aucune troupe disponible dans ce village.</p></div>
+  <% } else { %>
+  <form method="post" action="/village/<%= vid %>/place/confirm"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="grid gap-3 px-4.5 py-4 sm:grid-cols-2 xl:grid-cols-4">
+      <% for (const [name, ids] of groups) { %>
+        <fieldset class="<%= ui.box %> flex min-w-0 flex-col gap-1 px-3 pt-1 pb-2.5">
+          <legend class="<%= ui.subLabel %> px-1.5"><%= name %></legend>
+          <% for (const id of ids) { const have = ctx.state.units[id] || 0; %>
+            <label class="flex min-h-[38px] items-center gap-2.5">
+              <span class="<%= have ? ui.medallion : ui.medallion + ' opacity-40' %> size-[30px]"><%- unitIcon(id, 'size-[15px]') %></span>
+              <span class="min-w-0 flex-1 truncate <%= have ? 'text-parchment-200' : 'text-parchment-600' %>"><%= unitName(id) %></span>
+              <input type="number" name="<%= id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-16 text-right tabular-nums" <%= have ? '' : 'disabled' %>>
+              <button type="button" class="min-w-10 cursor-pointer text-right text-[13px] font-bold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
+            </label>
+          <% } %>
+        </fieldset>
+      <% } %>
+    </div>
+    <div class="flex flex-wrap items-end justify-between gap-4 border-t border-bronze-900 bg-black/20 px-4.5 py-4">
+      <label class="<%= ui.label %>">Cible
+        <span class="flex items-center gap-1.5">
+          <input type="number" name="x" value="<%= form.x %>" placeholder="x" required class="<%= ui.input %> w-24 tabular-nums">
+          <span class="text-parchment-600">|</span>
+          <input type="number" name="y" value="<%= form.y %>" placeholder="y" required class="<%= ui.input %> w-24 tabular-nums">
+        </span>
+      </label>
+      <div class="flex flex-wrap gap-2">
+        <button name="type" value="attack" class="<%= btn('red') %>"><%- icon('attack', 'size-3.5', 2.2) %>Attaquer</button>
+        <button name="type" value="support" class="<%= btn('olive') %>"><%- icon('support', 'size-3.5', 2.2) %>Soutenir</button>
+      </div>
+    </div>
+  </form>
+  <% } %>
+  <%- corners() %>
+</section>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Vos ordres', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${outgoing.length}</span>`) %>
+  <div>
+    <% if (outgoing.length) { %><%- moveHead %><% } %>
+    <% if (!outgoing.length) { %><p class="px-4.5 py-4 text-parchment-500">Aucun ordre.</p><% } %>
+    <% for (const c of outgoing) { const st = moveStyle[c.type] || moveStyle.support;
+         const canCancel = c.type !== 'return' && now - new Date(c.startsAt) < ctx.cfg.commandCancelSeconds * 1000; %>
+      <div class="grid grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1.5 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]">
+        <div class="flex min-w-0 items-center gap-3">
+          <span class="<%= st.medal %> size-[30px]"><%- icon(st.icon, 'size-[15px]', 2.2) %></span>
+          <span class="shrink-0 font-extrabold <%= st.verb %>"><%= typeName[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></span>
+          <span class="hidden shrink-0 text-parchment-600 sm:inline"><%= c.type === 'return' ? 'depuis' : 'vers' %></span>
+          <a href="<%= mapHref(c.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.target.name %></a>
+          <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.target.x %>|<%= c.target.y %>)</span>
+        </div>
+        <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
+        <span class="text-right font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
+        <% if (canCancel) { %>
+          <form method="post" action="/village/<%= vid %>/command/<%= c.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= ui.iconBtnSm %>" title="Annuler l’ordre" aria-label="Annuler l’ordre"><%- icon('close', 'size-3', 2.6) %></button>
+          </form>
+        <% } else { %><span></span><% } %>
+        <div class="col-span-full sm:pl-[42px]">
+          <span class="mr-2 text-[13px] text-parchment-500 sm:hidden"><%= whenShort(c.arrivesAt, now) %></span>
+          <%- include('partials/units', { units: c.units, losses: null }) %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+  <%- corners() %>
+</section>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Arrivées', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${incoming.length}</span>`) %>
+  <div>
+    <% if (incoming.length) { %><%- moveHead %><% } %>
+    <% if (!incoming.length) { %><p class="px-4.5 py-4 text-parchment-500">Rien en approche.</p><% } %>
+    <% for (const c of incoming) { const st = moveStyle[c.type] || moveStyle.support; %>
+      <div class="grid min-h-[50px] grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]">
+        <div class="flex min-w-0 items-center gap-3">
+          <span class="<%= st.medal %> size-[30px]"><%- icon(st.icon, 'size-[15px]', 2.2) %></span>
+          <span class="shrink-0 font-extrabold <%= st.verb %>"><%= typeName[c.type] %></span>
+          <span class="hidden shrink-0 text-parchment-600 sm:inline">de</span>
+          <a href="<%= mapHref(c.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.origin.name %></a>
+          <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.origin.x %>|<%= c.origin.y %>)</span>
+          <% if (c.origin.Player) { %><span class="hidden truncate text-parchment-500 md:inline">· <%= c.origin.Player.name %></span><% } %>
+        </div>
+        <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
+        <span class="text-right font-extrabold tabular-nums <%= c.type === 'attack' ? 'text-blood-300' : 'text-gold-200' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
+        <span></span>
+        <span class="col-span-full hidden flex-wrap gap-x-2 text-[13px] text-parchment-500 max-md:flex sm:pl-[42px]"><span class="sm:hidden"><%= whenShort(c.arrivesAt, now) %></span><% if (c.origin.Player) { %><span><%= c.origin.Player.name %></span><% } %></span>
+      </div>
+    <% } %>
+  </div>
+  <%- corners() %>
+</section>
+<% } %>
+
+<% if (tab === 'troops') { %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Vos unités', tabs) %>
+  <% if (!Object.keys(ctx.state.units).length && !Object.keys(ctx.awayUnits).length) { %>
+    <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Aucune unité.</p></div>
+  <% } else { %>
+  <div class="overflow-x-auto">
+  <table class="<%= ui.table %>">
+    <thead><tr><th>Unité</th><th class="text-right">Au village</th><th class="text-right">Hors du village</th><th class="text-right">Total</th></tr></thead>
+    <tbody>
+    <% for (const u of allUnits) { const home = ctx.state.units[u.id] || 0; const away = ctx.awayUnits[u.id] || 0; if (!home && !away) continue; %>
+      <tr>
+        <td><span class="flex items-center gap-3"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span><span class="font-bold text-parchment-100"><%= u.name %></span></span></td>
+        <td class="text-right font-extrabold tabular-nums"><%= num(home) %></td>
+        <td class="text-right tabular-nums text-parchment-500"><%= num(away) %></td>
+        <td class="text-right font-extrabold text-gold-200 tabular-nums"><%= num(home + away) %></td>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+  </div>
+  <% } %>
+  <%- corners() %>
+</section>
+
+<div class="grid items-start gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Soutiens dans ce village', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${stacksHere.length}</span>`) %>
+    <div class="<%= ui.panelBody %>">
+      <% if (!stacksHere.length) { %><p class="text-parchment-500">Aucun soutien.</p><% } %>
+      <% for (const s of stacksHere) { %>
+        <div class="<%= ui.box %> flex flex-col gap-2.5 p-3">
+          <div class="flex items-center gap-3">
+            <span class="<%= ui.medallionGold %> size-[30px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
+            <span class="min-w-0 flex-1">
+              <a href="<%= mapHref(s.origin) %>" class="<%= ui.linkPlain %> font-bold"><%= s.origin.name %></a>
+              <span class="text-parchment-600 tabular-nums">(<%= s.origin.x %>|<%= s.origin.y %>)</span>
+              <% if (s.origin.Player) { %><span class="text-parchment-500">· <%= s.origin.Player.name %></span><% } %>
+            </span>
+            <form method="post" action="/village/<%= vid %>/support/<%= s.id %>/withdraw"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('dark', 'sm') %>">Renvoyer</button></form>
+          </div>
+          <%- include('partials/units', { units: s.units, losses: null }) %>
+        </div>
+      <% } %>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Vos soutiens ailleurs', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${stacksAway.length}</span>`) %>
+    <div class="<%= ui.panelBody %>">
+      <% if (!stacksAway.length) { %><p class="text-parchment-500">Aucun soutien envoyé.</p><% } %>
+      <% for (const s of stacksAway) { %>
+        <div class="<%= ui.box %> flex flex-col gap-2.5 p-3">
+          <div class="flex items-center gap-3">
+            <span class="<%= ui.medallionOlive %> size-[30px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
+            <span class="min-w-0 flex-1">
+              <a href="<%= mapHref(s.village) %>" class="<%= ui.linkPlain %> font-bold"><%= s.village.name %></a>
+              <span class="text-parchment-600 tabular-nums">(<%= s.village.x %>|<%= s.village.y %>)</span>
+              <% if (s.village.Player) { %><span class="text-parchment-500">· <%= s.village.Player.name %></span><% } %>
+            </span>
+            <form method="post" action="/village/<%= vid %>/support/<%= s.id %>/withdraw"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('dark', 'sm') %>">Rappeler</button></form>
+          </div>
+          <%- include('partials/units', { units: s.units, losses: null }) %>
+        </div>
+      <% } %>
+    </div>
+    <%- corners() %>
+  </section>
+</div>
+<% } %>
+
+<% if (tab === 'sim') { const inp = sim.input; const r = sim.result; %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Simulateur de combat', tabs) %>
+  <form method="get">
+    <input type="hidden" name="tab" value="sim">
+    <div class="<%= ui.panelBody %>">
+      <p class="text-parchment-400">Mêmes règles que les vrais combats (muraille, béliers, morale, chance, bonus de nuit). Rien n'est envoyé.</p>
+      <% if (r) { %>
+        <div class="<%= r.attackerWins ? ui.alertSuccess : ui.alertError %> flex flex-wrap items-center gap-x-4 gap-y-1">
+          <strong class="font-display tracking-[0.08em] uppercase"><%= r.attackerWins ? "L'attaquant gagne" : 'Le défenseur gagne' %></strong>
+          <span class="tabular-nums">Attaque <strong><%= num(r.attackStrength) %></strong> · Défense <strong><%= num(r.defenseStrength) %></strong></span>
+          <% if (r.wallAfter !== r.wallBefore) { %><span class="tabular-nums">Muraille <%= r.wallBefore %> → <%= r.wallAfter %></span><% } %>
+        </div>
+      <% } %>
+    </div>
+    <div class="overflow-x-auto border-t border-bronze-900">
+    <table class="<%= ui.table %> max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
+      <thead><tr><th>Unité</th><th class="text-right">Attaquant</th><th class="text-right">Défenseur</th>
+        <% if (r) { %><th class="text-right">Pertes attaquant</th><th class="text-right">Pertes défenseur</th><% } %></tr></thead>
+      <tbody>
+      <% for (const u of allUnits) { %>
+        <tr>
+          <td><span class="flex items-center gap-3"><span class="hidden sm:block"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span></span><span class="font-bold whitespace-nowrap text-parchment-100"><%= u.name %></span></span></td>
+          <td class="text-right"><input type="number" name="att_<%= u.id %>" min="0" value="<%= inp.attackers[u.id] || '' %>" placeholder="0" class="<%= ui.inputSm %> w-16 text-right sm:w-24 tabular-nums" aria-label="<%= u.name %> (attaquant)"></td>
+          <td class="text-right"><input type="number" name="def_<%= u.id %>" min="0" value="<%= inp.defenders[u.id] || '' %>" placeholder="0" class="<%= ui.inputSm %> w-16 text-right sm:w-24 tabular-nums" aria-label="<%= u.name %> (défenseur)"></td>
+          <% if (r) { %>
+            <td class="text-right font-extrabold tabular-nums <%= r.attackerLosses[u.id] ? 'text-blood-300' : 'text-parchment-700' %>"><%= r.attackerLosses[u.id] ? `−${num(r.attackerLosses[u.id])}` : '—' %></td>
+            <td class="text-right font-extrabold tabular-nums <%= r.defenderLosses[u.id] ? 'text-blood-300' : 'text-parchment-700' %>"><%= r.defenderLosses[u.id] ? `−${num(r.defenderLosses[u.id])}` : '—' %></td>
+          <% } %>
+        </tr>
+      <% } %>
+      </tbody>
+    </table>
+    </div>
+    <div class="flex flex-wrap items-end gap-4 border-t border-bronze-900 bg-black/20 px-4.5 py-4">
+      <label class="<%= ui.label %>">Muraille<input type="number" name="wall" min="0" max="20" value="<%= inp.wall %>" class="<%= ui.input %> w-20 tabular-nums"></label>
+      <label class="<%= ui.label %>">Morale (%)<input type="number" name="morale" min="30" max="100" value="<%= Math.round(inp.morale * 100) %>" class="<%= ui.input %> w-24 tabular-nums"></label>
+      <label class="<%= ui.label %>">Chance (%)<input type="number" name="luck" min="-25" max="25" value="<%= Math.round(inp.luck * 100) %>" class="<%= ui.input %> w-24 tabular-nums"></label>
+      <label class="<%= ui.checkLabel %> h-[38px]"><input type="checkbox" name="night" value="1" <%= inp.night ? 'checked' : '' %> class="<%= ui.checkbox %>"> Bonus de nuit</label>
+      <button class="<%= btn('gold', 'md', 'sm:ml-auto') %>"><%- icon('sword', 'size-3.5', 2.2) %>Simuler</button>
+    </div>
+  </form>
+  <%- corners() %>
+</section>
+<% } %>
+</div>
+<%- include('partials/footer') %>

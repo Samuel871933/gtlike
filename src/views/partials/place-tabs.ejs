@@ -1,0 +1,5 @@
+<%# Onglets du point de ralliement (segTabs), à placer à droite d'un panelHead : panelHead('…', include('partials/place-tabs', { placeTab })). -%>
+<% const base = `/village/${ctx.village.id}/`;
+   const pt = [['commands', 'Commandes', 'place'], ['troops', 'Troupes', 'place?tab=troops'], ['sim', 'Simulateur', 'place?tab=sim']];
+   if (ctx.cfg.scavenging.active) pt.push(['scavenge', 'Collecte', 'scavenge']); -%>
+<%- segTabs(pt.map(([id, name, href]) => [base + href, name, placeTab === id])) -%>

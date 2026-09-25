@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="966" height="580" viewBox="0 0 966 580">
+  <!-- Fond de la vue du village, style Viking : même disposition que le style romain (palissade au centre,
+       camp de bois en haut à gauche, argile en bas à gauche, ferme en haut à droite, mine en bas à droite). -->
+  <defs>
+    <radialGradient id="gr" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0" stop-color="#3E4744"/>
+      <stop offset="0.6" stop-color="#2C3432"/>
+      <stop offset="1" stop-color="#161B1C"/>
+    </radialGradient>
+    <radialGradient id="inner" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#57534A"/>
+      <stop offset="1" stop-color="#3A3833"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0.6" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.7"/>
+    </radialGradient>
+    <linearGradient id="fjord" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1D3440" stop-opacity="0"/>
+      <stop offset="1" stop-color="#284B5C"/>
+    </linearGradient>
+    <pattern id="tex" width="6" height="6" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="0.7" fill="#000" fill-opacity="0.12"/>
+      <circle cx="4" cy="4" r="0.5" fill="#fff" fill-opacity="0.05"/>
+    </pattern>
+    <pattern id="stakes" width="10" height="10" patternUnits="userSpaceOnUse">
+      <rect width="7" height="10" fill="#6B4E30"/>
+      <rect x="1" width="2" height="10" fill="#80603C"/>
+    </pattern>
+  </defs>
+  <rect width="966" height="580" fill="url(#gr)"/>
+
+  <!-- Plaques de neige -->
+  <g fill="#E6EEF2" fill-opacity="0.07">
+    <ellipse cx="170" cy="300" rx="90" ry="40"/><ellipse cx="820" cy="300" rx="80" ry="36"/>
+    <ellipse cx="480" cy="540" rx="160" ry="30"/><ellipse cx="300" cy="20" rx="120" ry="24"/>
+  </g>
+  <!-- Fjord à droite -->
+  <path d="M966 180 C930 230 940 300 966 340z" fill="url(#fjord)"/>
+
+  <!-- Forêt de pins (camp de bois) -->
+  <g fill="#1B2A20">
+    <path d="M30 110 l22-60 22 60z"/><path d="M80 90 l18-52 18 52z"/><path d="M130 110 l20-56 20 56z"/>
+    <path d="M10 180 l20-54 20 54z"/><path d="M55 200 l16-44 16 44z"/><path d="M150 60 l14-38 14 38z"/>
+  </g>
+  <g fill="#E6EEF2" fill-opacity="0.35">
+    <path d="M44 72 l8-22 8 22z"/><path d="M92 55 l6-17 6 17z"/><path d="M142 74 l8-20 8 20z"/>
+    <path d="M22 146 l8-20 8 20z"/>
+  </g>
+  <!-- Fosse d'argile -->
+  <ellipse cx="100" cy="455" rx="80" ry="40" fill="#6A4030" fill-opacity="0.5"/>
+  <ellipse cx="100" cy="455" rx="50" ry="22" fill="#4A2A1E" fill-opacity="0.55"/>
+  <!-- Champs (ferme) -->
+  <g transform="rotate(-6 870 110)" fill-opacity="0.45">
+    <rect x="790" y="30" width="170" height="20" fill="#6B6A48"/>
+    <rect x="790" y="50" width="170" height="20" fill="#56553A"/>
+    <rect x="790" y="70" width="170" height="20" fill="#6B6A48"/>
+    <rect x="790" y="90" width="170" height="20" fill="#56553A"/>
+    <rect x="790" y="110" width="170" height="20" fill="#6B6A48"/>
+    <rect x="790" y="130" width="170" height="20" fill="#56553A"/>
+  </g>
+  <!-- Montagne enneigée (mine de fer) -->
+  <path d="M790 495 l50-80 30 35 30-55 55 100z" fill="#4A5055" fill-opacity="0.8"/>
+  <path d="M840 415 l14 22 -10 -4 -12 10 -10 -8z M900 395 l16 28 -12 -6 -8 8 -10 -12z" fill="#E6EEF2" fill-opacity="0.55"/>
+
+  <!-- Chemins de terre -->
+  <path d="M483 50 V0 M483 470 V580 M206 260 H150 L110 150 M150 260 L110 405 M760 260 H816 L856 150 M816 260 L856 405"
+        stroke="#4A463F" stroke-width="16" stroke-linecap="round" fill="none" stroke-opacity="0.9"/>
+
+  <!-- Enclos -->
+  <rect x="210" y="50" width="546" height="420" rx="30" fill="url(#inner)"/>
+  <path d="M483 50 V470 M210 260 H756" stroke="#625D52" stroke-width="18" fill="none"/>
+  <path d="M483 50 V470 M210 260 H756" stroke="#7A7466" stroke-width="1" stroke-dasharray="3 7" fill="none" stroke-opacity="0.6"/>
+  <rect x="210" y="50" width="546" height="420" rx="30" fill="url(#tex)"/>
+  <!-- Palissade de pieux -->
+  <rect x="210" y="50" width="546" height="420" rx="30" fill="none" stroke="#1E150D" stroke-width="18"/>
+  <rect x="210" y="50" width="546" height="420" rx="30" fill="none" stroke="url(#stakes)" stroke-width="12"/>
+  <rect x="210" y="50" width="546" height="420" rx="30" fill="none" stroke="#E6EEF2" stroke-opacity="0.12" stroke-width="2" transform="translate(0 -5)"/>
+  <!-- Portes et tours de guet en bois -->
+  <g fill="#5A4128" stroke="#1E150D" stroke-width="3">
+    <rect x="466" y="33" width="34" height="34" rx="2"/>
+    <rect x="466" y="453" width="34" height="34" rx="2"/>
+    <rect x="193" y="243" width="34" height="34" rx="2"/>
+    <rect x="739" y="243" width="34" height="34" rx="2"/>
+    <rect x="214" y="54" width="32" height="32" rx="3"/><rect x="720" y="54" width="32" height="32" rx="3"/>
+    <rect x="214" y="434" width="32" height="32" rx="3"/><rect x="720" y="434" width="32" height="32" rx="3"/>
+  </g>
+  <g fill="none" stroke="#2A1D11" stroke-width="2">
+    <path d="M466 50 H500 M466 470 H500 M210 243 V277 M756 243 V277"/>
+    <path d="M214 70 H246 M720 70 H752 M214 450 H246 M720 450 H752"/>
+  </g>
+
+  <rect width="966" height="580" fill="url(#vignette)"/>
+</svg>

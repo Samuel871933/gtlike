@@ -1,0 +1,148 @@
+<%- include('partials/header', { title: 'Compte' }) %>
+<% const sleep = ctx.cfg.sleep; const vid = ctx.village.id; const scheduled = player.sleepEndsAt && new Date(player.sleepEndsAt) > now; %>
+<%# Style du jeu : réglage du compte connecté (un remplaçant choisit donc le sien). Chaque aperçu porte son propre data-game-style. %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Style du jeu', `<span class="text-[13px] text-parchment-500">Gratuit · change tout l’intérieur du jeu</span>`) %>
+  <div class="grid gap-3 p-4.5 sm:grid-cols-2 xl:grid-cols-3">
+    <% for (const s of Object.values(GAME_STYLES)) { const active = gameStyle && gameStyle.id === s.id; %>
+      <form method="post" action="/village/<%= vid %>/account/game-style" data-game-style="<%= s.id %>"
+            class="flex flex-col overflow-hidden rounded-md border bg-linear-to-b from-panel-top to-panel-lo text-parchment-200 <%= active ? 'border-gold-400 shadow-[0_0_0_1px_var(--color-gold-400),0_0_18px_var(--color-glow)]' : 'border-bronze-700' %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="style" value="<%= s.id %>">
+        <div class="relative aspect-966/580 bg-(image:--game-image-village) bg-cover bg-center">
+          <span class="absolute top-2 left-2 flex gap-1" aria-hidden="true">
+            <span class="size-4 rounded-full border border-black/40 bg-gold-400"></span>
+            <span class="size-4 rounded-full border border-black/40 bg-bronze-500"></span>
+            <span class="size-4 rounded-full border border-black/40 bg-panel-hi"></span>
+          </span>
+        </div>
+        <div class="flex flex-1 flex-col gap-2 border-t border-bronze-700 bg-linear-to-b from-panel-hi to-panel-mid p-3.5">
+          <span class="flex items-center justify-between gap-2">
+            <span class="font-display text-lg font-bold tracking-[0.1em] text-gold-400 uppercase"><%= s.name %></span>
+            <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
+          </span>
+          <span class="text-sm text-parchment-400"><%= s.description %></span>
+          <% if (!active) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
+        </div>
+      </form>
+    <% } %>
+  </div>
+  <%- corners() %>
+</section>
+<% if (asSitter) { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Compte', '', { tag: 'h1' }) %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-parchment-500">Les réglages du compte sont réservés à son titulaire.</p>
+    </div>
+    <%- corners() %>
+  </section>
+<% } else { %>
+<div class="grid items-start gap-5 lg:grid-cols-2">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Mode sommeil', `<span class="text-gold-400">${icon('moon', 'size-4')}</span>`, { tag: 'h1' }) %>
+    <div class="<%= ui.panelBody %> gap-4">
+      <% if (!sleep.active) { %>
+        <p class="text-parchment-500">Le mode sommeil n'existe pas sur ce monde.</p>
+      <% } else { %>
+        <p class="text-parchment-400">
+          Pendant votre sommeil, les attaques qui arrivent sur vos villages deviennent de simples visites : pas de combat,
+          les troupes repartent. Vous ne pouvez pas attaquer pendant ce temps. Le sommeil commence <%= sleep.delayMinutes %> min
+          après l'activation, dure de <%= sleep.minHours %> à <%= sleep.maxHours %> h, et il faut rester éveillé
+          <%= sleep.minAwakeHours %> h entre deux sommeils.
+        </p>
+        <% if (scheduled) { %>
+          <div class="<%= ui.boxGold %> flex flex-wrap items-center gap-3 px-4 py-3">
+            <span class="<%= ui.medallionGold %> size-9"><%- icon('moon', 'size-4') %></span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span class="<%= ui.kicker %>"><%= player.isAsleep(now) ? 'Sommeil en cours' : 'Sommeil programmé' %></span>
+              <span class="font-bold text-gold-200 tabular-nums"><%= when(player.sleepStartsAt, now) %> → <%= when(player.sleepEndsAt, now) %></span>
+            </span>
+            <form method="post" action="/village/<%= vid %>/account/sleep/stop"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="<%= btn('dark', 'sm') %>"><%= player.isAsleep(now) ? 'Me réveiller' : 'Annuler' %></button>
+            </form>
+          </div>
+        <% } else { %>
+          <form method="post" action="/village/<%= vid %>/account/sleep" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="<%= ui.label %>">Durée (heures)
+              <input type="number" name="hours" min="<%= sleep.minHours %>" max="<%= sleep.maxHours %>" step="any" value="<%= sleep.minHours %>" required class="<%= ui.input %> w-32 tabular-nums">
+            </label>
+            <button class="<%= btn('gold') %>"><%- icon('moon', 'size-3.5', 2.2) %>Activer</button>
+          </form>
+        <% } %>
+      <% } %>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <section class="<%= ui.panel %> min-w-0 lg:row-span-2">
+    <%- panelHead('Mode vacances (remplaçant)', '') %>
+    <div class="<%= ui.panelBody %> gap-4">
+      <p class="text-parchment-400">
+        Pendant une absence, un joueur de ce monde peut jouer vos villages à votre place. Il ne peut pas modifier
+        ces réglages ni vous faire quitter votre tribu. Vous pouvez retirer son accès à tout moment.
+      </p>
+      <% if (!ctx.cfg.sitter.allow) { %>
+        <p class="text-parchment-500">Les remplaçants ne sont pas autorisés sur ce monde.</p>
+      <% } else if (sitter) { %>
+        <div class="<%= ui.box %> flex flex-wrap items-center gap-3 px-4 py-3">
+          <span class="<%= player.sitterAcceptedAt ? ui.medallionOlive : ui.medallion %> size-9"><%- icon(player.sitterAcceptedAt ? 'check' : 'clock', 'size-4', 2) %></span>
+          <span class="min-w-48 flex-1 text-parchment-300">
+            <% if (player.sitterAcceptedAt) { %><strong class="text-parchment-100"><%= sitter.name %></strong> vous remplace depuis <%= when(player.sitterAcceptedAt, now) %>.
+            <% } else { %>Demande envoyée à <strong class="text-parchment-100"><%= sitter.name %></strong>, en attente d'acceptation.<% } %>
+          </span>
+          <form method="post" action="/village/<%= vid %>/account/sitter/revoke"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= btn('danger', 'sm') %>"><%= player.sitterAcceptedAt ? 'Retirer l’accès' : 'Annuler la demande' %></button>
+          </form>
+        </div>
+      <% } else { %>
+        <form method="post" action="/village/<%= vid %>/account/sitter" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label class="<%= ui.label %> min-w-0 flex-1 sm:flex-none">Pseudo du remplaçant
+            <input name="name" required class="<%= ui.input %> w-full sm:w-64">
+          </label>
+          <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer la demande</button>
+        </form>
+      <% } %>
+
+      <% if (sitting.length) { %>
+        <p class="<%= ui.sectionLabel %> mt-2">Comptes que l'on vous confie</p>
+        <ul class="flex flex-col gap-2">
+          <% for (const o of sitting) { %>
+            <li class="<%= ui.box %> flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+              <span class="min-w-40 flex-1 font-bold text-parchment-100"><%= o.name %> <span class="font-normal text-parchment-500"><%= o.sitterAcceptedAt ? '· vous le remplacez' : '· demande en attente' %></span></span>
+              <div class="flex items-center gap-2">
+                <% if (!o.sitterAcceptedAt) { %>
+                  <form method="post" action="/village/<%= vid %>/account/sitting/<%= o.id %>/accept"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('gold', 'sm') %>">Accepter</button></form>
+                <% } else { %>
+                  <a href="/worlds/<%= ctx.world.slug %>/sit/<%= o.id %>" class="<%= btn('dark', 'sm') %>">Jouer</a>
+                <% } %>
+                <form method="post" action="/village/<%= vid %>/account/sitting/<%= o.id %>/resign"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="<%= btn('danger', 'sm') %>"><%= o.sitterAcceptedAt ? 'Arrêter' : 'Refuser' %></button>
+                </form>
+              </div>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Quitter ce monde') %>
+    <div class="<%= ui.panelBody %> gap-4">
+      <p class="text-parchment-400">
+        Vos villages redeviennent barbares (avec leurs troupes), vos troupes et marchands à l'extérieur, vos offres et vos
+        rapports sont supprimés. Si vous fondez une tribu, elle passe à un autre membre. Vous pourrez revenir plus tard avec un nouveau départ.
+      </p>
+      <form method="post" action="/village/<%= vid %>/account/leave-world" class="flex flex-wrap items-end gap-2" data-confirm="Quitter définitivement ce monde ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="<%= ui.label %> min-w-0 flex-1 sm:flex-none">Mot de passe
+          <input type="password" name="password" required class="<%= ui.input %> w-full sm:w-64">
+        </label>
+        <button class="<%= btn('red') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter ce monde</button>
+      </form>
+    </div>
+    <%- corners() %>
+  </section>
+</div>
+<% } %>
+<%- include('partials/footer') %>

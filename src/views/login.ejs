@@ -1,0 +1,21 @@
+<%- include('partials/header', { title: 'Connexion', hero: true, lobbyPage: 'login' }) %>
+<section class="<%= ui.panel %> mx-auto mt-6 w-full max-w-md sm:mt-14">
+  <%- panelHead('Connexion', '', { tag: 'h1' }) %>
+  <div class="flex flex-col gap-4 px-4.5 pt-4 pb-5">
+    <p class="text-parchment-400">Content de vous revoir.</p>
+    <% if (typeof notice !== 'undefined' && notice) { %><div class="<%= ui.alertSuccess %>"><%= notice %></div><% } %>
+    <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
+    <form method="post" action="/login" class="flex flex-col gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="<%= ui.label %>">Pseudo ou e-mail
+        <input name="login" value="<%= form.login || '' %>" required autofocus class="<%= ui.input %> w-full">
+      </label>
+      <label class="<%= ui.label %>">Mot de passe
+        <input type="password" name="password" required class="<%= ui.input %> w-full">
+      </label>
+      <button class="<%= btn('gold', 'lg', 'w-full') %>"><%- icon('arrowRight', 'size-4', 2.2) %>Se connecter</button>
+    </form>
+    <p class="text-center text-sm text-parchment-500">Pas encore de compte ? <a href="/register" class="<%= ui.link %>">Inscription</a></p>
+  </div>
+  <%- corners() %>
+</section>
+<%- include('partials/footer') %>

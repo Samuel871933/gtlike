@@ -1,0 +1,48 @@
+<%- include('partials/header', { title: conversation.subject }) %>
+<% const myId = ctx.village.playerId; const others = conversation.participants.filter((p) => p.playerId !== myId); %>
+<div class="mx-auto flex w-full max-w-3xl flex-col gap-5">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Conversation', `
+      <div class="flex items-center gap-2">
+        <a href="/village/${ctx.village.id}/messages" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Messages</a>
+        <form method="post" action="/village/${ctx.village.id}/messages/${conversation.id}/leave"><input type="hidden" name="_csrf" value="${csrfToken}">
+          <button class="${btn('danger', 'sm')}">${icon('trash', 'size-3.5', 2)}Supprimer</button>
+        </form>
+      </div>`) %>
+    <div class="<%= ui.panelBody %> gap-4">
+      <div class="flex flex-col gap-1">
+        <h1 class="font-display text-lg font-bold wrap-break-word text-parchment-100"><%= conversation.subject %></h1>
+        <p class="text-sm text-parchment-500">Avec
+          <% others.forEach((p, i) => { %><a href="/village/<%= ctx.village.id %>/players/<%= p.playerId %>" class="<%= ui.linkPlain %> font-bold"><%= p.Player.name %></a><%= i < others.length - 1 ? ', ' : '' %><% }) %>
+          <%= others.length ? '' : 'personne (les autres ont quitté la conversation)' %>
+        </p>
+      </div>
+
+      <ul class="flex flex-col gap-3">
+        <% for (const m of conversation.messages) { const mine = m.playerId === myId; %>
+          <li class="flex <%= mine ? 'justify-end' : '' %>">
+            <div class="max-w-[85%] rounded border px-4 py-3 <%= mine ? 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/3' : 'border-bronze-900 bg-black/30' %>">
+              <p class="text-xs text-parchment-500"><strong class="font-display text-[13px] <%= mine ? 'text-gold-200' : 'text-parchment-200' %>"><%= m.author ? m.author.name : 'Joueur supprimé' %></strong> · <span class="tabular-nums"><%= when(m.createdAt, now) %></span></p>
+              <p class="mt-1 whitespace-pre-line wrap-break-word text-parchment-200"><%= m.body %></p>
+            </div>
+          </li>
+        <% } %>
+      </ul>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <% if (others.length) { %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Répondre') %>
+      <form id="bas" method="post" action="/village/<%= ctx.village.id %>/messages/<%= conversation.id %>/reply" class="<%= ui.panelBody %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <textarea name="body" rows="4" maxlength="5000" required placeholder="Votre réponse…" aria-label="Votre réponse" class="<%= ui.textarea %> w-full"></textarea>
+        <div class="flex justify-end">
+          <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Répondre</button>
+        </div>
+      </form>
+      <%- corners() %>
+    </section>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

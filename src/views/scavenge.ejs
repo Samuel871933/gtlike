@@ -1,0 +1,80 @@
+<%- include('partials/header', { title: 'Collecte' }) %>
+<% const vid = ctx.village.id; const carry = Object.fromEntries(units.map((u) => [u.id, u.carry])); %>
+<div class="flex flex-col gap-5">
+<%- include('partials/building-header', { buildingId: 'place' }) %>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Collecte', include('partials/place-tabs', { placeTab: 'scavenge' })) %>
+  <div class="<%= ui.panelBody %>">
+    <p class="text-parchment-400">
+      Envoyez des troupes du village ramasser des ressources, sans combat. Plus l'option est avancée, plus elle rapporte
+      (par rapport à la capacité de transport des troupes envoyées) et plus elle dure. Une expédition ne peut pas être annulée ;
+      le butin au-delà de l'entrepôt est perdu.
+    </p>
+  </div>
+  <%- corners() %>
+</section>
+
+<div class="grid items-start gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+  <% for (const { option, unlocked, unlocking, run } of options) {
+       const state = run ? ['En cours', ui.tagGold] : unlocked ? ['Disponible', ui.tagOlive] : unlocking ? ['Déblocage', ui.tagGold] : ['Verrouillée', ui.tagMuted]; %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead(option.name, `<span class="${state[1]}">${state[0]}</span>`) %>
+      <div class="<%= ui.panelBody %>">
+        <p class="text-parchment-400">Rapporte <strong class="text-gold-200 tabular-nums"><%= Math.round(option.lootFactor * 100) %> %</strong> de la capacité de transport</p>
+
+        <% if (run) { %>
+          <div class="<%= ui.boxGold %> flex items-center gap-3 p-3">
+            <span class="<%= ui.medallionOlive %> size-[38px]"><%- icon('return', 'size-[19px]', 2.2) %></span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span class="<%= ui.kicker %>">Retour</span>
+              <span class="text-parchment-200"><%= when(run.endsAt, now) %></span>
+            </span>
+            <span class="text-lg font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(run.endsAt).getTime() %>"><%= duration((new Date(run.endsAt) - now) / 1000) %></span>
+          </div>
+          <%- include('partials/units', { units: run.units, losses: null }) %>
+          <div class="flex flex-wrap items-center gap-3 border-t border-bronze-900 pt-3"><span class="<%= ui.subLabel %>">Butin prévu</span><%- include('partials/cost', { cost: run.resources, have: null }) %></div>
+        <% } else if (unlocked) { %>
+          <form method="post" action="/village/<%= vid %>/scavenge/<%= option.id %>/send" class="flex flex-col gap-3" data-scavenge
+                data-loot="<%= option.lootFactor %>" data-speed="<%= ctx.cfg.speed %>" data-carry='<%= JSON.stringify(carry) %>'><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <% for (const u of units) { const have = ctx.state.units[u.id] || 0; %>
+                <label class="<%= ui.tile %> flex min-w-0 flex-col gap-1.5">
+                  <span class="flex items-center justify-between gap-1.5">
+                    <span class="flex min-w-0 items-center gap-1.5 text-[13px] <%= have ? 'text-parchment-300' : 'text-parchment-600' %>"><span class="<%= have ? 'text-gold-400' : 'text-parchment-700' %>"><%- unitIcon(u.id, 'size-3.5') %></span><span class="truncate"><%= u.name %></span></span>
+                    <button type="button" class="cursor-pointer text-xs font-bold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= u.id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
+                  </span>
+                  <input type="number" name="<%= u.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-full min-w-0 tabular-nums" <%= have ? '' : 'disabled' %>>
+                </label>
+              <% } %>
+            </div>
+            <div class="<%= ui.box %> flex flex-wrap items-center justify-between gap-3 px-3 py-2">
+              <span class="text-parchment-400">Butin <strong class="text-gold-200 tabular-nums" data-scavenge-haul>0</strong> · durée <strong class="text-gold-200 tabular-nums" data-scavenge-duration>—</strong></span>
+              <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
+            </div>
+          </form>
+        <% } else if (unlocking) { %>
+          <div class="<%= ui.box %> flex items-center gap-3 p-3">
+            <span class="<%= ui.medallion %> size-[38px]"><%- icon('clock', 'size-[19px]') %></span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span class="<%= ui.kicker %>">Débloquée</span>
+              <span class="text-parchment-200"><%= when(unlocking.endsAt, now) %></span>
+            </span>
+            <span class="text-lg font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(unlocking.endsAt).getTime() %>"><%= duration((new Date(unlocking.endsAt) - now) / 1000) %></span>
+          </div>
+        <% } else { %>
+          <form method="post" action="/village/<%= vid %>/scavenge/<%= option.id %>/unlock" class="<%= ui.box %> flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <span class="flex flex-wrap items-center gap-3">
+              <%- include('partials/cost', { cost: option.unlock.cost, have: ctx.state.resources }) %>
+              <span class="inline-flex items-center gap-1 text-parchment-400 tabular-nums"><%- icon('clock', 'size-3.5') %><%= duration(option.unlock.hours * 3600 / ctx.cfg.speed) %></span>
+            </span>
+            <button class="<%= btn('dark') %>">Débloquer</button>
+          </form>
+        <% } %>
+      </div>
+      <%- corners() %>
+    </section>
+  <% } %>
+</div>
+</div>
+<%- include('partials/footer') %>

@@ -1,0 +1,33 @@
+<%- include('partials/header', { title: 'Mon compte', lobbyPage: 'account' }) %>
+<div class="mx-auto flex w-full max-w-xl flex-col gap-5">
+  <a href="/worlds" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Mondes</a>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Mon compte', '', { tag: 'h1' }) %>
+    <div class="<%= ui.panelBody %>">
+      <div class="grid gap-1.5 sm:grid-cols-2">
+        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Pseudo</div><div class="<%= ui.tileValue %> truncate"><%= user.username %></div></div>
+        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">E-mail</div><div class="<%= ui.tileValue %> truncate"><%= user.email %></div></div>
+      </div>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Supprimer mon compte') %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-parchment-400">
+        Vous quittez tous vos mondes (vos villages redeviennent barbares) et votre compte est supprimé définitivement.
+        Cette action est irréversible.
+      </p>
+      <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
+      <form method="post" action="/account/delete" class="flex flex-wrap items-end gap-2" data-confirm="Supprimer définitivement votre compte ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="<%= ui.label %> flex-1">Mot de passe
+          <input type="password" name="password" required class="<%= ui.input %> w-full min-w-56">
+        </label>
+        <button class="<%= btn('red', 'md') %>">Supprimer mon compte</button>
+      </form>
+    </div>
+    <%- corners() %>
+  </section>
+</div>
+<%- include('partials/footer') %>

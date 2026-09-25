@@ -1,0 +1,228 @@
+<%- include('partials/header', { title: tribe.name }) %>
+<%
+  const vid = ctx.village.id;
+  const t = `/village/${vid}/tribe`;
+  const tabs = [['overview', 'Aperçu'], ['members', `Membres (${members.length})`], ['diplomacy', 'Diplomatie'], ['wall', 'Mur']];
+  const roleName = { founder: 'Fondateur', leader: 'Chef', member: 'Membre' };
+  const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
+  const relTag = 'inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 font-display text-[10px] font-bold tracking-[0.12em] uppercase';
+  const relBadge = {
+    ally: 'border-rel-ally/60 bg-rel-ally/15 text-rel-ally',
+    nap: 'border-rel-nap/60 bg-rel-nap/15 text-rel-nap',
+    enemy: 'border-rel-enemy/60 bg-rel-enemy/15 text-rel-enemy',
+  };
+  const roleTag = { founder: ui.tagGold, leader: ui.tagGold, member: ui.tagMuted };
+  const isFounder = player.tribeRole === 'founder';
+  const authorOf = (m) => (m.Player ? m.Player.name : 'Joueur supprimé');
+%>
+<%# En-tête de la tribu : identité, chiffres clés, onglets. %>
+<section class="<%= ui.panel %>">
+  <%- panelHead(tribe.name, segTabs(tabs.map(([id, name]) => [`${t}?tab=${id}`, name, tab === id])), { tag: 'h1' }) %>
+  <div class="<%= ui.panelBody %> sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex min-w-0 items-center gap-3">
+      <span class="<%= ui.medallionGold %> size-[46px]"><%- icon('tribe', 'size-[22px]') %></span>
+      <span class="flex min-w-0 flex-col gap-1">
+        <span class="flex flex-wrap items-center gap-2">
+          <span class="<%= ui.tagGold %>"><%= tribe.tag %></span>
+          <span class="<%= roleTag[player.tribeRole] %>"><%= roleName[player.tribeRole] %></span>
+        </span>
+        <span class="text-sm text-parchment-500">Vous êtes <%= roleName[player.tribeRole].toLowerCase() %>.</span>
+      </span>
+    </div>
+    <dl class="grid grid-cols-3 gap-2 sm:w-[420px]">
+      <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Points</dt><dd class="<%= ui.tileValue %>"><%= num(points) %></dd></div>
+      <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Villages</dt><dd class="<%= ui.tileValue %>"><%= num(villages) %></dd></div>
+      <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Membres</dt><dd class="<%= ui.tileValue %>"><%= members.length %> / <%= ctx.cfg.tribe.memberLimit %></dd></div>
+    </dl>
+  </div>
+  <%- corners() %>
+</section>
+
+<% if (tab === 'overview') { %>
+  <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Description') %>
+      <div class="<%= ui.panelBody %>">
+        <% if (canManage) { %>
+          <form method="post" action="<%= t %>/description" class="flex flex-col gap-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <textarea name="description" rows="6" maxlength="5000" class="<%= ui.textarea %> w-full" aria-label="Description"><%= tribe.description %></textarea>
+            <div><button class="<%= btn('dark') %>">Enregistrer</button></div>
+          </form>
+        <% } else if (tribe.description) { %>
+          <p class="whitespace-pre-line text-parchment-300"><%= tribe.description %></p>
+        <% } else { %>
+          <p class="text-parchment-500">Pas encore de description.</p>
+        <% } %>
+        <form method="post" action="<%= t %>/leave" class="mt-2 flex flex-wrap items-center gap-3 border-t border-bronze-900 pt-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="<%= btn('danger', 'sm') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter la tribu</button>
+          <% if (isFounder && members.length > 1) { %><span class="text-xs text-parchment-600">Nommez d'abord un autre fondateur.</span><% } %>
+          <% if (members.length === 1) { %><span class="text-xs text-parchment-600">Vous êtes seul : la tribu sera dissoute.</span><% } %>
+        </form>
+      </div>
+      <%- corners() %>
+    </section>
+
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Derniers messages', `<a href="${t}?tab=wall" class="${ui.link} text-[13px]">Voir le mur</a>`) %>
+      <div class="<%= ui.panelBody %>">
+        <% if (!messages.length) { %><p class="text-parchment-500">Le mur est vide.</p><% } %>
+        <% for (const m of messages.slice(0, 3)) { %>
+          <div class="<%= ui.box %> flex flex-col gap-1.5 p-3">
+            <p class="text-xs text-parchment-500"><strong class="font-bold text-parchment-200"><%= authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
+            <p class="line-clamp-3 text-sm whitespace-pre-line text-parchment-300"><%= m.body %></p>
+          </div>
+        <% } %>
+      </div>
+      <%- corners() %>
+    </section>
+  </div>
+<% } %>
+
+<% if (tab === 'members') { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Membres', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${members.length} / ${ctx.cfg.tribe.memberLimit}</span>`) %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %>">
+        <thead><tr><th>Joueur</th><th>Rôle</th><th class="text-right">Points</th><th class="text-right">Villages</th><th></th></tr></thead>
+        <tbody>
+        <% for (const m of members) { const self = m.id === player.id; %>
+          <tr class="<%= self ? ui.rowActive : '' %>">
+            <td class="font-bold"><a href="/village/<%= vid %>/players/<%= m.id %>" class="<%= ui.linkPlain %>"><%= m.name %></a></td>
+            <td><span class="<%= roleTag[m.tribeRole] %>"><%= roleName[m.tribeRole] %></span></td>
+            <td class="text-right font-extrabold tabular-nums"><%= num(m.points) %></td>
+            <td class="text-right tabular-nums"><%= m.villageCount %></td>
+            <td class="text-right whitespace-nowrap">
+              <div class="flex items-center justify-end gap-2">
+                <% if (!self && isFounder) { %>
+                  <form method="post" action="<%= t %>/members/<%= m.id %>/role" class="inline-flex items-center gap-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <select name="role" class="<%= ui.inputSm %>" aria-label="Rôle de <%= m.name %>">
+                      <% for (const r of ['member', 'leader', 'founder']) { %><option value="<%= r %>" <%= m.tribeRole === r ? 'selected' : '' %>><%= roleName[r] %></option><% } %>
+                    </select>
+                    <button class="<%= btn('dark', 'sm') %>">OK</button>
+                  </form>
+                <% } %>
+                <% if (!self && canManage && TribeRoles[m.tribeRole] < TribeRoles[player.tribeRole]) { %>
+                  <form method="post" action="<%= t %>/members/<%= m.id %>/kick"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>">Exclure</button></form>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+    <%- corners() %>
+  </section>
+
+  <% if (canManage) { %>
+    <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Nouvelle invitation') %>
+        <div class="<%= ui.panelBody %>">
+          <form method="post" action="<%= t %>/invite" class="flex items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="<%= ui.label %> min-w-0 flex-1">Inviter un joueur
+              <input name="name" required placeholder="Pseudo" class="<%= ui.input %> w-full">
+            </label>
+            <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Inviter</button>
+          </form>
+        </div>
+        <%- corners() %>
+      </section>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Invitations en attente', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${invites.length}</span>`) %>
+        <div class="<%= ui.panelBody %>">
+          <% if (!invites.length) { %><p class="text-parchment-500">Aucune.</p><% } %>
+          <% for (const inv of invites) { %>
+            <div class="<%= ui.box %> flex items-center justify-between gap-3 py-2 pr-2 pl-3">
+              <span class="flex min-w-0 items-center gap-2.5">
+                <span class="<%= ui.medallion %> size-7"><%- icon('profile', 'size-3.5') %></span>
+                <span class="truncate font-bold"><%= inv.Player.name %></span>
+              </span>
+              <form method="post" action="<%= t %>/invites/<%= inv.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="<%= btn('danger', 'sm') %>">Retirer</button>
+              </form>
+            </div>
+          <% } %>
+        </div>
+        <%- corners() %>
+      </section>
+    </div>
+  <% } %>
+<% } %>
+
+<% if (tab === 'diplomacy') { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Diplomatie', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${relations.length}</span>`) %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-sm text-parchment-500">La diplomatie est à sens unique : elle indique comment votre tribu considère les autres. Elle colore la carte de vos membres.</p>
+      <% if (canManage) { %>
+        <form method="post" action="<%= t %>/relations" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label class="<%= ui.label %>">Tag de la tribu
+            <input name="tag" required maxlength="6" class="<%= ui.input %> w-32 uppercase">
+          </label>
+          <label class="<%= ui.label %>">Relation
+            <select name="type" class="<%= ui.input %>">
+              <% for (const r of ['ally', 'nap', 'enemy']) { %><option value="<%= r %>"><%= relName[r] %></option><% } %>
+            </select>
+          </label>
+          <button class="<%= btn('gold') %>">Enregistrer</button>
+        </form>
+      <% } %>
+      <% if (!relations.length) { %><p class="text-parchment-500">Aucune relation définie.</p><% } %>
+    </div>
+    <% if (relations.length) { %>
+      <div class="overflow-x-auto border-t border-bronze-900">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Relation</th><th>Tribu</th><% if (canManage) { %><th></th><% } %></tr></thead>
+          <tbody>
+          <% for (const r of relations) { %>
+            <tr>
+              <td class="w-28"><span class="<%= relTag %> <%= relBadge[r.type] %>"><span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span><%= relName[r.type] %></span></td>
+              <td><a href="/village/<%= vid %>/tribes/<%= r.other.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-bold"><span class="<%= ui.tagMuted %>"><%= r.other.tag %></span><%= r.other.name %></a></td>
+              <% if (canManage) { %>
+                <td class="w-12 text-right">
+                  <form method="post" action="<%= t %>/relations/<%= r.id %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button class="<%= ui.iconBtnSm %>" title="Supprimer" aria-label="Supprimer la relation"><%- icon('close', 'size-3', 2.6) %></button>
+                  </form>
+                </td>
+              <% } %>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+    <%- corners() %>
+  </section>
+<% } %>
+
+<% if (tab === 'wall') { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Mur de la tribu', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${messages.length}</span>`) %>
+    <div class="<%= ui.panelBody %> gap-4">
+      <form method="post" action="<%= t %>/messages" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <textarea name="body" rows="3" maxlength="2000" required placeholder="Écrire aux membres de la tribu…" class="<%= ui.textarea %> w-full" aria-label="Message"></textarea>
+        <div><button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Publier</button></div>
+      </form>
+      <% if (!messages.length) { %><p class="text-parchment-500">Aucun message.</p><% } %>
+      <% for (const m of messages) { %>
+        <article class="<%= ui.box %> flex gap-3 p-3.5">
+          <span class="<%= ui.medallion %> size-9"><%- icon('profile', 'size-4') %></span>
+          <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-xs text-parchment-500"><strong class="text-sm font-bold text-parchment-100"><%= authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
+              <% if (m.playerId === player.id || canManage) { %>
+                <form method="post" action="<%= t %>/messages/<%= m.id %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="<%= ui.iconBtnSm %>" title="Supprimer" aria-label="Supprimer le message"><%- icon('trash', 'size-3.5', 2.2) %></button>
+                </form>
+              <% } %>
+            </div>
+            <p class="wrap-break-word whitespace-pre-line text-parchment-300"><%= m.body %></p>
+          </div>
+        </article>
+      <% } %>
+    </div>
+    <%- corners() %>
+  </section>
+<% } %>
+<%- include('partials/footer') %>

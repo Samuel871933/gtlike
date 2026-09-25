@@ -1,0 +1,192 @@
+<!doctype html>
+<%# En jeu, <html> porte le style de jeu (src/web/gameStyles.js) : la page d'accueil garde le style par défaut. %>
+<html lang="fr" class="h-full scheme-dark<%= ctx && gameStyle ? ' game_style' : '' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %>>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>GTLike</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <% const fontLinks = ctx && page === 'account' ? [...new Set(Object.values(GAME_STYLES).map((s) => s.fonts))] : [ctx && gameStyle ? gameStyle.fonts : GAME_STYLES.roman.fonts]; %>
+  <% for (const href of fontLinks) { %><link rel="stylesheet" href="<%= href %>"><% } %>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="relative flex min-h-full flex-col bg-night bg-radial-[ellipse_at_50%_0%] from-halo to-transparent to-60% font-sans text-[15px] leading-snug text-parchment-200 antialiased">
+<%
+  const hasHero = typeof hero !== 'undefined' && hero;
+  const logoBlock = (textCls) => `<span class="text-gold-400">${laurel('size-[30px]')}</span><span class="font-display font-extrabold ${ui.goldText} ${textCls}">GTLIKE</span>`;
+%>
+<% if (hasHero) { %>
+  <%# Paysage de l'accueil, derrière l'en-tête. %>
+  <div class="pointer-events-none absolute inset-x-0 top-0 h-[780px] bg-[url(/img/hero.svg)] bg-cover bg-bottom" aria-hidden="true"></div>
+<% } %>
+
+<% if (ctx) {
+  const v = `/village/${ctx.village.id}`;
+  const navItems = [
+    [v, 'Aperçu', 'overview', page === 'overview', 0],
+    [`${v}/map`, 'Carte', 'map', page === 'map', 0],
+    [`${v}/reports`, 'Rapports', 'reports', page === 'reports', unreadReports],
+    [`${v}/messages`, 'Messages', 'messages', page === 'messages', unreadMessages],
+    [`${v}/tribe`, 'Tribu', 'tribe', page === 'tribe', tribeInvites],
+    [`${v}/ranking`, 'Classement', 'ranking', page === 'ranking', 0],
+    [`${v}/players/${ctx.village.playerId}`, 'Profil', 'profile', page === 'profile', 0],
+  ];
+%>
+<%# 1. Barre du haut : logo, menu principal, rang et réglages. %>
+<header class="relative z-20 border-b-2 border-bronze-500 bg-linear-to-b from-bar-hi to-panel-lo shadow-[0_1px_0_#000,0_6px_18px_rgba(0,0,0,0.5)]">
+<div class="mx-auto flex h-16 w-full max-w-[1600px] items-stretch gap-3 px-3 lg:gap-6 lg:px-6">
+  <a href="<%= v %>" class="flex shrink-0 items-center gap-2 no-underline" title="Aperçu du village"><%- logoBlock('hidden text-xl tracking-[0.18em] sm:inline') %></a>
+  <nav class="flex min-w-0 flex-1 overflow-x-auto xl:justify-center" aria-label="Menu principal">
+    <% for (const [href, label, ic, active, badge] of navItems) { %>
+      <a href="<%= href %>" class="relative flex w-[78px] shrink-0 flex-col items-center justify-center gap-[3px] font-display text-[10px] font-bold tracking-[0.1em] uppercase no-underline transition lg:w-[92px] lg:text-[11px] <%= active ? 'bg-linear-to-b from-gold-400/18 to-gold-400/2 text-gold-200 shadow-[inset_0_-2px_0_var(--color-gold-400)]' : 'text-parchment-400 hover:text-gold-200' %>"<%- active ? ' aria-current="page"' : '' %>>
+        <%- icon(ic, 'size-5') %><%= label %>
+        <% if (badge) { %><span class="absolute top-1.5 right-3 <%= ui.countBadge %>"><%= badge %></span><% } %>
+      </a>
+    <% } %>
+  </nav>
+  <div class="flex shrink-0 items-center gap-2.5">
+    <% if (player) { %>
+      <a href="<%= v %>/ranking" class="hidden h-9 items-center gap-2 rounded-[18px] border border-bronze-700 bg-black/35 pr-3 pl-1 text-parchment-200 no-underline hover:border-bronze-500 md:flex" title="Votre classement sur <%= ctx.world.name %>">
+        <span class="<%= ui.medallion %> size-7"><%- icon('ranking', 'size-3.5') %></span>
+        <span class="flex flex-col leading-[1.05]">
+          <span class="text-[10px] tracking-[0.08em] text-parchment-500">RANG</span>
+          <span class="text-sm font-extrabold tabular-nums"><%= num(playerRank) %> · <%= num(player.points) %> pts</span>
+        </span>
+      </a>
+    <% } %>
+    <a href="<%= v %>/victory" class="<%= page === 'victory' ? ui.iconBtnOn : ui.iconBtn %> max-sm:hidden" title="Fin du monde" aria-label="Fin du monde"><%- icon('victory', 'size-[18px]') %></a>
+    <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-[18px]') %></a>
+    <%# Fausse déconnexion, comme sur Guerre Tribale : on quitte le monde et on revient au choix des mondes (la session reste ouverte). %>
+    <a href="/worlds" class="<%= ui.iconBtn %>" title="Déconnexion : retour au choix des mondes" aria-label="Déconnexion"><%- icon('logout', 'size-[18px]') %></a>
+  </div>
+</div>
+</header>
+
+<%
+  const cap = ctx.state.storageCapacity();
+  const prod = ctx.state.productionPerHour();
+  const idx = myVillages.findIndex((x) => x.id === ctx.village.id);
+  const prev = myVillages.length > 1 ? myVillages[(idx - 1 + myVillages.length) % myVillages.length] : null;
+  const next = myVillages.length > 1 ? myVillages[(idx + 1) % myVillages.length] : null;
+  const pill = 'flex h-11 items-center gap-2.5 rounded-[22px] border border-bronze-800 bg-black/35 pr-3.5 pl-[5px]';
+%>
+<%# 2. Barre du village : navigation entre villages, alertes, ressources. %>
+<div class="relative z-10 border-b border-bronze-800 bg-linear-to-b from-vbar-hi to-vbar-lo">
+<div class="mx-auto flex min-h-[68px] w-full max-w-[1600px] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 lg:px-6">
+  <div class="flex min-w-0 items-center gap-2.5">
+    <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= ui.iconBtn %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.4) %></a><% } %>
+    <div class="flex min-w-0 items-center gap-3 px-1.5">
+      <svg class="h-10 w-9 shrink-0" viewBox="0 0 36 40" aria-hidden="true"><path class="fill-crest stroke-gold-400" d="M3 3h30v14c0 11-8 17-15 20C11 34 3 28 3 17z" stroke-width="2"/><path class="stroke-gold-200" d="M11 14h14M18 10v16" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="flex min-w-0 flex-col gap-0.5">
+        <% if (myVillages.length > 1) { %>
+          <details class="group relative">
+            <summary class="flex cursor-pointer list-none items-center gap-1.5 font-display text-lg font-bold text-parchment-100 hover:text-gold-200 [&::-webkit-details-marker]:hidden">
+              <span class="truncate"><%= ctx.village.name %></span><%- icon('chevronDown', 'size-3.5 text-gold-400 transition group-open:rotate-180', 2.4) %>
+            </summary>
+            <ul class="<%= ui.popover %> left-0 max-h-80 w-72 overflow-y-auto p-1.5">
+              <% for (const mv of myVillages) { %>
+                <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 rounded px-2.5 py-2 text-sm no-underline <%= mv.id === ctx.village.id ? 'bg-gold-400/12 text-gold-200' : 'text-parchment-300 hover:bg-black/40 hover:text-gold-200' %>">
+                  <span class="truncate"><%= mv.name %></span><span class="shrink-0 text-parchment-500 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
+                </a></li>
+              <% } %>
+            </ul>
+          </details>
+        <% } else { %>
+          <a href="/village/<%= ctx.village.id %>" class="truncate font-display text-lg font-bold text-parchment-100 no-underline hover:text-gold-200"><%= ctx.village.name %></a>
+        <% } %>
+        <span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-parchment-500 tabular-nums">
+          <%= ctx.village.x %>|<%= ctx.village.y %> · Continent <%= continent(ctx.village.x, ctx.village.y) %> · <%= num(ctx.village.points) %> points
+          <% if (ctx.state.loyalty < 100) { %><span class="<%= ui.tagRed %>" title="Loyauté">Loyauté <%= Math.floor(ctx.state.loyalty) %></span><% } %>
+          <% if (incomingAttacks) { %>
+            <a href="/village/<%= ctx.village.id %>/place?tab=troops" class="<%= ui.tagRed %> gap-1 no-underline" title="Attaques en approche"><%- icon('attack', 'size-3', 2.2) %><%= incomingAttacks %> attaque<%= incomingAttacks > 1 ? 's' : '' %></a>
+          <% } %>
+        </span>
+      </span>
+    </div>
+    <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= ui.iconBtn %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.4) %></a><% } %>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; %>
+      <div class="<%= pill %>" title="<%= r.label %> : <%= num(prod[r.id]) %> par heure">
+        <span class="<%= ui.medallion %> size-[34px] <%= r.text %>"><%- icon(r.icon, 'size-[17px]') %></span>
+        <span class="flex flex-col gap-[3px]">
+          <span class="text-base leading-none font-extrabold tabular-nums <%= value >= cap ? 'text-blood-450' : '' %>" data-res="<%= value %>" data-rate="<%= prod[r.id] %>" data-cap="<%= cap %>"
+                data-at="<%= ctx.state.resourcesAt.getTime() %>"><%= num(value) %></span>
+          <span class="<%= ui.track %> h-1 w-16"><span class="block h-1 bg-linear-to-r <%= r.bar %> to-gold-200" data-res-bar style="width: <%= Math.min(100, Math.round((value / cap) * 100)) %>%"></span></span>
+        </span>
+        <span class="mt-[7px] self-start text-[11px] text-parchment-500 tabular-nums">+<%= num(prod[r.id]) %></span>
+      </div>
+    <% } %>
+    <div class="<%= pill %>" title="Capacité de l'entrepôt">
+      <span class="<%= ui.medallion %> size-[34px]"><%- icon('storage', 'size-[17px]') %></span>
+      <span class="flex flex-col leading-[1.1]"><span class="text-[11px] text-parchment-500">Entrepôt</span><span class="text-[15px] font-extrabold tabular-nums"><%= num(cap) %></span></span>
+    </div>
+    <div class="<%= pill %>" title="Population utilisée / capacité de la ferme">
+      <span class="<%= ui.medallion %> size-[34px] text-pop"><%- icon('pop', 'size-[17px]') %></span>
+      <span class="flex flex-col leading-[1.1]"><span class="text-[11px] text-parchment-500">Population</span><span class="text-[15px] font-extrabold tabular-nums"><%= num(ctx.popUsed()) %> / <%= num(ctx.state.farmCapacity()) %></span></span>
+    </div>
+  </div>
+</div>
+</div>
+
+<main class="mx-auto flex w-full max-w-[1600px] grow flex-col gap-5 px-3 pt-5 pb-7 lg:px-6">
+<% } else {
+  const w = typeof world !== 'undefined' && world ? world : null;
+  const showLogo = !(typeof hideLogo !== 'undefined' && hideLogo);
+  const lobbyLink = (href, label, active) => `<a href="${href}" class="shrink-0 font-display text-[13px] font-bold tracking-[0.12em] uppercase no-underline transition ${active ? 'text-gold-200' : 'text-parchment-350 hover:text-gold-200'}">${label}</a>`;
+  const current = typeof lobbyPage !== 'undefined' ? lobbyPage : null;
+%>
+<%# En-tête hors partie : accueil, compte, pages publiques d'un monde. %>
+<header class="relative z-20 border-b border-bronze-500/60 bg-linear-to-b from-[rgba(20,15,10,0.92)] to-[rgba(20,15,10,0.6)]">
+<div class="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-6 px-4 sm:px-8 lg:gap-9 lg:px-16">
+  <% if (showLogo) { %>
+    <a href="<%= user ? '/worlds' : '/login' %>" class="flex shrink-0 items-center gap-2 no-underline"><%- logoBlock('text-lg tracking-[0.16em]') %></a>
+  <% } %>
+  <nav class="flex min-w-0 flex-1 gap-6 overflow-x-auto lg:gap-[30px]" aria-label="Menu">
+    <% if (user) { %>
+      <%- lobbyLink('/worlds', 'Accueil', current === 'worlds') %>
+      <% if (w) { %>
+        <%- lobbyLink(`/worlds/${w.slug}/ranking`, 'Classement', current === 'ranking') %>
+        <%- lobbyLink(`/worlds/${w.slug}/victory`, 'Fin du monde', current === 'victory') %>
+        <%- lobbyLink(`/worlds/${w.slug}/play`, 'Jouer', false) %>
+      <% } %>
+      <%- lobbyLink('/account', 'Mon compte', current === 'account') %>
+    <% } else { %>
+      <%- lobbyLink('/login', 'Connexion', current === 'login') %>
+      <%- lobbyLink('/register', 'Inscription', current === 'register') %>
+    <% } %>
+  </nav>
+  <% if (user) { %>
+    <form method="post" action="/logout" class="shrink-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="cursor-pointer font-display text-[13px] font-bold tracking-[0.1em] text-parchment-350 uppercase transition hover:text-gold-200">Déconnexion</button>
+    </form>
+  <% } %>
+</div>
+</header>
+
+<main class="relative z-10 mx-auto flex w-full max-w-[1440px] grow flex-col gap-5 px-4 pt-6 sm:px-8 lg:px-16">
+<% } %>
+
+<% if (ctx && ctx.world.endedAt) { %>
+  <div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-2">
+    <%- icon('victory', 'size-4') %><span class="font-bold">Monde terminé :</span> <%= (ctx.world.victoryState || {}).winnerName %> a gagné. Le monde est en paix.
+    <a href="/village/<%= ctx.village.id %>/victory" class="<%= ui.link %> ml-auto">Détails</a>
+  </div>
+<% } %>
+<% if (asSitter) { %>
+  <div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-2">
+    <span class="font-bold">Mode vacances :</span> vous jouez le compte de <strong><%= player.name %></strong> en tant que remplaçant.
+    <a href="/worlds" class="<%= ui.link %> ml-auto">Revenir à mes mondes</a>
+  </div>
+<% } %>
+<% if (player && player.sleepEndsAt && new Date(player.sleepEndsAt) > now) { const asleep = player.isAsleep(now); %>
+  <div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-2">
+    <%- icon('moon', 'size-4') %><span class="font-bold"><%= asleep ? 'Mode sommeil actif' : 'Mode sommeil programmé' %></span>
+    <span><%= asleep ? `fin ${when(player.sleepEndsAt, now)}` : `début ${when(player.sleepStartsAt, now)}` %></span>
+    <a href="/village/<%= ctx.village.id %>/account" class="<%= ui.link %> ml-auto">Gérer</a>
+  </div>
+<% } %>
+<% if (flash) { %>
+  <div class="<%= flash.type === 'error' ? ui.alertError : ui.alertSuccess %>" role="status"><%= flash.message %></div>
+<% } %>
