@@ -22,7 +22,7 @@
           <tr class="<%= l === lvl ? ui.rowActive : '' %>">
             <td class="whitespace-nowrap">
               <span class="inline-flex items-center gap-2">
-                <span class="<%= l === lvl ? ui.levelBadge : 'flex h-[22px] min-w-6 items-center justify-center rounded-[3px] border border-bronze-700 bg-black/35 px-1 font-display text-xs font-extrabold text-parchment-300' %>"><%= l %></span>
+                <span class="<%= l === lvl ? ui.levelBadge : 'flex h-[22px] min-w-6 items-center justify-center border border-bronze-700 bg-black/35 px-1 font-display text-xs font-extrabold text-parchment-300' %>"><%= l %></span>
                 <% if (l === lvl) { %><span class="<%= ui.tagGold %>">actuel</span><% } %>
               </span>
             </td>
@@ -35,7 +35,6 @@
       </table>
     </div>
     <p class="border-t border-bronze-900 px-4.5 py-3 text-sm text-parchment-500">Niveau maximal : <span class="font-bold text-parchment-300 tabular-nums"><%= t.maxLevel %></span>. Les constructions se lancent aussi depuis le <a href="/village/<%= ctx.village.id %>/main" class="<%= ui.link %>">quartier général</a>.</p>
-    <%- corners() %>
   </section>
 </div>
 <%- include('partials/footer') %>

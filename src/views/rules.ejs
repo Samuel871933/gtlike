@@ -1,0 +1,30 @@
+<%- include('partials/header', { title: 'Règles' }) %>
+<%
+  // Règles du jeu (à adapter par l'équipe) : reprises des principes habituels des jeux de stratégie par mondes.
+  const rules = [
+    ['Un compte par personne', 'Chaque joueur ne possède qu’un seul compte et ne joue qu’un seul joueur par monde. Les comptes multiples sont interdits.'],
+    ['Pas de partage de compte', 'Ton mot de passe reste personnel. Pour faire garder ton compte pendant une absence, utilise le mode vacances : un remplaçant désigné joue à ta place, dans les limites du monde.'],
+    ['Pas d’automatisation', 'Les scripts, robots ou programmes qui jouent à ta place ou envoient des ordres automatiquement sont interdits. Chaque action doit être faite par un humain.'],
+    ['Pas de « pushing »', 'Il est interdit de transférer volontairement ressources, troupes ou villages vers un autre compte pour l’avantager (par exemple entre deux comptes d’une même personne ou lors d’un départ).'],
+    ['Bugs', 'Exploiter une erreur du jeu est interdit. Si tu en trouves une, signale-la à l’équipe.'],
+    ['Respect', 'Insultes, harcèlement, menaces et contenus illégaux ou choquants sont interdits dans les messages, les forums de tribu et les profils.'],
+    ['Noms corrects', 'Les noms de joueurs, de villages et de tribus ne doivent être ni injurieux, ni discriminatoires, ni tromper sur l’identité de quelqu’un.'],
+    ['Sanctions', 'Un manquement à ces règles peut entraîner un avertissement, la suppression de contenus, la suspension ou la suppression du compte.'],
+  ];
+%>
+<div class="flex flex-col gap-3.5 pb-4">
+  <%- include('partials/page-title', { kicker: 'GTLike', title: 'Règles du jeu', sub: 'En jouant, tu acceptes ces règles sur tous les mondes.' }) %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Règlement') %>
+    <ol class="flex flex-col">
+      <% rules.forEach(([title, text], i) => { %>
+        <li class="flex gap-3 border-b border-bronze-800 px-3 py-2.5 last:border-b-0">
+          <span class="flex size-7 shrink-0 items-center justify-center border-2 border-black bg-blood-800 font-display text-sm font-black text-parchment-100 shadow-[2px_2px_0_#000]"><%= i + 1 %></span>
+          <div class="flex flex-col gap-0.5"><b class="font-display tracking-[0.06em] uppercase"><%= title %></b><span class="text-parchment-300"><%= text %></span></div>
+        </li>
+      <% }) %>
+    </ol>
+  </section>
+  <p class="text-sm text-parchment-500">Une question sur une règle ? Consulte l’<a href="/help" class="<%= ui.link %>">aide</a>.</p>
+</div>
+<%- include('partials/footer') %>

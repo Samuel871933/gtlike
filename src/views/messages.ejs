@@ -14,14 +14,13 @@
                 <span class="truncate transition group-hover:text-gold-200 <%= unread ? 'font-extrabold text-parchment-100' : 'text-parchment-300' %>"><%= c.subject %></span>
                 <span class="truncate text-[13px] text-parchment-500">avec <%= others.join(', ') || 'personne' %></span>
               </span>
-              <% if (unread) { %><span class="size-2 shrink-0 rounded-full bg-gold-400 shadow-[0_0_6px_var(--color-gold-400)]" title="Non lu"></span><span class="sr-only">Non lu</span><% } %>
+              <% if (unread) { %><span class="size-2 shrink-0 rotate-45 border border-black bg-gold-200" title="Non lu"></span><span class="sr-only">Non lu</span><% } %>
               <span class="shrink-0 text-right text-[13px] text-parchment-500 tabular-nums"><%= when(c.lastMessageAt, now) %></span>
             </a>
           </li>
         <% } %>
       </ul>
     <% } %>
-    <%- corners() %>
   </section>
 </div>
 <%- include('partials/footer') %>

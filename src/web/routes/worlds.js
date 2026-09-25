@@ -102,6 +102,16 @@ router.get('/worlds/:slug/sit/:playerId', requireAuth, ah(async (req, res) => {
   res.redirect(`/village/${village.id}`);
 }));
 
+// Infos monde : réglages publics d'un monde (vitesses, modules, victoire, tribus, nobles…).
+router.get('/worlds/:slug/info', ah(async (req, res) => {
+  const world = await findWorld(req.params.slug);
+  const [players, villages] = await Promise.all([
+    Player.count({ where: { worldId: world.id } }),
+    Village.count({ where: { worldId: world.id } }),
+  ]);
+  res.render('world-info', { world, cfg: world.getConfig(), players, villages, lobbyPage: 'info' });
+}));
+
 router.get('/worlds/:slug/victory', requireAuth, ah(async (req, res) => {
   res.render('victory', await victoryLocals(await findWorld(req.params.slug)));
 }));

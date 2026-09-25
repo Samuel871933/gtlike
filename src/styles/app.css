@@ -9,155 +9,193 @@
 @import "./game-styles/viking.css";
 
 /*
-  Uniquement la configuration Tailwind : palette et polices de la charte (maquette « refonte »).
-  Aucune règle CSS maison : les composants sont des chaînes de classes utilitaires (src/web/ui.js).
+  Uniquement la configuration Tailwind : palette et polices de la charte (maquette « GTLike », maquettes/GTLike.html).
+  Style « BD » : encre noire, rouge sang, bronze, aplats et ombres portées franches, sans arrondis.
+  Les composants sont des chaînes de classes utilitaires (src/web/ui.js).
 */
 @theme {
-  --font-sans: "Alegreya Sans", Georgia, sans-serif;
+  --font-sans: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-display: "Cinzel", Georgia, serif;
 
-  /* Fonds */
-  --color-night: #0e0b08;
-  --color-panel-hi: #2c2218;
-  --color-panel-top: #1f1913;
-  --color-panel-mid: #1d1711;
-  --color-panel-lo: #15110c;
-  --color-knob-hi: #2b2319;
-  --color-knob-lo: #1c1711;
-  --color-knob-on-hi: #4a3a24;
-  --color-knob-on-lo: #2a2117;
-  --color-well-hi: #3e3122;
-  --color-well-lo: #17120c;
+  /* Fonds : encre et panneaux */
+  --color-night: #0b0b0c;
+  --color-night-deep: #070707;
+  --color-panel-hi: #1a1818;
+  --color-panel-top: #171414;
+  --color-panel-mid: #171414;
+  --color-panel-lo: #121214;
+  --color-knob-hi: #1a1818;
+  --color-knob-lo: #1a1818;
+  --color-knob-on-hi: #4b0b0b;
+  --color-knob-hover: #2a1e14;
+  --color-knob-on-lo: #4b0b0b;
+  --color-well-hi: #0b0b0c;
+  --color-well-lo: #0b0b0c;
+  /* Bandeau rouge des titres de panneau, en-tête de tableau, survol de ligne */
+  --color-head: #651313;
+  --color-head-dark: #4b0b0b;
+  --color-thead: #231414;
+  --color-row-hover: #2a1818;
+  --color-row-alt: #151212;
+  /* Bouton d'action principal (Améliorer, Jouer, Connexion) */
+  --color-action: #991b1b;
+  --color-action-hi: #b52020;
+  --color-action-line: #c23a2a;
+  --color-action-deep: #4b0b0b;
 
   /* Bronze : bordures et filets */
-  --color-bronze-200: #d9b46a;
-  --color-bronze-300: #c9a15a;
-  --color-bronze-400: #b08a48;
-  --color-bronze-500: #8c6b35;
-  --color-bronze-600: #6b5530;
-  --color-bronze-700: #5e4a2b;
-  --color-bronze-800: #4e3e25;
-  --color-bronze-900: #3a2e1d;
-  --color-bronze-950: #7a5a2a;
+  --color-bronze-200: #d5a563;
+  --color-bronze-300: #c08a48;
+  --color-bronze-400: #ad7a3e;
+  --color-bronze-500: #9a6a35;
+  --color-bronze-600: #5e4a3a;
+  --color-bronze-700: #493636;
+  --color-bronze-800: #302828;
+  --color-bronze-900: #241e1e;
+  --color-bronze-950: #6e4c26;
 
-  /* Or : titres, liens, accents */
-  --color-gold-50: #fbe7b0;
-  --color-gold-100: #f7e2a8;
-  --color-gold-200: #f4dba0;
-  --color-gold-300: #efd08a;
-  --color-gold-400: #e6c27a;
-  --color-gold-500: #e3b55e;
-  --color-gold-600: #b0833c;
-  --color-gold-700: #a8742c;
-  --color-gold-ink: #2a1a08;
+  /* Or : accents, liens, sélection */
+  --color-gold-50: #f4e2b2;
+  --color-gold-100: #ecd08a;
+  --color-gold-200: #e0b04a;
+  --color-gold-300: #d6a044;
+  --color-gold-400: #c08a48;
+  --color-gold-500: #b07a3a;
+  --color-gold-600: #9a6a35;
+  --color-gold-700: #7a5228;
+  --color-gold-ink: #0b0b0c;
 
   /* Parchemin : textes */
-  --color-parchment-50: #fff1e0;
-  --color-parchment-100: #f4e6c8;
-  --color-parchment-200: #e9dcc3;
-  --color-parchment-300: #d8c9aa;
-  --color-parchment-350: #cdbb98;
-  --color-parchment-400: #bfae8e;
-  --color-parchment-500: #a8977a;
-  --color-parchment-600: #8e7f66;
-  --color-parchment-700: #7a6c55;
+  --color-parchment-50: #f2ece2;
+  --color-parchment-100: #e8e0d4;
+  --color-parchment-200: #e8e0d4;
+  --color-parchment-300: #d5c5a5;
+  --color-parchment-350: #c9bba0;
+  --color-parchment-400: #bcb09e;
+  --color-parchment-500: #a79e92;
+  --color-parchment-600: #8c8378;
+  --color-parchment-700: #6f675e;
 
-  /* Sang : attaques, alertes, compteurs */
-  --color-blood-200: #f09a70;
+  /* Sang : actions, attaques, alertes, compteurs */
+  --color-blood-100: #f0b77a;
+  --color-blood-200: #f0a08a;
   --color-blood-300: #ee8a70;
   --color-blood-350: #e0806a;
-  --color-blood-400: #e08a5c;
-  --color-blood-450: #f07a5a;
-  --color-blood-500: #d8573a;
-  --color-blood-600: #cc4c31;
-  --color-blood-650: #c4452c;
-  --color-blood-700: #b8452e;
-  --color-blood-800: #9a2f1c;
-  --color-blood-850: #8e2b1a;
-  --color-blood-900: #7e2515;
+  --color-blood-400: #c23a2a;
+  --color-blood-450: #e07a2e;
+  --color-blood-500: #e0543a;
+  --color-blood-600: #b52020;
+  --color-blood-650: #a51d1d;
+  --color-blood-700: #991b1b;
+  --color-blood-800: #7a1212;
+  --color-blood-850: #651313;
+  --color-blood-900: #4b0b0b;
 
   /* Olive : retours, succès */
-  --color-olive-300: #b7c98a;
-  --color-olive-500: #7f9150;
-  --color-olive-700: #4e5e2a;
+  --color-olive-300: #8fa05a;
+  --color-olive-500: #7d8b4a;
+  --color-olive-700: #4a5429;
+
+  /* Acier : soutiens */
+  --color-steel-300: #9fb2c0;
+  --color-steel-500: #7e93a3;
 
   /* Ressources */
-  --color-wood: #c9955b;
+  --color-wood: #c08a48;
   --color-clay: #d8674a;
   --color-iron: #aeb6c0;
-  --color-pop: #b7c98a;
+  --color-pop: #8fa05a;
 
-  /* Diplomatie sur la carte */
-  --color-rel-own: #e6b24e;
+  /* Diplomatie sur la carte (couleurs de Guerre Tribale, tons de la maquette) */
+  --color-rel-own: #e0b04a;
   --color-rel-tribe: #4f7fd9;
   --color-rel-ally: #5db7d6;
-  --color-rel-nap: #9e78cf;
-  --color-rel-enemy: #d24e36;
-  --color-rel-other: #a9774f;
-  --color-rel-barb: #8a847a;
-  --color-rel-special: #c9a15a;
+  --color-rel-nap: #9a8bc4;
+  --color-rel-enemy: #f04a1e;
+  --color-rel-other: #b0804f;
+  --color-rel-barb: #8a8580;
+  --color-rel-special: #c08a48;
 
   /* Terrain de la carte */
-  --color-grass-1: #3d4428;
-  --color-grass-2: #394026;
-  --color-forest: #2a3320;
-  --color-hill: #4a4230;
-  --color-water: #23383c;
-  --color-map-edge: #0f0c08;
-  --color-mini-bg: #2a2f1c;
-  --color-mini-grass-1: #353b22;
-  --color-mini-grass-2: #323820;
-  --color-mini-forest: #222a18;
-  --color-mini-hill: #443c2a;
-  --color-mini-water: #203338;
-  --color-rel-barb-dim: #6e6a60;
-  --color-forest-deep: #1b2314;
-  --color-forest-leaf: #3c4c2a;
-  --color-hill-light: #5e5438;
+  --color-grass-1: #3b3a22;
+  --color-grass-2: #37361f;
+  --color-forest: #1c2413;
+  --color-hill: #4a3f26;
+  --color-water: #1b2a31;
+  --color-map-edge: #0b0b0c;
+  --color-mini-bg: #2e3120;
+  --color-mini-grass-1: #33361f;
+  --color-mini-grass-2: #2e3120;
+  --color-mini-forest: #1f2715;
+  --color-mini-hill: #4a3f26;
+  --color-mini-water: #1b2a31;
+  --color-rel-barb-dim: #6e6a64;
+  --color-forest-deep: #1c2413;
+  --color-forest-leaf: #34421f;
+  --color-hill-light: #6a573c;
   --color-hill-shade: #463f2a;
   --color-hill-line: #7a6d4c;
-  --color-water-line: #4e7075;
+  --color-water-line: #2f4550;
 
-  /* Barres, médaillons, reflets et blasons */
-  --color-halo: rgb(120 70 30 / 0.22);
-  --color-bar-hi: #2a2017;
-  --color-vbar-hi: rgb(40 31 22 / 0.9);
-  --color-vbar-lo: rgb(20 16 11 / 0.9);
-  --color-panel-edge: #1a140e;
-  --color-core-hi: #4a3a26;
-  --color-core-lo: #1a140d;
-  --color-tile-hi: rgb(62 49 34 / 0.5);
-  --color-plate: rgb(12 9 6 / 0.72);
-  --color-plate-strong: rgb(12 9 6 / 0.8);
-  --color-gold-250: #f0d08a;
-  --color-blood-100: #f0b77a;
-  --color-gold-shadow: #4f370f;
-  --color-blood-shadow: #3e1209;
-  --color-glint: rgb(255 214 140 / 0.08);
-  --color-glint-strong: rgb(255 230 170 / 0.15);
-  --color-glow: rgb(230 194 122 / 0.35);
-  --color-glow-soft: rgb(230 194 122 / 0.15);
-  --color-glow-select: rgb(244 219 160 / 0.45);
-  --color-crest: #7e2a1b;
-  --color-shield-edge: #140e08;
-  --color-shield-mark: #3a2208;
+  /* Matériaux des bâtiments sur le plan du village (blocs vus de dessus) */
+  --color-bld-marble: #b8a887;
+  --color-bld-marble-dk: #9c8d70;
+  --color-bld-stone: #8c7b62;
+  --color-bld-stone-dk: #6e5f4a;
+  --color-bld-slate: #6e6352;
+  --color-bld-timber: #5a3a2a;
+  --color-bld-timber-dk: #442b1f;
+  --color-bld-grain: #8a6a3a;
+  --color-bld-grain-dk: #6e532c;
+  --color-bld-soot: #332c2a;
+  --color-bld-fire: #d2541b;
+  --color-bld-field: #6b5a2a;
+  --color-bld-field-lt: #8a7434;
+  --color-bld-rock: #6d6a64;
+  --color-bld-pit: #2a2826;
+  --color-bld-clay: #a0553a;
+  --color-bld-clay-dk: #6e3a24;
+
+  /* Barres, plaques, reflets et blasons */
+  --color-halo: #2a1212;
+  --color-bar-hi: #1a1818;
+  --color-vbar-hi: #1a1818;
+  --color-vbar-lo: #1a1818;
+  --color-panel-edge: #121214;
+  --color-core-hi: #0b0b0c;
+  --color-core-lo: #0b0b0c;
+  --color-tile-hi: #171414;
+  --color-plate: rgb(11 11 12 / 0.85);
+  --color-plate-strong: rgb(11 11 12 / 0.9);
+  --color-gold-250: #e8c77a;
+  --color-gold-shadow: #4b0b0b;
+  --color-blood-shadow: #4b0b0b;
+  --color-glint: rgb(232 224 212 / 0.06);
+  --color-glint-strong: rgb(232 224 212 / 0.1);
+  --color-glow: rgb(224 176 74 / 0.35);
+  --color-glow-soft: rgb(224 176 74 / 0.15);
+  --color-glow-select: rgb(224 176 74 / 0.45);
+  --color-crest: #7a1212;
+  --color-shield-edge: #0b0b0c;
+  --color-shield-mark: #4b0b0b;
+  /* Grain de papier (points clairs) posé sur toute la page */
+  --color-grain: rgb(232 224 212 / 0.035);
 }
 
 /* Carte du monde : villages progressifs et déplacement direct. */
 .map-viewport { cursor: grab; touch-action: none; user-select: none; }
-.map-page-layout { display: grid; grid-template-columns: 190px max-content 300px; align-items: start; justify-content: center; gap: 16px; }
-@media (max-width: 1180px) { .map-page-layout { grid-template-columns: minmax(0, 1fr) 300px; } .map-page-layout > aside:first-child { grid-column: 1 / -1; } }
-@media (max-width: 800px) { .map-page-layout { grid-template-columns: minmax(0, 1fr); } }
 .map-viewport.is-dragging { cursor: grabbing; }
 .map-tile {
   background-image: linear-gradient(rgb(20 27 17 / .08), rgb(20 27 17 / .08)), url('/img/map/terrain-grass.webp');
-  background-size: auto, 504px 504px;
-  background-position: center, var(--terrain-x) var(--terrain-y);
+  /* Texture d'herbe de 9 × 9 cases, calée sur la taille des cases (--tile, ajustée par game.js). */
+  background-size: auto, calc(var(--tile, 48px) * 9) calc(var(--tile, 48px) * 9);
+  background-position: center, calc(var(--terrain-x, 0) * var(--tile, 48px)) calc(var(--terrain-y, 0) * var(--tile, 48px));
   box-shadow: none;
 }
 .map-tile:hover { filter: brightness(1.16); box-shadow: inset 0 0 0 2px rgb(240 208 138 / .45); }
+.map-tile[data-selected] { position: relative; z-index: 4; box-shadow: inset 0 0 0 3px var(--color-gold-200), inset 0 0 14px rgb(244 219 160 / .5) !important; }
 .map-viewport.is-dragging .map-tile { pointer-events: none; }
-.terrain-sprite { display: block; width: 62px; height: 62px; background: center / contain no-repeat; filter: drop-shadow(0 2px 1px rgb(0 0 0 / .42)); transform: rotate(var(--decor-rotate, 0deg)) scale(var(--decor-scale, 1)); }
+.terrain-sprite { display: block; width: var(--tile, 48px); height: var(--tile, 48px); background: center / contain no-repeat; filter: drop-shadow(0 2px 1px rgb(0 0 0 / .42)); transform: rotate(var(--decor-rotate, 0deg)) scale(var(--decor-scale, 1)); }
 .terrain-sprite--forest { background-image: url('/img/map/terrain-forest.png'); }
 .terrain-sprite--hill { background-image: url('/img/map/terrain-hill.png'); }
 .terrain-sprite--water { background-image: url('/img/map/terrain-water.png'); }
@@ -168,16 +206,16 @@
   --village-color: var(--color-rel-other);
   position: relative;
   display: block;
-  width: 66px;
-  height: 66px;
+  width: calc(var(--tile, 48px) * .96);
+  height: calc(var(--tile, 48px) * .96);
   filter: drop-shadow(0 2px 1px rgb(0 0 0 / .9));
 }
 .village-marker::after {
   content: "";
   position: absolute;
   z-index: 0;
-  left: 18px;
-  right: 18px;
+  left: 28%;
+  right: 28%;
   bottom: 1px;
   height: 5px;
   border-radius: 50%;
@@ -187,7 +225,7 @@
 }
 .village-sprite {
   position: absolute;
-  inset: -7px -4px -1px;
+  inset: 0;
   z-index: 1;
   background-image: var(--village-image);
   background-repeat: no-repeat;

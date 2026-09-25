@@ -1,0 +1,48 @@
+<%- include('partials/header', { title: `${section.name} · Forum` }) %>
+<div class="flex flex-col gap-3.5 pb-4">
+  <%- include('partials/page-title', { kicker: 'Forum', title: section.name, sub: section.description }) %>
+  <a href="/forum" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %>Toutes les sections</a>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Sujets', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${num(total)}</span>`) %>
+    <% if (!threads.length) { %>
+      <p class="p-3 text-parchment-500">Aucun sujet pour l’instant. Lance la discussion !</p>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %> min-w-[560px]">
+          <thead><tr><th>Sujet</th><th class="text-right">Messages</th><th>Dernier message</th></tr></thead>
+          <tbody>
+            <% for (const t of threads) { %>
+              <tr>
+                <td>
+                  <a href="/forum/t/<%= t.id %>" class="<%= ui.linkPlain %> block max-w-lg truncate font-bold"><%= t.title %></a>
+                  <span class="text-[13px] text-parchment-500">par <%= t.author ? t.author.username : 'Compte supprimé' %></span>
+                </td>
+                <td class="text-right font-bold tabular-nums"><%= num(t.postCount) %></td>
+                <td class="text-[13px]">
+                  <a href="/forum/t/<%= t.id %>?page=last" class="<%= ui.link %>"><%= whenShort(t.lastPostAt, now) %></a>
+                  <span class="block text-parchment-500"><%= t.lastPost && t.lastPost.author ? t.lastPost.author.username : 'Compte supprimé' %></span>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+    <% if (pages > 1) { %><div class="border-t border-bronze-800 px-3 py-2"><%- include('partials/pager', { page, pages, href: (n) => `/forum/${section.id}?page=${n}` }) %></div><% } %>
+  </section>
+
+  <section class="<%= ui.panel %>" id="nouveau">
+    <%- panelHead('Nouveau sujet') %>
+    <% if (!user) { %>
+      <p class="p-3 text-parchment-500"><a href="/login" class="<%= ui.link %>">Connecte-toi</a> pour ouvrir un sujet.</p>
+    <% } else { %>
+      <form method="post" action="/forum/<%= section.id %>" class="<%= ui.panelBody %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
+        <label class="<%= ui.label %>">Titre<input name="title" value="<%= form.title || '' %>" minlength="3" maxlength="80" required class="<%= ui.input %>"></label>
+        <label class="<%= ui.label %>">Message<textarea name="body" rows="7" maxlength="5000" required class="<%= ui.textarea %>"><%= form.body || '' %></textarea></label>
+        <button class="<%= btn('gold', 'md', 'self-start') %>">Publier le sujet</button>
+      </form>
+    <% } %>
+  </section>
+</div>
+<%- include('partials/footer') %>

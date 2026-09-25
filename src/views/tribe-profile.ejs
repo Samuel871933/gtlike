@@ -2,7 +2,7 @@
 <%
   const roleName = { founder: 'Fondateur', leader: 'Chef', member: 'Membre' };
   const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
-  const relTag = 'inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 font-display text-[10px] font-bold tracking-[0.12em] uppercase';
+  const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-bold tracking-[0.1em] uppercase';
   const relBadge = {
     ally: 'border-rel-ally/60 bg-rel-ally/15 text-rel-ally',
     nap: 'border-rel-nap/60 bg-rel-nap/15 text-rel-nap',
@@ -29,7 +29,6 @@
     </div>
     <% if (tribe.description) { %><p class="border-t border-bronze-900 pt-3 whitespace-pre-line text-parchment-300"><%= tribe.description %></p><% } %>
   </div>
-  <%- corners() %>
 </section>
 
 <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
@@ -50,7 +49,6 @@
         </tbody>
       </table>
     </div>
-    <%- corners() %>
   </section>
 
   <section class="<%= ui.panel %>">
@@ -64,7 +62,6 @@
         </div>
       <% } %>
     </div>
-    <%- corners() %>
   </section>
 </div>
 <%- include('partials/footer') %>

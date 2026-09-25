@@ -1,5 +1,5 @@
 <%- include('partials/header', { title: 'Quartier général' }) %>
-<% const unbuilt = 'flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-bronze-700 bg-radial-[at_35%_30%] from-well-hi to-well-lo to-75% text-parchment-600 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55)]'; %>
+<% const unbuilt = 'flex shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55)]'; %>
 <div class="flex flex-col gap-5">
   <%- include('partials/building-header', { buildingId: 'main' }) %>
 
@@ -42,7 +42,6 @@
           </tbody>
         </table>
       </div>
-      <%- corners() %>
     </section>
 
     <aside class="flex flex-col gap-4 max-xl:order-first">
@@ -52,7 +51,6 @@
         <div class="<%= ui.panelBody %>">
           <%- include('partials/build-queue') %>
         </div>
-        <%- corners() %>
       </section>
 
       <% if (locked.length) { %>
@@ -69,7 +67,6 @@
               </li>
             <% } %>
           </ul>
-          <%- corners() %>
         </section>
       <% } %>
 
@@ -83,7 +80,6 @@
               <% } %>
             </div>
           </div>
-          <%- corners() %>
         </section>
       <% } %>
     </aside>

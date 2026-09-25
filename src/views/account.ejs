@@ -6,16 +6,16 @@
   <div class="grid gap-3 p-4.5 sm:grid-cols-2 xl:grid-cols-3">
     <% for (const s of Object.values(GAME_STYLES)) { const active = gameStyle && gameStyle.id === s.id; %>
       <form method="post" action="/village/<%= vid %>/account/game-style" data-game-style="<%= s.id %>"
-            class="flex flex-col overflow-hidden rounded-md border bg-linear-to-b from-panel-top to-panel-lo text-parchment-200 <%= active ? 'border-gold-400 shadow-[0_0_0_1px_var(--color-gold-400),0_0_18px_var(--color-glow)]' : 'border-bronze-700' %>">
+            class="flex flex-col overflow-hidden border-2 border-black bg-panel-top text-parchment-200 <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),5px_5px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' %>">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="style" value="<%= s.id %>">
-        <div class="relative aspect-966/580 bg-(image:--game-image-village) bg-cover bg-center">
+        <div class="relative m-1 aspect-966/580 border-2 border-black bg-(image:--game-image-village) bg-cover bg-center">
           <span class="absolute top-2 left-2 flex gap-1" aria-hidden="true">
-            <span class="size-4 rounded-full border border-black/40 bg-gold-400"></span>
-            <span class="size-4 rounded-full border border-black/40 bg-bronze-500"></span>
-            <span class="size-4 rounded-full border border-black/40 bg-panel-hi"></span>
+            <span class="size-4 border-2 border-black bg-head"></span>
+            <span class="size-4 border-2 border-black bg-action"></span>
+            <span class="size-4 border-2 border-black bg-gold-400"></span>
           </span>
         </div>
-        <div class="flex flex-1 flex-col gap-2 border-t border-bronze-700 bg-linear-to-b from-panel-hi to-panel-mid p-3.5">
+        <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
           <span class="flex items-center justify-between gap-2">
             <span class="font-display text-lg font-bold tracking-[0.1em] text-gold-400 uppercase"><%= s.name %></span>
             <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
@@ -26,7 +26,6 @@
       </form>
     <% } %>
   </div>
-  <%- corners() %>
 </section>
 <% if (asSitter) { %>
   <section class="<%= ui.panel %>">
@@ -34,7 +33,6 @@
     <div class="<%= ui.panelBody %>">
       <p class="text-parchment-500">Les réglages du compte sont réservés à son titulaire.</p>
     </div>
-    <%- corners() %>
   </section>
 <% } else { %>
 <div class="grid items-start gap-5 lg:grid-cols-2">
@@ -71,7 +69,6 @@
         <% } %>
       <% } %>
     </div>
-    <%- corners() %>
   </section>
 
   <section class="<%= ui.panel %> min-w-0 lg:row-span-2">
@@ -124,7 +121,6 @@
         </ul>
       <% } %>
     </div>
-    <%- corners() %>
   </section>
 
   <section class="<%= ui.panel %>">
@@ -141,7 +137,6 @@
         <button class="<%= btn('red') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter ce monde</button>
       </form>
     </div>
-    <%- corners() %>
   </section>
 </div>
 <% } %>

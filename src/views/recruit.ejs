@@ -36,7 +36,6 @@
       </div>
       <div class="flex justify-end border-t border-bronze-900 px-4.5 py-3"><button class="<%= btn('danger', 'md') %>"><%- icon('trash', 'size-3.5', 2) %>Renvoyer</button></div>
     </form>
-    <%- corners() %>
   </section>
 <% } else { %>
   <div class="<%= hasRecruit ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]' : 'grid items-start gap-5 lg:grid-cols-2' %>">
@@ -78,7 +77,6 @@
           </div>
           <div class="flex justify-end border-t border-bronze-900 px-4.5 py-3"><button class="<%= btn('gold', 'md') %>"><%- icon('plus', 'size-3.5', 2.4) %>Recruter</button></div>
         </form>
-        <%- corners() %>
       </section>
     <% } %>
 
@@ -107,7 +105,6 @@
             <%- include('partials/recruit-queue', { orders: queue }) %>
           <% } %>
         </div>
-        <%- corners() %>
       </section>
 
       <% if (rtab === 'recruit' && locked.length) { %>
@@ -116,7 +113,7 @@
           <ul class="flex flex-col">
             <% for (const o of locked) { %>
               <li class="flex items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0">
-                <span class="flex size-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-bronze-700 bg-radial-[at_35%_30%] from-well-hi to-well-lo to-75% text-parchment-600"><%- unitIcon(o.type.id, 'size-4') %></span>
+                <span class="flex size-8 shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600"><%- unitIcon(o.type.id, 'size-4') %></span>
                 <span class="flex min-w-0 flex-col">
                   <span class="font-bold text-parchment-300"><%= o.type.name %></span>
                   <span class="text-[13px] text-parchment-500"><%= o.reasons.join(' · ') %></span>
@@ -127,7 +124,6 @@
               </li>
             <% } %>
           </ul>
-          <%- corners() %>
         </section>
       <% } %>
     </div>
@@ -139,7 +135,6 @@
     <section class="<%= ui.panel %>">
       <%- panelHead('Vos paladins') %>
       <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Vous n'avez pas encore de paladin.</p></div>
-      <%- corners() %>
     </section>
   <% } %>
   <% for (const k of skilled.knights) {
@@ -248,7 +243,6 @@
           <% } %>
         </div>
       </div>
-      <%- corners() %>
     </section>
   <% } %>
 <% } %>
@@ -294,7 +288,6 @@
         <% } %>
       </ul>
     </div>
-    <%- corners() %>
   </section>
 <% } %>
 </div>

@@ -21,7 +21,7 @@
       <ul class="flex flex-col gap-3">
         <% for (const m of conversation.messages) { const mine = m.playerId === myId; %>
           <li class="flex <%= mine ? 'justify-end' : '' %>">
-            <div class="max-w-[85%] rounded border px-4 py-3 <%= mine ? 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/3' : 'border-bronze-900 bg-black/30' %>">
+            <div class="max-w-[85%] border-2 border-black px-3.5 py-2.5 shadow-[3px_3px_0_#050505] <%= mine ? 'border-l-4 border-l-bronze-500 bg-head-dark/70' : 'bg-panel-lo' %>">
               <p class="text-xs text-parchment-500"><strong class="font-display text-[13px] <%= mine ? 'text-gold-200' : 'text-parchment-200' %>"><%= m.author ? m.author.name : 'Joueur supprimé' %></strong> · <span class="tabular-nums"><%= when(m.createdAt, now) %></span></p>
               <p class="mt-1 whitespace-pre-line wrap-break-word text-parchment-200"><%= m.body %></p>
             </div>
@@ -29,7 +29,6 @@
         <% } %>
       </ul>
     </div>
-    <%- corners() %>
   </section>
 
   <% if (others.length) { %>
@@ -41,7 +40,6 @@
           <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Répondre</button>
         </div>
       </form>
-      <%- corners() %>
     </section>
   <% } %>
 </div>

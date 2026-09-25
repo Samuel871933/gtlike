@@ -1,12 +1,17 @@
 'use strict';
 
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const { User } = require('../models');
+const { User, PasswordReset } = require('../models');
+const Mailer = require('./Mailer');
 const GameError = require('./GameError');
 
 const USERNAME_RE = /^[A-Za-z0-9_\-. ]{3,24}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESET_TTL_MS = 60 * 60 * 1000;
+const RESET_MAX_PER_HOUR = 3;
+const hashToken = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
 
 class AuthService {
   static async register({ username, email, password }) {
@@ -36,6 +41,44 @@ class AuthService {
       throw new GameError('Identifiants incorrects.', 401);
     }
     return user;
+  }
+
+  /**
+   * « Mot de passe oublié » : envoie un lien de réinitialisation valable une heure. Ne dit jamais si l'adresse
+   * existe (même réponse dans tous les cas) ; au plus trois demandes par heure et par compte.
+   */
+  static async requestPasswordReset(email, baseUrl, now = new Date()) {
+    const address = String(email || '').trim().toLowerCase();
+    if (!EMAIL_RE.test(address)) throw new GameError('Adresse e-mail invalide.');
+    const user = await User.findOne({ where: { email: address } });
+    if (!user) return;
+    const recent = await PasswordReset.count({ where: { userId: user.id, createdAt: { [Op.gt]: new Date(now - RESET_TTL_MS) } } });
+    if (recent >= RESET_MAX_PER_HOUR) return;
+    const token = crypto.randomBytes(32).toString('hex');
+    await PasswordReset.create({ userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + RESET_TTL_MS) });
+    await Mailer.send({
+      to: user.email,
+      subject: 'GTLike : réinitialisation du mot de passe',
+      text: `Bonjour ${user.username},\n\nPour choisir un nouveau mot de passe, ouvre ce lien (valable une heure) :\n${baseUrl}/password/reset/${token}\n\nSi tu n'es pas à l'origine de cette demande, ignore ce message.`,
+    });
+  }
+
+  /** Demande de réinitialisation encore valable pour ce jeton, sinon null. */
+  static async findReset(token, now = new Date()) {
+    if (!/^[a-f0-9]{64}$/.test(String(token || ''))) return null;
+    const reset = await PasswordReset.findOne({ where: { tokenHash: hashToken(token), usedAt: null, expiresAt: { [Op.gt]: now } } });
+    return reset || null;
+  }
+
+  /** Nouveau mot de passe depuis un lien valable ; le lien et les autres demandes du compte deviennent inutilisables. */
+  static async resetPassword(token, password, now = new Date()) {
+    const reset = await AuthService.findReset(token, now);
+    if (!reset) throw new GameError('Ce lien de réinitialisation est invalide ou a expiré.', 400);
+    if (String(password || '').length < 8) throw new GameError('Le mot de passe doit faire au moins 8 caractères.');
+    const passwordHash = await bcrypt.hash(String(password), 10);
+    await User.update({ passwordHash }, { where: { id: reset.userId } });
+    await PasswordReset.update({ usedAt: now }, { where: { userId: reset.userId, usedAt: null } });
+    return User.findByPk(reset.userId);
   }
 }
 

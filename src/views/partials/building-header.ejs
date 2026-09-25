@@ -1,32 +1,30 @@
-<%# En-tête commun des pages de bâtiment : médaillon, nom, niveau, description, statistique principale (actuel → prochain niveau). %>
+<%# En-tête commun des pages de bâtiment (barre de titre de la maquette) : bloc du bâtiment, nom, niveau, description, statistique principale (actuel → prochain niveau). %>
 <% const bType = registry.building(buildingId); const bLevel = ctx.state.level(buildingId); const stat = buildingStat(buildingId, bLevel, ctx.cfg);
    const nextStat = bLevel < bType.maxLevel ? buildingStat(buildingId, bLevel + 1, ctx.cfg) : null; %>
 <section class="<%= ui.panel %>">
-  <div class="flex flex-col gap-4 px-4.5 py-4 sm:flex-row sm:items-center sm:gap-5">
-    <div class="flex min-w-0 flex-1 items-center gap-4">
-      <span class="relative block size-18 shrink-0 rounded-full p-[3px] <%= bLevel ? 'bg-linear-to-b from-gold-300 to-gold-700' : 'bg-bronze-700' %> shadow-[0_3px_8px_rgba(0,0,0,0.6)]">
-        <span class="flex size-full items-center justify-center rounded-full border border-black/60 bg-radial-[at_35%_30%] from-well-hi to-well-lo to-75% <%= bLevel ? 'text-gold-300' : 'text-parchment-600' %>">
-          <%- buildingIcon(buildingId, 'size-8', 1.6) %>
-        </span>
-        <% if (bLevel) { %><span class="absolute -right-1.5 -bottom-1 <%= ui.levelBadge %>"><%= bLevel %></span><% } %>
+  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
+  <div class="flex flex-col gap-3 py-2.5 pr-3.5 pl-5 sm:flex-row sm:items-center sm:gap-5">
+    <div class="flex min-w-0 flex-1 items-center gap-3.5">
+      <span class="relative flex size-14 shrink-0 items-center justify-center border-[3px] border-black shadow-[4px_4px_0_rgba(0,0,0,0.6)] <%= bLevel ? 'bg-panel-hi text-gold-400' : 'border-dashed bg-night text-parchment-600' %>">
+        <%- buildingIcon(buildingId, 'size-7', 1.8) %>
+        <span class="absolute top-0.5 left-0.5 <%= ui.levelBadge %> min-w-0">LV.<%= bLevel %></span>
       </span>
-      <div class="flex min-w-0 flex-col gap-1">
-        <h1 class="m-0 font-display text-xl font-bold tracking-[0.06em] text-gold-200 sm:text-2xl"><%= bType.name %> <span class="font-sans text-base font-medium tracking-normal text-parchment-500"><%= bLevel ? `niveau ${bLevel}` : 'non construit' %></span></h1>
-        <p class="text-[15px] text-parchment-400"><%= bType.description %></p>
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <h1 class="m-0 font-display text-2xl font-black tracking-[0.1em] text-parchment-100 uppercase [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)] sm:text-[28px]"><%= bType.name %> <span class="font-sans text-sm font-bold tracking-[0.08em] text-gold-400 [text-shadow:none]">· <%= bLevel ? `NIVEAU ${bLevel}` : 'NON CONSTRUIT' %></span></h1>
+        <p class="text-sm text-parchment-500"><%= bType.description %></p>
       </div>
     </div>
     <% if (stat) { %>
-      <dl class="<%= ui.boxGold %> flex shrink-0 flex-col gap-1 px-4 py-2.5 sm:min-w-56 sm:text-right">
-        <dt class="<%= ui.kicker %>"><%= stat.label %></dt>
+      <dl class="flex shrink-0 flex-col border border-bronze-800 border-t-2 border-t-bronze-500 bg-night px-2.5 py-1 sm:min-w-52 sm:text-right">
+        <dt class="text-[10px] tracking-[0.14em] text-parchment-500 uppercase"><%= stat.label %></dt>
         <dd class="flex flex-wrap items-baseline gap-x-2 sm:justify-end">
-          <span class="text-lg font-extrabold text-parchment-100 tabular-nums"><%= stat.value %></span>
+          <span class="text-lg font-bold text-parchment-100 tabular-nums"><%= stat.value %></span>
           <% if (nextStat) { %>
-            <span class="inline-flex items-center gap-1.5 text-sm text-parchment-500"><span class="text-gold-400"><%- icon('arrowRight', 'size-3.5', 2.2) %></span><span class="font-bold text-gold-200 tabular-nums"><%= nextStat.value %></span> au niveau <%= bLevel + 1 %></span>
+            <span class="inline-flex items-center gap-1 text-[13px] text-parchment-500"><span class="text-gold-400"><%- icon('arrowRight', 'size-3', 2.6) %></span><span class="font-bold text-gold-200 tabular-nums"><%= nextStat.value %></span> au niv. <%= bLevel + 1 %></span>
           <% } %>
         </dd>
       </dl>
     <% } %>
   </div>
-  <% if (typeof body !== 'undefined' && body) { %><div class="border-t border-bronze-900 px-4.5 py-3"><%- body %></div><% } %>
-  <%- corners() %>
+  <% if (typeof body !== 'undefined' && body) { %><div class="border-t border-bronze-800 px-3.5 py-2.5"><%- body %></div><% } %>
 </section>

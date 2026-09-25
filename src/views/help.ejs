@@ -1,0 +1,53 @@
+<%- include('partials/header', { title: 'Aide' }) %>
+<%
+  const faq = [
+    ['Premiers pas', [
+      ['Comment démarrer ?', 'Choisis un monde sur la page d’accueil et rejoins-le : tu reçois un village de départ. Monte d’abord tes mines (camp de bois, carrière d’argile, mine de fer), ton entrepôt et ta ferme.'],
+      ['À quoi servent les ressources ?', 'Le bois, l’argile et le fer paient les bâtiments, les unités et les recherches. Ils sont produits en continu par tes mines et stockés dans l’entrepôt : au-delà de sa capacité, la production est perdue.'],
+      ['Qu’est-ce que la population ?', 'Chaque bâtiment et chaque unité occupe de la population. La ferme fixe le maximum : quand elle est pleine, il faut l’agrandir avant de construire ou de recruter.'],
+    ]],
+    ['Village', [
+      ['Comment construire ?', 'Dans la vue du village, clique un bâtiment pour voir le coût de son prochain niveau et l’améliorer, ou passe par le quartier général. La file de construction a un nombre limité d’emplacements ; une annulation rembourse une partie des ressources.'],
+      ['Comment protéger mes ressources ?', 'La cachette met une partie de tes ressources à l’abri du pillage, et la muraille renforce la défense de toutes les troupes présentes dans le village.'],
+    ]],
+    ['Armée', [
+      ['Où recruter ?', 'L’infanterie se forme à la caserne, la cavalerie à l’écurie et les engins de siège à l’atelier. Certaines unités doivent d’abord être recherchées à la forge.'],
+      ['Comment attaquer ou soutenir ?', 'Depuis le point de ralliement, choisis tes unités et la cible, puis « Attaquer » ou « Soutenir ». Sur la carte, clique un village pour ouvrir ses actions. Les modèles d’armée (ordres rapides) pré-remplissent les unités.'],
+      ['Qu’est-ce qui décide d’un combat ?', 'L’attaque et la défense des unités, la muraille, la chance et la morale. Les attaques gagnantes pillent des ressources.'],
+      ['Qu’est-ce que la morale ?', 'Elle protège les petits joueurs : ta force d’attaque est multipliée par 3 × (points du défenseur ÷ tes points) + 30 %, entre 30 % et 100 %. Contre les barbares, elle reste à 100 %. Elle s’affiche au survol d’un village sur la carte, sur sa page et avant chaque attaque.'],
+      ['À quoi servent les éclaireurs ?', 'Envoyés seuls, ils espionnent un village : troupes, ressources et bâtiments apparaissent dans le rapport s’ils survivent.'],
+      ['Comment conquérir un village ?', 'Frappe des pièces d’or à l’académie pour former des nobles. Chaque noble qui arrive baisse la loyauté du village ; à zéro, il t’appartient.'],
+    ]],
+    ['Carte', [
+      ['Comment me déplacer ?', 'Fais glisser la carte, saisis des coordonnées dans « Aller à » ou clique la mini-carte. La recherche retrouve un joueur, un village ou une tribu.'],
+      ['Que montrent les calques ?', 'L’influence de ta tribu, les zones ennemies, le quadrillage de 5 cases et les frontières des continents. Tes choix sont mémorisés dans ton navigateur.'],
+      ['Que signifient les couleurs ?', 'Jaune : tes villages ; bleu : ta tribu ; turquoise : alliés ; violet : pactes de non-agression ; rouge : ennemis ; brun : autres joueurs ; gris : barbares.'],
+    ]],
+    ['Tribus et compte', [
+      ['À quoi sert une tribu ?', 'Jouer ensemble : mur de la tribu, diplomatie (alliés, PNA, ennemis) et classement commun. Les membres ne peuvent pas s’attaquer entre eux si le monde l’interdit.'],
+      ['Je pars quelques jours', 'Active le mode vacances depuis ton compte en désignant un remplaçant. Sur certains mondes, le mode sommeil protège aussi ton village la nuit.'],
+      ['Comment se termine un monde ?', 'Par la domination : une tribu qui contrôle une part suffisante des villages et la conserve assez longtemps gagne le monde. Le détail est sur la page « Fin du monde » de chaque monde.'],
+    ]],
+  ];
+%>
+<div class="flex flex-col gap-3.5 pb-4">
+  <%- include('partials/page-title', { kicker: 'GTLike', title: 'Aide', sub: 'Les réponses aux questions les plus fréquentes.' }) %>
+  <div class="grid items-start gap-3.5 md:grid-cols-2">
+    <% for (const [name, items] of faq) { %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead(name) %>
+        <% for (const [q, a] of items) { %>
+          <details class="group border-b border-bronze-800 last:border-b-0">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 font-bold hover:bg-thead [&::-webkit-details-marker]:hidden">
+              <span class="flex items-center gap-2"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= q %></span>
+              <span class="text-gold-400 transition group-open:rotate-180"><%- icon('chevronDown', 'size-3.5', 2.6) %></span>
+            </summary>
+            <p class="px-3 pb-2.5 pl-6 text-parchment-300"><%= a %></p>
+          </details>
+        <% } %>
+      </section>
+    <% } %>
+  </div>
+  <p class="text-sm text-parchment-500">Voir aussi les <a href="/rules" class="<%= ui.link %>">règles du jeu</a>.</p>
+</div>
+<%- include('partials/footer') %>

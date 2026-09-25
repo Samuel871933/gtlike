@@ -51,14 +51,14 @@
               <a href="/village/<%= vid %>/reports/<%= r.id %>" class="group flex min-w-0 flex-1 items-center gap-3 no-underline">
                 <span class="relative">
                   <span class="<%= k.medal %> size-8 <%= r.isRead ? 'opacity-70' : '' %>"><%- icon(k.icon, 'size-[15px]', 2.1) %></span>
-                  <span class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border border-night <%= k.dot %>" aria-hidden="true"></span>
+                  <span class="absolute -right-0.5 -bottom-0.5 size-2.5 border border-night <%= k.dot %>" aria-hidden="true"></span>
                 </span>
                 <span class="flex min-w-0 flex-1 flex-col">
                   <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-extrabold text-parchment-100' %>"><%= r.title %></span>
                   <span class="text-xs text-parchment-500 tabular-nums sm:hidden"><%= when(r.happenedAt, now) %></span>
                 </span>
                 <% if (!r.isRead) { %>
-                  <span class="size-2 shrink-0 rounded-full bg-gold-400 shadow-[0_0_6px_var(--color-gold-400)]" title="Non lu"></span><span class="sr-only">Non lu</span>
+                  <span class="size-2 shrink-0 rotate-45 border border-black bg-gold-200" title="Non lu"></span><span class="sr-only">Non lu</span>
                 <% } %>
                 <span class="hidden shrink-0 text-[13px] text-parchment-500 tabular-nums sm:block"><%= when(r.happenedAt, now) %></span>
               </a>
@@ -74,7 +74,6 @@
         </div>
       <% } %>
     <% } %>
-    <%- corners() %>
   </section>
 </div>
 <%- include('partials/footer') %>

@@ -27,7 +27,6 @@
       </span>
     </div>
   </div>
-  <%- corners() %>
 </section>
 
 <% if (tab === 'send') { %>
@@ -57,7 +56,6 @@
       <span class="self-center text-sm text-parchment-500">Jusqu'à <strong class="text-parchment-300 tabular-nums"><%= num(merchants.free * cap) %></strong> ressources avec les marchands libres.</span>
     </div>
   </form>
-  <%- corners() %>
 </section>
 <% } %>
 
@@ -108,7 +106,6 @@
       </table>
     </div>
   <% } %>
-  <%- corners() %>
 </section>
 <% } %>
 
@@ -136,7 +133,6 @@
     </form>
     <p class="text-sm text-parchment-500">Les ressources et les marchands sont réservés tant que l'offre est en ligne. Rapport maximal 1:<%= ctx.cfg.market.maxRatio %>.</p>
   </div>
-  <%- corners() %>
 </section>
 
 <section class="<%= ui.panel %>">
@@ -163,7 +159,6 @@
       </table>
     </div>
   <% } %>
-  <%- corners() %>
 </section>
 <% } %>
 
@@ -192,7 +187,6 @@
         </div>
       <% } %>
     </div>
-    <%- corners() %>
   </section>
 
   <section class="<%= ui.panel %>">
@@ -217,7 +211,6 @@
         </div>
       <% } %>
     </div>
-    <%- corners() %>
   </section>
 </div>
 <% } %>

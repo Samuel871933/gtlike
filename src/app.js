@@ -37,6 +37,7 @@ function createApp() {
 
   app.use(require('./web/routes/auth'));
   app.use(require('./web/routes/worlds'));
+  app.use(require('./web/routes/forum'));
   app.use('/village/:villageId', require('./web/routes/village'));
 
   app.use((req, res) => res.status(404).render('error', { message: 'Page introuvable.' }));

@@ -50,6 +50,8 @@ class TribeService {
       const tribe = await Tribe.create({ worldId: player.worldId, name, tag }, { transaction: t });
       await player.update({ tribeId: tribe.id, tribeRole: 'founder', tribeJoinedAt: new Date() }, { transaction: t });
       await TribeInvite.destroy({ where: { playerId }, transaction: t });
+      // Forum de la tribu : Annonces, Attaque, Défense, Taverne, Vacances, Suggestions.
+      await require('./TribeForumService').createDefaults(tribe.id, t);
       return tribe;
     });
   }
@@ -112,6 +114,8 @@ class TribeService {
   static async dissolve(tribeId, t) {
     await TribeRelation.destroy({ where: { [Op.or]: [{ tribeId }, { otherTribeId: tribeId }] }, transaction: t });
     await TribeMessage.destroy({ where: { tribeId }, transaction: t });
+    // Chargé ici : TribeForumService dépend lui-même de TribeService.
+    await require('./TribeForumService').destroyTribe(tribeId, t);
     await TribeInvite.destroy({ where: { tribeId }, transaction: t });
     await Tribe.destroy({ where: { id: tribeId }, transaction: t });
   }

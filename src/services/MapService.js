@@ -9,7 +9,7 @@ class MapService {
     return Village.findAll({
       where: { worldId },
       attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
+      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
       order: [['id', 'ASC']],
     });
   }
@@ -26,7 +26,7 @@ class MapService {
         y: { [Op.between]: [y0, y0 + size - 1] },
       },
       attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
+      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
     });
     const byCoord = new Map(villages.map((v) => [`${v.x}|${v.y}`, v]));
     const rows = [];
@@ -109,6 +109,38 @@ class MapService {
   }
 
   /** Profil public d'un joueur : tribu, rang, villages. */
+  /**
+   * Recherche de la carte : joueurs, villages ou tribus dont le nom (ou le tag) contient le texte, sans tenir compte
+   * de la casse. Renvoie au plus 12 résultats, chacun avec des coordonnées où centrer la carte.
+   */
+  static async search(worldId, type, text) {
+    const q = String(text || '').trim().toLowerCase().slice(0, 32);
+    if (q.length < 2) return [];
+    const like = (col) => sequelize.where(sequelize.fn('lower', sequelize.col(col)), { [Op.like]: `%${q.replace(/[%_\\]/g, '')}%` });
+    if (type === 'village') {
+      const rows = await Village.findAll({ where: { worldId, [Op.and]: [like('Village.name')] }, include: [{ model: Player, attributes: ['name'] }], order: [['points', 'DESC']], limit: 12 });
+      return rows.map((v) => ({ label: v.name, sub: `${v.Player ? v.Player.name : 'Barbares'} · ${v.points} pts`, x: v.x, y: v.y, villageId: v.id }));
+    }
+    if (type === 'tribe') {
+      const rows = await Tribe.findAll({ where: { worldId, [Op.or]: [like('Tribe.name'), like('Tribe.tag')] }, order: [['name', 'ASC']], limit: 12 });
+      const out = [];
+      for (const t of rows) {
+        const members = await Player.findAll({ where: { tribeId: t.id }, attributes: ['id', 'points'] });
+        const best = members.length ? await Village.findOne({ where: { playerId: { [Op.in]: members.map((m) => m.id) } }, order: [['points', 'DESC']] }) : null;
+        const pts = members.reduce((n, m) => n + m.points, 0);
+        out.push({ label: `[${t.tag}] ${t.name}`, sub: `${members.length} membre(s) · ${pts} pts`, x: best ? best.x : null, y: best ? best.y : null, tribeId: t.id });
+      }
+      return out;
+    }
+    const rows = await Player.findAll({ where: { worldId, [Op.and]: [like('Player.name')] }, order: [['points', 'DESC']], limit: 12 });
+    const out = [];
+    for (const p of rows) {
+      const v = await Village.findOne({ where: { playerId: p.id }, order: [['points', 'DESC']] });
+      out.push({ label: p.name, sub: `${p.points} pts · ${p.villageCount || 0} village(s)`, x: v ? v.x : null, y: v ? v.y : null, playerId: p.id });
+    }
+    return out;
+  }
+
   static async playerProfile(worldId, playerId) {
     const player = await Player.findOne({ where: { id: Number(playerId), worldId }, include: [{ model: Tribe }] });
     if (!player) return null;

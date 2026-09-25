@@ -91,3 +91,62 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
     assert.ok([200, 302].includes(r.status), `${page} → ${r.status}`);
   }
 });
+
+test('pages de la maquette GTLike : outils de la carte, contenus publics, mot de passe oublié', async () => {
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Carole', email: 'c@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const vid = joined.location.split('/').pop();
+
+  // Aperçu : encart du bâtiment sélectionnable avec son bouton d'amélioration, menu des rapports dans l'en-tête.
+  const overview = await http(joined.location);
+  assert.match(overview.html, /data-plot-info="main"/);
+  assert.match(overview.html, /data-menu="reports"/);
+
+  const map = await http(`${joined.location}/map?find=player&q=car`);
+  assert.equal(map.status, 200);
+  assert.match(map.html, /data-map-menu/);
+  assert.match(map.html, />Carole</, 'la recherche trouve le joueur');
+  const jump = await http(`${joined.location}/map?find=coords&q=500|500`);
+  assert.equal(jump.status, 302);
+  assert.match(jump.location, /x=500&y=500/);
+
+  const tpl = await http(`${joined.location}/templates`, { method: 'POST', form: { name: 'Lanciers', spear: '5', _csrf: tokenOf(overview.html) } });
+  assert.equal(tpl.status, 302);
+  assert.match((await http(`${joined.location}/place`)).html, /Lanciers/);
+  const fav = await http(`${joined.location}/favorites/${vid}`, { method: 'POST', form: { _csrf: tokenOf(overview.html) } });
+  assert.equal(fav.status, 302);
+
+  const newThread = await http('/forum/general', { method: 'POST', form: { title: 'Bonjour', body: 'Premier message', _csrf: tokenOf(overview.html) } });
+  assert.match(newThread.location, /^\/forum\/t\/\d+$/);
+  assert.match((await http(newThread.location)).html, /Premier message/);
+  assert.equal((await client()('/forum/general', { method: 'POST', form: { title: 'x' } })).status, 403, 'CSRF exigé');
+
+  for (const page of [`${joined.location}/villages/${vid}`, `${joined.location}/invite`, '/rules', '/help', '/worlds/w1/info', '/forum', '/forum/general']) {
+    const r = await http(page);
+    assert.equal(r.status, 200, `${page} → ${r.status}`);
+  }
+
+  // Forum de la tribu : onglet de la page Tribu, sujet créé puis affiché.
+  await http(`${joined.location}/tribe/create`, { method: 'POST', form: { name: 'Les Carolingiens', tag: 'CARO', _csrf: tokenOf(overview.html) } });
+  const tab = await http(`${joined.location}/tribe?tab=forum`);
+  assert.equal(tab.status, 302, "l'onglet Forum ouvre le premier sous-forum");
+  const tforum = await http(tab.location);
+  assert.equal(tforum.status, 200);
+  for (const name of ['Annonces', 'Attaque', 'Défense', 'Taverne', 'Vacances', 'Suggestions']) assert.match(tforum.html, new RegExp(`>\\s*${name}\\s*<`));
+  assert.match(tforum.html, /Nouveaux messages du forum/);
+  const sectionId = tab.location.match(/\/tribe\/forum\/(\d+)$/)[1];
+  assert.equal((await http(`${tab.location}?nouveau=sondage`)).status, 200);
+  const tthread = await http(`${joined.location}/tribe/forum/${sectionId}`, { method: 'POST', form: { title: 'Plan', body: 'Attaque à 20 h', _csrf: tokenOf(overview.html) } });
+  assert.match(tthread.location, /\/tribe\/forum\/t\/\d+$/);
+  assert.match((await http(tthread.location)).html, /Attaque à 20 h/);
+
+  const anon = client();
+  const forgot = await anon('/password/forgot');
+  assert.equal(forgot.status, 200);
+  const sent = await anon('/password/forgot', { method: 'POST', form: { email: 'c@example.com', _csrf: tokenOf(forgot.html) } });
+  assert.match(sent.html, /Si un compte utilise cette adresse/);
+  assert.equal((await anon(`/password/reset/${'0'.repeat(64)}`)).status, 400);
+});

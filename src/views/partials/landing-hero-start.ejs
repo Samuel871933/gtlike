@@ -1,0 +1,66 @@
+<%#
+  Héros de l'accueil (maquette « GTLike », écran d'accueil) : fond rouge, soleil couchant, silhouette de la ville,
+  titre, puis trois colonnes : aperçu du village, présentation du jeu, carte de connexion ou des mondes.
+  La page ouvre la carte avec ce partial, y place son contenu, puis la referme avec landing-hero-end.
+  Locals : cta = { href, label } (bouton principal), login = true pour afficher « Se connecter ».
+%>
+<%
+  // Silhouette de la ville, déterministe : colonnes plus hautes et quelques corniches.
+  const skyline = Array.from({ length: 40 }, (_, i) => {
+    const col = i % 7 === 3;
+    const r = ((Math.imul(i + 3, 2654435761) >>> 0) % 1000) / 1000;
+    return { grow: col ? 'grow-[0.4]' : 'grow', h: col ? 60 + r * 30 : 20 + r * 50, cap: i % 9 === 0 };
+  });
+  const features = [
+    ['overview', 'Construire', 'Élève quartier général, forge et muraille.'],
+    ['attack', 'Conquérir', 'Lance tes troupes sur les villages voisins.'],
+    ['ranking', 'Dominer', 'Unis ta tribu, règne sur le continent.'],
+  ];
+%>
+<section class="relative overflow-hidden border-b-[3px] border-black bg-radial-[ellipse_70%_55%_at_50%_78%] from-blood-850 via-head-dark via-40% to-night to-80%">
+  <div class="absolute top-[58%] left-1/2 size-[420px] -translate-1/2 rounded-full border-4 border-black bg-blood-800 opacity-35" aria-hidden="true"></div>
+  <div class="absolute inset-x-0 bottom-0 flex h-[150px] items-end opacity-95" aria-hidden="true">
+    <% for (const s of skyline) { %><div class="<%= s.grow %> basis-0 bg-night-deep <%= s.cap ? 'border-t-[6px] border-night-deep' : '' %>" style="height: <%= s.h.toFixed(0) %>%"></div><% } %>
+  </div>
+  <div class="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(115deg,rgba(0,0,0,0.18)_0_2px,transparent_2px_7px)]" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-[1200px] px-3.5 pt-8.5 pb-10">
+    <div class="mb-6.5 text-center">
+      <div class="font-display text-[clamp(56px,10vw,120px)] leading-none font-black tracking-[0.14em] text-parchment-100 [text-shadow:4px_4px_0_#000,8px_8px_0_var(--color-blood-900)]">GTLIKE</div>
+      <div class="mt-2.5 flex items-center justify-center gap-3">
+        <span class="h-0.5 w-10 bg-bronze-500 sm:w-15"></span>
+        <span class="font-display text-sm font-bold tracking-[0.4em] text-gold-400 sm:text-base">FORGE TON EMPIRE</span>
+        <span class="h-0.5 w-10 bg-bronze-500 sm:w-15"></span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-stretch gap-4">
+      <%# Aperçu du jeu : le plan du village, encadré comme une planche de BD. %>
+      <div class="relative flex min-h-[420px] items-end border-[3px] border-black bg-[url(/img/game-styles/roman/village.svg)] bg-cover bg-center shadow-[inset_0_0_0_2px_var(--color-blood-800),6px_6px_0_#000] max-lg:hidden">
+        <div class="absolute inset-3.5 border-2 border-dashed border-bronze-700" aria-hidden="true"></div>
+        <div class="relative m-3.5 border border-bronze-500 bg-night px-2.5 py-2 text-xs tracking-[0.06em] text-parchment-500">
+          <b class="tracking-[0.14em] text-gold-400">APERÇU · TON VILLAGE</b><br>Quartier général, caserne, forge et muraille : chaque bâtiment compte.
+        </div>
+      </div>
+
+      <%# Présentation %>
+      <div class="flex flex-col gap-3.5 border-[3px] border-black bg-night/80 p-4.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700),6px_6px_0_#000]">
+        <h2 class="m-0 font-display text-[28px] leading-[1.1] font-black tracking-[0.06em] text-balance">LE MONDE APPARTIENT AUX CONQUÉRANTS</h2>
+        <p class="m-0 text-[17px] leading-snug text-pretty text-parchment-300">Développe ton village, forme ton armée, noue des alliances au sein de ta tribu et impose-toi dans un monde persistant dominé par la stratégie.</p>
+        <div class="flex flex-col gap-2">
+          <a href="<%= cta.href %>" class="<%= btn('gold', 'xl', 'h-auto border-[3px] px-3 py-3 max-sm:text-lg') %>"><%= cta.label %></a>
+          <% if (typeof login !== 'undefined' && login) { %><a href="/login" class="<%= btn('dark', 'lg', 'border-[3px] tracking-[0.14em]') %>">Se connecter</a><% } %>
+        </div>
+        <div class="mt-auto grid grid-cols-3 gap-2">
+          <% for (const [ic, t, sub] of features) { %>
+            <div class="flex flex-col gap-[5px] border-2 border-black bg-panel-top p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-700),3px_3px_0_#000]">
+              <span class="flex size-7 items-center justify-center border-2 border-black bg-blood-800 text-parchment-100"><%- icon(ic, 'size-4', 2.3) %></span>
+              <b class="font-display text-xs tracking-[0.12em] uppercase"><%= t %></b>
+              <span class="text-xs leading-tight text-parchment-500"><%= sub %></span>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <%# Carte de droite : contenu fourni par la page. %>
+      <div class="flex flex-col border-[3px] border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),6px_6px_0_#000]">

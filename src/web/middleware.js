@@ -4,9 +4,11 @@ const GameError = require('../services/GameError');
 const VillageService = require('../services/VillageService');
 const CommandService = require('../services/CommandService');
 const MessageService = require('../services/MessageService');
+const ReportService = require('../services/ReportService');
+const TribeForumService = require('../services/TribeForumService');
 const { gameStyleFor } = require('./gameStyles');
 const { Op } = require('sequelize');
-const { User, Report, Village, TribeInvite, Player } = require('../models');
+const { User, Village, TribeInvite, Player, Tribe } = require('../models');
 
 /** Enveloppe un handler async pour transmettre les erreurs à Express 4. */
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -62,13 +64,16 @@ const loadVillage = ah(async (req, res, next) => {
   await CommandService.processDue(new Date());
   req.ctx = await VillageService.withVillage(owned.id, async (ctx) => ctx);
   res.locals.ctx = req.ctx;
-  res.locals.unreadReports = await Report.count({ where: { playerId: owned.playerId, isRead: false } });
+  res.locals.unreadByFilter = await ReportService.unreadByFilter(owned.playerId);
+  res.locals.unreadReports = res.locals.unreadByFilter.all;
   res.locals.incomingAttacks = await CommandService.incomingAttackCount(owned.playerId);
-  const player = await Player.findByPk(owned.playerId);
+  const player = await Player.findByPk(owned.playerId, { include: [{ model: Tribe, attributes: ['id', 'tag'] }] });
   res.locals.player = player;
   res.locals.gameStyle = gameStyleFor(req.user);
   res.locals.playerRank = 1 + await Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } });
   res.locals.tribeInvites = await TribeInvite.count({ where: { playerId: owned.playerId } });
+  // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.
+  res.locals.tribeForumUnread = await TribeForumService.unreadCount(owned.playerId);
   res.locals.unreadMessages = await MessageService.unreadCount(owned.playerId);
   res.locals.myVillages = await Village.findAll({
     where: { playerId: owned.playerId }, attributes: ['id', 'name', 'x', 'y'], order: [['name', 'ASC'], ['id', 'ASC']],

@@ -1,24 +1,26 @@
 <%- include('partials/header', { title: 'Inscription', hero: true, lobbyPage: 'register' }) %>
-<section class="<%= ui.panel %> mx-auto mt-6 w-full max-w-md sm:mt-14">
-  <%- panelHead('Créer un compte', '', { tag: 'h1' }) %>
-  <div class="flex flex-col gap-4 px-4.5 pt-4 pb-5">
-    <p class="text-parchment-400">Un compte, tous les mondes.</p>
+<%- include('partials/landing-hero-start', { cta: { href: '#inscription', label: 'Jouer gratuitement' }, login: true }) %>
+  <h1 class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5 font-display text-xl font-black tracking-[0.1em]" id="inscription">CRÉER UN COMPTE</h1>
+  <div class="flex flex-1 flex-col gap-2.5 p-3.5">
+    <p class="text-sm text-parchment-300">Un compte, tous les mondes.</p>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
-    <form method="post" action="/register" class="flex flex-col gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <form method="post" action="/register" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <label class="<%= ui.label %>">Pseudo
-        <input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="24" required autofocus class="<%= ui.input %> w-full">
+        <input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="24" required autofocus class="<%= ui.input %> h-10 w-full">
       </label>
       <label class="<%= ui.label %>">E-mail
-        <input type="email" name="email" value="<%= form.email || '' %>" required class="<%= ui.input %> w-full">
+        <input type="email" name="email" value="<%= form.email || '' %>" required class="<%= ui.input %> h-10 w-full">
       </label>
       <label class="<%= ui.label %>">Mot de passe
-        <input type="password" name="password" minlength="8" required class="<%= ui.input %> w-full">
-        <span class="text-xs text-parchment-600">8 caractères minimum.</span>
+        <input type="password" name="password" minlength="8" required class="<%= ui.input %> h-10 w-full">
+        <span class="text-xs font-normal tracking-normal text-parchment-500 normal-case">8 caractères minimum.</span>
       </label>
-      <button class="<%= btn('red', 'lg', 'w-full') %>">Créer mon compte</button>
+      <button class="<%= btn('gold', 'lg', 'w-full border-[3px] tracking-[0.12em]') %>">Créer mon compte</button>
     </form>
-    <p class="text-center text-sm text-parchment-500">Déjà inscrit ? <a href="/login" class="<%= ui.link %>">Connexion</a></p>
+    <div class="mt-auto flex flex-col gap-1.5 border-t border-dashed border-bronze-700 pt-2.5">
+      <span class="text-xs text-parchment-500">Déjà inscrit ?</span>
+      <a href="/login" class="<%= btn('dark', 'md', 'w-full border-[3px] tracking-[0.12em]') %>">Se connecter</a>
+    </div>
   </div>
-  <%- corners() %>
-</section>
+<%- include('partials/landing-hero-end') %>
 <%- include('partials/footer') %>

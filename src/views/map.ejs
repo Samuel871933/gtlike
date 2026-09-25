@@ -1,6 +1,8 @@
 <%- include('partials/header', { title: 'Carte' }) %>
 <%
   const vid = ctx.village.id;
+  // Taille des cases : 48 px par défaut (sans JS) ; game.js l'ajuste (--tile) pour que la carte prenne toute la largeur.
+  const tileSize = 48;
   const link = (x, y) => `/village/${vid}/map?x=${x}&y=${y}&size=${displaySize}&mini=${miniSize}`;
   const REL = {
     current: ['fill-rel-own', 'Ce village', 'bg-rel-own', 'border-rel-own bg-rel-own/13 text-rel-own'],
@@ -59,22 +61,32 @@
     const v = cell.village;
     const t = v ? 'grass' : terrain(cell.x, cell.y);
     const d = Math.hypot(cell.x - ctx.village.x, cell.y - ctx.village.y);
-    const base = { x: cell.x, y: cell.y, k: continent(cell.x, cell.y), dist: d ? `${(Math.round(d * 10) / 10).toLocaleString('fr-FR')} cases` : '—', bg: tileBg(cell.x, cell.y, t) };
+    const base = { x: cell.x, y: cell.y, k: continent(cell.x, cell.y), dist: d ? `${(Math.round(d * 10) / 10).toLocaleString('fr-FR')} cases` : '—', eta: d ? eta(d) : '', bg: tileBg(cell.x, cell.y, t) };
     if (!v) return { ...base, name: TERRAIN_NAME[t], desc: TERRAIN_DESC[t] };
     const kind = kindOf(v);
     return {
       ...base, kind, level: villageLevel(v.points), id: v.id, name: v.name, rel: REL[kind][1], pill: REL[kind][3], points: num(v.points),
       owner: v.Player ? v.Player.name : 'Barbares', playerId: v.Player ? v.Player.id : '', tribe: v.Player && v.Player.Tribe ? v.Player.Tribe.tag : '—',
       special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
+      fav: favIds.has(v.id),
+      // Morale de tes attaques contre ce joueur (100 % contre les barbares et tes propres villages).
+      morale: moraleOf && v.Player && kind !== 'own' && kind !== 'current' ? `${Math.round(moraleOf(v.Player.points) * 100)} %` : '',
     };
   };
   const byCoord = new Map(area.rows.flat().map((c) => [`${c.x}|${c.y}`, c]));
+  // Calques : cases à une case d'un village à soi / de sa tribu (influence) ou d'un ennemi.
+  const near = (x, y, kinds) => [-1, 0, 1].some((dx) => [-1, 0, 1].some((dy) => {
+    const c = byCoord.get(`${x + dx}|${y + dy}`);
+    return c && c.village && kinds.includes(kindOf(c.village));
+  }));
+  const eta = (d) => duration(Math.round(d * paceMinutes * 60));
+  const favIds = new Set(favorites.map((f) => f.villageId));
   const selCell = byCoord.get(`${sx}|${sy}`) || { x: sx, y: sy, village: null };
   const sel = cellData(selCell);
   // Flèches des attaques en cours depuis ce village (si le village et la cible sont visibles).
   const inView = (x, y) => x >= x0 && x < x0 + size && y >= y0 && y < y0 + size;
-  const px = (x) => (x - x0) * 56 + 28;
-  const py = (y) => (y - y0) * 56 + 28;
+  const px = (x) => (x - x0) * tileSize + tileSize / 2;
+  const py = (y) => (y - y0) * tileSize + tileSize / 2;
   let arrowPath = '';
   let arrowHeads = '';
   if (inView(ctx.village.x, ctx.village.y)) {
@@ -91,68 +103,75 @@
   const tileRing = () => '';
   const selRing = 'data-selected:shadow-[inset_0_0_0_2px_var(--color-gold-200),inset_0_0_12px_var(--color-glow-select)]';
 %>
-<div class="map-page-layout">
-  <aside class="flex flex-col gap-4">
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Affichage') %>
-      <form method="get" class="<%= ui.panelBody %> gap-3" data-map-settings>
-        <input type="hidden" name="x" value="<%= cx %>"><input type="hidden" name="y" value="<%= cy %>">
-        <label class="flex flex-col gap-1.5 text-[12px] font-bold text-parchment-400">
-          Taille de la carte
-          <select name="size" class="<%= ui.inputSm %>">
-            <% for (const n of mapSizes) { %><option value="<%= n %>" <%= n === displaySize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
-          </select>
-        </label>
-        <label class="flex flex-col gap-1.5 text-[12px] font-bold text-parchment-400">
-          Taille de la minimap
-          <select name="mini" class="<%= ui.inputSm %>">
-            <% for (const n of miniSizes) { %><option value="<%= n %>" <%= n === miniSize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
-          </select>
-        </label>
-        <button class="<%= btn('gold', 'sm') %>">Appliquer</button>
-        <p class="text-[12px] leading-relaxed text-parchment-600">Une vue plus petite tient entièrement à l’écran. La minimap peut couvrir une zone beaucoup plus large.</p>
-      </form>
-      <%- corners() %>
-    </section>
-  </aside>
+<div class="flex flex-wrap items-end justify-between gap-2.5">
+  <div>
+    <div class="text-[11px] tracking-[0.2em] text-gold-400 uppercase">Carte du monde · <%= ctx.world.name %></div>
+    <h1 class="m-0 font-display text-[30px] font-black tracking-[0.12em] uppercase [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]">Continent <%= continent(cx, cy) %></h1>
+  </div>
+  <form method="get" class="flex items-center gap-1">
+    <input type="hidden" name="size" value="<%= displaySize %>"><input type="hidden" name="mini" value="<%= miniSize %>">
+    <span class="mr-2 text-xs tracking-[0.1em] text-parchment-500 tabular-nums max-sm:hidden"><%= x0 %>–<%= x0 + size - 1 %> × <%= y0 %>–<%= y0 + size - 1 %></span>
+    <label for="goto-x" class="text-xs tracking-[0.1em] text-parchment-500 uppercase">Aller à</label>
+    <input id="goto-x" name="x" type="text" inputmode="numeric" value="<%= cx %>" aria-label="Coordonnée x" class="<%= ui.inputSm %> w-[52px] tabular-nums">
+    <span class="text-bronze-500">|</span>
+    <input name="y" type="text" inputmode="numeric" value="<%= cy %>" aria-label="Coordonnée y" class="<%= ui.inputSm %> w-[52px] tabular-nums">
+    <button class="<%= btn('dark', 'sm') %>">OK</button>
+    <a href="<%= link(ctx.village.x, ctx.village.y) %>" class="<%= btn('dark', 'sm') %>" title="Centrer sur mon village">Centrer</a>
+  </form>
+</div>
 
-  <section class="<%= ui.panel %> min-w-0">
-    <%- panelHead(`Continent ${continent(cx, cy)}`, `
-      <form method="get" class="flex items-center gap-2">
-        <input type="hidden" name="size" value="${displaySize}"><input type="hidden" name="mini" value="${miniSize}">
-        <span class="mr-2.5 hidden text-[13px] text-parchment-500 tabular-nums sm:inline">${x0}–${x0 + size - 1} × ${y0}–${y0 + size - 1}</span>
-        <label for="goto" class="text-[13px] text-parchment-500">Aller à</label>
-        <input id="goto" name="c" type="text" inputmode="numeric" placeholder="${cx}|${cy}" class="${ui.inputSm} w-[92px] tabular-nums">
-        <button class="${btn('dark', 'sm')}">OK</button>
-      </form>`, { tag: 'h1' }) %>
-
-    <div class="map-viewport relative flex items-center justify-center overflow-hidden bg-map-edge px-3 py-4" data-map-drag data-center-x="<%= cx %>" data-center-y="<%= cy %>" data-tile-size="56">
-      <div class="map-grid relative shrink-0 border-2 border-bronze-500 shadow-[0_0_0_1px_#000,0_0_0_5px_var(--color-bar-hi),0_0_0_6px_var(--color-bronze-700),0_10px_30px_rgba(0,0,0,0.6)]" data-map-grid>
-        <div class="flex h-[26px] border-b border-bronze-700 bg-linear-to-b from-panel-hi to-panel-edge">
+<div class="flex flex-wrap items-start gap-3.5">
+  <section class="<%= ui.panel %> min-w-0 flex-[999_1_620px] p-2.5">
+    <div class="map-viewport relative flex items-start justify-center overflow-hidden bg-map-edge p-2" data-map-drag data-center-x="<%= cx %>" data-center-y="<%= cy %>" data-tile-size="<%= tileSize %>">
+      <div class="map-grid group/map relative shrink-0 border-[3px] border-black shadow-[0_0_0_1px_var(--color-bronze-500),5px_5px_0_#050505]" style="--tile:<%= tileSize %>px" data-size="<%= size %>" data-map-grid data-layer-influence data-layer-enemy data-layer-grid data-layer-borders data-spy="<%= spyCount %>" data-csrf="<%= csrfToken %>">
+        <div class="flex h-[26px] border-b border-black bg-night">
           <div class="w-9 shrink-0"></div>
-          <% for (const cell of area.rows[0]) { %><div class="flex w-14 shrink-0 items-center justify-center font-display text-[11px] font-bold text-gold-400 tabular-nums"><%= cell.x %></div><% } %>
+          <% for (const cell of area.rows[0]) { %><div class="flex w-(--tile) shrink-0 items-center justify-center text-[11px] font-bold tabular-nums <%= cell.x === ctx.village.x ? 'text-gold-200' : 'text-parchment-500' %>"><%= cell.x %></div><% } %>
         </div>
         <% for (const row of area.rows) { %>
           <div class="flex">
-            <div class="flex h-14 w-9 shrink-0 items-center justify-center border-r border-bronze-700 bg-linear-to-r from-panel-hi to-panel-edge font-display text-[11px] font-bold text-gold-400 tabular-nums"><%= row[0].y %></div>
+            <div class="flex h-(--tile) w-9 shrink-0 items-center justify-end border-r border-black bg-night pr-[5px] text-[11px] font-bold tabular-nums <%= row[0].y === ctx.village.y ? 'text-gold-200' : 'text-parchment-500' %>"><%= row[0].y %></div>
             <% for (const cell of row) { const d = cellData(cell); const v = cell.village; const t = v ? 'grass' : terrain(cell.x, cell.y); %>
               <a href="<%= link(cx, cy) %>&sx=<%= cell.x %>&sy=<%= cell.y %>" data-map-tile="<%= JSON.stringify(d) %>"<%- cell.x === sx && cell.y === sy ? ' data-selected' : '' %>
-                 class="map-tile flex size-14 shrink-0 items-center justify-center <%= d.bg %> <%= tileRing(cell.x, cell.y) %> <%= selRing %> transition"
-                 style="--terrain-x:<%= -(((cell.x % 9) + 9) % 9) * 56 %>px;--terrain-y:<%= -(((cell.y % 9) + 9) % 9) * 56 %>px;--decor-rotate:<%= Math.floor(rnd(cell.x, cell.y, 31) * 4) * 90 %>deg;--decor-scale:<%= (0.9 + rnd(cell.x, cell.y, 37) * 0.22).toFixed(2) %>"
-                 aria-label="<%= d.name %> <%= cell.x %>|<%= cell.y %>" title="<%= d.name %> (<%= cell.x %>|<%= cell.y %>)<%= v ? ` · ${d.points} pts · ${d.owner}` : '' %>">
-                <% if (v) { %><%- villageOf(v, d.kind) %><% } else if (TERRAIN_SVG[t]) { %><%- TERRAIN_SVG[t] %><% } %>
+                 class="map-tile relative flex size-(--tile) shrink-0 items-center justify-center <%= d.bg %> <%= tileRing(cell.x, cell.y) %> <%= selRing %> transition"
+                 style="--terrain-x:<%= -(((cell.x % 9) + 9) % 9) %>;--terrain-y:<%= -(((cell.y % 9) + 9) % 9) %>;--decor-rotate:<%= Math.floor(rnd(cell.x, cell.y, 31) * 4) * 90 %>deg;--decor-scale:<%= (0.9 + rnd(cell.x, cell.y, 37) * 0.22).toFixed(2) %>"
+                 aria-label="<%= d.name %> <%= cell.x %>|<%= cell.y %><%= v ? ` · ${d.points} pts · ${d.owner}` : '' %>"<%- v ? '' : ` title="${d.name} (${cell.x}|${cell.y})"` %>>
+                <%# Calques (voir panneau « Calques ») : influence, zones ennemies, quadrillage, frontières de continent. %>
+                <% if (near(cell.x, cell.y, ['current', 'own', 'tribe'])) { %><span class="pointer-events-none absolute inset-0 hidden bg-blood-700/25 group-data-[layer-influence]/map:block"></span><% } else if (near(cell.x, cell.y, ['enemy'])) { %><span class="pointer-events-none absolute inset-0 hidden bg-rel-enemy/20 group-data-[layer-enemy]/map:block"></span><% } %>
+                <span class="pointer-events-none absolute inset-0 hidden border-r border-b group-data-[layer-grid]/map:block <%= cell.x % 5 === 4 ? 'border-r-2 border-r-black/60' : 'border-r-black/25' %> <%= cell.y % 5 === 4 ? 'border-b-2 border-b-black/60' : 'border-b-black/25' %>"></span>
+                <% if (cell.x % 100 === 0) { %><span class="pointer-events-none absolute inset-y-0 left-0 z-[5] hidden border-l-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block"></span><% } %>
+                <% if (cell.y % 100 === 0) { %><span class="pointer-events-none absolute inset-x-0 top-0 z-[5] hidden border-t-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block"></span><% } %>
+                <% if (cell.x % 100 === 0 && row === area.rows[0]) { %><span class="pointer-events-none absolute top-1 left-1.5 z-[6] hidden bg-night px-1 text-[10px] font-bold tracking-[0.14em] whitespace-nowrap text-gold-400 group-data-[layer-borders]/map:block">K<%= continent(cell.x - 1, cell.y).slice(1) %> | K<%= continent(cell.x, cell.y).slice(1) %></span><% } %>
+                <% if (cell.y % 100 === 0 && cell === row[0]) { %><span class="pointer-events-none absolute top-1 left-1 z-[6] hidden bg-night px-1 text-[10px] font-bold tracking-[0.14em] whitespace-nowrap text-gold-400 group-data-[layer-borders]/map:block">K<%= continent(cell.x, cell.y).slice(1) %></span><% } %>
+                <% if (v && favIds.has(v.id)) { %><span class="pointer-events-none absolute top-0 left-0.5 z-[6] text-xs text-gold-200 [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span><% } %>
+                <% if (v) { %><span class="contents <%= d.kind === 'barb' ? 'group-data-[layer-nobarb]/map:hidden' : '' %>"><%- villageOf(v, d.kind) %></span><% } else if (TERRAIN_SVG[t]) { %><%- TERRAIN_SVG[t] %><% } %>
               </a>
             <% } %>
           </div>
         <% } %>
         <% if (arrowPath) { %>
-          <svg class="pointer-events-none absolute top-[27px] left-[37px]" style="width:<%= size * 56 %>px;height:<%= size * 56 %>px" viewBox="0 0 <%= size * 56 %> <%= size * 56 %>" aria-hidden="true">
+          <svg class="pointer-events-none absolute top-[27px] left-[37px]" style="width:calc(var(--tile) * <%= size %>);height:calc(var(--tile) * <%= size %>)" viewBox="0 0 <%= size * tileSize %> <%= size * tileSize %>" aria-hidden="true">
             <path d="<%= arrowPath %>" class="stroke-blood-450" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
             <path d="<%= arrowHeads %>" class="fill-blood-450"/>
           </svg>
         <% } %>
-        <div class="pointer-events-none absolute top-[27px] left-[37px] shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]" style="width:<%= size * 56 %>px;height:<%= size * 56 %>px"></div>
-        <a href="<%= link(ctx.village.x, ctx.village.y) %>" class="map-controls absolute top-8 right-2 z-10 <%= ui.iconBtnOn %> shadow-lg" aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></a>
+        <div class="pointer-events-none absolute top-[27px] left-[37px] shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]" style="width:calc(var(--tile) * <%= size %>);height:calc(var(--tile) * <%= size %>)"></div>
+        <%# Infobulle au survol d'un village et menu d'actions au clic (remplis par game.js). %>
+        <div class="pointer-events-none absolute z-[15] hidden w-[220px] border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]" data-map-tip>
+          <div class="flex items-center justify-between gap-2 border-b border-bronze-500 bg-head-dark px-2 py-1"><b class="truncate font-display text-xs tracking-[0.1em]" data-tip="name"></b><span class="shrink-0 text-[11px] text-gold-400 tabular-nums" data-tip="coords"></span></div>
+          <div class="grid grid-cols-[auto_1fr] gap-x-2.5 gap-y-0.5 px-2 py-[5px] text-xs">
+            <span class="text-parchment-500">Joueur</span><span class="truncate" data-tip="owner"></span>
+            <span class="text-parchment-500">Tribu</span><span class="truncate font-bold" data-tip="tribe"></span>
+            <span class="text-parchment-500">Points</span><span class="tabular-nums" data-tip="points"></span>
+            <span class="text-parchment-500">Distance</span><span class="tabular-nums" data-tip="dist"></span>
+            <span class="text-parchment-500" data-tip-row="morale">Morale</span><span class="font-bold tabular-nums" data-tip="morale"></span>
+          </div>
+        </div>
+        <div class="map-controls absolute z-[16] hidden w-[200px] border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]" data-map-menu>
+          <div class="border-b-2 border-bronze-500 bg-head px-2 py-1 font-display text-xs font-bold tracking-[0.1em]"><span data-menu-t="name"></span> <span class="font-sans text-parchment-300 tabular-nums" data-menu-t="coords"></span></div>
+          <div data-menu-t="actions"></div>
+        </div>
+        <a href="<%= link(ctx.village.x, ctx.village.y) %>" class="map-controls absolute top-8 right-2 z-10 <%= ui.iconBtnOn %>" aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></a>
       </div>
 
       <% if (showWorldMap) {
@@ -160,13 +179,13 @@
         const barbCount = worldVillages.filter((v) => !v.playerId).length;
         const ownCount = worldVillages.filter((v) => v.playerId === ctx.village.playerId).length;
       %>
-        <section class="world-map-overlay absolute inset-3 z-20 flex flex-col overflow-hidden rounded-md border-2 border-bronze-500 bg-panel-lo shadow-[0_12px_50px_rgba(0,0,0,.85)]">
-          <header class="flex items-center justify-between border-b border-bronze-700 bg-linear-to-b from-panel-hi to-panel-edge px-4 py-2.5">
-            <div><h2 class="font-display text-base font-bold text-gold-200">Carte du monde</h2><p class="text-[11px] text-parchment-500"><%= ctx.world.name %> · <%= ctx.cfg.mapSize %> × <%= ctx.cfg.mapSize %></p></div>
+        <section class="world-map-overlay absolute inset-3 z-20 flex flex-col overflow-hidden border-[3px] border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),6px_6px_0_#000]">
+          <header class="flex items-center justify-between border-b-2 border-bronze-500 bg-head px-3 py-1.5">
+            <div><h2 class="font-display text-sm font-bold tracking-[0.16em] text-parchment-100 uppercase">Carte du monde</h2><p class="text-[11px] text-parchment-300"><%= ctx.world.name %> · <%= ctx.cfg.mapSize %> × <%= ctx.cfg.mapSize %></p></div>
             <a href="<%= link(cx, cy) %>" class="<%= ui.iconBtn %>" aria-label="Fermer la carte du monde" title="Fermer">×</a>
           </header>
           <div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_190px] gap-4 p-4">
-            <canvas class="world-map-canvas aspect-square h-full max-h-full w-full rounded border border-bronze-600 bg-mini-bg" width="700" height="700" data-world-map data-world-size="<%= ctx.cfg.mapSize %>" data-map-url="<%= link(cx, cy) %>"></canvas>
+            <canvas class="world-map-canvas aspect-square h-full max-h-full w-full border-[3px] border-black bg-mini-bg" width="700" height="700" data-world-map data-world-size="<%= ctx.cfg.mapSize %>" data-map-url="<%= link(cx, cy) %>"></canvas>
             <div class="flex flex-col gap-3">
               <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Villages</div><div class="<%= ui.tileValue %>"><%= num(worldVillages.length) %></div></div>
               <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Barbares</div><div class="<%= ui.tileValue %>"><%= num(barbCount) %></div></div>
@@ -179,32 +198,22 @@
       <% } %>
     </div>
 
-    <div class="border-t border-bronze-900 px-4.5 py-3.5">
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-sm text-parchment-300">
-        <% for (const [k, label] of legend) { %>
-          <span class="flex items-center gap-[7px]"><span class="size-2.5 rounded-full <%= REL[k][2] %> shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"></span><%= label %></span>
-        <% } %>
-        <span class="flex items-center gap-[7px]"><span class="text-gold-200">★</span>Village spécial</span>
-        <span class="flex items-center gap-[7px]"><span class="w-4.5 border-t-2 border-dashed border-blood-450"></span>Attaque en cours</span>
-      </div>
-      <p class="mt-2 text-sm text-parchment-600">6 apparences selon les points · faites glisser la carte pour vous déplacer · cliquez une case pour afficher la cible</p>
-    </div>
-    <%- corners() %>
+    <p class="mt-2 text-xs text-parchment-600">Fais glisser la carte pour te déplacer · clique une case pour afficher la cible · 6 apparences de village selon les points</p>
   </section>
 
-  <aside class="flex flex-col gap-4">
+  <aside class="flex max-w-full flex-[1_1_280px] flex-col gap-3">
     <%# Cible : rempli côté serveur pour la case sélectionnée, puis mis à jour par game.js au clic. %>
     <section class="<%= ui.panel %>" data-map-target>
       <%- panelHead('Cible') %>
       <div class="<%= ui.panelBody %>">
         <div class="flex items-center gap-3.5">
-          <span class="map-target-tile flex size-20 shrink-0 items-center justify-center rounded-md border border-bronze-600 shadow-[inset_0_0_16px_rgba(0,0,0,0.45),0_0_0_1px_#000] <%= sel.bg %>" data-t="tile">
+          <span class="map-target-tile flex size-20 shrink-0 items-center justify-center border-[3px] border-black shadow-[inset_0_0_16px_rgba(0,0,0,0.45),3px_3px_0_#000] <%= sel.bg %>" data-t="tile">
             <% if (selCell.village) { %><%- villageOf(selCell.village, sel.kind, 'village-marker--large') %><% } else if (TERRAIN_SVG[terrain(sel.x, sel.y)]) { %><%- TERRAIN_SVG[terrain(sel.x, sel.y)] %><% } %>
           </span>
           <div class="flex min-w-0 flex-1 flex-col gap-1">
-            <span class="font-display text-[17px] leading-tight font-bold text-parchment-100" data-t="name"><%= sel.name %></span>
+            <span class="font-display text-base leading-tight font-bold tracking-[0.06em] text-parchment-100" data-t="name"><%= sel.name %></span>
             <span class="text-[13px] text-parchment-500 tabular-nums" data-t="coords"><%= sel.x %>|<%= sel.y %> · Continent <%= sel.k %></span>
-            <span class="self-start rounded-[3px] border px-2 py-0.5 font-display text-[10px] font-bold tracking-[0.12em] uppercase <%= selCell.village ? sel.pill : 'hidden' %>"
+            <span class="self-start border px-1.5 py-px text-[11px] font-bold tracking-[0.1em] uppercase <%= selCell.village ? sel.pill : 'hidden' %>"
                   data-t="rel"><%= sel.rel %></span>
           </div>
         </div>
@@ -230,15 +239,13 @@
           </div>
         </div>
       </div>
-      <%- corners() %>
     </section>
 
     <%# Vue d'ensemble : 25 × 25 cases autour du centre, le cadre montre la zone affichée. %>
     <section class="<%= ui.panel %>">
-      <%- panelHead('Vue d’ensemble') %>
+      <%- panelHead('Mini-carte', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${miniSize} × ${miniSize}</span>`) %>
       <div class="<%= ui.panelBody %>">
-        <a href="<%= link(cx, cy) %>&world=1" class="<%= btn('dark', 'sm') %>"><%- icon('map', 'size-3.5') %>Afficher la carte du monde</a>
-        <div class="relative aspect-square w-full max-w-[350px] self-center border-2 border-bronze-500 shadow-[0_0_0_1px_#000,inset_0_0_20px_rgba(0,0,0,0.6)]">
+        <div class="relative aspect-square w-full max-w-[350px] self-center border-[3px] border-black">
           <div class="grid size-full bg-mini-bg" style="grid-template-columns:repeat(<%= miniSize %>,minmax(0,1fr))">
             <% for (const row of overviewArea.rows) { for (const cell of row) { const v = cell.village;
                  const t = v ? 'grass' : terrain(cell.x, cell.y);
@@ -247,11 +254,142 @@
             <% } } %>
           </div>
           <% const framePct = Math.min(100, displaySize / miniSize * 100); const framePos = (100 - framePct) / 2; %>
-          <div class="pointer-events-none absolute border-2 border-gold-200 shadow-[0_0_0_1px_#000,0_0_12px_var(--color-glow-select)]" style="top:<%= framePos %>%;left:<%= framePos %>%;width:<%= framePct %>%;height:<%= framePct %>%"></div>
+          <div class="pointer-events-none absolute border-2 border-parchment-100 shadow-[0_0_0_1px_#000,inset_0_0_0_1px_#000]" style="top:<%= framePos %>%;left:<%= framePos %>%;width:<%= framePct %>%;height:<%= framePct %>%"></div>
         </div>
-        <p class="text-center text-[13px] text-parchment-600">Cliquez la vue d’ensemble pour recentrer la carte.</p>
+        <div class="flex flex-col gap-0.5 text-[13px]">
+          <a href="<%= link(cx, cy) %>&world=1" class="<%= ui.link %>">» Afficher la carte du monde</a>
+          <span class="text-parchment-600">Clique la mini-carte pour recentrer la vue.</span>
+        </div>
       </div>
-      <%- corners() %>
+    </section>
+
+    <%# Recherche : joueur, village, tribu ou coordonnées. %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Recherche') %>
+      <form method="get" class="flex flex-col gap-1.5 p-2">
+        <input type="hidden" name="x" value="<%= cx %>"><input type="hidden" name="y" value="<%= cy %>">
+        <input type="hidden" name="size" value="<%= displaySize %>"><input type="hidden" name="mini" value="<%= miniSize %>">
+        <div class="grid grid-cols-4 border-2 border-black">
+          <% for (const [k, label] of [['player', 'Joueur'], ['village', 'Village'], ['tribe', 'Tribu'], ['coords', 'Coord.']]) { %>
+            <label class="cursor-pointer border-r border-black bg-night px-0.5 py-1 text-center text-xs font-bold tracking-[0.04em] text-parchment-500 last:border-r-0 hover:text-parchment-100 has-checked:bg-blood-800 has-checked:text-parchment-100">
+              <input type="radio" name="find" value="<%= k %>" class="sr-only" <%= search.find === k ? 'checked' : '' %>><%= label %>
+            </label>
+          <% } %>
+        </div>
+        <div class="flex">
+          <input name="q" value="<%= search.q %>" placeholder="Nom, tag ou 500|500" aria-label="Rechercher" class="<%= ui.input %> min-w-0 flex-1">
+          <button class="flex w-[34px] shrink-0 cursor-pointer items-center justify-center border-2 border-l-0 border-black bg-blood-800 text-parchment-100 hover:bg-blood-600" aria-label="Lancer la recherche"><%- icon('search', 'size-4', 2.6) %></button>
+        </div>
+        <% if (search.results) { %>
+          <% if (!search.results.length) { %>
+            <p class="px-0.5 text-[13px] text-parchment-500">Aucun résultat pour « <%= search.q %> ».</p>
+          <% } else { %>
+            <ul class="border border-bronze-800">
+              <% for (const r of search.results) { %>
+                <li class="flex items-center justify-between gap-2 border-b border-bronze-800 px-2 py-1 last:border-b-0 hover:bg-thead">
+                  <span class="flex min-w-0 flex-col">
+                    <% if (r.x != null) { %><a href="<%= link(r.x, r.y) %>&sx=<%= r.x %>&sy=<%= r.y %>" class="<%= ui.linkPlain %> truncate font-bold"><%= r.label %></a><% } else { %><span class="truncate font-bold"><%= r.label %></span><% } %>
+                    <span class="truncate text-[11px] text-parchment-500"><%= r.sub %></span>
+                  </span>
+                  <span class="shrink-0 text-xs text-gold-400 tabular-nums">
+                    <% if (r.playerId) { %><a href="/village/<%= vid %>/players/<%= r.playerId %>" class="<%= ui.link %>">Profil</a><% } else if (r.tribeId) { %><a href="/village/<%= vid %>/tribes/<%= r.tribeId %>" class="<%= ui.link %>">Tribu</a><% } else if (r.villageId) { %><a href="/village/<%= vid %>/villages/<%= r.villageId %>" class="<%= ui.link %>"><%= r.x %>|<%= r.y %></a><% } %>
+                  </span>
+                </li>
+              <% } %>
+            </ul>
+          <% } %>
+        <% } %>
+      </form>
+    </section>
+
+    <%# Ordres rapides : modèle d'armée appliqué aux actions Attaquer / Soutenir du menu, actions affichées (game.js). %>
+    <section class="<%= ui.panel %>" data-quick-orders>
+      <%- panelHead('Ordres rapides', `<a href="/village/${vid}/place#modeles" class="${ui.link} font-sans text-xs">Modèles</a>`) %>
+      <div class="flex flex-col gap-2 p-2">
+        <select class="<%= ui.input %> w-full" data-quick-template aria-label="Modèle d'armée">
+          <option value="">Modèle d’armée…</option>
+          <% for (const tpl of templates) { %><option value="<%= tpl.id %>" data-units="<%= JSON.stringify(tpl.units) %>"><%= tpl.name %></option><% } %>
+        </select>
+        <% if (!templates.length) { %><p class="text-xs text-parchment-500">Crée tes modèles au point de ralliement.</p><% } %>
+        <div class="flex flex-wrap gap-3">
+          <% for (const [k, label] of [['attack', 'Attaque'], ['support', 'Soutien'], ['spy', 'Espionnage']]) { %>
+            <label class="flex cursor-pointer items-center gap-1.5 font-semibold">
+              <input type="checkbox" class="peer sr-only" data-quick-action="<%= k %>" checked>
+              <span class="flex size-4 items-center justify-center border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-500)] peer-focus-visible:outline-2 peer-focus-visible:outline-gold-200 after:size-2 after:bg-transparent peer-checked:after:bg-blood-600"></span><%= label %>
+            </label>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
+    <%# Favoris : villages marqués depuis le menu de la carte. %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Favoris', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${favorites.length}</span>`) %>
+      <% if (!favorites.length) { %>
+        <p class="p-2.5 text-[13px] text-parchment-500">Clique un village puis « Ajouter aux favoris ».</p>
+      <% } else { %>
+        <ul class="max-h-64 overflow-y-auto">
+          <% for (const f of favorites) { const fv = f.Village; %>
+            <li class="flex items-center justify-between gap-2 border-b border-bronze-800 px-2.5 py-1 last:border-b-0 hover:bg-thead">
+              <span class="flex min-w-0 flex-col">
+                <a href="<%= link(fv.x, fv.y) %>&sx=<%= fv.x %>&sy=<%= fv.y %>" class="<%= ui.linkPlain %> truncate font-bold"><span class="text-gold-200">★</span> <%= fv.name %></a>
+                <span class="truncate text-[11px] text-parchment-500"><%= fv.Player ? fv.Player.name : 'Barbares' %> · <%= num(fv.points) %> pts</span>
+              </span>
+              <span class="flex shrink-0 items-center gap-2">
+                <span class="text-xs font-bold text-gold-400 tabular-nums"><%= fv.x %>|<%= fv.y %></span>
+                <form method="post" action="/village/<%= vid %>/favorites/<%= fv.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="<%= ui.iconBtnSm %>" title="Retirer des favoris" aria-label="Retirer des favoris"><%- icon('close', 'size-[11px]', 3.4) %></button>
+                </form>
+              </span>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </section>
+
+    <%# Calques de carte : interrupteurs mémorisés dans le navigateur (game.js). %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Calques de carte') %>
+      <div class="flex flex-col">
+        <% for (const [k, label] of [['influence', 'Influence de ta tribu'], ['enemy', 'Zones ennemies'], ['nobarb', 'Masquer les barbares'], ['grid', 'Quadrillage (5 cases)'], ['borders', 'Frontières de continent']]) { %>
+          <button type="button" class="group flex cursor-pointer items-center justify-between border-b border-bronze-900 px-2.5 py-[5px] text-left font-semibold text-parchment-500 hover:bg-thead aria-pressed:text-parchment-100" data-map-layer="<%= k %>" aria-pressed="<%= k === 'nobarb' ? 'false' : 'true' %>">
+            <span><%= label %></span>
+            <span class="relative h-4 w-8 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700)] group-aria-pressed:bg-blood-800"><span class="absolute top-px left-px size-2.5 border border-black bg-parchment-300 transition-[left] group-aria-pressed:left-[17px]"></span></span>
+          </button>
+        <% } %>
+      </div>
+    </section>
+
+    <%# Légende : couleurs des villages (diplomatie de Guerre Tribale). %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Légende') %>
+      <div class="grid grid-cols-2 gap-x-2.5 gap-y-1 bg-panel-lo px-2.5 py-2">
+        <% for (const [k, label] of legend) { %>
+          <span class="flex items-center gap-1.5 text-xs text-parchment-300"><span class="size-[11px] shrink-0 border-2 border-black shadow-[1px_1px_0_#000] <%= REL[k][2] %>"></span><%= label %></span>
+        <% } %>
+        <span class="flex items-center gap-1.5 text-xs text-parchment-300"><span class="w-[11px] text-center text-gold-200">★</span>Village spécial</span>
+        <span class="flex items-center gap-1.5 text-xs text-parchment-300"><span class="w-[11px] border-t-2 border-dashed border-blood-450"></span>Attaque en cours</span>
+      </div>
+    </section>
+
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Affichage') %>
+      <form method="get" class="<%= ui.panelBody %> gap-2" data-map-settings>
+        <input type="hidden" name="x" value="<%= cx %>"><input type="hidden" name="y" value="<%= cy %>">
+        <label class="<%= ui.label %>">
+          Taille de la carte
+          <select name="size" class="<%= ui.inputSm %>">
+            <% for (const n of mapSizes) { %><option value="<%= n %>" <%= n === displaySize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
+          </select>
+        </label>
+        <label class="<%= ui.label %>">
+          Taille de la mini-carte
+          <select name="mini" class="<%= ui.inputSm %>">
+            <% for (const n of miniSizes) { %><option value="<%= n %>" <%= n === miniSize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
+          </select>
+        </label>
+        <button class="<%= btn('dark', 'sm') %>">Appliquer</button>
+      </form>
     </section>
   </aside>
 </div>

@@ -3,7 +3,7 @@
 const express = require('express');
 const VillageService = require('../../services/VillageService');
 const CommandService = require('../../services/CommandService');
-const { sequelize, Player, Village } = require('../../models');
+const { sequelize, Player, Village, Tribe } = require('../../models');
 const MapService = require('../../services/MapService');
 const NobleService = require('../../services/NobleService');
 const TradeService = require('../../services/TradeService');
@@ -17,6 +17,9 @@ const AchievementService = require('../../services/AchievementService');
 const DailyService = require('../../services/DailyService');
 const KnightSkillService = require('../../services/KnightSkillService');
 const ScavengeService = require('../../services/ScavengeService');
+const ArmyTemplateService = require('../../services/ArmyTemplateService');
+const FavoriteService = require('../../services/FavoriteService');
+const TribeForumService = require('../../services/TribeForumService');
 const scavenging = require('../../game/scavenging');
 const knightSkills = require('../../game/knightSkills');
 const GameError = require('../../services/GameError');
@@ -34,10 +37,12 @@ const me = (req) => req.ctx.village.playerId;
 router.get('/', ah(async (req, res) => {
   const movements = await CommandService.overview(req.ctx.village.id);
   const supportUnits = movements.stacksHere.reduce((acc, s) => CommandService.addUnits(acc, s.units), {});
+  // Options de construction, pour l'encart du bâtiment sélectionné sur le plan.
+  const buildOptions = Object.fromEntries(registry.buildingsFor(req.ctx.cfg).map((type) => [type.id, VillageService.buildOption(req.ctx, type)]));
   res.render('overview', {
-    page: 'overview', supportUnits, movements,
+    page: 'overview', supportUnits, movements, buildOptions,
     view: req.query.vue === 'liste' ? 'list' : 'city',
-    moveTab: ['in', 'out'].includes(req.query.mv) ? req.query.mv : null,
+    moveTab: ['all', 'in', 'out'].includes(req.query.mv) ? req.query.mv : null,
     allMoves: req.query.tous === '1',
   });
 }));
@@ -293,12 +298,30 @@ router.get('/place', ah(async (req, res) => {
     page: 'place',
     tab,
     ...lists,
-    form: { x: req.query.x || '', y: req.query.y || '' },
+    // Cible et unités pré-remplies depuis l'URL (carte : Espionner ; modèles d'armée) : ?x=…&y=…&spy=5
+    form: {
+      x: req.query.x || '', y: req.query.y || '',
+      units: Object.fromEntries(registry.unitsFor(req.ctx.cfg).map((u) => [u.id, Math.min(req.ctx.state.units[u.id] || 0, Math.max(0, Math.floor(Number(req.query[u.id])) || 0))]).filter(([, n]) => n > 0)),
+    },
     units: registry.unitsFor(req.ctx.cfg).filter((u) => (req.ctx.state.units[u.id] || 0) > 0),
     allUnits: registry.unitsFor(req.ctx.cfg),
     sim: tab === 'sim' ? simulate(req.query, req.ctx.cfg) : null,
     query: req.query,
+    templates: await ArmyTemplateService.list(me(req)),
   });
+}));
+
+// Modèles d'armée (« Ordres rapides ») : création et suppression depuis le point de ralliement.
+router.post('/templates', ah(async (req, res) => {
+  const tpl = await ArmyTemplateService.create(me(req), req.body, req.ctx.cfg);
+  flash(req, 'success', `Modèle « ${tpl.name} » enregistré.`);
+  res.redirect(`${base(req)}/place#modeles`);
+}));
+
+router.post('/templates/:templateId/delete', ah(async (req, res) => {
+  await ArmyTemplateService.remove(me(req), req.params.templateId);
+  flash(req, 'success', 'Modèle supprimé.');
+  res.redirect(`${base(req)}/place#modeles`);
 }));
 
 router.post('/place/confirm', ah(async (req, res) => {
@@ -381,9 +404,125 @@ router.get('/tribe', ah(async (req, res) => {
     const invites = await TribeService.invitesFor(player.id);
     return res.render('tribe-none', { page: 'tribe', player, invites });
   }
+  // Onglet Forum : ouvre directement le premier sous-forum, comme sur Guerre Tribale.
+  if (req.query.tab === 'forum') return res.redirect(`${base(req)}/tribe/forum/${(await TribeForumService.firstSection(player.id)).id}`);
   const tab = ['overview', 'members', 'diplomacy', 'wall'].includes(req.query.tab) ? req.query.tab : 'overview';
+  await renderTribe(res, player, tab, null);
+}));
+
+/** Page de la tribu (en-tête et onglets), avec au besoin une vue du forum de tribu. */
+async function renderTribe(res, player, tab, forum, status = 200) {
   const data = await TribeService.dashboard(player);
-  res.render('tribe', { page: 'tribe', tab, player, canManage: TribeService.canManage(player), TribeRoles: TribeService.ROLES, ...data });
+  const forumUnread = await TribeForumService.unreadCount(player.id);
+  res.status(status).render('tribe', { page: 'tribe', tab, player, canManage: TribeService.canManage(player), TribeRoles: TribeService.ROLES, forum, forumUnread, ...data });
+}
+
+// ------------------------------------------------------------ Forum de la tribu
+
+const tribeForumBase = (req) => `${base(req)}/tribe/forum`;
+
+router.get('/tribe/forum/t/:threadId', ah(async (req, res) => {
+  const data = await TribeForumService.thread(me(req), req.params.threadId, req.query.page === 'last' ? 'last' : req.query.page);
+  await renderTribe(res, data.player, 'forum', { view: 'thread', ...data, form: {}, error: null });
+}));
+
+/** Vue d'un sous-forum : encadré des nouveaux messages, sujets (ou recherche, ou formulaire de nouveau sujet). */
+async function sectionView(req, extra = {}) {
+  const data = await TribeForumService.section(me(req), req.params.sectionId, req.query.page);
+  const recent = await TribeForumService.recent(me(req), { excludeMuted: req.query.sourdine !== '0', page: req.query.np });
+  const q = String(req.query.q || '').trim();
+  const results = q ? await TribeForumService.search(me(req), q) : null;
+  const compose = ['sujet', 'sondage'].includes(req.query.nouveau) ? req.query.nouveau : null;
+  return { view: 'section', ...data, recent, q, results, compose, query: req.query, form: {}, error: null, ...extra };
+}
+
+router.get('/tribe/forum/settings', ah(async (req, res) => {
+  const data = await TribeForumService.overview(me(req));
+  if (!data.manager) throw new GameError('Réservé aux chefs de la tribu.', 403);
+  await renderTribe(res, await Player.findByPk(me(req)), 'forum', { view: 'settings', ...data });
+}));
+
+router.get('/tribe/forum/:sectionId', ah(async (req, res) => {
+  const forum = await sectionView(req);
+  await renderTribe(res, forum.player, 'forum', forum);
+}));
+
+router.post('/tribe/forum/read-all', ah(async (req, res) => {
+  await TribeForumService.markRead(me(req), null);
+  flash(req, 'success', 'Tous les forums sont marqués comme lus.');
+  res.redirect(back(req, `${base(req)}/tribe?tab=forum`));
+}));
+router.post('/tribe/forum/:sectionId/read', ah(async (req, res) => {
+  await TribeForumService.markRead(me(req), req.params.sectionId);
+  flash(req, 'success', 'Forum marqué comme lu.');
+  res.redirect(back(req, `${tribeForumBase(req)}/${Number(req.params.sectionId)}`));
+}));
+router.post('/tribe/forum/:sectionId/mute', ah(async (req, res) => {
+  const muted = await TribeForumService.toggleMute(me(req), req.params.sectionId);
+  flash(req, 'success', muted ? 'Forum ignoré : il est mis en sourdine.' : 'Tu suis de nouveau ce forum.');
+  res.redirect(back(req, `${tribeForumBase(req)}/${Number(req.params.sectionId)}`));
+}));
+router.post('/tribe/forum/t/:threadId/vote', ah(async (req, res) => {
+  const thread = await TribeForumService.vote(me(req), req.params.threadId, req.body.option);
+  flash(req, 'success', 'Vote enregistré.');
+  res.redirect(`${tribeForumBase(req)}/t/${thread.id}`);
+}));
+
+router.post('/tribe/forum/sections', ah(async (req, res) => {
+  await TribeForumService.createSection(me(req), req.body.name);
+  flash(req, 'success', 'Sous-forum créé.');
+  res.redirect(`${tribeForumBase(req)}/settings`);
+}));
+router.post('/tribe/forum/sections/:sectionId/rename', ah(async (req, res) => {
+  await TribeForumService.renameSection(me(req), req.params.sectionId, req.body.name);
+  flash(req, 'success', 'Sous-forum renommé.');
+  res.redirect(`${tribeForumBase(req)}/settings`);
+}));
+router.post('/tribe/forum/sections/:sectionId/move', ah(async (req, res) => {
+  await TribeForumService.moveSection(me(req), req.params.sectionId, req.body.dir);
+  res.redirect(`${tribeForumBase(req)}/settings`);
+}));
+router.post('/tribe/forum/sections/:sectionId/delete', ah(async (req, res) => {
+  await TribeForumService.deleteSection(me(req), req.params.sectionId);
+  flash(req, 'success', 'Sous-forum supprimé.');
+  res.redirect(`${tribeForumBase(req)}/settings`);
+}));
+
+router.post('/tribe/forum/t/:threadId', ah(async (req, res) => {
+  try {
+    const post = await TribeForumService.reply(me(req), req.params.threadId, req.body);
+    res.redirect(`${tribeForumBase(req)}/t/${post.threadId}?page=last#p${post.id}`);
+  } catch (err) {
+    if (!(err instanceof GameError) || err.status >= 403) throw err;
+    const data = await TribeForumService.thread(me(req), req.params.threadId, 'last');
+    await renderTribe(res, data.player, 'forum', { view: 'thread', ...data, form: req.body, error: err.message }, 400);
+  }
+}));
+router.post('/tribe/forum/t/:threadId/flag', ah(async (req, res) => {
+  const flag = req.body.flag === 'locked' ? 'locked' : 'pinned';
+  await TribeForumService.setFlag(me(req), req.params.threadId, flag, req.body.on === '1');
+  res.redirect(back(req, tribeForumBase(req)));
+}));
+router.post('/tribe/forum/p/:postId/edit', ah(async (req, res) => {
+  const post = await TribeForumService.edit(me(req), req.params.postId, req.body);
+  flash(req, 'success', 'Message modifié.');
+  res.redirect(`${tribeForumBase(req)}/t/${post.threadId}?page=${Number(req.body.page) || 1}#p${post.id}`);
+}));
+router.post('/tribe/forum/p/:postId/delete', ah(async (req, res) => {
+  const { threadDeleted, thread } = await TribeForumService.remove(me(req), req.params.postId);
+  flash(req, 'success', threadDeleted ? 'Sujet supprimé.' : 'Message supprimé.');
+  res.redirect(threadDeleted ? `${tribeForumBase(req)}/${thread.sectionId}` : `${tribeForumBase(req)}/t/${thread.id}?page=last`);
+}));
+router.post('/tribe/forum/:sectionId', ah(async (req, res) => {
+  try {
+    const thread = await TribeForumService.createThread(me(req), req.params.sectionId, req.body);
+    res.redirect(`${tribeForumBase(req)}/t/${thread.id}`);
+  } catch (err) {
+    if (!(err instanceof GameError) || err.status >= 403) throw err;
+    req.query.nouveau = req.body.options !== undefined ? 'sondage' : 'sujet';
+    const forum = await sectionView(req, { form: req.body, error: err.message });
+    await renderTribe(res, forum.player, 'forum', forum, 400);
+  }
 }));
 
 router.get('/tribes/:tribeId', ah(async (req, res) => {
@@ -434,6 +573,38 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const daily = await DailyService.countsFor(profile.player.id);
   const isMe = profile.player.id === me(req);
   res.render('player', { ...profile, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe });
+}));
+
+// Inviter des joueurs : lien d'inscription à partager.
+router.get('/invite', (req, res) => {
+  res.render('invite', { page: 'invite', registerUrl: `${req.protocol}://${req.get('host')}/register` });
+});
+
+// Favoris de la carte : ajout ou retrait d'un village.
+router.post('/favorites/:villageId', ah(async (req, res) => {
+  const on = await FavoriteService.toggle(me(req), req.ctx.village.worldId, req.params.villageId);
+  flash(req, 'success', on ? 'Village ajouté aux favoris.' : 'Village retiré des favoris.');
+  res.redirect(back(req, `${base(req)}/map`));
+}));
+
+// Informations sur un village (menu de la carte : « Voir le village »).
+router.get('/villages/:villageId', ah(async (req, res) => {
+  const target = await Village.findOne({
+    where: { id: Number(req.params.villageId), worldId: req.ctx.village.worldId },
+    include: [{ model: Player, include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+  });
+  if (!target) throw new GameError('Village introuvable.', 404);
+  const me = await Player.findByPk(req.ctx.village.playerId, { attributes: ['tribeId'] });
+  const relations = await TribeService.relationsOf(me.tribeId);
+  const tribeId = target.Player && target.Player.tribeId;
+  const relation = !target.playerId ? 'barb' : target.playerId === req.ctx.village.playerId ? 'own' : (tribeId && relations.get(tribeId)) || 'other';
+  const units = ['spear', 'axe', 'light', 'ram', 'snob'].filter((id) => registry.unitsFor(req.ctx.cfg).some((u) => u.id === id));
+  const dist = Math.hypot(target.x - req.ctx.village.x, target.y - req.ctx.village.y);
+  const travel = units.map((id) => ({ id, seconds: Math.round(dist * registry.unit(id).minutesPerField(req.ctx.cfg) * 60) }));
+  const favorite = (await FavoriteService.list(req.ctx.village.playerId)).some((f) => f.villageId === target.id);
+  const attacker = await Player.findByPk(req.ctx.village.playerId, { attributes: ['points'] });
+  const morale = req.ctx.cfg.moral && target.Player && target.playerId !== req.ctx.village.playerId ? combat.morale(attacker.points, target.Player.points, true) : null;
+  res.render('village-info', { page: null, target, relation, dist, travel, favorite, morale });
 }));
 
 router.get('/messages', ah(async (req, res) => {
@@ -585,7 +756,7 @@ router.get('/map', ah(async (req, res) => {
   const { village, cfg } = req.ctx;
   const mapSizes = [7, 9, 11, 13, 15];
   const miniSizes = [25, 35, 50, 70];
-  const displaySize = mapSizes.includes(Number(req.query.size)) ? Number(req.query.size) : 11;
+  const displaySize = mapSizes.includes(Number(req.query.size)) ? Number(req.query.size) : 13;
   const miniSize = miniSizes.includes(Number(req.query.mini)) ? Number(req.query.mini) : 35;
   const showWorldMap = req.query.world === '1';
   const clamp = (v, d) => {
@@ -599,6 +770,16 @@ router.get('/map', ah(async (req, res) => {
   // Case sélectionnée (panneau « Cible ») : celle visée, sinon le village courant.
   const sx = clamp(req.query.sx, typed || req.query.x ? cx : village.x);
   const sy = clamp(req.query.sy, typed || req.query.y ? cy : village.y);
+  // Recherche (panneau de la carte) : joueur, village, tribu ; des coordonnées recentrent directement la carte.
+  const find = ['player', 'village', 'tribe', 'coords'].includes(req.query.find) ? req.query.find : 'player';
+  const q = String(req.query.q || '').trim();
+  if (find === 'coords' && q) {
+    const m = /^\s*(\d+)\D+(\d+)\s*$/.exec(q);
+    if (m) return res.redirect(`/village/${village.id}/map?x=${clamp(m[1], cx)}&y=${clamp(m[2], cy)}&sx=${clamp(m[1], cx)}&sy=${clamp(m[2], cy)}&size=${displaySize}&mini=${miniSize}`);
+  }
+  const search = { find, q, results: q && find !== 'coords' ? await MapService.search(village.worldId, find, q) : null };
+  const templates = await ArmyTemplateService.list(village.playerId);
+  const favorites = await FavoriteService.list(village.playerId);
   const [area, overviewArea, player, movements, worldVillages] = await Promise.all([
     MapService.area(village.worldId, cx, cy, displaySize),
     MapService.area(village.worldId, cx, cy, miniSize),
@@ -608,7 +789,12 @@ router.get('/map', ah(async (req, res) => {
   ]);
   const relations = await TribeService.relationsOf(player.tribeId);
   const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => ({ x: c.target.x, y: c.target.y }));
-  res.render('map', { page: 'map', area, overviewArea, cx, cy, sx, sy, relations, attacks, displaySize, miniSize, mapSizes, miniSizes, showWorldMap, worldVillages });
+  // Infobulle : durée du trajet d'un lancier (minutes par case) ; menu : éclaireurs proposés pour « Espionner ».
+  const paceMinutes = registry.unit('spear').minutesPerField(cfg);
+  // Morale de tes attaques selon les points du joueur visé (null si le monde n'a pas de morale).
+  const moraleOf = cfg.moral ? (points) => combat.morale(player.points, points, true) : null;
+  const spyCount = Math.min(req.ctx.state.units.spy || 0, 5);
+  res.render('map', { page: 'map', area, overviewArea, cx, cy, sx, sy, relations, attacks, displaySize, miniSize, mapSizes, miniSizes, showWorldMap, worldVillages, paceMinutes, spyCount, search, templates, favorites, moraleOf });
 }));
 
 module.exports = router;

@@ -4,7 +4,8 @@ const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const {
   sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack,
-  Transport, MarketOffer, Report, TribeInvite, ConversationParticipant, Conversation, ScavengeRun,
+  Transport, MarketOffer, Report, TribeInvite, ConversationParticipant, Conversation, ScavengeRun, ArmyTemplate, MapFavorite, PasswordReset, ForumThread, ForumPost,
+  TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumVote,
 } = require('../models');
 const GameError = require('./GameError');
 
@@ -100,6 +101,14 @@ AccountService.removePlayer = async function removePlayer(playerId, t) {
   await Player.update({ sitterId: null, sitterAcceptedAt: null }, { where: { sitterId: player.id }, transaction: t });
   await TribeInvite.destroy({ where: { playerId }, transaction: t });
   await Report.destroy({ where: { playerId }, transaction: t });
+  await ArmyTemplate.destroy({ where: { playerId }, transaction: t });
+  await MapFavorite.destroy({ where: { playerId }, transaction: t });
+  // Forum de tribu : les messages restent, sans auteur.
+  await TribeForumRead.destroy({ where: { playerId }, transaction: t });
+  await TribeForumMute.destroy({ where: { playerId }, transaction: t });
+  await TribeForumVote.destroy({ where: { playerId }, transaction: t });
+  await TribeForumPost.update({ playerId: null }, { where: { playerId }, transaction: t });
+  await TribeForumThread.update({ playerId: null }, { where: { playerId }, transaction: t });
   const convs = await ConversationParticipant.findAll({ where: { playerId }, attributes: ['conversationId'], transaction: t });
   await ConversationParticipant.destroy({ where: { playerId }, transaction: t });
   for (const { conversationId } of convs) {
@@ -124,6 +133,10 @@ AccountService.deleteAccount = async function deleteAccount(userId, password) {
   await sequelize.transaction(async (t) => {
     const players = await Player.findAll({ where: { userId }, attributes: ['id'], transaction: t });
     for (const p of players) await AccountService.removePlayer(p.id, t);
+    await PasswordReset.destroy({ where: { userId }, transaction: t });
+    // Le forum garde ses messages, signés « Compte supprimé ».
+    await ForumPost.update({ userId: null }, { where: { userId }, transaction: t });
+    await ForumThread.update({ userId: null }, { where: { userId }, transaction: t });
     await user.destroy({ transaction: t });
   });
 };

@@ -12,7 +12,7 @@
   };
   const dailyIcon = { dailyPlunderer: 'attack', dailyAttacker: 'sword', dailyDefender: 'wall', dailyConqueror: 'crown', dailyRobber: 'coin', dailySupporter: 'support' };
   // Palier atteint : rien, bois, bronze, argent, or.
-  const medal = 'flex shrink-0 items-center justify-center rounded-full border-[1.5px] bg-radial-[at_35%_30%] from-well-hi to-well-lo to-75% shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55),0_2px_4px_rgba(0,0,0,0.5)]';
+  const medal = 'flex shrink-0 items-center justify-center border-2 bg-night shadow-[2px_2px_0_#000]';
   const tierMedal = ['border-bronze-800 text-parchment-700', 'border-wood text-wood', 'border-bronze-300 text-bronze-200', 'border-iron text-iron', 'border-gold-400 text-gold-200'];
   const tierPip = ['bg-black/60', 'bg-wood', 'bg-bronze-300', 'bg-iron', 'bg-gold-400'];
   const tierText = ['text-parchment-600', 'text-wood', 'text-bronze-200', 'text-iron', 'text-gold-200'];
@@ -52,7 +52,6 @@
       <% } %>
     </dl>
   </div>
-  <%- corners() %>
 </section>
 
 <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -70,7 +69,7 @@
              const next = a.def.tiers[a.tier];
              const multi = a.def.tiers.length > 1;
              const pct = next != null && !a.def.rank && a.value != null ? Math.max(0, Math.min(100, (a.value / next) * 100)) : null; %>
-          <li class="flex gap-3 rounded border p-3 <%= tierTile[a.tier] %>">
+          <li class="flex gap-3 border p-3 <%= tierTile[a.tier] %>">
             <span class="<%= medal %> <%= tierMedal[a.tier] %> size-11 <%= a.tier ? '' : 'opacity-60' %>"><%- icon(achIcon[a.def.key] || 'victory', 'size-5') %></span>
             <span class="flex min-w-0 flex-1 flex-col gap-1">
               <span class="flex items-start justify-between gap-2">
@@ -93,7 +92,6 @@
         <% } %>
       </ul>
     </div>
-    <%- corners() %>
   </section>
 
   <aside class="flex min-w-0 flex-col gap-5">
@@ -120,7 +118,6 @@
           </tbody>
         </table>
       </div>
-      <%- corners() %>
     </section>
 
     <%# Succès quotidiens %>
@@ -129,7 +126,7 @@
       <div class="<%= ui.panelBody %>">
         <ul class="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <% for (const d of daily) { %>
-            <li class="flex flex-col items-center gap-1.5 rounded border px-1.5 pt-3 pb-2.5 text-center <%= d.count ? tierTile[4] : tierTile[0] %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
+            <li class="flex flex-col items-center gap-1.5 border px-1.5 pt-3 pb-2.5 text-center <%= d.count ? tierTile[4] : tierTile[0] %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
               <span class="<%= medal %> <%= d.count ? tierMedal[4] : tierMedal[0] %> size-10"><%- icon(dailyIcon[d.def.key] || 'victory', 'size-5') %></span>
               <span class="text-xl leading-none font-extrabold tabular-nums <%= d.count ? 'text-gold-200' : 'text-parchment-600' %>"><%= d.count %></span>
               <span class="text-xs leading-tight <%= d.count ? 'text-parchment-300' : 'text-parchment-500' %>"><%= d.def.name %></span>
@@ -137,7 +134,6 @@
           <% } %>
         </ul>
       </div>
-      <%- corners() %>
     </section>
   </aside>
 </div>

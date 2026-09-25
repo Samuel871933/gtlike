@@ -1,0 +1,7 @@
+<%# Barre de titre d'une page de contenu (maquette : liseré rayé rouge, grand titre Cinzel). Locals : kicker, title, sub. %>
+<div class="<%= ui.panel %> flex flex-col gap-0.5 py-3 pr-3.5 pl-5">
+  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
+  <% if (typeof kicker !== 'undefined' && kicker) { %><span class="text-[11px] tracking-[0.2em] text-gold-400 uppercase"><%= kicker %></span><% } %>
+  <h1 class="m-0 font-display text-[26px] font-black tracking-[0.12em] text-parchment-100 uppercase [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)] sm:text-[30px]"><%= title %></h1>
+  <% if (typeof sub !== 'undefined' && sub) { %><p class="text-sm text-parchment-500"><%= sub %></p><% } %>
+</div>

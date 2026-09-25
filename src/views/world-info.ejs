@@ -1,0 +1,65 @@
+<%- include('partials/header', { title: `Infos · ${world.name}`, world }) %>
+<%
+  const victoryNames = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège', none: 'Aucune' };
+  const yes = (b) => (b ? 'Oui' : 'Non');
+  const h = (m) => (m >= 60 ? `${Math.round(m / 6) / 10} h` : `${m} min`);
+  const groups = [
+    ['Monde', [
+      ['Vitesse du monde', `×${cfg.speed}`],
+      ['Vitesse des unités', `×${cfg.unitSpeed}`],
+      ['Taille de la carte', `${cfg.mapSize} × ${cfg.mapSize}`],
+      ['Joueurs', num(players)],
+      ['Villages', num(villages)],
+      ['Ouvert aux inscriptions', world.endedAt ? 'Monde terminé' : yes(world.isOpen)],
+    ]],
+    ['Construction et production', [
+      ['Production de base', `${num(cfg.baseProduction)} / h`],
+      ['Emplacements de la file', String(cfg.buildQueueSlots)],
+      ['Remboursement à l’annulation', `${Math.round(cfg.cancelRefund * 100)} %`],
+      ['Recherche à la forge', cfg.tech === 'simple' ? 'Simple (une fois par unité)' : 'Aucune'],
+    ]],
+    ['Combat', [
+      ['Morale', yes(cfg.moral)],
+      ['Chance', `± ${Math.round(cfg.luck * 100)} %`],
+      ['Bonus de nuit', cfg.night.active ? `×${cfg.night.defFactor} de ${cfg.night.startHour} h à ${cfg.night.endHour} h` : 'Non'],
+      ['Protection des débutants', `${cfg.newbieDays} jours`],
+      ['Annulation d’un ordre', `${Math.round(cfg.commandCancelSeconds / 60)} min`],
+      ['Villages barbares', `+${num(cfg.barbarian.growthPerDay)} pts / jour, ${num(cfg.barbarian.maxPoints)} max`],
+    ]],
+    ['Modules', [
+      ['Paladin', cfg.features.knight ? (cfg.knightSystem === 'skills' ? 'Oui (compétences)' : 'Oui (armes)') : 'Non'],
+      ['Archers', yes(cfg.features.archer)],
+      ['Collecte', yes(cfg.scavenging.active)],
+      ['Mode sommeil', cfg.sleep.active ? `${cfg.sleep.minHours} à ${cfg.sleep.maxHours} h, activé après ${h(cfg.sleep.delayMinutes)}` : 'Non'],
+      ['Remplaçant (mode vacances)', cfg.sitter.allow ? `Oui, ${cfg.sitter.maxAccounts} comptes max` : 'Non'],
+    ]],
+    ['Tribus, marché et nobles', [
+      ['Membres par tribu', String(cfg.tribe.memberLimit)],
+      ['Attaque entre membres', cfg.tribe.noHarm ? 'Interdite' : 'Autorisée'],
+      ['Capacité d’un marchand', num(cfg.market.merchantCapacity)],
+      ['Distance maximale d’un noble', `${cfg.snob.maxDistance} cases`],
+      ['Loyauté retirée par noble', `${cfg.snob.loyaltyLossMin} à ${cfg.snob.loyaltyLossMax}`],
+    ]],
+  ];
+%>
+<div class="flex flex-col gap-3.5 pb-4">
+  <%- include('partials/page-title', { kicker: 'Infos monde', title: world.name, sub: `Victoire : ${victoryNames[cfg.victory.type]}` }) %>
+  <div class="grid gap-3.5 md:grid-cols-2">
+    <% for (const [name, rows] of groups) { %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead(name) %>
+        <table class="<%= ui.table %>"><tbody>
+          <% for (const [k, v] of rows) { %><tr><td class="text-parchment-500"><%= k %></td><td class="text-right font-bold tabular-nums"><%= v %></td></tr><% } %>
+        </tbody></table>
+      </section>
+    <% } %>
+  </div>
+  <div class="flex flex-wrap gap-4 text-sm">
+    <% if (user) { %>
+      <a href="/worlds/<%= world.slug %>/ranking" class="<%= ui.link %>">» Classement</a>
+      <a href="/worlds/<%= world.slug %>/victory" class="<%= ui.link %>">» Fin du monde</a>
+    <% } %>
+    <a href="/worlds/<%= world.slug %>/config.json" class="<%= ui.link %>">» Configuration complète (JSON)</a>
+  </div>
+</div>
+<%- include('partials/footer') %>

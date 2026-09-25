@@ -2,10 +2,10 @@
 <%
   const vid = ctx.village.id;
   const t = `/village/${vid}/tribe`;
-  const tabs = [['overview', 'Aperçu'], ['members', `Membres (${members.length})`], ['diplomacy', 'Diplomatie'], ['wall', 'Mur']];
+  const tabs = [['overview', 'Aperçu'], ['members', `Membres (${members.length})`], ['diplomacy', 'Diplomatie'], ['wall', 'Mur'], ['forum', forumUnread ? `Forum (${forumUnread})` : 'Forum']];
   const roleName = { founder: 'Fondateur', leader: 'Chef', member: 'Membre' };
   const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
-  const relTag = 'inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 font-display text-[10px] font-bold tracking-[0.12em] uppercase';
+  const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-bold tracking-[0.1em] uppercase';
   const relBadge = {
     ally: 'border-rel-ally/60 bg-rel-ally/15 text-rel-ally',
     nap: 'border-rel-nap/60 bg-rel-nap/15 text-rel-nap',
@@ -35,7 +35,6 @@
       <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Membres</dt><dd class="<%= ui.tileValue %>"><%= members.length %> / <%= ctx.cfg.tribe.memberLimit %></dd></div>
     </dl>
   </div>
-  <%- corners() %>
 </section>
 
 <% if (tab === 'overview') { %>
@@ -59,7 +58,6 @@
           <% if (members.length === 1) { %><span class="text-xs text-parchment-600">Vous êtes seul : la tribu sera dissoute.</span><% } %>
         </form>
       </div>
-      <%- corners() %>
     </section>
 
     <section class="<%= ui.panel %>">
@@ -73,7 +71,6 @@
           </div>
         <% } %>
       </div>
-      <%- corners() %>
     </section>
   </div>
 <% } %>
@@ -111,7 +108,6 @@
         </tbody>
       </table>
     </div>
-    <%- corners() %>
   </section>
 
   <% if (canManage) { %>
@@ -126,7 +122,6 @@
             <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Inviter</button>
           </form>
         </div>
-        <%- corners() %>
       </section>
       <section class="<%= ui.panel %>">
         <%- panelHead('Invitations en attente', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${invites.length}</span>`) %>
@@ -144,7 +139,6 @@
             </div>
           <% } %>
         </div>
-        <%- corners() %>
       </section>
     </div>
   <% } %>
@@ -177,7 +171,7 @@
           <tbody>
           <% for (const r of relations) { %>
             <tr>
-              <td class="w-28"><span class="<%= relTag %> <%= relBadge[r.type] %>"><span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span><%= relName[r.type] %></span></td>
+              <td class="w-28"><span class="<%= relTag %> <%= relBadge[r.type] %>"><span class="size-1.5 rotate-45 bg-current" aria-hidden="true"></span><%= relName[r.type] %></span></td>
               <td><a href="/village/<%= vid %>/tribes/<%= r.other.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-bold"><span class="<%= ui.tagMuted %>"><%= r.other.tag %></span><%= r.other.name %></a></td>
               <% if (canManage) { %>
                 <td class="w-12 text-right">
@@ -192,8 +186,11 @@
         </table>
       </div>
     <% } %>
-    <%- corners() %>
   </section>
+<% } %>
+
+<% if (tab === 'forum' && forum) { %>
+  <%- include('partials/tribe-forum', { forum, t }) %>
 <% } %>
 
 <% if (tab === 'wall') { %>
@@ -222,7 +219,6 @@
         </article>
       <% } %>
     </div>
-    <%- corners() %>
   </section>
 <% } %>
 <%- include('partials/footer') %>

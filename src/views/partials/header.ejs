@@ -11,57 +11,88 @@
   <% for (const href of fontLinks) { %><link rel="stylesheet" href="<%= href %>"><% } %>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="relative flex min-h-full flex-col bg-night bg-radial-[ellipse_at_50%_0%] from-halo to-transparent to-60% font-sans text-[15px] leading-snug text-parchment-200 antialiased">
+<body class="relative flex min-h-full flex-col bg-night bg-radial-[ellipse_at_50%_-10%] from-halo via-panel-lo via-45% to-night font-sans text-[15px] leading-tight text-parchment-100 antialiased">
+<%# Grain de papier sur toute la page (maquette : trame de points clairs). %>
+<div class="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(var(--color-grain)_1px,transparent_1.2px)] bg-size-[4px_4px] mix-blend-screen" aria-hidden="true"></div>
 <%
-  const hasHero = typeof hero !== 'undefined' && hero;
-  const logoBlock = (textCls) => `<span class="text-gold-400">${laurel('size-[30px]')}</span><span class="font-display font-extrabold ${ui.goldText} ${textCls}">GTLIKE</span>`;
+  // Logo : aplat parchemin, double ombre d'encre et de sang.
+  const logoText = (cls) => `<span class="font-display font-black tracking-[0.14em] ${ui.goldText} ${cls}">GTLIKE</span>`;
+  const navLink = 'flex shrink-0 items-center gap-[7px] border-r border-bronze-800 px-3.5 text-sm font-bold tracking-[0.1em] whitespace-nowrap uppercase no-underline transition';
+  const navOn = 'bg-blood-800 text-parchment-100 shadow-[inset_0_-3px_0_var(--color-gold-400),inset_0_3px_0_#000]';
+  const navOff = 'text-parchment-300 hover:bg-blood-700 hover:text-parchment-100';
 %>
-<% if (hasHero) { %>
-  <%# Paysage de l'accueil, derrière l'en-tête. %>
-  <div class="pointer-events-none absolute inset-x-0 top-0 h-[780px] bg-[url(/img/hero.svg)] bg-cover bg-bottom" aria-hidden="true"></div>
-<% } %>
 
 <% if (ctx) {
   const v = `/village/${ctx.village.id}`;
   const navItems = [
-    [v, 'Aperçu', 'overview', page === 'overview', 0],
-    [`${v}/map`, 'Carte', 'map', page === 'map', 0],
-    [`${v}/reports`, 'Rapports', 'reports', page === 'reports', unreadReports],
-    [`${v}/messages`, 'Messages', 'messages', page === 'messages', unreadMessages],
-    [`${v}/tribe`, 'Tribu', 'tribe', page === 'tribe', tribeInvites],
-    [`${v}/ranking`, 'Classement', 'ranking', page === 'ranking', 0],
-    [`${v}/players/${ctx.village.playerId}`, 'Profil', 'profile', page === 'profile', 0],
+    [v, 'Aperçu', 'overview', page === 'overview', 0, ui.countBadge],
+    [`${v}/map`, 'Carte', 'map', page === 'map', 0, ui.countBadge],
+    [`${v}/reports`, 'Rapports', 'reports', page === 'reports', unreadReports, ui.countBadge],
+    [`${v}/messages`, 'Messages', 'messages', page === 'messages', unreadMessages, `${ui.countBadge} bg-gold-400 text-night`],
+    [`${v}/tribe`, 'Tribu', 'tribe', page === 'tribe', tribeInvites + tribeForumUnread, ui.countBadge],
+    [`${v}/ranking`, 'Classement', 'ranking', page === 'ranking', 0, ui.countBadge],
+    [`${v}/players/${ctx.village.playerId}`, 'Profil', 'profile', page === 'profile', 0, ui.countBadge],
   ];
 %>
-<%# 1. Barre du haut : logo, menu principal, rang et réglages. %>
-<header class="relative z-20 border-b-2 border-bronze-500 bg-linear-to-b from-bar-hi to-panel-lo shadow-[0_1px_0_#000,0_6px_18px_rgba(0,0,0,0.5)]">
-<div class="mx-auto flex h-16 w-full max-w-[1600px] items-stretch gap-3 px-3 lg:gap-6 lg:px-6">
-  <a href="<%= v %>" class="flex shrink-0 items-center gap-2 no-underline" title="Aperçu du village"><%- logoBlock('hidden text-xl tracking-[0.18em] sm:inline') %></a>
-  <nav class="flex min-w-0 flex-1 overflow-x-auto xl:justify-center" aria-label="Menu principal">
-    <% for (const [href, label, ic, active, badge] of navItems) { %>
-      <a href="<%= href %>" class="relative flex w-[78px] shrink-0 flex-col items-center justify-center gap-[3px] font-display text-[10px] font-bold tracking-[0.1em] uppercase no-underline transition lg:w-[92px] lg:text-[11px] <%= active ? 'bg-linear-to-b from-gold-400/18 to-gold-400/2 text-gold-200 shadow-[inset_0_-2px_0_var(--color-gold-400)]' : 'text-parchment-400 hover:text-gold-200' %>"<%- active ? ' aria-current="page"' : '' %>>
-        <%- icon(ic, 'size-5') %><%= label %>
-        <% if (badge) { %><span class="absolute top-1.5 right-3 <%= ui.countBadge %>"><%= badge %></span><% } %>
+<%# 1. Barre du haut : logo et monde, menu principal, joueur et réglages. %>
+<header class="sticky top-0 z-40 border-b-[3px] border-bronze-500 bg-night shadow-[0_2px_0_var(--color-head-dark),0_6px_0_rgba(0,0,0,0.6)]">
+<div class="mx-auto flex min-h-12 w-full max-w-[1500px] items-stretch">
+  <a href="<%= v %>" class="flex shrink-0 items-center gap-2.5 border-r-[3px] border-black bg-head-dark pr-6 pl-3 no-underline shadow-[inset_-1px_0_0_var(--color-bronze-500)] [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]" title="Aperçu du village">
+    <%- logoText('text-[22px]') %>
+    <span class="border border-bronze-500 bg-night px-[5px] py-px text-[11px] font-bold tracking-[0.12em] text-gold-400 uppercase max-md:hidden"><%= ctx.world.name %></span>
+  </a>
+  <nav class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none]" aria-label="Menu principal">
+    <%# Menus déroulants : Rapports, et Tribu quand le joueur en a une. %>
+    <% for (const [href, label, ic, active, badge, badgeCls] of navItems) { const menu = ic === 'reports' || (ic === 'tribe' && player && player.tribeId) ? ic : null; %>
+      <a href="<%= href %>" class="<%= navLink %> <%= active ? navOn : navOff %>"<%- active ? ' aria-current="page"' : '' %><%- menu ? ` data-menu-toggle="${menu}" aria-haspopup="true" aria-expanded="false"` : '' %>>
+        <span class="text-gold-400"><%- icon(ic, 'size-4', 2.2) %></span><%= label %>
+        <% if (badge) { %><span class="<%= badgeCls %>"><%= badge %></span><% } %>
+        <% if (menu) { %><span class="text-parchment-500"><%- icon('chevronDown', 'size-3', 3) %></span><% } %>
       </a>
     <% } %>
   </nav>
-  <div class="flex shrink-0 items-center gap-2.5">
+  <div class="flex shrink-0 items-center gap-2 border-l-[3px] border-black px-2.5 shadow-[inset_1px_0_0_var(--color-bronze-800)]">
     <% if (player) { %>
-      <a href="<%= v %>/ranking" class="hidden h-9 items-center gap-2 rounded-[18px] border border-bronze-700 bg-black/35 pr-3 pl-1 text-parchment-200 no-underline hover:border-bronze-500 md:flex" title="Votre classement sur <%= ctx.world.name %>">
-        <span class="<%= ui.medallion %> size-7"><%- icon('ranking', 'size-3.5') %></span>
-        <span class="flex flex-col leading-[1.05]">
-          <span class="text-[10px] tracking-[0.08em] text-parchment-500">RANG</span>
-          <span class="text-sm font-extrabold tabular-nums"><%= num(playerRank) %> · <%= num(player.points) %> pts</span>
-        </span>
+      <a href="<%= v %>/ranking" class="flex flex-col items-end leading-[1.05] no-underline max-md:hidden" title="Votre classement sur <%= ctx.world.name %>">
+        <span class="text-[15px] font-bold tracking-[0.05em] text-parchment-100"><%= player.name %><% if (player.Tribe) { %> <span class="text-blood-600">[<%= player.Tribe.tag %>]</span><% } %></span>
+        <span class="text-[11px] tracking-[0.06em] text-parchment-500 tabular-nums">#<%= num(playerRank) %> · <%= num(player.points) %> pts</span>
       </a>
     <% } %>
-    <a href="<%= v %>/victory" class="<%= page === 'victory' ? ui.iconBtnOn : ui.iconBtn %> max-sm:hidden" title="Fin du monde" aria-label="Fin du monde"><%- icon('victory', 'size-[18px]') %></a>
-    <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-[18px]') %></a>
+    <a href="<%= v %>/victory" class="<%= page === 'victory' ? ui.iconBtnOn : ui.iconBtn %> max-sm:hidden" title="Fin du monde" aria-label="Fin du monde"><%- icon('victory', 'size-4', 2.2) %></a>
+    <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-4', 2.2) %></a>
     <%# Fausse déconnexion, comme sur Guerre Tribale : on quitte le monde et on revient au choix des mondes (la session reste ouverte). %>
-    <a href="/worlds" class="<%= ui.iconBtn %>" title="Déconnexion : retour au choix des mondes" aria-label="Déconnexion"><%- icon('logout', 'size-[18px]') %></a>
+    <a href="/worlds" class="<%= ui.iconBtn %>" title="Déconnexion : retour au choix des mondes" aria-label="Déconnexion"><%- icon('logout', 'size-4', 2.2) %></a>
   </div>
 </div>
-</header>
+
+<%
+  // Contenu des menus déroulants de la barre du haut (ouverts par game.js sous leur bouton).
+  const menus = [['reports', 'Rapports', [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']]
+    .map(([f, label]) => [`${v}/reports?filter=${f}`, label, unreadByFilter[f] || 0])]];
+  if (player && player.tribeId) {
+    menus.push(['tribe', player.Tribe ? `Tribu [${player.Tribe.tag}]` : 'Tribu', [
+      [`${v}/tribe`, 'Aperçu', 0],
+      [`${v}/tribe?tab=members`, 'Membres', 0],
+      [`${v}/tribe?tab=diplomacy`, 'Diplomatie', 0],
+      [`${v}/tribe?tab=wall`, 'Mur', 0],
+      [`${v}/tribe?tab=forum`, 'Forum', tribeForumUnread],
+      [`${v}/tribes/${player.tribeId}`, 'Page publique', 0],
+    ]]);
+  }
+%>
+<div class="relative mx-auto h-0 w-full max-w-[1500px]">
+  <% for (const [id, title, items] of menus) { %>
+    <div class="absolute top-0 left-0 z-50 hidden w-[210px] border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]" data-menu="<%= id %>">
+      <div class="border-b-2 border-bronze-500 bg-head px-2.5 py-[5px] font-display text-xs font-bold tracking-[0.14em] uppercase"><%= title %></div>
+      <% for (const [href, label, n] of items) { %>
+        <a href="<%= href %>" class="flex items-center justify-between border-b border-bronze-800 px-2.5 py-1.5 font-semibold tracking-[0.04em] no-underline last:border-b-0 hover:bg-head-dark hover:text-parchment-100 <%= n || id === 'tribe' ? 'text-parchment-100' : 'text-parchment-500' %>">
+          <span class="flex items-center gap-1.5"><span class="size-[5px] rotate-45 bg-bronze-500"></span><%= label %></span>
+          <span class="text-xs text-gold-400 tabular-nums"><%= n || '' %></span>
+        </a>
+      <% } %>
+    </div>
+  <% } %>
+</div>
 
 <%
   const cap = ctx.state.storageCapacity();
@@ -69,83 +100,83 @@
   const idx = myVillages.findIndex((x) => x.id === ctx.village.id);
   const prev = myVillages.length > 1 ? myVillages[(idx - 1 + myVillages.length) % myVillages.length] : null;
   const next = myVillages.length > 1 ? myVillages[(idx + 1) % myVillages.length] : null;
-  const pill = 'flex h-11 items-center gap-2.5 rounded-[22px] border border-bronze-800 bg-black/35 pr-3.5 pl-[5px]';
+  // Barre rapide de Guerre Tribale : accès direct aux bâtiments construits.
+  const quick = QUICKBAR.map((id) => registry.BUILDINGS.get(id)).filter((b) => b && b.isAvailableIn(ctx.cfg) && ctx.state.level(b.id) > 0);
+  const chip = 'flex items-center gap-[5px] border border-bronze-800 bg-night px-2 py-[3px] whitespace-nowrap shadow-[inset_0_-2px_0_var(--color-panel-lo),1px_1px_0_#000]';
+  const arrow = 'flex size-[26px] shrink-0 items-center justify-center border-2 border-black bg-night text-gold-400 no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-700)] transition hover:bg-head-dark hover:text-parchment-100';
 %>
-<%# 2. Barre du village : navigation entre villages, alertes, ressources. %>
-<div class="relative z-10 border-b border-bronze-800 bg-linear-to-b from-vbar-hi to-vbar-lo">
-<div class="mx-auto flex min-h-[68px] w-full max-w-[1600px] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 lg:px-6">
-  <div class="flex min-w-0 items-center gap-2.5">
-    <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= ui.iconBtn %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.4) %></a><% } %>
-    <div class="flex min-w-0 items-center gap-3 px-1.5">
-      <svg class="h-10 w-9 shrink-0" viewBox="0 0 36 40" aria-hidden="true"><path class="fill-crest stroke-gold-400" d="M3 3h30v14c0 11-8 17-15 20C11 34 3 28 3 17z" stroke-width="2"/><path class="stroke-gold-200" d="M11 14h14M18 10v16" stroke-width="2" stroke-linecap="round"/></svg>
-      <span class="flex min-w-0 flex-col gap-0.5">
-        <% if (myVillages.length > 1) { %>
-          <details class="group relative">
-            <summary class="flex cursor-pointer list-none items-center gap-1.5 font-display text-lg font-bold text-parchment-100 hover:text-gold-200 [&::-webkit-details-marker]:hidden">
-              <span class="truncate"><%= ctx.village.name %></span><%- icon('chevronDown', 'size-3.5 text-gold-400 transition group-open:rotate-180', 2.4) %>
-            </summary>
-            <ul class="<%= ui.popover %> left-0 max-h-80 w-72 overflow-y-auto p-1.5">
-              <% for (const mv of myVillages) { %>
-                <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 rounded px-2.5 py-2 text-sm no-underline <%= mv.id === ctx.village.id ? 'bg-gold-400/12 text-gold-200' : 'text-parchment-300 hover:bg-black/40 hover:text-gold-200' %>">
-                  <span class="truncate"><%= mv.name %></span><span class="shrink-0 text-parchment-500 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
-                </a></li>
-              <% } %>
-            </ul>
-          </details>
-        <% } else { %>
-          <a href="/village/<%= ctx.village.id %>" class="truncate font-display text-lg font-bold text-parchment-100 no-underline hover:text-gold-200"><%= ctx.village.name %></a>
-        <% } %>
-        <span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-parchment-500 tabular-nums">
-          <%= ctx.village.x %>|<%= ctx.village.y %> · Continent <%= continent(ctx.village.x, ctx.village.y) %> · <%= num(ctx.village.points) %> points
-          <% if (ctx.state.loyalty < 100) { %><span class="<%= ui.tagRed %>" title="Loyauté">Loyauté <%= Math.floor(ctx.state.loyalty) %></span><% } %>
-          <% if (incomingAttacks) { %>
-            <a href="/village/<%= ctx.village.id %>/place?tab=troops" class="<%= ui.tagRed %> gap-1 no-underline" title="Attaques en approche"><%- icon('attack', 'size-3', 2.2) %><%= incomingAttacks %> attaque<%= incomingAttacks > 1 ? 's' : '' %></a>
-          <% } %>
-        </span>
-      </span>
+<%# 2. Barre du village : changement de village, attaques entrantes, barre rapide, ressources. %>
+<div class="border-t border-black bg-panel-hi shadow-[inset_0_1px_0_var(--color-bronze-800)]">
+<div class="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-1.5 px-2.5 py-[5px]">
+  <div class="flex min-w-0 flex-[1_1_520px] items-center gap-1.5">
+    <div class="flex shrink-0 items-center gap-1">
+      <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
+      <% if (myVillages.length > 1) { %>
+        <details class="group relative">
+          <summary class="flex h-[26px] cursor-pointer list-none items-center gap-1.5 border border-bronze-500 bg-night px-2 text-sm font-bold tracking-[0.04em] text-parchment-100 hover:text-gold-200 [&::-webkit-details-marker]:hidden" title="Changer de village">
+            <span class="max-w-44 truncate"><%= ctx.village.name %></span><span class="text-xs text-gold-400 tabular-nums"><%= ctx.village.x %>|<%= ctx.village.y %></span><%- icon('chevronDown', 'size-3 text-parchment-500 transition group-open:rotate-180', 3) %>
+          </summary>
+          <ul class="<%= ui.popover %> left-0 max-h-80 w-72 overflow-y-auto p-0">
+            <% for (const mv of myVillages) { %>
+              <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 border-b border-bronze-800 px-2.5 py-1.5 text-sm font-semibold no-underline <%= mv.id === ctx.village.id ? 'bg-head-dark text-parchment-100' : 'text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>">
+                <span class="flex items-center gap-1.5 truncate"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= mv.name %></span><span class="shrink-0 text-xs text-gold-400 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
+              </a></li>
+            <% } %>
+          </ul>
+        </details>
+      <% } else { %>
+        <a href="/village/<%= ctx.village.id %>" class="flex h-[26px] items-center gap-1.5 border border-bronze-500 bg-night px-2 text-sm font-bold tracking-[0.04em] text-parchment-100 no-underline hover:text-gold-200">
+          <span class="max-w-44 truncate"><%= ctx.village.name %></span><span class="text-xs text-gold-400 tabular-nums"><%= ctx.village.x %>|<%= ctx.village.y %></span>
+        </a>
+      <% } %>
+      <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.6) %></a><% } %>
+      <% if (incomingAttacks) { %>
+        <a href="/village/<%= ctx.village.id %>/place?tab=troops" class="<%= ui.tagRed %> h-[26px] gap-1 no-underline" title="Attaques en approche"><%- icon('attack', 'size-3', 2.6) %><%= incomingAttacks %></a>
+      <% } %>
     </div>
-    <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= ui.iconBtn %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.4) %></a><% } %>
+    <nav class="flex min-w-0 gap-0.5 overflow-x-auto [scrollbar-width:none]" aria-label="Bâtiments">
+      <% for (const b of quick) { const on = page === b.id; %>
+        <a href="<%= v %>/<%= buildingPath(b.id, ctx.cfg) %>" class="flex shrink-0 items-center gap-[5px] border px-[9px] py-1 text-[13px] font-semibold tracking-[0.06em] whitespace-nowrap uppercase no-underline transition <%= on ? 'border-bronze-500 bg-head-dark text-parchment-100' : 'border-transparent text-gold-400 hover:border-blood-800 hover:bg-row-hover hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>>
+          <%- buildingIcon(b.id, 'size-3.5', 2.2) %><%= b.name %>
+        </a>
+      <% } %>
+    </nav>
   </div>
-  <div class="flex flex-wrap items-center gap-2">
+  <div class="flex min-w-0 flex-[0_1_auto] gap-[3px] overflow-x-auto [scrollbar-width:none]">
     <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; %>
-      <div class="<%= pill %>" title="<%= r.label %> : <%= num(prod[r.id]) %> par heure">
-        <span class="<%= ui.medallion %> size-[34px] <%= r.text %>"><%- icon(r.icon, 'size-[17px]') %></span>
-        <span class="flex flex-col gap-[3px]">
-          <span class="text-base leading-none font-extrabold tabular-nums <%= value >= cap ? 'text-blood-450' : '' %>" data-res="<%= value %>" data-rate="<%= prod[r.id] %>" data-cap="<%= cap %>"
-                data-at="<%= ctx.state.resourcesAt.getTime() %>"><%= num(value) %></span>
-          <span class="<%= ui.track %> h-1 w-16"><span class="block h-1 bg-linear-to-r <%= r.bar %> to-gold-200" data-res-bar style="width: <%= Math.min(100, Math.round((value / cap) * 100)) %>%"></span></span>
-        </span>
-        <span class="mt-[7px] self-start text-[11px] text-parchment-500 tabular-nums">+<%= num(prod[r.id]) %></span>
+      <div class="<%= chip %>" title="<%= r.label %> · +<%= num(prod[r.id]) %>/h · entrepôt <%= num(cap) %>">
+        <span class="<%= r.text %>"><%- icon(r.icon, 'size-[15px]', 2) %></span>
+        <span class="text-sm font-bold tabular-nums <%= value >= cap ? 'text-blood-450' : 'text-parchment-100' %>" data-res="<%= value %>" data-rate="<%= prod[r.id] %>" data-cap="<%= cap %>"
+              data-at="<%= ctx.state.resourcesAt.getTime() %>"><%= num(value) %></span>
       </div>
     <% } %>
-    <div class="<%= pill %>" title="Capacité de l'entrepôt">
-      <span class="<%= ui.medallion %> size-[34px]"><%- icon('storage', 'size-[17px]') %></span>
-      <span class="flex flex-col leading-[1.1]"><span class="text-[11px] text-parchment-500">Entrepôt</span><span class="text-[15px] font-extrabold tabular-nums"><%= num(cap) %></span></span>
+    <div class="<%= chip %>" title="Capacité de l'entrepôt">
+      <span class="text-gold-400"><%- icon('storage', 'size-[15px]', 2) %></span><span class="text-sm font-bold text-parchment-100 tabular-nums"><%= num(cap) %></span>
     </div>
-    <div class="<%= pill %>" title="Population utilisée / capacité de la ferme">
-      <span class="<%= ui.medallion %> size-[34px] text-pop"><%- icon('pop', 'size-[17px]') %></span>
-      <span class="flex flex-col leading-[1.1]"><span class="text-[11px] text-parchment-500">Population</span><span class="text-[15px] font-extrabold tabular-nums"><%= num(ctx.popUsed()) %> / <%= num(ctx.state.farmCapacity()) %></span></span>
+    <div class="<%= chip %>" title="Population utilisée / capacité de la ferme">
+      <span class="text-pop"><%- icon('pop', 'size-[15px]', 2) %></span><span class="text-sm font-bold text-parchment-100 tabular-nums"><%= num(ctx.popUsed()) %>/<%= num(ctx.state.farmCapacity()) %></span>
     </div>
   </div>
 </div>
 </div>
+</header>
 
-<main class="mx-auto flex w-full max-w-[1600px] grow flex-col gap-5 px-3 pt-5 pb-7 lg:px-6">
+<main class="relative z-[2] mx-auto flex w-full max-w-[1500px] grow flex-col gap-3.5 px-2.5 pt-3.5 pb-10">
 <% } else {
   const w = typeof world !== 'undefined' && world ? world : null;
-  const showLogo = !(typeof hideLogo !== 'undefined' && hideLogo);
-  const lobbyLink = (href, label, active) => `<a href="${href}" class="shrink-0 font-display text-[13px] font-bold tracking-[0.12em] uppercase no-underline transition ${active ? 'text-gold-200' : 'text-parchment-350 hover:text-gold-200'}">${label}</a>`;
+  const lobbyLink = (href, label, active) => `<a href="${href}" class="shrink-0 text-[13px] font-bold tracking-[0.1em] uppercase no-underline transition ${active ? 'text-parchment-100' : 'text-gold-400 hover:text-parchment-100'}">${label}</a>`;
   const current = typeof lobbyPage !== 'undefined' ? lobbyPage : null;
 %>
 <%# En-tête hors partie : accueil, compte, pages publiques d'un monde. %>
-<header class="relative z-20 border-b border-bronze-500/60 bg-linear-to-b from-[rgba(20,15,10,0.92)] to-[rgba(20,15,10,0.6)]">
-<div class="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-6 px-4 sm:px-8 lg:gap-9 lg:px-16">
-  <% if (showLogo) { %>
-    <a href="<%= user ? '/worlds' : '/login' %>" class="flex shrink-0 items-center gap-2 no-underline"><%- logoBlock('text-lg tracking-[0.16em]') %></a>
-  <% } %>
-  <nav class="flex min-w-0 flex-1 gap-6 overflow-x-auto lg:gap-[30px]" aria-label="Menu">
+<header class="relative z-20 border-b-2 border-bronze-500 bg-night">
+<div class="mx-auto flex min-h-11 w-full max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-3.5 py-2">
+  <a href="<%= user ? '/worlds' : '/login' %>" class="no-underline"><%- logoText('text-lg') %></a>
+  <nav class="flex min-w-0 flex-wrap gap-x-4 gap-y-1" aria-label="Menu">
     <% if (user) { %>
       <%- lobbyLink('/worlds', 'Accueil', current === 'worlds') %>
+      <%- lobbyLink('/rules', 'Règles', current === 'rules') %>
+      <%- lobbyLink('/help', 'Aide', current === 'help') %>
+      <%- lobbyLink('/forum', 'Forum', current === 'forum') %>
       <% if (w) { %>
         <%- lobbyLink(`/worlds/${w.slug}/ranking`, 'Classement', current === 'ranking') %>
         <%- lobbyLink(`/worlds/${w.slug}/victory`, 'Fin du monde', current === 'victory') %>
@@ -153,19 +184,32 @@
       <% } %>
       <%- lobbyLink('/account', 'Mon compte', current === 'account') %>
     <% } else { %>
-      <%- lobbyLink('/login', 'Connexion', current === 'login') %>
+      <%- lobbyLink('/login', 'Accueil', current === 'login') %>
       <%- lobbyLink('/register', 'Inscription', current === 'register') %>
+      <%- lobbyLink('/rules', 'Règles', current === 'rules') %>
+      <%- lobbyLink('/help', 'Aide', current === 'help') %>
+      <%- lobbyLink('/forum', 'Forum', current === 'forum') %>
     <% } %>
   </nav>
+  <div class="flex shrink-0 items-center gap-2.5">
+  <span class="border border-bronze-700 px-1.5 py-0.5 text-xs text-parchment-500" title="Langue : français">FR</span>
   <% if (user) { %>
     <form method="post" action="/logout" class="shrink-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button class="cursor-pointer font-display text-[13px] font-bold tracking-[0.1em] text-parchment-350 uppercase transition hover:text-gold-200">Déconnexion</button>
+      <button class="cursor-pointer text-xs font-bold tracking-[0.1em] text-gold-400 uppercase transition hover:text-parchment-100">Déconnexion</button>
     </form>
+  <% } else { %>
+    <a href="/login" class="text-xs font-bold tracking-[0.1em] text-gold-400 uppercase no-underline hover:text-parchment-100">Connexion</a>
   <% } %>
+  </div>
 </div>
 </header>
 
-<main class="relative z-10 mx-auto flex w-full max-w-[1440px] grow flex-col gap-5 px-4 pt-6 sm:px-8 lg:px-16">
+<% if (typeof hero !== 'undefined' && hero) { %>
+<%# Accueil : le héros occupe toute la largeur, chaque section recentre son contenu. %>
+<main class="relative z-[2] flex w-full grow flex-col">
+<% } else { %>
+<main class="relative z-[2] mx-auto flex w-full max-w-[1200px] grow flex-col gap-4 px-3.5 pt-5">
+<% } %>
 <% } %>
 
 <% if (ctx && ctx.world.endedAt) { %>
@@ -187,6 +231,11 @@
     <a href="/village/<%= ctx.village.id %>/account" class="<%= ui.link %> ml-auto">Gérer</a>
   </div>
 <% } %>
-<% if (flash) { %>
-  <div class="<%= flash.type === 'error' ? ui.alertError : ui.alertSuccess %>" role="status"><%= flash.message %></div>
+<% if (flash) { const bad = flash.type === 'error'; %>
+  <%# Notification (maquette : encart en haut à droite) ; game.js la ferme après quelques secondes. %>
+  <div class="fixed top-[108px] right-3.5 z-[70] flex max-w-[340px] items-center gap-2.5 border-2 border-black bg-panel-top px-3 py-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000] transition-opacity duration-500 max-sm:inset-x-3.5 max-sm:max-w-none" role="<%= bad ? 'alert' : 'status' %>" data-toast>
+    <span class="size-2.5 shrink-0 rotate-45 border border-black <%= bad ? 'bg-blood-600' : 'bg-olive-500' %>"></span>
+    <span class="font-semibold"><%= flash.message %></span>
+    <button type="button" class="ml-auto shrink-0 cursor-pointer text-parchment-500 hover:text-parchment-100" data-toast-close aria-label="Fermer"><%- icon('close', 'size-3.5', 3) %></button>
+  </div>
 <% } %>

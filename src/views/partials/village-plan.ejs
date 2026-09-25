@@ -1,7 +1,10 @@
 <%#
-  Plan du village (maquette « Ton oppidum ») : bâtiments en médaillons sur le fond du style de jeu (--game-image-village, voir src/styles/game-styles/).
-  Emplacements en % d'une scène 966 × 580 : bâtiments militaires et QG dans l'enceinte, mines et ferme
-  aux abords, muraille à la porte sud. Un chantier en cours affiche un anneau de progression.
+  Plan du village (maquette « GTLike », vue de la cité) : bâtiments en blocs vus de dessus sur le fond du style de jeu
+  (--game-image-village, voir src/styles/game-styles/). Emplacements en % d'une scène 966 × 580 : QG et bâtiments
+  militaires dans l'enceinte, mines et ferme aux abords, muraille en étiquette sur la porte sud.
+  Chaque bloc porte son niveau (LV.x), son nom et, s'il est en chantier, le compte à rebours. Un clic sélectionne le
+  bâtiment et affiche son encart sous le plan (coût et durée du niveau suivant, Améliorer) ; un second clic ouvre sa page.
+  Local requis : buildOptions (VillageService.buildOption par bâtiment).
   `view` : 'city' (plan, écrans moyens et plus) ou 'list' (liste, toujours utilisée sur mobile).
 %>
 <%
@@ -11,58 +14,116 @@
     smith: 'left-[31.06%] top-[66.38%]', storage: 'left-[50%] top-[66.38%]', garage: 'left-[68.94%] top-[66.38%]',
     wood: 'left-[10.35%] top-[18.97%]', stable: 'left-[10.35%] top-[44.83%]', stone: 'left-[10.35%] top-[72.41%]',
     farm: 'left-[89.65%] top-[18.97%]', hide: 'left-[89.65%] top-[44.83%]', iron: 'left-[89.65%] top-[72.41%]',
-    wall: 'left-[50%] top-[85.34%]',
+  };
+  // Matériau de chaque bloc (jetons --color-bld-*).
+  const LOOK = {
+    main: 'bg-[repeating-linear-gradient(90deg,var(--color-bld-marble)_0_8px,var(--color-bld-marble-dk)_8px_10px)]',
+    statue: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-stone)_0_6px,var(--color-bld-stone-dk)_6px_8px)]',
+    barracks: 'bg-[repeating-linear-gradient(135deg,var(--color-bld-timber)_0_6px,var(--color-bld-timber-dk)_6px_9px)]',
+    snob: 'bg-bld-slate',
+    place: 'bg-[repeating-linear-gradient(45deg,var(--color-bld-timber-dk)_0_6px,var(--color-blood-800)_6px_8px)]',
+    market: 'bg-[repeating-linear-gradient(90deg,var(--color-bronze-500)_0_6px,var(--color-parchment-300)_6px_12px)]',
+    smith: 'bg-bld-soot bg-[radial-gradient(circle_at_70%_60%,var(--color-bld-fire)_10%,transparent_26%)]',
+    storage: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-grain)_0_4px,var(--color-bld-grain-dk)_4px_6px)]',
+    garage: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-timber)_0_5px,var(--color-bld-soot)_5px_7px)]',
+    wood: 'bg-forest-deep bg-[radial-gradient(circle_at_30%_35%,var(--color-forest-leaf)_18%,transparent_20%),radial-gradient(circle_at_70%_60%,var(--color-forest-leaf)_18%,transparent_20%)]',
+    stable: 'bg-[repeating-linear-gradient(90deg,var(--color-bld-timber)_0_7px,var(--color-bld-grain-dk)_7px_9px)]',
+    stone: 'bg-[radial-gradient(ellipse_at_50%_55%,var(--color-bld-clay-dk)_30%,var(--color-bld-clay)_32%)]',
+    farm: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-field)_0_5px,var(--color-bld-field-lt)_5px_10px)]',
+    hide: 'bg-bld-soot bg-[repeating-linear-gradient(90deg,transparent_0_10px,var(--color-bld-pit)_10px_12px)]',
+    iron: 'bg-[radial-gradient(ellipse_at_50%_55%,var(--color-bld-pit)_30%,var(--color-bld-rock)_32%)]',
   };
   const vid = ctx.village.id;
-  const plan = Object.keys(SPOTS).map((id) => registry.BUILDINGS.get(id)).filter((b) => b && b.isAvailableIn(ctx.cfg)).map((b) => {
+  const plotOf = (id) => {
+    const b = registry.BUILDINGS.get(id);
+    if (!b || !b.isAvailableIn(ctx.cfg)) return null;
     const orders = ctx.buildOrders.filter((o) => o.building === b.id);
     const running = orders.find((o) => new Date(o.startsAt) <= now) || null;
     const last = orders.length ? orders[orders.length - 1] : null;
-    const pct = running ? Math.max(0, Math.min(100, ((now - new Date(running.startsAt)) / (new Date(running.endsAt) - new Date(running.startsAt))) * 100)) : 0;
-    return { b, level: ctx.state.level(b.id), orders, running, last, pct, href: `/village/${vid}/${buildingPath(b.id, ctx.cfg)}` };
-  });
-  const ringBuilt = 'bg-linear-to-b from-bronze-200 to-bronze-950 shadow-[0_4px_8px_rgba(0,0,0,0.6)]';
-  const ringWork = 'bg-[conic-gradient(var(--color-gold-200)_0%,var(--color-gold-400)_var(--p),rgba(0,0,0,0.55)_var(--p))] shadow-[0_0_0_3px_var(--color-glow-soft),0_0_18px_var(--color-glow),0_4px_8px_rgba(0,0,0,0.6)]';
-  const ringNone = 'bg-linear-to-b from-bronze-700 to-bronze-900 opacity-70 shadow-[0_4px_8px_rgba(0,0,0,0.6)]';
-  const core = 'flex size-[52px] items-center justify-center rounded-full bg-radial-[at_35%_30%] from-core-hi to-core-lo to-75% shadow-[inset_0_0_0_2px_rgba(0,0,0,0.6)]';
-  const medal = (p, big) => `
-    <span class="relative block size-[58px] shrink-0 rounded-full p-[3px] ${p.running ? ringWork : p.level ? ringBuilt : ringNone}"${p.running ? ` style="--p: ${p.pct.toFixed(1)}%" data-progress-ring data-progress-start="${new Date(p.running.startsAt).getTime()}" data-progress-end="${new Date(p.running.endsAt).getTime()}"` : ''}>
-      <span class="${core} ${p.level || p.running ? 'text-gold-250' : 'text-parchment-600'}">${buildingIcon(p.b.id, 'size-[26px]', 1.6)}</span>
-      ${p.level ? `<span class="absolute -right-1.5 -bottom-1 ${ui.levelBadge}">${p.level}</span>` : ''}
-    </span>`;
+    return { b, level: ctx.state.level(b.id), orders, running, last, href: `/village/${vid}/${buildingPath(b.id, ctx.cfg)}` };
+  };
+  const plan = Object.keys(SPOTS).map(plotOf).filter(Boolean);
+  const wall = plotOf('wall');
   const works = ctx.buildOrders.length;
+  const head = ctx.buildOrders[0] || null;
+  const titleOf = (p) => `${p.b.name} · ${p.level ? `niveau ${p.level}` : 'non construit'}${p.last ? ` · niveau ${p.last.level} en file` : ''}`;
+  // Pastille de chantier : compte à rebours si en cours, « EN FILE » sinon.
+  const timer = (p) => p.running
+    ? `<span class="flex items-center gap-[3px] border-2 border-black bg-blood-700 px-1 text-[10px] font-bold text-parchment-100 tabular-nums shadow-[2px_2px_0_#000]">${icon('smith', 'size-2.5', 3)}<span data-countdown="${new Date(p.running.endsAt).getTime()}">${duration((new Date(p.running.endsAt) - now) / 1000)}</span></span>`
+    : `<span class="border-2 border-black bg-blood-900 px-1 text-[10px] font-bold text-parchment-100 shadow-[2px_2px_0_#000]">EN FILE</span>`;
 %>
-<div class="<%= view === 'list' ? 'hidden' : 'hidden md:block' %> relative aspect-[966/580] overflow-hidden rounded-b-md bg-(image:--game-image-village) bg-cover bg-center">
-  <% for (const p of plan) { %>
-    <a href="<%= p.href %>" class="group absolute <%= SPOTS[p.b.id] %> flex w-[140px] -translate-x-1/2 -translate-y-[29px] flex-col items-center gap-[5px] no-underline"
-       title="<%= p.b.name %> · <%= p.level ? `niveau ${p.level}` : 'non construit' %><%= p.last ? ` · niveau ${p.last.level} en file` : '' %>">
-      <span class="block transition group-hover:scale-105 group-hover:brightness-115"><%- medal(p) %></span>
-      <span class="rounded-[3px] border border-bronze-700/80 bg-plate px-2 py-0.5 font-display text-[11px] font-bold tracking-[0.1em] whitespace-nowrap uppercase transition group-hover:border-bronze-400 <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
-      <% if (p.last) { %>
-        <span class="rounded-[3px] bg-black/60 px-2 py-px text-xs font-extrabold whitespace-nowrap text-gold-200 tabular-nums">→ <%= p.last.level %> · <span data-countdown="<%= new Date(p.last.endsAt).getTime() %>"><%= duration((new Date(p.last.endsAt) - now) / 1000) %></span></span>
-      <% } %>
-    </a>
-  <% } %>
-  <div class="absolute bottom-3.5 left-4 flex flex-wrap items-center gap-2.5 rounded border border-bronze-700 bg-plate-strong px-3 py-2 text-[13px]">
-    <span class="size-2.5 rounded-full <%= works ? 'bg-gold-400 shadow-[0_0_8px_var(--color-gold-400)]' : 'bg-parchment-700' %>"></span>
-    <span class="text-parchment-200"><%= works ? `${works} chantier${works > 1 ? 's' : ''} en cours` : 'Aucun chantier' %></span>
-    <span class="text-parchment-700">·</span>
-    <span class="text-parchment-500">Cliquez un bâtiment pour l’améliorer</span>
+<div class="<%= view === 'list' ? 'hidden' : 'hidden md:block' %> bg-night p-2">
+  <div class="relative aspect-[966/580] overflow-hidden border-[3px] border-black bg-(image:--game-image-village) bg-cover bg-center">
+    <% for (const p of plan) { %>
+      <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute <%= SPOTS[p.b.id] %> data-selected:outline-[3px] data-selected:outline-gold-200 data-selected:shadow-[0_0_0_6px_rgba(0,0,0,0.6),6px_6px_0_rgba(0,0,0,0.6)] h-[16%] w-[14.5%] -translate-1/2 border-[3px] border-black no-underline transition-transform hover:-translate-[calc(50%+2px)] <%= p.level ? `${LOOK[p.b.id]} shadow-[5px_5px_0_rgba(0,0,0,0.55)]` : 'border-dashed bg-black/45' %> <%= p.running ? 'outline-[3px] outline-offset-0 outline-gold-200' : '' %>"
+         title="<%= titleOf(p) %>">
+        <% if (!p.level) { %><span class="absolute inset-0 flex items-center justify-center text-parchment-500/70"><%- buildingIcon(p.b.id, 'size-6', 1.8) %></span><% } %>
+        <span class="absolute top-[3px] left-[3px] border px-1 text-[10px] font-bold tracking-[0.04em] <%= p.level ? 'border-gold-400 bg-night text-gold-400' : 'border-bronze-700 bg-night text-parchment-500' %>">LV.<%= p.level %></span>
+        <% if (p.last) { %><span class="absolute -top-2.5 -right-[3px]"><%- timer(p) %></span><% } %>
+        <span class="absolute inset-x-0 bottom-0 truncate border-t-2 border-black bg-plate px-1 py-px text-[10px] font-bold tracking-[0.1em] uppercase transition group-hover:bg-head-dark <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
+      </a>
+    <% } %>
+    <% if (wall) { %>
+      <a href="<%= wall.href %>" data-plot="wall" class="absolute top-[85.5%] left-[50%] flex -translate-x-1/2 gap-[3px] no-underline data-selected:outline-2 data-selected:outline-offset-2 data-selected:outline-gold-200" title="<%= titleOf(wall) %>">
+        <span class="border border-gold-400 bg-night px-1 text-[10px] font-bold tracking-[0.04em] whitespace-nowrap text-gold-400 uppercase hover:text-parchment-100"><%= wall.b.name %> LV.<%= wall.level %></span>
+        <% if (wall.last) { %><%- timer(wall) %><% } %>
+      </a>
+    <% } %>
+    <div class="pointer-events-none absolute right-2 bottom-2 flex gap-[3px]">
+      <span class="border border-bronze-700 bg-night px-1.5 py-0.5 text-[11px] tracking-[0.1em] text-parchment-500 uppercase">Loyauté <%= Math.floor(ctx.state.loyalty) %></span>
+    </div>
   </div>
+  <%# Bandeau sous le plan : par défaut le chantier en tête de file ; un clic sur un bâtiment (game.js) affiche son encart. %>
+  <div class="mt-2 flex flex-wrap items-center justify-between gap-3 border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top px-2.5 py-2" data-plot-info="">
+    <div class="min-w-0 flex-[1_1_260px]">
+      <% if (head) { %>
+        <div class="font-display text-base font-bold tracking-[0.1em] uppercase"><%= buildingName(head.building) %> <span class="font-sans text-sm text-gold-400">→ niveau <%= head.level %></span></div>
+        <div class="text-[13px] text-parchment-500"><%= works %> chantier<%= works > 1 ? 's' : '' %> en file · fin <%= when(ctx.buildOrders[works - 1].endsAt, now) %></div>
+      <% } else { %>
+        <div class="font-display text-base font-bold tracking-[0.1em] uppercase">Aucun chantier</div>
+        <div class="text-[13px] text-parchment-500">Clique un bâtiment pour l’améliorer. Les ouvriers attendent tes ordres.</div>
+      <% } %>
+    </div>
+    <a href="/village/<%= vid %>/main" class="<%= btn('gold', 'md') %>"><%- icon('overview', 'size-3.5', 2.2) %>Quartier général</a>
+  </div>
+  <% for (const p of [...plan, ...(wall ? [wall] : [])]) { const o = buildOptions[p.b.id]; if (!o) continue;
+       const reason = o.blockers[0] || (o.lacksResources ? 'Ressources insuffisantes' : null); %>
+    <div class="mt-2 hidden flex-wrap items-center justify-between gap-3 border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top px-2.5 py-2" data-plot-info="<%= p.b.id %>">
+      <div class="min-w-0 flex-[1_1_260px]">
+        <div class="font-display text-base font-bold tracking-[0.1em] uppercase"><%= p.b.name %> <span class="font-sans text-sm text-gold-400">· <%= p.level ? `NIVEAU ${p.level}` : 'NON CONSTRUIT' %></span></div>
+        <div class="text-[13px] text-parchment-500"><%= p.b.description %></div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2.5 text-[13px] tabular-nums">
+        <% if (o.maxed) { %>
+          <span class="text-parchment-500">Niveau maximum atteint</span>
+        <% } else if (o.missing && o.missing.length) { %>
+          <span class="text-parchment-500">Requiert : <%= o.blockers.join(' · ') %></span>
+        <% } else { %>
+          <span class="text-parchment-500">Niv. <%= o.level %> :</span>
+          <%- include('cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %>
+          <span class="inline-flex items-center gap-1 text-gold-400"><%- icon('clock', 'size-3.5', 2) %><%= duration(o.duration) %></span>
+          <form method="post" action="/village/<%= vid %>/build" class="flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="building" value="<%= p.b.id %>">
+            <button class="<%= btn('gold', 'md') %>" <%= reason ? 'disabled' : '' %> title="<%= reason || '' %>"><%= o.level === 1 ? 'Construire' : 'Améliorer' %></button>
+          </form>
+          <% if (reason) { %><span class="w-full text-right text-xs text-blood-450"><%= reason %></span><% } %>
+        <% } %>
+        <a href="<%= p.href %>" class="<%= btn('dark', 'md') %>">Ouvrir</a>
+      </div>
+    </div>
+  <% } %>
 </div>
 
 <%# Vue liste (et rendu mobile de la vue cité). %>
-<div class="<%= view === 'list' ? '' : 'md:hidden' %> grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-3">
-  <% for (const p of plan) { %>
-    <a href="<%= p.href %>" class="<%= ui.box %> flex items-center gap-3 p-2.5 no-underline transition hover:border-bronze-500">
-      <span class="block shrink-0"><%- medal(p) %></span>
+<div class="<%= view === 'list' ? '' : 'md:hidden' %> grid gap-1.5 p-2.5 sm:grid-cols-2 xl:grid-cols-3">
+  <% for (const p of [...plan, ...(wall ? [wall] : [])]) { %>
+    <a href="<%= p.href %>" class="<%= ui.box %> flex items-center gap-2.5 p-1.5 no-underline transition hover:bg-row-hover" title="<%= titleOf(p) %>">
+      <span class="block h-10 w-14 shrink-0 border-2 border-black <%= p.level ? (LOOK[p.b.id] || 'bg-bld-stone') : 'border-dashed bg-black/45' %>"></span>
       <span class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate font-bold <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
-        <span class="text-[13px] text-parchment-500"><%= p.level ? `Niveau ${p.level}` : 'Non construit' %></span>
+        <span class="truncate font-bold tracking-[0.04em] uppercase <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
+        <span class="text-[13px] text-gold-400"><%= p.level ? `LV.${p.level}` : 'Non construit' %></span>
       </span>
-      <% if (p.last) { %>
-        <span class="shrink-0 text-right text-xs font-extrabold text-gold-200 tabular-nums">→ <%= p.last.level %><br><span data-countdown="<%= new Date(p.last.endsAt).getTime() %>"><%= duration((new Date(p.last.endsAt) - now) / 1000) %></span></span>
-      <% } %>
+      <% if (p.last) { %><span class="shrink-0"><%- timer(p) %></span><% } %>
     </a>
   <% } %>
 </div>

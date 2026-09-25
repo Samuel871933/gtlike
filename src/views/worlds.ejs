@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: 'Mondes', hero: true, hideLogo: true, lobbyPage: 'worlds' }) %>
+<%- include('partials/header', { title: 'Mondes', hero: true, lobbyPage: 'worlds' }) %>
 <%
   const directionNames = { random: 'Aléatoire', nw: 'Nord-Ouest', ne: 'Nord-Est', sw: 'Sud-Ouest', se: 'Sud-Est' };
   const victoryNames = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Runes', siege: 'Grand Siège', none: 'aucune' };
@@ -8,183 +8,122 @@
   const available = worlds.filter((w) => !w.world.endedAt && !playing(w) && w.world.isOpen);
   const ended = worlds.filter((w) => w.world.endedAt);
   const sittings = worlds.flatMap((w) => w.sitting.map((s) => ({ world: w.world, s })));
-  const abbr = (name) => { const n = /\d+/.exec(name); return n ? n[0] : name.split(/\s+/).filter((p) => /^[A-Za-zÀ-ÿ]/.test(p)).slice(0, 2).map((p) => p[0].toUpperCase()).join(''); };
   const modulesOf = (cfg) => Object.entries(cfg.features).filter(([, on]) => on).map(([k]) => featureNames[k] || k);
   const subtitle = (world) => { const cfg = world.getConfig(); const m = modulesOf(cfg); return `Vitesse ×${cfg.speed}${m.length ? ' · ' + m.join(', ') : ' · classique'}`; };
   const isNew = (world) => now - new Date(world.createdAt) < 7 * 86400000;
-  const worldRow = (world, href, extra = '') => `
-    <a href="${href}" class="${ui.box} flex items-center gap-3 px-3 py-2.5 text-parchment-200 no-underline transition hover:border-bronze-500">
-      <span class="${ui.medallion} size-10 font-display text-[13px] font-extrabold">${esc(abbr(world.name))}</span>
-      <span class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate font-display text-[15px] font-bold text-parchment-100">${esc(world.name)}</span>
-        <span class="truncate text-[13px] text-parchment-500">${esc(subtitle(world))}</span>
+  const worldRow = (world, href, extra = '', edge = 'border-l-blood-600') => `
+    <a href="${href}" class="flex items-center justify-between gap-3 border border-bronze-800 border-l-[3px] ${edge} bg-panel-lo px-2.5 py-[7px] text-parchment-100 no-underline transition hover:border-blood-800 hover:bg-thead">
+      <span class="flex min-w-0 flex-col">
+        <b class="truncate tracking-[0.08em]">${esc(world.name)}</b>
+        <span class="truncate text-xs text-parchment-500">${esc(subtitle(world))}</span>
       </span>
       ${extra}
-      <span class="text-parchment-500">${icon('chevronRight', 'size-3.5', 2.4)}</span>
     </a>`;
-  const joinHref = available.length ? `/worlds?w=${available[0].world.slug}` : '#mondes';
+  const joinHref = current.length ? `/worlds/${current[0].world.slug}/play` : available.length ? `/worlds?w=${available[0].world.slug}` : '#mondes';
 %>
-<%# Héros : logo, accroche et encart de connexion aux mondes. %>
-<section class="flex flex-col gap-10 pt-4 pb-6 lg:min-h-[640px] lg:flex-row lg:items-start lg:justify-between lg:pt-10">
-  <div class="flex w-full max-w-[620px] flex-col items-start gap-5.5">
-    <div class="flex flex-col items-center gap-1 text-gold-400">
-      <%- laurel('size-16') %>
-      <span class="font-display text-6xl leading-[0.95] font-extrabold tracking-[0.08em] drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] sm:text-8xl lg:text-[104px] <%= ui.goldText %>">GTLIKE</span>
-      <span class="flex items-center gap-3.5 font-display text-xs font-bold tracking-[0.4em] text-gold-400 uppercase sm:text-sm">
-        <span class="h-px w-10 bg-gold-400 sm:w-15"></span>Stratégie médiévale<span class="h-px w-10 bg-gold-400 sm:w-15"></span>
-      </span>
-    </div>
-    <p class="mt-2 max-w-[540px] text-lg leading-normal text-parchment-200 [text-shadow:0_2px_8px_rgba(0,0,0,0.9)] sm:text-[21px]">
-      GTLike est un jeu de stratégie par navigateur qui se déroule au Moyen Âge. Chaque joueur contrôle un petit village
-      et s'efforce de le mener à la puissance et à la gloire.
-    </p>
-    <div class="mt-1.5 flex flex-wrap gap-3">
-      <a href="<%= joinHref %>" class="<%= btn('red', 'xl', 'max-sm:h-14 max-sm:px-6 max-sm:text-base') %>"><%- icon('expand', 'size-5', 2) %>Rejoindre un monde</a>
-      <a href="#jeu" class="<%= btn('dark', 'hero', 'max-sm:h-14') %>">Découvrir le jeu</a>
-    </div>
+<%- include('partials/landing-hero-start', { cta: { href: joinHref, label: current.length ? 'Reprendre la partie' : 'Jouer gratuitement' } }) %>
+  <div class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5" id="mondes">
+    <div class="font-display text-[22px] font-black tracking-[0.1em] uppercase">Salve, <%= user.username %></div>
+    <form method="post" action="/logout" class="text-xs text-parchment-300"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      Pas <%= user.username %> ? <button class="<%= ui.link %> cursor-pointer">Se déconnecter</button>
+    </form>
   </div>
-
-  <section class="<%= ui.panel %> w-full self-center lg:w-[440px] lg:self-start" id="mondes">
-    <%- panelHead(`Bienvenue, ${user.username}`, `
-      <form method="post" action="/logout" class="text-[13px]"><input type="hidden" name="_csrf" value="${csrfToken}">
-        <button class="${ui.link} cursor-pointer" title="Vous n'êtes pas ${esc(user.username)} ?">Changer</button>
-      </form>`) %>
-    <div class="flex flex-col gap-3.5 px-4.5 pt-4 pb-4.5">
-      <% if (selected) { const { world, player } = selected; const cfg = world.getConfig(); const modules = modulesOf(cfg); %>
-        <%# Fiche du monde choisi %>
-        <a href="/worlds" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Retour</a>
-        <div class="<%= ui.boxGoldV %> flex flex-col gap-3.5 p-4">
-          <div class="flex items-center gap-3.5">
-            <span class="<%= ui.medallionGold %> size-11 font-display text-sm font-extrabold"><%= abbr(world.name) %></span>
-            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span class="<%= ui.kicker %>"><%= world.endedAt ? 'Monde terminé' : world.isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' %></span>
-              <span class="truncate font-display text-[22px] font-bold text-parchment-100"><%= world.name %></span>
-              <span class="text-[13px] text-parchment-400"><%= world.slug %></span>
-            </span>
-          </div>
-          <div class="grid grid-cols-2 gap-1.5">
-            <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Vitesse</div><div class="<%= ui.tileValue %>">×<%= cfg.speed %></div></div>
-            <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Unités</div><div class="<%= ui.tileValue %>">×<%= cfg.unitSpeed %></div></div>
-            <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Modules</div><div class="<%= ui.tileValue %> first-letter:uppercase"><%= modules.join(', ') || 'classique' %></div></div>
-            <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Victoire</div><a href="/worlds/<%= world.slug %>/victory" class="<%= ui.link %> text-[15px]"><%= victoryNames[cfg.victory.type] %></a></div>
-          </div>
-          <p class="text-sm text-parchment-400">Votre compte : <span class="font-bold text-parchment-200"><%= player ? `${num(player.points)} pts · ${player.villageCount} village(s)` : '—' %></span></p>
-          <% if (playing(selected)) { %>
-            <a class="<%= btn('gold', 'lg', 'w-full') %>" href="/worlds/<%= world.slug %>/play"><%- icon('arrowRight', 'size-4', 2.2) %>Jouer</a>
-          <% } else if (world.isOpen && !world.endedAt) { %>
-            <form method="post" action="/worlds/<%= world.slug %>/join" class="flex flex-col gap-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <label class="<%= ui.label %>">Où commencer sur la carte ?
-                <select name="direction" class="<%= ui.input %> w-full">
-                  <% for (const d of directions) { %><option value="<%= d %>"><%= directionNames[d] %></option><% } %>
-                </select>
-              </label>
-              <button class="<%= btn('gold', 'lg', 'w-full') %>"><%= player ? 'Recommencer sur ce monde' : 'Rejoindre ce monde' %></button>
-            </form>
-          <% } else { %>
-            <p class="text-parchment-500">Inscriptions fermées.</p>
-          <% } %>
-        </div>
-      <% } else { %>
-        <%# Parties en cours %>
-        <% if (current.length) { %>
-          <div class="<%= ui.sectionLabel %>">Parties en cours</div>
-          <div class="grid grid-cols-2 gap-2">
-            <% for (const w of current) { const c = w.campaign || {}; %>
-              <a href="/worlds/<%= w.world.slug %>/play" class="<%= ui.boxGoldV %> group flex min-w-0 flex-col gap-2 p-2.5 text-parchment-200 no-underline transition only:col-span-2 hover:border-gold-400" title="Reprendre la partie sur <%= w.world.name %>">
-                <span class="flex min-w-0 items-center gap-2">
-                  <svg class="h-7 w-6 shrink-0" viewBox="0 0 36 40" aria-hidden="true"><path d="M3 3h30v14c0 11-8 17-15 20C11 34 3 28 3 17z" fill="#7E2A1B" stroke="#E6C27A" stroke-width="2"/><text x="18" y="22" text-anchor="middle" font-family="Cinzel, serif" font-size="11" font-weight="800" fill="#F4DBA0"><%= abbr(w.world.name) %></text></svg>
-                  <span class="flex min-w-0 flex-col">
-                    <span class="truncate font-display text-[13px] font-bold text-parchment-100"><%= w.world.name %></span>
-                    <% if (c.village) { %><span class="truncate text-[11px] text-parchment-500"><%= c.village.name %> · <%= continent(c.village.x, c.village.y) %></span><% } %>
-                  </span>
-                </span>
-                <span class="flex flex-wrap gap-x-2 text-xs text-parchment-500 tabular-nums">
-                  <span>Rang <b class="text-parchment-200"><%= c.rank ? num(c.rank) : '—' %></b></span>
-                  <span>Pts <b class="text-parchment-200"><%= num(w.player.points) %></b></span>
-                </span>
-                <% if (c.nextAttackAt) { %>
-                  <span class="flex items-center gap-1.5 text-xs text-gold-200">
-                    <span class="size-1.5 shrink-0 rounded-full bg-blood-450 shadow-[0_0_6px_var(--color-blood-450)]"></span>
-                    Attaque dans <b class="tabular-nums" data-countdown="<%= new Date(c.nextAttackAt).getTime() %>"><%= duration((new Date(c.nextAttackAt) - now) / 1000) %></b>
-                  </span>
-                <% } %>
-                <span class="<%= btn('gold', 'sm', 'mt-auto w-full') %>"><%- icon('arrowRight', 'size-3', 2.2) %>Jouer</span>
-              </a>
-            <% } %>
-          </div>
-        <% } %>
-
-        <% if (sittings.length) { %>
-          <div class="<%= ui.box %> flex flex-col gap-1 p-3">
-            <p class="<%= ui.kicker %> mb-1">Vous remplacez</p>
-            <% for (const { world, s } of sittings) { %>
-              <a href="/worlds/<%= world.slug %>/sit/<%= s.id %>" class="flex items-center justify-between gap-2 py-1 text-parchment-200 no-underline hover:text-gold-200">
-                <span><%= s.name %> <span class="text-parchment-500">· <%= world.name %></span></span><span class="<%= ui.link %> text-[13px]">Jouer</span>
-              </a>
-            <% } %>
-          </div>
-        <% } %>
-
-        <%# Mondes ouverts %>
-        <div class="<%= ui.sectionLabel %>">Rejoindre un monde</div>
-        <% for (const { world } of available) { %>
-          <%- worldRow(world, `/worlds?w=${world.slug}`, isNew(world) ? `<span class="${ui.tagRed}">Nouveau</span>` : '') %>
-        <% } %>
-        <% if (!available.length) { %><p class="text-center text-sm text-parchment-500">Aucun monde ouvert.</p><% } %>
-
-        <% if (ended.length) { %>
-          <div class="<%= ui.sectionLabel %>">Mondes terminés</div>
-          <% for (const { world } of ended) { %>
-            <%- worldRow(world, `/worlds?w=${world.slug}`, `<span class="${ui.tagMuted}">Terminé</span>`) %>
-          <% } %>
-        <% } %>
-      <% } %>
-    </div>
-    <%- corners() %>
-  </section>
-</section>
-
-<%# Présentation du jeu %>
-<section class="grid scroll-mt-6 gap-5 md:grid-cols-3" id="jeu">
-  <% for (const [ic, title, text] of [
-       ['overview', 'Développe ton village', 'Quartier général, caserne, forge et muraille : chaque bâtiment renforce ton pouvoir.'],
-       ['attack', 'Recrute ton armée', 'Lanciers, guerriers à la hache, cavalerie : pille, défends et conquiers des villages.'],
-       ['tribe', 'Rejoins une tribu', 'Allie-toi à d’autres joueurs, signe des pactes et dominez le monde ensemble.'],
-     ]) { %>
-    <section class="<%= ui.panel %> flex items-start gap-4.5 p-5.5">
-      <span class="<%= ui.medallion %> size-15"><%- icon(ic, 'size-7', 1.6) %></span>
-      <div class="flex flex-col gap-1.5">
-        <h3 class="font-display text-lg font-bold text-gold-200"><%= title %></h3>
-        <p class="text-base leading-relaxed text-parchment-400"><%= text %></p>
+  <div class="flex flex-1 flex-col gap-2.5 px-3.5 py-3">
+    <% if (selected) { const { world, player } = selected; const cfg = world.getConfig(); const modules = modulesOf(cfg); %>
+      <%# Fiche du monde choisi %>
+      <a href="/worlds" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %>Retour</a>
+      <div class="<%= ui.kicker %>"><%= world.endedAt ? 'Monde terminé' : world.isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' %></div>
+      <div class="flex items-center justify-between border-2 border-black bg-night p-2.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700)]">
+        <div><div class="font-display text-xl font-black tracking-[0.1em] uppercase"><%= world.name %></div><div class="text-xs text-parchment-500"><%= world.slug %></div></div>
+        <div class="text-right text-xs text-parchment-500"><%= player ? `${num(player.villageCount)} village(s)` : 'Pas encore inscrit' %><br><b class="text-parchment-100"><%= player ? `${num(player.points)} pts` : '—' %></b></div>
       </div>
-      <%- corners() %>
-    </section>
-  <% } %>
-</section>
+      <div class="grid grid-cols-2 gap-1">
+        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Vitesse</div><div class="<%= ui.tileValue %>">×<%= cfg.speed %></div></div>
+        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Unités</div><div class="<%= ui.tileValue %>">×<%= cfg.unitSpeed %></div></div>
+        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Modules</div><div class="<%= ui.tileValue %> first-letter:uppercase"><%= modules.join(', ') || 'classique' %></div></div>
+        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Victoire</div><a href="/worlds/<%= world.slug %>/victory" class="<%= ui.link %> text-base"><%= victoryNames[cfg.victory.type] %></a></div>
+      </div>
+      <% if (playing(selected)) { %>
+        <a class="<%= btn('gold', 'lg', 'w-full border-[3px]') %>" href="/worlds/<%= world.slug %>/play">Entrer dans le monde</a>
+      <% } else if (world.isOpen && !world.endedAt) { %>
+        <form method="post" action="/worlds/<%= world.slug %>/join" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label class="<%= ui.label %>">Où commencer sur la carte ?
+            <select name="direction" class="<%= ui.input %> w-full">
+              <% for (const d of directions) { %><option value="<%= d %>"><%= directionNames[d] %></option><% } %>
+            </select>
+          </label>
+          <button class="<%= btn('gold', 'lg', 'w-full border-[3px]') %>"><%= player ? 'Recommencer sur ce monde' : 'Rejoindre ce monde' %></button>
+        </form>
+      <% } else { %>
+        <p class="text-parchment-500">Inscriptions fermées.</p>
+      <% } %>
+    <% } else { %>
+      <%# Parties en cours %>
+      <% if (current.length) { %>
+        <div class="<%= ui.kicker %>">Partie<%= current.length > 1 ? 's' : '' %> en cours</div>
+        <% for (const w of current) { const c = w.campaign || {}; %>
+          <div class="flex items-center justify-between gap-3 border-2 border-black bg-night p-2.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700)]">
+            <div class="min-w-0">
+              <div class="truncate font-display text-xl font-black tracking-[0.1em] uppercase"><%= w.world.name %></div>
+              <% if (c.nextAttackAt) { %>
+                <div class="flex items-center gap-1.5 text-xs text-blood-450"><span class="size-1.5 shrink-0 rotate-45 bg-blood-600"></span>Attaque dans <b class="tabular-nums" data-countdown="<%= new Date(c.nextAttackAt).getTime() %>"><%= duration((new Date(c.nextAttackAt) - now) / 1000) %></b></div>
+              <% } else { %>
+                <div class="text-xs text-olive-300">● <%= subtitle(w.world) %></div>
+              <% } %>
+            </div>
+            <div class="shrink-0 text-right text-xs text-parchment-500"><%= c.village ? c.village.name : '' %><br><b class="text-parchment-100">#<%= c.rank ? num(c.rank) : '—' %> · <%= num(w.player.points) %> pts</b></div>
+          </div>
+          <a href="/worlds/<%= w.world.slug %>/play" class="<%= btn('gold', 'lg', 'w-full border-[3px]') %>">Entrer dans le monde</a>
+        <% } %>
+      <% } %>
 
-<%# Pages publiques de chaque monde %>
+      <% if (sittings.length) { %>
+        <div class="<%= ui.kicker %> mt-1">Vous remplacez</div>
+        <% for (const { world, s } of sittings) { %>
+          <a href="/worlds/<%= world.slug %>/sit/<%= s.id %>" class="flex items-center justify-between gap-2 border border-bronze-800 border-l-[3px] border-l-gold-400 bg-panel-lo px-2.5 py-[7px] text-parchment-100 no-underline hover:bg-thead">
+            <b class="tracking-[0.06em]"><%= s.name %></b><span class="text-xs text-parchment-500"><%= world.name %> · jouer</span>
+          </a>
+        <% } %>
+      <% } %>
+
+      <%# Mondes ouverts, puis terminés %>
+      <div class="<%= ui.kicker %> mt-1"><%= current.length ? 'Autres mondes' : 'Rejoindre un monde' %></div>
+      <% for (const { world } of available) { %>
+        <%- worldRow(world, `/worlds?w=${world.slug}`, isNew(world) ? `<span class="${ui.tagRed}">Nouveau</span>` : '') %>
+      <% } %>
+      <% for (const { world } of ended) { %>
+        <%- worldRow(world, `/worlds?w=${world.slug}`, `<span class="${ui.tagMuted}">Terminé</span>`, 'border-l-rel-barb') %>
+      <% } %>
+      <% if (!available.length && !ended.length) { %><p class="text-sm text-parchment-500">Aucun autre monde ouvert.</p><% } %>
+    <% } %>
+  </div>
+<%- include('partials/landing-hero-end') %>
+
+<%# Pages publiques de chaque monde, en cartes parchemin (maquette : « Chroniques de l'empire »). %>
 <% if (worlds.length) { %>
-  <section class="<%= ui.panel %> mt-4">
-    <%- panelHead('Classements et fin des mondes') %>
-    <div class="<%= ui.panelBody %>">
+  <section class="mx-auto w-full max-w-[1200px] px-3.5 py-6.5">
+    <div class="mb-3 flex items-center gap-3">
+      <span class="size-[9px] rotate-45 border border-black bg-gold-400"></span>
+      <h2 class="m-0 font-display text-xl font-black tracking-[0.16em] uppercase">Chroniques des mondes</h2>
+      <span class="h-0.5 flex-1 bg-linear-to-r from-bronze-500 to-transparent"></span>
+    </div>
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3">
       <% for (const { world } of worlds) { %>
-        <div class="<%= ui.box %> flex flex-wrap items-center gap-4.5 px-4 py-3.5">
-          <span class="<%= ui.medallion %> size-[42px]"><%- icon('ranking', 'size-5') %></span>
-          <span class="flex min-w-0 flex-1 flex-col gap-1">
-            <span class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <span class="<%= world.endedAt ? ui.tagOlive : ui.tagSolidRed %>"><%= world.endedAt ? 'Terminé' : 'Monde' %></span>
-              <span class="text-[13px] text-parchment-500"><%= subtitle(world) %></span>
-            </span>
-            <span class="truncate text-lg font-bold text-parchment-100"><%= world.name %></span>
+        <article class="flex flex-col gap-1.5 border-[3px] border-black bg-parchment-300 px-3.5 py-3 text-panel-hi shadow-[inset_0_0_0_3px_var(--color-bld-marble),5px_5px_0_#000]">
+          <div class="flex items-center justify-between border-b-2 border-panel-hi pb-[5px]">
+            <span class="text-xs font-bold tracking-[0.12em] text-blood-800 uppercase"><%= new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
+            <span class="bg-panel-hi px-1.5 py-px text-[11px] font-bold tracking-[0.14em] text-parchment-300 uppercase"><%= world.endedAt ? 'Terminé' : 'Monde' %></span>
+          </div>
+          <b class="font-display text-base leading-tight tracking-[0.04em]"><%= world.name %></b>
+          <span class="text-sm leading-snug text-bld-soot"><%= subtitle(world) %> · victoire : <%= victoryNames[world.getConfig().victory.type] %></span>
+          <span class="mt-auto flex gap-4 text-[13px] font-bold">
+            <a href="/worlds/<%= world.slug %>/info" class="text-blood-800 no-underline hover:text-panel-hi">» Infos monde</a>
+            <a href="/worlds/<%= world.slug %>/ranking" class="text-blood-800 no-underline hover:text-panel-hi">» Classement</a>
+            <a href="/worlds/<%= world.slug %>/victory" class="text-blood-800 no-underline hover:text-panel-hi">» Fin du monde</a>
           </span>
-          <span class="flex gap-4 text-sm max-sm:w-full max-sm:pl-15">
-            <a href="/worlds/<%= world.slug %>/ranking" class="<%= ui.link %>">Classement</a>
-            <a href="/worlds/<%= world.slug %>/victory" class="<%= ui.link %>">Fin du monde</a>
-          </span>
-        </div>
+        </article>
       <% } %>
     </div>
-    <%- corners() %>
   </section>
 <% } %>
 <%- include('partials/footer') %>

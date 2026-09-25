@@ -11,6 +11,19 @@
     --font-display: "Grenze", Georgia, serif;
     --game-image-village: url("/img/game-styles/viking/village.svg");
 
+    /* Bandeaux de panneau, en-têtes de tableau et bouton d'action : ardoise et givre */
+    --color-head: #22394a;
+    --color-head-dark: #162633;
+    --color-thead: #151f27;
+    --color-row-hover: #1b2831;
+    --color-row-alt: #10161a;
+    --color-action: #2f5f7a;
+    --color-action-hi: #3b7596;
+    --color-action-line: #5d9ab8;
+    --color-action-deep: #16303d;
+    --color-grain: rgb(200 230 245 / 0.03);
+    --color-knob-hover: #1c2a33;
+
     /* Fonds : bois sombre et ardoise */
     --color-night: #0a0d10;
     --color-halo: rgb(70 110 140 / 0.24);

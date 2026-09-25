@@ -396,8 +396,138 @@ PlayerAchievement.belongsTo(Player, { foreignKey: 'playerId' });
 Player.hasMany(Report, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 Report.belongsTo(Player, { foreignKey: 'playerId' });
 
+/** Modèle d'armée d'un joueur (« Ordres rapides ») : un nom et des unités, pour pré-remplir le point de ralliement. */
+const ArmyTemplate = sequelize.define(
+  'ArmyTemplate',
+  {
+    name: { type: DataTypes.STRING(32), allowNull: false },
+    units: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+  },
+  { indexes: [{ fields: ['playerId'] }] },
+);
+Player.hasMany(ArmyTemplate, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+ArmyTemplate.belongsTo(Player, { foreignKey: 'playerId' });
+
+/** Village mis en favori par un joueur (menu de la carte, panneau « Favoris »). */
+const MapFavorite = sequelize.define('MapFavorite', {}, { indexes: [{ unique: true, fields: ['playerId', 'villageId'] }] });
+Player.hasMany(MapFavorite, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+MapFavorite.belongsTo(Player, { foreignKey: 'playerId' });
+Village.hasMany(MapFavorite, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
+MapFavorite.belongsTo(Village, { foreignKey: 'villageId' });
+
+/** Demande de réinitialisation du mot de passe : seul le haché SHA-256 du jeton envoyé par e-mail est stocké. */
+const PasswordReset = sequelize.define(
+  'PasswordReset',
+  {
+    tokenHash: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: false },
+    usedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { indexes: [{ fields: ['userId'] }] },
+);
+User.hasMany(PasswordReset, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'CASCADE' });
+PasswordReset.belongsTo(User, { foreignKey: 'userId' });
+
+/** Forum communautaire (commun à tous les mondes) : sujets rangés par section, messages des comptes. */
+const ForumThread = sequelize.define(
+  'ForumThread',
+  {
+    section: { type: DataTypes.STRING(24), allowNull: false },
+    title: { type: DataTypes.STRING(80), allowNull: false },
+    postCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastPostAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  { indexes: [{ fields: ['section', 'lastPostAt'] }] },
+);
+const ForumPost = sequelize.define(
+  'ForumPost',
+  {
+    body: { type: DataTypes.TEXT, allowNull: false },
+    editedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { indexes: [{ fields: ['threadId', 'createdAt'] }, { fields: ['userId', 'createdAt'] }] },
+);
+ForumThread.hasMany(ForumPost, { foreignKey: { name: 'threadId', allowNull: false }, onDelete: 'CASCADE' });
+ForumPost.belongsTo(ForumThread, { foreignKey: 'threadId' });
+// Un compte supprimé laisse ses messages, signés « Compte supprimé ».
+User.hasMany(ForumThread, { foreignKey: { name: 'userId', allowNull: true }, onDelete: 'SET NULL' });
+ForumThread.belongsTo(User, { as: 'author', foreignKey: 'userId' });
+User.hasMany(ForumPost, { foreignKey: { name: 'userId', allowNull: true }, onDelete: 'SET NULL' });
+ForumPost.belongsTo(User, { as: 'author', foreignKey: 'userId' });
+ForumThread.belongsTo(ForumPost, { as: 'lastPost', foreignKey: { name: 'lastPostId', allowNull: true }, constraints: false });
+
+/**
+ * Forum interne d'une tribu (comme sur Guerre Tribale) : sous-forums créés par les chefs, sujets et messages des
+ * membres, date de lecture de chaque sujet par joueur (marqueur « Nouveau »).
+ */
+const TribeForumSection = sequelize.define(
+  'TribeForumSection',
+  {
+    name: { type: DataTypes.STRING(40), allowNull: false },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  { indexes: [{ fields: ['tribeId', 'position'] }] },
+);
+const TribeForumThread = sequelize.define(
+  'TribeForumThread',
+  {
+    title: { type: DataTypes.STRING(80), allowNull: false },
+    pinned: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    locked: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    postCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastPostAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  { indexes: [{ fields: ['sectionId', 'lastPostAt'] }] },
+);
+const TribeForumPost = sequelize.define(
+  'TribeForumPost',
+  {
+    body: { type: DataTypes.TEXT, allowNull: false },
+    editedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  { indexes: [{ fields: ['threadId', 'createdAt'] }, { fields: ['playerId', 'createdAt'] }] },
+);
+const TribeForumRead = sequelize.define(
+  'TribeForumRead',
+  { readAt: { type: DataTypes.DATE, allowNull: false } },
+  { indexes: [{ unique: true, fields: ['playerId', 'threadId'] }] },
+);
+Tribe.hasMany(TribeForumSection, { foreignKey: { name: 'tribeId', allowNull: false }, onDelete: 'CASCADE' });
+TribeForumSection.belongsTo(Tribe, { foreignKey: 'tribeId' });
+TribeForumSection.hasMany(TribeForumThread, { foreignKey: { name: 'sectionId', allowNull: false }, onDelete: 'CASCADE' });
+TribeForumThread.belongsTo(TribeForumSection, { as: 'section', foreignKey: 'sectionId' });
+TribeForumThread.hasMany(TribeForumPost, { foreignKey: { name: 'threadId', allowNull: false }, onDelete: 'CASCADE' });
+TribeForumPost.belongsTo(TribeForumThread, { foreignKey: 'threadId' });
+TribeForumThread.hasMany(TribeForumRead, { foreignKey: { name: 'threadId', allowNull: false }, onDelete: 'CASCADE' });
+TribeForumRead.belongsTo(TribeForumThread, { foreignKey: 'threadId' });
+Player.hasMany(TribeForumRead, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+// Un joueur qui quitte le monde laisse ses messages, sans auteur.
+Player.hasMany(TribeForumThread, { foreignKey: { name: 'playerId', allowNull: true }, onDelete: 'SET NULL' });
+TribeForumThread.belongsTo(Player, { as: 'author', foreignKey: 'playerId' });
+Player.hasMany(TribeForumPost, { foreignKey: { name: 'playerId', allowNull: true }, onDelete: 'SET NULL' });
+TribeForumPost.belongsTo(Player, { as: 'author', foreignKey: 'playerId' });
+TribeForumThread.belongsTo(TribeForumPost, { as: 'lastPost', foreignKey: { name: 'lastPostId', allowNull: true }, constraints: false });
+// Sous-forums mis en sourdine par un joueur (exclus des « Nouveaux messages » et de la pastille).
+const TribeForumMute = sequelize.define('TribeForumMute', {}, { indexes: [{ unique: true, fields: ['playerId', 'sectionId'] }] });
+Player.hasMany(TribeForumMute, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+TribeForumSection.hasMany(TribeForumMute, { foreignKey: { name: 'sectionId', allowNull: false }, onDelete: 'CASCADE' });
+// Sondage d'un sujet : une question (le titre du sujet), 2 à 10 réponses, un vote par membre (modifiable).
+const TribeForumPoll = sequelize.define('TribeForumPoll', {
+  options: { type: DataTypes.JSON, allowNull: false },
+});
+TribeForumThread.hasOne(TribeForumPoll, { as: 'poll', foreignKey: { name: 'threadId', allowNull: false, unique: true }, onDelete: 'CASCADE' });
+TribeForumPoll.belongsTo(TribeForumThread, { foreignKey: 'threadId' });
+const TribeForumVote = sequelize.define(
+  'TribeForumVote',
+  { option: { type: DataTypes.INTEGER, allowNull: false } },
+  { indexes: [{ unique: true, fields: ['pollId', 'playerId'] }] },
+);
+TribeForumPoll.hasMany(TribeForumVote, { as: 'votes', foreignKey: { name: 'pollId', allowNull: false }, onDelete: 'CASCADE' });
+Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+
 module.exports = {
   sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeMessage, Conversation, ConversationParticipant, ConversationMessage,
-  PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun,
+  PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, PasswordReset, ForumThread, ForumPost,
+  TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
 };

@@ -1,21 +1,23 @@
 <%- include('partials/header', { title: 'Connexion', hero: true, lobbyPage: 'login' }) %>
-<section class="<%= ui.panel %> mx-auto mt-6 w-full max-w-md sm:mt-14">
-  <%- panelHead('Connexion', '', { tag: 'h1' }) %>
-  <div class="flex flex-col gap-4 px-4.5 pt-4 pb-5">
-    <p class="text-parchment-400">Content de vous revoir.</p>
+<%- include('partials/landing-hero-start', { cta: { href: '/register', label: 'Jouer gratuitement' } }) %>
+  <h1 class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5 font-display text-xl font-black tracking-[0.1em]">CONNEXION</h1>
+  <div class="flex flex-1 flex-col gap-2.5 p-3.5">
     <% if (typeof notice !== 'undefined' && notice) { %><div class="<%= ui.alertSuccess %>"><%= notice %></div><% } %>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
-    <form method="post" action="/login" class="flex flex-col gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <form method="post" action="/login" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <label class="<%= ui.label %>">Pseudo ou e-mail
-        <input name="login" value="<%= form.login || '' %>" required autofocus class="<%= ui.input %> w-full">
+        <input name="login" value="<%= form.login || '' %>" required autofocus class="<%= ui.input %> h-10 w-full">
       </label>
       <label class="<%= ui.label %>">Mot de passe
-        <input type="password" name="password" required class="<%= ui.input %> w-full">
+        <input type="password" name="password" required class="<%= ui.input %> h-10 w-full">
       </label>
-      <button class="<%= btn('gold', 'lg', 'w-full') %>"><%- icon('arrowRight', 'size-4', 2.2) %>Se connecter</button>
+      <button class="<%= btn('gold', 'lg', 'w-full border-[3px] tracking-[0.12em]') %>">Connexion</button>
     </form>
-    <p class="text-center text-sm text-parchment-500">Pas encore de compte ? <a href="/register" class="<%= ui.link %>">Inscription</a></p>
+    <a href="/password/forgot" class="<%= ui.link %> self-start text-[13px]">Mot de passe oublié ?</a>
+    <div class="mt-auto flex flex-col gap-1.5 border-t border-dashed border-bronze-700 pt-2.5">
+      <span class="text-xs text-parchment-500">Nouveau dans le jeu ?</span>
+      <a href="/register" class="<%= btn('dark', 'md', 'w-full border-[3px] tracking-[0.12em]') %>">Créer un compte</a>
+    </div>
   </div>
-  <%- corners() %>
-</section>
+<%- include('partials/landing-hero-end') %>
 <%- include('partials/footer') %>

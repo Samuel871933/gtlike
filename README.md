@@ -13,7 +13,7 @@ npm run migrate -- status | down | create nom-de-la-migration
 ```
 
 Le style est uniquement en Tailwind, sans CSS maison : [src/styles/app.css](src/styles/app.css) ne contient que
-la configuration (`@theme` : palette et polices de la maquette `maquettes/Imperium — refonte.html`), et les
+la configuration (`@theme` : palette et polices de la maquette `maquettes/GTLike.html`), et les
 composants (panneaux, boutons, onglets, médaillons…) sont des chaînes de classes dans [src/web/ui.js](src/web/ui.js).
 Le CSS compilé (`public/css/app.css`) n'est pas versionné : `npm start` le recompile (Tailwind est en
 devDependencies, installer donc aussi les dépendances de développement pour construire).
@@ -54,13 +54,45 @@ maquettes/           Maquette de référence de l'interface (bundle HTML autonom
 
 ## Interface
 
-Organisation reprise de Guerre Tribale, habillage de la maquette « refonte » (thème sombre) : menu principal
-(Aperçu, Carte, Rapports, Messages, Tribu, Classement, Profil ; rang, fin du monde, compte, déconnexion), barre
-du village (village précédent / suivant, attaques entrantes, ressources avec jauges, entrepôt, population).
-L'aperçu montre le plan du village en médaillons cliquables (QG et bâtiments militaires dans l'enceinte, mines et
-ferme aux abords, muraille à la porte, anneau de progression des chantiers) ou une vue liste, et les encadrés
-Chantiers, Garnison, Production, Paladin et Mouvements de troupes. La carte affiche blasons, décor, flèches
-d'attaque, un panneau Cible et une vue d'ensemble. Le classement et la fin du monde restent dans l'interface du jeu.
+Organisation reprise de Guerre Tribale, habillage de la maquette `maquettes/GTLike.html` (style « BD » : encre
+noire, rouge sang et bronze, aplats et ombres portées, polices Cinzel et Barlow Condensed). En-tête collant :
+menu principal (Aperçu, Carte, Rapports, Messages, Tribu, Classement, Profil ; joueur et rang, fin du monde, compte,
+déconnexion), puis barre du village (changement de village, attaques entrantes, barre rapide des bâtiments construits,
+ressources, entrepôt, population).
+L'aperçu reprend la vue de la cité : barre de titre (coordonnées, continent, points, population, loyauté), plan vu de
+dessus avec les bâtiments en blocs (niveau, nom, compte à rebours des chantiers ; QG et bâtiments militaires dans
+l'enceinte, mines et ferme aux abords, muraille sur la porte sud) ou vue liste, tableau des mouvements de troupes,
+et les encadrés Production, Constructions, Recrutement, Troupes et Paladin. La carte affiche le décor, les villages,
+les flèches d'attaque, un panneau Cible, la mini-carte et la légende. L'accueil (mondes, connexion, inscription)
+reprend l'écran d'accueil de la maquette.
+
+Outils de la maquette : menu « Rapports » de l'en-tête (non-lus par catégorie) ; sur le plan du village, un clic
+sélectionne un bâtiment (coût et durée du niveau suivant, bouton Améliorer), un second ouvre sa page ; notifications
+en haut à droite. Sur la carte : infobulle au survol, menu d'actions au clic (voir le village, attaquer, soutenir,
+espionner, ressources, profil, favoris), calques mémorisés dans le navigateur (influence de la tribu, zones ennemies,
+barbares, quadrillage de 5 cases, frontières de continent), recherche (joueur, village, tribu, coordonnées), favoris
+et « Ordres rapides » (modèles d'armée créés au point de ralliement, qui pré-remplissent l'envoi). Pages publiques :
+règles (`/rules`), aide (`/help`), infos de chaque monde (`/worlds/:slug/info`) ; en jeu, « Inviter des joueurs ».
+Morale (3 × points du défenseur ÷ points de l'attaquant + 30 %, entre 30 et 100 %) : affichée au survol et dans le
+menu d'un village sur la carte, sur la page du village et avant chaque attaque.
+
+Forum communautaire (`/forum`), commun à tous les mondes : sections (Taverne, Stratégie, Tribus, Suggestions, Bugs),
+sujets et réponses paginés, lecture publique, écriture pour les comptes connectés (15 s minimum entre deux messages).
+Chacun modifie ou supprime ses messages ; le premier message ne part qu'avec le sujet, tant qu'il n'a pas de réponse.
+Un compte supprimé laisse ses messages, signés « Compte supprimé ». Il n'y a pas encore de rôle de modérateur.
+
+Forum de tribu (onglet « Forum » de la page Tribu), réservé aux membres, agencé comme celui de Guerre Tribale :
+rangée des sous-forums (par défaut Annonces, Attaque, Défense, Taverne, Vacances, Suggestions, créés avec la tribu),
+encadré « Nouveaux messages du forum » (5 par page, forums en sourdine exclus au choix), titre du sous-forum avec
+« Marquer le forum comme lu », « Marquer tous les forums comme lus » et « Ignorer le forum » (sourdine), boutons
+Nouveau sujet et Créer un sondage, recherche (titres et messages), tableau Sujets · Auteur · Dernier message ·
+Réponses. Sondages : 2 à 10 réponses, un vote par membre, modifiable. Les chefs gèrent les sous-forums (« Réglages du
+forum »), épinglent, verrouillent et suppriment n'importe quel message. Les sujets non lus alimentent la pastille de
+l'onglet Tribu. Un joueur qui quitte le monde laisse ses messages ; la dissolution de la tribu efface son forum.
+
+Mot de passe oublié : lien à usage unique valable une heure (seul le haché du jeton est stocké). Aucun serveur
+d'envoi n'est configuré : [src/services/Mailer.js](src/services/Mailer.js) écrit les e-mails dans les logs du
+serveur ; brancher un vrai transport avant la production. Le classement et la fin du monde restent dans l'interface du jeu.
 
 Styles de jeu : l'intérieur du jeu (pas la page d'accueil) change d'habillage selon le style choisi dans
 Compte → Style du jeu (romain par défaut, viking ; gratuits). Voir [src/styles/game-styles/README.md](src/styles/game-styles/README.md).

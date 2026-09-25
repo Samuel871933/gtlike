@@ -35,6 +35,21 @@ class ReportService {
     return { reports: rows, page: current, pages: Math.max(1, Math.ceil(count / PAGE_SIZE)), total: count };
   }
 
+  /** Rapports non lus par filtre de la boîte : { all: 4, attack: 2, … } (menu « Rapports » de l'en-tête). */
+  static async unreadByFilter(playerId) {
+    const rows = await Report.findAll({
+      where: { playerId, isRead: false },
+      attributes: ['type', [Report.sequelize.fn('COUNT', Report.sequelize.col('id')), 'n']],
+      group: ['type'],
+      raw: true,
+    });
+    const byType = Object.fromEntries(rows.map((r) => [r.type, Number(r.n)]));
+    return Object.fromEntries(Object.entries(FILTERS).map(([key, types]) => [
+      key,
+      types ? types.reduce((s, t) => s + (byType[t] || 0), 0) : Object.values(byType).reduce((s, n) => s + n, 0),
+    ]));
+  }
+
   static async get(playerId, reportId) {
     const report = await Report.findOne({ where: { id: Number(reportId), playerId } });
     if (!report) throw new GameError('Rapport introuvable.', 404);

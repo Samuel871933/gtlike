@@ -1,0 +1,31 @@
+<%- include('partials/header', { title: 'Forum' }) %>
+<div class="flex flex-col gap-3.5 pb-4">
+  <%- include('partials/page-title', { kicker: 'Communauté', title: 'Forum', sub: 'Commun à tous les mondes. Reste courtois : les règles du jeu s’appliquent aussi ici.' }) %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Sections') %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %> min-w-[560px]">
+        <thead><tr><th>Section</th><th class="text-right">Sujets</th><th>Dernier message</th></tr></thead>
+        <tbody>
+          <% for (const s of sections) { const last = s.last; %>
+            <tr>
+              <td>
+                <a href="/forum/<%= s.id %>" class="<%= ui.linkPlain %> flex items-center gap-2 font-display text-base font-bold tracking-[0.08em] uppercase"><span class="size-[7px] shrink-0 rotate-45 border border-black bg-gold-400"></span><%= s.name %></a>
+                <span class="block pl-[15px] text-[13px] text-parchment-500"><%= s.description %></span>
+              </td>
+              <td class="text-right font-bold tabular-nums"><%= num(s.threads) %></td>
+              <td class="text-[13px]">
+                <% if (last) { %>
+                  <a href="/forum/t/<%= last.id %>?page=last" class="<%= ui.link %> block max-w-64 truncate"><%= last.title %></a>
+                  <span class="text-parchment-500"><%= last.lastPost && last.lastPost.author ? last.lastPost.author.username : 'Compte supprimé' %> · <%= whenShort(last.lastPostAt, now) %></span>
+                <% } else { %><span class="text-parchment-600">Aucun sujet</span><% } %>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <% if (!user) { %><p class="text-sm text-parchment-500"><a href="/login" class="<%= ui.link %>">Connecte-toi</a> pour écrire sur le forum.</p><% } %>
+</div>
+<%- include('partials/footer') %>

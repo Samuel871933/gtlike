@@ -1,0 +1,15 @@
+<%- include('partials/header', { title: 'Inviter des joueurs' }) %>
+<div class="flex flex-col gap-3.5">
+  <%- include('partials/page-title', { kicker: ctx.world.name, title: 'Inviter des joueurs', sub: 'Partage ce lien : tes amis créent leur compte puis rejoignent ce monde depuis l’accueil.' }) %>
+  <section class="<%= ui.panel %> max-w-2xl">
+    <%- panelHead('Lien d’inscription') %>
+    <div class="<%= ui.panelBody %>">
+      <div class="flex">
+        <input value="<%= registerUrl %>" readonly class="<%= ui.input %> min-w-0 flex-1 tabular-nums" aria-label="Lien d’inscription" data-copy-source>
+        <button type="button" class="<%= btn('gold', 'md', 'border-l-0') %>" data-copy>Copier</button>
+      </div>
+      <p class="text-[13px] text-parchment-500">Monde à rejoindre : <b class="text-parchment-100"><%= ctx.world.name %></b>. Rien n’est donné en échange : l’invitation est gratuite, comme le jeu.</p>
+    </div>
+  </section>
+</div>
+<%- include('partials/footer') %>
