@@ -13,7 +13,7 @@ const User = sequelize.define('User', {
   gameStyle: { type: DataTypes.STRING(16), allowNull: true },
   // Design des villages sur la carte (src/web/villageDesigns.js) ; nul = design par défaut.
   villageDesign: { type: DataTypes.STRING(16), allowNull: true },
-  // Style de jeu (densité de l'interface) (src/web/gameLayouts.js) : normal ou minimaliste ; nul = normal.
+  // Style de jeu (densité de l'interface) (src/web/gameLayouts.js) : normal ou minimaliste ; nul = minimaliste (par défaut).
   gameLayout: { type: DataTypes.STRING(16), allowNull: true },
 });
 

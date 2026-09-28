@@ -96,14 +96,14 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   assert.match(medieval, /family=Alegreya/);
   await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
 
-  // Style de jeu (densité) : normal par défaut, minimaliste enregistré sur le compte (indépendant du thème), inconnu refusé.
-  assert.match(medieval, /data-game-layout="normal"/);
-  await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'minimal', _csrf: tokenOf(after.html) } });
-  await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'inconnu', _csrf: tokenOf(after.html) } });
-  const minimal = (await http(joined.location)).html;
-  assert.match(minimal, /data-game-style="viking" data-game-layout="minimal"/);
-  assert.doesNotMatch((await http('/worlds')).html, /data-game-layout/);
+  // Style de jeu (densité) : minimaliste par défaut, normal enregistré sur le compte (indépendant du thème), inconnu refusé.
+  assert.match(medieval, /data-game-layout="minimal"/);
   await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'normal', _csrf: tokenOf(after.html) } });
+  await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'inconnu', _csrf: tokenOf(after.html) } });
+  const normal = (await http(joined.location)).html;
+  assert.match(normal, /data-game-style="viking" data-game-layout="normal"/);
+  assert.doesNotMatch((await http('/worlds')).html, /data-game-layout/);
+  await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'minimal', _csrf: tokenOf(after.html) } });
 
   // Design des villages : skin de ses villages, envoyé avec chaque case (vu par tous) ; beige par défaut, design inconnu refusé.
   assert.match((await http(`${joined.location}/map`)).html, /"design":"beige"/);

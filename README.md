@@ -107,8 +107,8 @@ serveur ; brancher un vrai transport avant la production. Le classement et la fi
 
 Thèmes de jeu : l'intérieur du jeu (pas la page d'accueil) change d'habillage selon le thème choisi dans
 Compte → Thème de jeu (médiéval par défaut : clair, aux couleurs de Guerre Tribale ; romain, viking ; gratuits).
-Style de jeu (Compte → Style de jeu, `src/web/gameLayouts.js`) : normal, ou minimaliste (encarts serrés et en-têtes fins
-à la Guerre Tribale, contenu limité à 1120 px), quel que soit le thème. En minimaliste, `<html data-game-layout="minimal">`
+Style de jeu (Compte → Style de jeu, `src/web/gameLayouts.js`) : minimaliste par défaut (encarts serrés, en-têtes fins, à plat
+à la Guerre Tribale, contenu limité à 1120 px), ou normal (interface aérée d'origine), quel que soit le thème. En minimaliste, `<html data-game-layout="minimal">`
 réduit l'échelle d'espacement de Tailwind (`--spacing`) et active la variante `minimal:` (voir `src/styles/app.css`).
 Design des villages (Compte → Design des villages) : un skin pour ses propres villages sur la carte, vu par tous les
 joueurs (beige par défaut, blanc et bleu, noir ; gratuits ; les barbares restent beiges) : voir
