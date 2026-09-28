@@ -37,6 +37,8 @@ src/game/            Règles du jeu, sans base de données
   UnitType.js        Un type d'unité : coût, temps de recrutement, vitesse
   VillageState.js    État d'un village : ressources calculées à la lecture, application des files
   MapPlacer.js       Placement des nouveaux villages (depuis le centre, par direction)
+  terrain.js         Terrain déterministe (eau, forêts, lacs, montagnes), partagé avec la carte du navigateur ;
+                     pas de village sur l'eau, les lacs, les montagnes ni au cœur des forêts
   combat.js          Résolution d'un combat : muraille, béliers, catapultes, chance, morale, nuit, éclaireurs, pillage
   movement.js        Distance et durée de trajet (unité la plus lente)
   barbarian.js       Croissance des villages barbares
@@ -52,7 +54,7 @@ migrations/          Une migration par changement de schéma ; ne jamais modifie
 src/styles/          Point d'entrée Tailwind (@theme) et styles de jeu (game-styles/ : romain, viking)
 src/web/             Routes Express, middlewares, helpers de vue, composants (ui.js), styles de jeu (gameStyles.js)
 src/views/           Pages EJS
-public/              JS client (game.js : ressources, comptes à rebours… ; map.js : carte), images (accueil, fonds de village par style)
+public/              JS client (game.js : ressources, comptes à rebours… ; map.js : carte ; minimap.js : rendu commun des mini-cartes), images (accueil, fonds de village par style)
 maquettes/           Maquette de référence de l'interface (bundle HTML autonome)
 ```
 
@@ -69,7 +71,9 @@ l'enceinte, mines et ferme aux abords, muraille sur la porte sud) ou vue liste, 
 et les encadrés Production, Constructions, Recrutement, Troupes et Paladin. La carte ([public/js/map.js](public/js/map.js)) a des cases de
 taille fixe comme sur GT (la taille choisie agrandit vraiment la carte), charge les villages par secteurs de 20 × 20
 (`/map/sector`, [src/web/mapView.js](src/web/mapView.js)) et se déplace sans rechargement (glisser, flèches, clavier,
-mini-carte de 5 px par case qui suit la vue) ; décor, flèches d'attaque et légende. L'accueil (mondes, connexion, inscription)
+mini-carte de 6 px par case qui suit la vue). Mini-carte, fenêtre « Carte du monde » et mini-carte du profil
+sont dessinées par un seul module ([public/js/minimap.js](public/js/minimap.js)) avec les jetons `--color-mini-*` de
+[src/styles/app.css](src/styles/app.css) (légendes : `bg-mini-*`) : les modifier change les trois ; décor, flèches d'attaque et légende. L'accueil (mondes, connexion, inscription)
 reprend l'écran d'accueil de la maquette.
 
 Outils de la maquette : menu « Rapports » de l'en-tête (non-lus par catégorie) ; sur le plan du village, le survol
@@ -165,6 +169,8 @@ et les pertes des éclaireurs.
 
 ## Villages barbares, messagerie, profils
 
+- À chaque inscription, `placement.emptyVillages` % de villages barbares apparaissent autour du nouveau joueur
+  (comme `coord.empty_villages` de GT : 170 = 1 barbare + 70 % de chances d'un 2ᵉ ; 100 par défaut, réglable par monde).
 - Les villages barbares gagnent `barbarian.growthPerDay × vitesse` points par jour (40 par défaut),
   en montant surtout leurs mines, jusqu'à `barbarian.maxPoints` (1 500). La croissance est calculée
   au rafraîchissement du village ; la boucle de jeu les rafraîchit toutes les 10 minutes.

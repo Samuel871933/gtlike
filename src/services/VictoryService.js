@@ -110,14 +110,20 @@ class VictoryService {
   }
 
   static async freeSpotsIn(world, bounds, count, t, rng = Math.random) {
-    const coords = await Village.findAll({ where: { worldId: world.id }, attributes: ['x', 'y'], raw: true, transaction: t });
+    // Seulement la zone cherchée (et une case autour), pas toute la carte.
+    const coords = await Village.findAll({
+      where: { worldId: world.id, x: { [Op.between]: [bounds.x[0] - 1, bounds.x[1] + 1] }, y: { [Op.between]: [bounds.y[0] - 1, bounds.y[1] + 1] } },
+      attributes: ['x', 'y'],
+      raw: true,
+      transaction: t,
+    });
     const placer = new MapPlacer(world.getConfig(), new Set(coords.map((c) => MapPlacer.key(c.x, c.y))), rng);
     const spots = [];
     for (let i = 0; i < count * 50 && spots.length < count; i++) {
       const x = bounds.x[0] + Math.floor(rng() * (bounds.x[1] - bounds.x[0] + 1));
       const y = bounds.y[0] + Math.floor(rng() * (bounds.y[1] - bounds.y[0] + 1));
       if (placer.isFree(x, y, 0)) {
-        placer.occupied.add(MapPlacer.key(x, y));
+        placer.take(x, y);
         spots.push({ x, y });
       }
     }

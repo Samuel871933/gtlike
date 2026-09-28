@@ -213,7 +213,10 @@ test('carte : tailles et calques mémorisés sur le joueur, marquages', async ()
   // Calque désactivé : plus rendu sur la grille.
   const token = tokenOf(again.html);
   const frameOf = (html) => html.match(/<div class="map-frame[^>]*>/)[0];
-  assert.match(frameOf(again.html), /data-layer-grid/);
+  // Quadrillage désactivé par défaut : on l'active puis on le désactive.
+  assert.doesNotMatch(frameOf(again.html), /data-layer-grid/);
+  await http(`${map}/layers`, { method: 'POST', form: { _csrf: token, layer: 'grid', on: '1' } });
+  assert.match(frameOf((await http(map)).html), /data-layer-grid/);
   await http(`${map}/layers`, { method: 'POST', form: { _csrf: token, layer: 'grid', on: '0' } });
   assert.doesNotMatch(frameOf((await http(map)).html), /data-layer-grid/);
 
@@ -242,4 +245,14 @@ test('carte : tailles et calques mémorisés sur le joueur, marquages', async ()
   assert.doesNotMatch((await http(map)).html, /"mark":"#22c55e"/);
   const bad = await http(`${map}/markers`, { method: 'POST', form: { _csrf: token, type: 'player', target: 'Personne', color: '#22c55e' } });
   assert.equal(bad.status, 302, 'cible inconnue : message d’erreur et retour à la carte');
+
+  // Couleur libre (sélecteur de couleur) : tout #rrggbb, rangé en minuscules ; le reste est refusé.
+  await http(`${map}/markers`, { method: 'POST', form: { _csrf: token, type: 'village', target: `${x}|${y}`, color: '#1A2B3C' } });
+  const free = await http(map);
+  assert.match(free.html, /"mark":"#1a2b3c"/);
+  assert.match(free.html, /type="color" name="color"/);
+  await http(`${map}/markers`, { method: 'POST', form: { _csrf: token, type: 'village', target: `${x}|${y}`, color: 'red;background:url(x)' } });
+  const after = await http(map);
+  assert.match(after.html, /"mark":"#1a2b3c"/, 'couleur invalide : le marquage garde sa couleur');
+  assert.doesNotMatch(after.html, /url\(x\)/);
 });

@@ -22,7 +22,6 @@
   const GROUPS = [['progress', 'Étapes'], ['battle', 'Combat'], ['misc', 'Divers']];
   const actionItem = 'flex items-center gap-2.5 border-b border-bronze-800 px-3 py-2 font-semibold text-parchment-200 no-underline transition last:border-b-0 hover:bg-row-hover hover:text-gold-200';
   const mm = miniMap;
-  const mmFill = { player: 'fill-parchment-100', tribe: 'fill-rel-tribe', other: 'fill-rel-other', barb: 'fill-rel-barb-dim' };
   const stats = [
     ['Points', num(subject.points)],
     ['Rang', `${num(rank)}ᵉ`],
@@ -42,18 +41,13 @@
       <%- panelHead(subject.name, `<span class="${ui.medallion} size-7">${icon('profile', 'size-3.5')}</span>`) %>
       <% if (mm) { %>
         <a href="/village/<%= vid %>/map?x=<%= mm.cx %>&y=<%= mm.cy %>" class="block border-b-2 border-black bg-mini-bg" title="Voir sur la carte">
-          <svg viewBox="0 0 <%= mm.width %> <%= mm.height %>" class="block w-full" shape-rendering="crispEdges" role="img" aria-label="Villages de <%= subject.name %> sur la carte">
-            <rect width="<%= mm.width %>" height="<%= mm.height %>" class="fill-mini-grass-1"/>
-            <% for (let i = 0; i < mm.width; i++) { const x = mm.x0 + i; if (x % 10) continue; %><rect x="<%= i %>" y="0" width="<%= x % 100 === 0 ? 0.5 : 0.12 %>" height="<%= mm.height %>" class="<%= x % 100 === 0 ? 'fill-gold-400/70' : 'fill-black/40' %>"/><% } %>
-            <% for (let i = 0; i < mm.height; i++) { const y = mm.y0 + i; if (y % 10) continue; %><rect x="0" y="<%= i %>" width="<%= mm.width %>" height="<%= y % 100 === 0 ? 0.5 : 0.12 %>" class="<%= y % 100 === 0 ? 'fill-gold-400/70' : 'fill-black/40' %>"/><% } %>
-            <% for (const k of ['barb', 'other', 'tribe', 'player']) { for (const v of mm.villages) { if (v.kind !== k) continue; %><% if (k === 'player') { %><rect x="<%= v.x - mm.x0 - 0.15 %>" y="<%= v.y - mm.y0 - 0.15 %>" width="1.3" height="1.3" class="fill-parchment-100 stroke-black stroke-[0.2]"/><% } else { %><rect x="<%= v.x - mm.x0 + 0.1 %>" y="<%= v.y - mm.y0 + 0.1 %>" width="0.8" height="0.8" class="<%= mmFill[k] %>"/><% } %><% } } %>
-          </svg>
+          <canvas class="block w-full" style="aspect-ratio:<%= mm.width %>/<%= mm.height %>" data-minimap="<%= JSON.stringify({ x0: mm.x0, y0: mm.y0, width: mm.width, height: mm.height, villages: mm.villages }) %>" role="img" aria-label="Villages de <%= subject.name %> sur la carte"></canvas>
         </a>
         <div class="flex flex-wrap gap-x-3 gap-y-1 border-b border-bronze-800 px-3 py-1.5 text-[11px] text-parchment-500">
-          <span class="inline-flex items-center gap-1.5"><span class="size-2 bg-parchment-100"></span>Ce joueur</span>
-          <% if (subject.Tribe) { %><span class="inline-flex items-center gap-1.5"><span class="size-2 bg-rel-tribe"></span>Sa tribu</span><% } %>
-          <span class="inline-flex items-center gap-1.5"><span class="size-2 bg-rel-other"></span>Autres joueurs</span>
-          <span class="inline-flex items-center gap-1.5"><span class="size-2 bg-rel-barb-dim"></span>Barbares</span>
+          <span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-current"></span>Ce joueur</span>
+          <% if (subject.Tribe) { %><span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-tribe"></span>Sa tribu</span><% } %>
+          <span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-other"></span>Autres joueurs</span>
+          <span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-barb"></span>Barbares</span>
         </div>
       <% } %>
       <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
@@ -198,4 +192,6 @@
     </section>
   </div>
 </div>
+<% if (mm) { %><script src="/js/terrain.js" defer></script>
+<script src="/js/minimap.js" defer></script><% } %>
 <%- include('partials/footer') %>

@@ -14,7 +14,9 @@ const DEFAULTS = {
   features: { knight: false, archer: false },
   startBuildings: { main: 1, farm: 1, storage: 1, place: 1 },
   startResources: { wood: 500, stone: 500, iron: 500 },
-  placement: { density: 0.35, barbariansPerPlayer: 1 },
+  // Placement. emptyVillages : villages barbares créés à chaque inscription, en % comme coord.empty_villages de
+  // Guerre Tribale (170 = 1 barbare + 70 % de chances d'un 2e ; FR : 0 à 2000 selon le monde).
+  placement: { density: 0.35, emptyVillages: 100 },
   // Mode sommeil (mondes speed) : délai avant activation, durée min/max, éveil minimal entre deux sommeils
   sleep: { active: false, delayMinutes: 60, minHours: 6, maxHours: 10, minAwakeHours: 12 },
   // Mode vacances : remplaçants autorisés, nombre maximal de comptes remplacés par un joueur

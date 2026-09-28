@@ -30,7 +30,12 @@
   let cx = Number(frame.dataset.cx);
   let cy = Number(frame.dataset.cy);
   let sel = frame.dataset.sel ? frame.dataset.sel.split('|').map(Number) : null;
-  let tile = Number(frame.dataset.tile);
+  // Case de Guerre Tribale : 53 × 38 px (réduite sur petit écran, voir fit).
+  let tw = Number(frame.dataset.tileW);
+  let th = Number(frame.dataset.tileH);
+  // Textures d'herbe et d'eau : carrés de 6 cases de large, calés sur le monde (décalage en px).
+  const texture = () => 6 * tw;
+  const texOffset = (cells, px) => -((((cells * px) % texture()) + texture()) % texture());
 
   // ------------------------------------------------------------------ Données : secteurs de villages
   const cells = new Map();
@@ -58,39 +63,24 @@
     }
   }
 
-  // ------------------------------------------------------------------ Décor déterministe (comme le serveur l'était)
-  const rnd = (a, b, s) => {
-    let h = Math.imul(a, 374761393) + Math.imul(b, 668265263) + Math.imul(s, 1442695041);
-    h = Math.imul(h ^ (h >>> 13), 1274126177);
-    h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  };
-  const biomeAt = (x, y) => (
-    rnd(Math.floor(x / 5), Math.floor(y / 5), 11)
-    + rnd(Math.floor((x + 3) / 5), Math.floor((y + 3) / 5), 19)
-  ) / 2;
-  // Un grand décor n'est placé que sur le minimum local de son voisinage : cela forme des amas espacés,
-  // au lieu de remplir chaque case avec le même gros sprite.
-  const isAnchor = (x, y, seed, radius, ceiling) => {
-    const n = rnd(x, y, seed);
-    if (n > ceiling) return false;
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        if ((dx || dy) && rnd(x + dx, y + dy, seed) < n) return false;
-      }
-    }
-    return true;
-  };
-  const terrain = (x, y) => {
-    const biome = biomeAt(x, y);
-    if (biome > 0.44 && biome < 0.61 && isAnchor(x, y, 73, 3, 0.11)) return 'lake';
-    if (biome > 0.69 && isAnchor(x, y, 67, 3, 0.16)) return 'hill';
-    if (biome < 0.48 && isAnchor(x, y, 43, 2, 0.2)) return 'forest';
-    if (biome < 0.52 && rnd(x, y, 29) < 0.22) return 'trees';
-    if (biome < 0.58 && rnd(x, y, 23) < 0.11) return 'pine';
-    if (rnd(x, y, 31) < 0.032) return 'rocks';
-    return null;
-  };
+  // ------------------------------------------------------------------ Décor déterministe, partagé avec le serveur
+  // (src/game/terrain.js, servi en /js/terrain.js) : le serveur n'y place pas de village sur l'eau, les lacs,
+  // les montagnes ni au cœur des forêts.
+  const { rnd, forestAt, waterAt, terrain } = window.GTTerrain;
+
+  // Case d'eau d'une grande étendue : eau continue + vrais overlays de rive contenus dans la case.
+  function waterHtml(x, y, at) {
+    const n = !waterAt(x, y - 1); const e = !waterAt(x + 1, y); const s2 = !waterAt(x, y + 1); const w = !waterAt(x - 1, y);
+    const mask = Number(n) | (Number(e) << 1) | (Number(s2) << 2) | (Number(w) << 3);
+    const corner = mask === 9 ? 'nw' : mask === 3 ? 'ne' : mask === 6 ? 'se' : mask === 12 ? 'sw' : '';
+    const shore = corner
+      ? `<span class="map-shore-corner map-shore-corner--${corner}"></span>`
+      : `${n ? '<span class="map-shore map-shore--n"></span>' : ''}${e ? '<span class="map-shore map-shore--e"></span>' : ''}${s2 ? '<span class="map-shore map-shore--s"></span>' : ''}${w ? '<span class="map-shore map-shore--w"></span>' : ''}`;
+    const bx = texOffset(x, tw); const by = texOffset(y, th);
+    return `<div class="map-water pointer-events-none absolute w-(--tile-w) h-(--tile-h)" style="${at};--water-bg-x:${bx}px;--water-bg-y:${by}px">${shore}</div>`;
+  }
+  // Taille de chaque décor (facteur min, max) : lacs et montagnes très variables, petits décors plus réguliers.
+  const DECOR_SCALE = { hill: [0.78, 1.08], pine: [0.8, 1.2], default: [0.84, 1.06] };
   const near = (x, y, kinds, radius = 1) => {
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dy = -radius; dy <= radius; dy++) {
@@ -128,21 +118,31 @@
     baseY = y0;
     ensure(x0, y0, x0 + span - 1, y0 + span - 1);
     const out = [];
-    const at = (x, y) => `left:${(x - x0) * tile}px;top:${(y - y0) * tile}px`;
+    const at = (x, y) => `left:${(x - x0) * tw}px;top:${(y - y0) * th}px`;
     for (let y = y0; y < y0 + span; y++) {
       for (let x = x0; x < x0 + span; x++) {
         if (x < 0 || y < 0 || x >= WORLD || y >= WORLD) {
-          out.push(`<div class="absolute size-(--tile) bg-map-edge" style="${at(x, y)}"></div>`);
+          out.push(`<div class="absolute w-(--tile-w) h-(--tile-h) bg-map-edge" style="${at(x, y)}"></div>`);
           continue;
         }
         const c = cells.get(key(x, y));
         // Calques d'influence : cases voisines d'un village à soi ou de sa tribu, ou d'un ennemi.
-        if (near(x, y, ['current', 'own', 'tribe'])) out.push(`<div class="pointer-events-none absolute hidden size-(--tile) bg-blood-700/25 group-data-[layer-influence]/map:block" style="${at(x, y)}"></div>`);
-        else if (near(x, y, ['enemy'])) out.push(`<div class="pointer-events-none absolute hidden size-(--tile) bg-rel-enemy/20 group-data-[layer-enemy]/map:block" style="${at(x, y)}"></div>`);
+        if (near(x, y, ['current', 'own', 'tribe'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-blood-700/25 group-data-[layer-influence]/map:block" style="${at(x, y)}"></div>`);
+        else if (near(x, y, ['enemy'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-rel-enemy/20 group-data-[layer-enemy]/map:block" style="${at(x, y)}"></div>`);
+        // Sol des forêts assombri (fondu vers les lisières), villages compris : pas de clairières carrées.
+        const woods = forestAt(x, y);
+        if (woods) out.push(`<div class="pointer-events-none absolute w-(--tile-w) h-(--tile-h)" style="${at(x, y)};background:rgb(22 40 12 / ${(0.1 + 0.3 * woods).toFixed(2)})"></div>`);
         if (c) {
-          out.push(`<div class="map-tile map-tile--village absolute flex size-(--tile) cursor-pointer items-center justify-center" style="${at(x, y)}" data-map-tile data-x="${x}" data-y="${y}"${sel && sel[0] === x && sel[1] === y ? ' data-selected' : ''} aria-label="${esc(`${c.name} ${x}|${y} · ${c.points} pts · ${c.owner}`)}">${villageHtml(c)}</div>`);
+          out.push(`<div class="map-tile map-tile--village absolute flex w-(--tile-w) h-(--tile-h) cursor-pointer items-center justify-center" style="${at(x, y)}" data-map-tile data-x="${x}" data-y="${y}"${sel && sel[0] === x && sel[1] === y ? ' data-selected' : ''} aria-label="${esc(`${c.name} ${x}|${y} · ${c.points} pts · ${c.owner}`)}">${villageHtml(c)}</div>`);
         } else {
-          const t = terrain(x, y);
+          const ground = terrain(x, y);
+          if (ground === 'water') {
+            out.push(waterHtml(x, y, at(x, y)));
+            if (sel && sel[0] === x && sel[1] === y) out.push(`<div class="map-tile pointer-events-none absolute w-(--tile-w) h-(--tile-h) bg-none" style="${at(x, y)}" data-selected></div>`);
+            continue;
+          }
+          // En forêt : pas de lac ni de colline, mais bosquets et sapins, plus serrés au cœur du massif.
+          const t = ground === 'forest' ? (rnd(x, y, 141) < 0.25 + 0.45 * woods ? 'trees' : 'pine') : ground;
           // Le décor principal dessine les biomes. Une seconde couche, indépendante, ajoute de petits
           // arbres et cailloux entre les villages et jusque dans les grands amas pour lier le paysage.
           const decorations = t ? [t] : [];
@@ -152,29 +152,42 @@
           const rockChance = besideVillage ? 0.08 : 0.045;
           if (accent < pineChance) decorations.push('pine');
           else if (accent < pineChance + rockChance) decorations.push('rocks');
-          if (t === 'forest' && rnd(x, y, 107) < 0.72) decorations.push('pine');
+          if (woods) {
+            // Arbres plus nombreux vers le cœur du massif : 1 à 5 par case.
+            const extra = Math.floor(woods * 3.2 + rnd(x, y, 107) * 1.4);
+            for (let k = 0; k < extra; k++) decorations.push(rnd(x, y, 151 + k) < 0.3 ? 'trees' : 'pine');
+          }
+          // Arbres seuls : parfois deux ou trois dans la même case (décalés, voir dx / dy).
+          if (decorations.includes('pine')) {
+            const more = rnd(x, y, 131);
+            if (more < 0.38) decorations.push('pine');
+            if (more < 0.14) decorations.push('pine');
+          }
           decorations.forEach((kind, i) => {
-            const scale = (0.84 + rnd(x, y, 37 + i * 7) * 0.22).toFixed(2);
+            const [min, max] = DECOR_SCALE[kind] || DECOR_SCALE.default;
+            const scale = (min + rnd(x, y, 37 + i * 7) * (max - min)).toFixed(2);
             const flip = rnd(x, y, 41 + i * 11) > 0.5 ? -1 : 1;
-            const dx = i ? Math.round((rnd(x, y, 113 + i) - 0.5) * tile * 0.72) : 0;
-            const dy = i ? Math.round((rnd(x, y, 127 + i) - 0.5) * tile * 0.58) : 0;
+            // Le décor principal reste centré ; les suivants (et tous les arbres seuls d'une case à plusieurs) sont décalés.
+            const shifted = i || (kind === 'pine' && decorations.length > 1);
+            const dx = shifted ? Math.round((rnd(x, y, 113 + i) - 0.5) * tw * 0.72) : 0;
+            const dy = shifted ? Math.round((rnd(x, y, 127 + i) - 0.5) * th * 0.58) : 0;
             out.push(`<div class="map-decor map-decor--${kind} pointer-events-none absolute" style="${at(x, y)};--decor-scale:${scale};--decor-flip:${flip};--decor-x:${dx}px;--decor-y:${dy}px" aria-hidden="true"><span></span></div>`);
           });
-          if (sel && sel[0] === x && sel[1] === y) out.push(`<div class="map-tile pointer-events-none absolute size-(--tile) bg-none" style="${at(x, y)}" data-selected></div>`);
+          if (sel && sel[0] === x && sel[1] === y) out.push(`<div class="map-tile pointer-events-none absolute w-(--tile-w) h-(--tile-h) bg-none" style="${at(x, y)}" data-selected></div>`);
         }
       }
     }
     // Frontières de continent (tous les 100 cases) et quadrillage de 5 cases (fond du calque).
-    for (let x = Math.ceil(x0 / 100) * 100; x < x0 + span; x += 100) out.push(`<div class="pointer-events-none absolute top-0 z-[5] hidden h-full border-l-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="left:${(x - x0) * tile}px"></div>`);
-    for (let y = Math.ceil(y0 / 100) * 100; y < y0 + span; y += 100) out.push(`<div class="pointer-events-none absolute left-0 z-[5] hidden w-full border-t-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="top:${(y - y0) * tile}px"></div>`);
+    for (let x = Math.ceil(x0 / 100) * 100; x < x0 + span; x += 100) out.push(`<div class="pointer-events-none absolute top-0 z-[5] hidden h-full border-l-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="left:${(x - x0) * tw}px"></div>`);
+    for (let y = Math.ceil(y0 / 100) * 100; y < y0 + span; y += 100) out.push(`<div class="pointer-events-none absolute left-0 z-[5] hidden w-full border-t-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="top:${(y - y0) * th}px"></div>`);
     out.push(`<div class="map-grid-lines pointer-events-none absolute inset-0 z-[4] hidden group-data-[layer-grid]/map:block" style="--grid-x:${(5 - (((x0 % 5) + 5) % 5)) % 5};--grid-y:${(5 - (((y0 % 5) + 5) % 5)) % 5}"></div>`);
     out.push(arrows(x0, y0));
     layer.innerHTML = out.join('');
-    layer.style.width = `${span * tile}px`;
-    layer.style.height = `${span * tile}px`;
-    // Texture d'herbe (6 × 6 cases) calée sur les coordonnées du monde.
-    layer.style.setProperty('--terrain-x', String(-(((x0 % 6) + 6) % 6)));
-    layer.style.setProperty('--terrain-y', String(-(((y0 % 6) + 6) % 6)));
+    layer.style.width = `${span * tw}px`;
+    layer.style.height = `${span * th}px`;
+    // Texture d'herbe (6 cases de large) calée sur les coordonnées du monde.
+    layer.style.setProperty('--terrain-px', `${texOffset(x0, tw)}px`);
+    layer.style.setProperty('--terrain-py', `${texOffset(y0, th)}px`);
     rulers();
     place();
   }
@@ -182,8 +195,8 @@
   // Flèches des attaques en cours depuis ce village.
   function arrows(x0, y0) {
     if (!boot.attacks.length) return '';
-    const px = (x) => (x - x0 + 0.5) * tile;
-    const py = (y) => (y - y0 + 0.5) * tile;
+    const px = (x) => (x - x0 + 0.5) * tw;
+    const py = (y) => (y - y0 + 0.5) * th;
     let line = '';
     let heads = '';
     for (const [tx, ty] of boot.attacks) {
@@ -197,15 +210,15 @@
   }
 
   function rulers() {
-    const lab = (v, me) => `text-[11px] font-semibold tabular-nums ${v === me ? 'text-gold-200' : 'text-parchment-500'}`;
+    const lab = (v, me) => `text-[11px] font-semibold tabular-nums [text-shadow:1px_1px_0_#000] ${v === me ? 'text-gold-200' : 'text-parchment-100'}`;
     let hx = '';
     let hy = '';
     for (let i = 0; i < span; i++) {
-      hx += `<span class="absolute top-0 flex h-full items-center justify-center ${lab(baseX + i, meX)}" style="left:${i * tile}px;width:${tile}px">${baseX + i}</span>`;
-      hy += `<span class="absolute right-0 flex w-full items-center justify-end pr-[5px] ${lab(baseY + i, meY)}" style="top:${i * tile}px;height:${tile}px">${baseY + i}</span>`;
+      hx += `<span class="absolute top-0 flex h-full items-center justify-center ${lab(baseX + i, meX)}" style="left:${i * tw}px;width:${tw}px">${baseX + i}</span>`;
+      hy += `<span class="absolute right-0 flex w-full items-center justify-center ${lab(baseY + i, meY)}" style="top:${i * th}px;height:${th}px">${baseY + i}</span>`;
     }
     rulerX.innerHTML = `<div class="absolute inset-y-0 left-0" data-inner>${hx}</div>`;
-    rulerY.innerHTML = `<div class="absolute inset-x-0 top-0" data-inner>${hy}</div>`;
+    rulerY.innerHTML = `<div class="absolute inset-x-0 -top-5" data-inner>${hy}</div>`;
   }
 
   // Décale le calque pour montrer la zone centrée sur (cx, cy) ; redessine si l'on sort de la marge chargée.
@@ -213,26 +226,58 @@
     const left = cx - half;
     const top = cy - half;
     if (left < baseX + 1 || top < baseY + 1 || left + size > baseX + span - 1 || top + size > baseY + span - 1) { render(); return; }
-    const ox = -(left - baseX) * tile;
-    const oy = -(top - baseY) * tile;
+    const ox = -(left - baseX) * tw;
+    const oy = -(top - baseY) * th;
     layer.style.transform = `translate3d(${ox}px, ${oy}px, 0)`;
     rulerX.firstChild.style.transform = `translateX(${ox}px)`;
     rulerY.firstChild.style.transform = `translateY(${oy}px)`;
     drawMini();
   }
 
-  // Sur ordinateur, les cases gardent une taille fixe : augmenter le nombre de cases agrandit réellement
-  // la carte au lieu de tout rapetisser. Seuls les petits écrans bénéficient d'une adaptation limitée.
+  // Sur ordinateur, les cases gardent la taille de Guerre Tribale : augmenter le nombre de cases agrandit
+  // réellement la carte (et la page si besoin, voir widen). Seuls les petits écrans réduisent les cases.
   function fit() {
     const row = frame.closest('[data-map-row]');
-    const avail = (row ? row.clientWidth : window.innerWidth) - 16 - 36 - 8;
-    const nominal = Number(frame.dataset.tile);
+    const avail = (row ? row.clientWidth : window.innerWidth) - 16 - 8;
+    const nominal = Number(frame.dataset.tileW);
     const mobile = window.matchMedia('(max-width: 639px)').matches;
     const next = mobile ? Math.max(34, Math.min(nominal, Math.floor(avail / Math.min(size, 11)))) : nominal;
-    if (next !== tile || !frame.style.getPropertyValue('--tile')) {
-      tile = next;
-      frame.style.setProperty('--tile', `${tile}px`);
+    if (next !== tw || !frame.style.getPropertyValue('--tile-w')) {
+      tw = next;
+      th = Math.round(next * Number(frame.dataset.tileH) / nominal);
+      frame.style.setProperty('--tile-w', `${tw}px`);
+      frame.style.setProperty('--tile-h', `${th}px`);
+      frame.style.setProperty('--tile', `${th}px`);
     }
+    widen();
+  }
+  // La page (1500 px au plus) s'élargit quand la carte ne tient plus : 30 × 30 cases = 1590 px de carte.
+  const main = frame.closest('main');
+  function widen() {
+    if (!main) return;
+    // Cadre et marges du panneau (≈ 24 px), marges de la page (20 px) ; les règles sont posées sur la carte.
+    const needed = size * tw + 24 + 20;
+    main.style.maxWidth = needed > 1500 ? `${needed}px` : '';
+    layoutAside();
+  }
+  // Mise en page à la taille du contenu, calculée ici (une ligne flexible à retour ne sait pas se mesurer) :
+  // chaque colonne à la largeur exacte de sa carte (la carte, la mini-carte ; 250 px au moins), côte à côte si
+  // elles tiennent dans la page, sinon la colonne de droite passe dessous, sur toute la largeur.
+  const aside = document.querySelector('[data-map-aside]');
+  const pageBlock = frame.closest('[data-map-page]');
+  const col = frame.closest('[data-map-col]');
+  function layoutAside() {
+    if (!aside || !pageBlock || !main) return;
+    const cell = mini ? Number(mini.dataset.cell) : 5;
+    // 250 px au moins : largeur minimale de la recherche et des ordres rapides (petites mini-cartes centrées).
+    const asideW = Math.max(250, (mini ? Number(mini.dataset.size) : 0) * cell + 28);
+    // Carte, cadre et marges du panneau (22 px).
+    const colW = size * tw + 22;
+    const avail = main.clientWidth - 20;
+    const side = colW + 16 + asideW <= avail;
+    pageBlock.style.width = `${Math.min(avail, side ? colW + 16 + asideW : colW)}px`;
+    aside.style.width = side ? `${asideW}px` : '100%';
+    col.style.width = `${Math.min(avail, colW)}px`;
   }
 
   // ------------------------------------------------------------------ Déplacements
@@ -289,8 +334,8 @@
     const dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
     if (!drag.moved) { drag.moved = true; viewport.classList.add('is-dragging'); hideTip(); closeMenu(); }
-    cx = clampC(drag.cx - dx / tile);
-    cy = clampC(drag.cy - dy / tile);
+    cx = clampC(drag.cx - dx / tw);
+    cy = clampC(drag.cy - dy / th);
     place();
   });
   const endDrag = (e) => {
@@ -497,65 +542,16 @@
   let miniVillages = boot.mini;
   let miniX0 = Math.round(cx) - Math.floor(miniSize / 2);
   let miniY0 = Math.round(cy) - Math.floor(miniSize / 2);
-  const css = getComputedStyle(document.documentElement);
-  const token = (name) => css.getPropertyValue(`--color-${name}`).trim();
-  const miniColors = {
-    current: '#ffffff', own: '#f0c74b', tribe: '#3159b8', ally: '#4ba7e8', nap: '#9a8bc4',
-    enemy: '#ff2818', other: '#51452b', barb: '#9b9f98',
-  };
-  function paintOverviewTerrain(g, x0, y0, side, cell, step = 1) {
-    const px = side * cell;
-    g.fillStyle = '#58732f';
-    g.fillRect(0, 0, px, px);
-    const patch = Math.max(step, 4);
-    for (let oy = 0; oy < side; oy += patch) {
-      for (let ox = 0; ox < side; ox += patch) {
-        const biome = biomeAt(x0 + ox + Math.floor(patch / 2), y0 + oy + Math.floor(patch / 2));
-        if (biome < .38) g.fillStyle = '#496629';
-        else if (biome > .72) g.fillStyle = '#64743a';
-        else g.fillStyle = biome < .54 ? '#54702d' : '#5d7833';
-        g.fillRect(ox * cell, oy * cell, Math.min(patch, side - ox) * cell, Math.min(patch, side - oy) * cell);
-      }
-    }
-  }
+  // Dessin commun à toutes les mini-cartes : public/js/minimap.js.
   let miniFrame = 0;
   function drawMini() {
     if (!mini || miniFrame) return;
     miniFrame = requestAnimationFrame(() => {
       miniFrame = 0;
-      const ratio = window.devicePixelRatio || 1;
-      const w = Math.round(mini.clientWidth * ratio);
-      if (!w) return;
-      if (mini.width !== w) { mini.width = w; mini.height = w; }
-      const g = mini.getContext('2d');
-      const cell = w / miniSize;
-      paintOverviewTerrain(g, miniX0, miniY0, miniSize, cell);
-      for (let i = 0; i <= miniSize; i++) {
-        const x = miniX0 + i; const y = miniY0 + i;
-        if (x % 10 === 0) { g.fillStyle = x % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.22)'; g.fillRect(Math.round(i * cell), 0, x % 100 === 0 ? 2 * ratio : ratio, w); }
-        if (y % 10 === 0) { g.fillStyle = y % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.22)'; g.fillRect(0, Math.round(i * cell), w, y % 100 === 0 ? 2 * ratio : ratio); }
-      }
-      for (const [x, y, kind] of miniVillages) {
-        const marked = kind.startsWith('#');
-        const important = marked || ['current', 'own', 'tribe', 'ally', 'nap', 'enemy'].includes(kind);
-        const insetRatio = important ? .07 : .15;
-        const inset = cell > 4 ? cell * insetRatio : Math.min(cell * insetRatio, ratio * .35);
-        const px = (x - miniX0) * cell + inset;
-        const py = (y - miniY0) * cell + inset;
-        const side = Math.max(1, cell - 2 * inset);
-        const color = kind.startsWith('#') ? kind : miniColors[kind] || miniColors.other;
-        g.fillStyle = color;
-        g.fillRect(px, py, side, side);
-      }
-      if (meX >= miniX0 && meX < miniX0 + miniSize && meY >= miniY0 && meY < miniY0 + miniSize) {
-        g.strokeStyle = '#fff'; g.lineWidth = Math.max(1, ratio);
-        g.strokeRect((meX - miniX0) * cell - ratio, (meY - miniY0) * cell - ratio, cell + 2 * ratio, cell + 2 * ratio);
-      }
-      // Cadre de la zone affichée par la grande carte.
-      const fx = (cx - half - miniX0) * cell;
-      const fy = (cy - half - miniY0) * cell;
-      g.lineWidth = 2 * ratio; g.strokeStyle = '#000'; g.strokeRect(fx, fy, size * cell, size * cell);
-      g.lineWidth = ratio; g.strokeStyle = '#f2ece2'; g.strokeRect(fx, fy, size * cell, size * cell);
+      window.GTMinimap.draw(mini, {
+        x0: miniX0, y0: miniY0, width: miniSize, height: miniSize, villages: miniVillages,
+        home: [meX, meY], frame: { x: cx - half, y: cy - half, size },
+      });
     });
   }
   // Quand la carte s'éloigne du centre de la mini-carte, celle-ci se recentre (points chargés par /map/mini).
@@ -573,10 +569,9 @@
   }
   if (mini) {
     mini.addEventListener('click', (e) => {
-      const r = mini.getBoundingClientRect();
-      moveTo(miniX0 + Math.floor((e.clientX - r.left) / r.width * miniSize), miniY0 + Math.floor((e.clientY - r.top) / r.height * miniSize));
+      moveTo(...window.GTMinimap.cellAt(mini, { x0: miniX0, y0: miniY0, width: miniSize, height: miniSize }, e));
     });
-    window.addEventListener('resize', drawMini);
+    window.addEventListener('resize', () => { layoutAside(); drawMini(); });
   }
 
   // ------------------------------------------------------------------ Tailles en direct (carte et mini-carte)
@@ -585,9 +580,9 @@
     half = Math.floor(size / 2);
     MARGIN = Math.max(4, Math.ceil(size / 3));
     frame.dataset.size = String(size);
-    const px = `calc(var(--tile) * ${size})`;
-    viewport.style.width = px; viewport.style.height = px;
-    rulerX.style.width = px; rulerY.style.height = px;
+    const w = `calc(var(--tile-w) * ${size})`;
+    const h = `calc(var(--tile-h) * ${size})`;
+    viewport.style.width = w; viewport.style.height = h;
     render();
     settle();
   }
@@ -595,7 +590,8 @@
     if (!mini) return;
     miniSize = n;
     mini.dataset.size = String(n);
-    mini.style.width = `${n * 6}px`;
+    mini.style.width = `${n * Number(mini.dataset.cell)}px`;
+    layoutAside();
     const label = document.querySelector('[data-mini-label]');
     if (label) label.textContent = `${n} × ${n}`;
     recenterMini(Math.round(cx), Math.round(cy), true);
@@ -628,45 +624,11 @@
   }
   function drawWorld() {
     if (!world || !worldCanvas) return;
-    const ratio = window.devicePixelRatio || 1;
-    const w = Math.round(worldCanvas.clientWidth * ratio);
-    if (!w) return;
-    worldCanvas.width = w; worldCanvas.height = w;
-    const g = worldCanvas.getContext('2d');
     const v = world.view;
-    const scale = w / v.side;
-    const terrainStep = Math.max(1, Math.ceil(v.side / 160));
-    paintOverviewTerrain(g, v.x0, v.y0, v.side, scale, terrainStep);
-    // Quadrillage de 10 cases (léger) et frontières de continent (tous les 100) avec leur numéro.
-    for (let n = Math.ceil(v.x0 / 10) * 10; n < v.x0 + v.side; n += 10) {
-      g.fillStyle = n % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.2)';
-      g.fillRect(Math.round((n - v.x0) * scale), 0, n % 100 === 0 ? 2 * ratio : ratio, w);
-    }
-    for (let n = Math.ceil(v.y0 / 10) * 10; n < v.y0 + v.side; n += 10) {
-      g.fillStyle = n % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.2)';
-      g.fillRect(0, Math.round((n - v.y0) * scale), w, n % 100 === 0 ? 2 * ratio : ratio);
-    }
-    g.font = `${11 * ratio}px sans-serif`; g.fillStyle = 'rgba(232,224,212,.55)';
-    for (let ky = Math.floor(v.y0 / 100); ky * 100 < v.y0 + v.side; ky++) {
-      for (let kx = Math.floor(v.x0 / 100); kx * 100 < v.x0 + v.side; kx++) {
-        g.fillText(`K${ky}${kx}`, Math.max(0, (kx * 100 - v.x0) * scale) + 4 * ratio, Math.max(0, (ky * 100 - v.y0) * scale) + 13 * ratio);
-      }
-    }
-    const dot = Math.max(1.65 * ratio, scale * .98);
-    for (const [x, y, kind] of world.villages) {
-      const important = kind.startsWith('#') || ['current', 'own', 'tribe', 'ally', 'nap', 'enemy'].includes(kind);
-      const big = kind === 'current' || kind === 'own' ? dot * 1.6 : important ? dot * 1.25 : dot;
-      const px = (x - v.x0) * scale + (scale - big) / 2;
-      const py = (y - v.y0) * scale + (scale - big) / 2;
-      g.fillStyle = '#111'; g.fillRect(px - ratio * .7, py - ratio * .7, big + ratio * 1.4, big + ratio * 1.4);
-      g.fillStyle = kind.startsWith('#') ? kind : miniColors[kind] || miniColors.other;
-      g.fillRect(px, py, big, big);
-    }
-    // Zone affichée par la grande carte.
-    g.lineWidth = 2 * ratio; g.strokeStyle = '#000';
-    g.strokeRect((cx - half - v.x0) * scale, (cy - half - v.y0) * scale, Math.max(4, size * scale), Math.max(4, size * scale));
-    g.lineWidth = ratio; g.strokeStyle = '#fff';
-    g.strokeRect((cx - half - v.x0) * scale, (cy - half - v.y0) * scale, Math.max(4, size * scale), Math.max(4, size * scale));
+    window.GTMinimap.draw(worldCanvas, {
+      x0: v.x0, y0: v.y0, width: v.side, height: v.side, villages: world.villages,
+      home: [meX, meY], frame: { x: cx - half, y: cy - half, size },
+    });
   }
   function openWorld() {
     if (!modal) return;
@@ -694,9 +656,8 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeWorld(); });
     worldCanvas.addEventListener('click', (e) => {
       if (!world) return;
-      const r = worldCanvas.getBoundingClientRect();
-      const x = world.view.x0 + Math.floor((e.clientX - r.left) / r.width * world.view.side);
-      const y = world.view.y0 + Math.floor((e.clientY - r.top) / r.height * world.view.side);
+      const v = world.view;
+      const [x, y] = window.GTMinimap.cellAt(worldCanvas, { x0: v.x0, y0: v.y0, width: v.side, height: v.side }, e);
       closeWorld();
       moveTo(x, y, { animate: Math.hypot(x - cx, y - cy) < size * 2 });
     });

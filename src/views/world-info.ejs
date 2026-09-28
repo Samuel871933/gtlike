@@ -25,6 +25,7 @@
       ['Protection des débutants', `${cfg.newbieDays} jours`],
       ['Annulation d’un ordre', `${Math.round(cfg.commandCancelSeconds / 60)} min`],
       ['Villages barbares', `+${num(cfg.barbarian.growthPerDay)} pts / jour, ${num(cfg.barbarian.maxPoints)} max`],
+      ['Villages barbares par inscription', `${num(cfg.placement.emptyVillages)} %`],
     ]],
     ['Modules', [
       ['Paladin', cfg.features.knight ? (cfg.knightSystem === 'skills' ? 'Oui (compétences)' : 'Oui (armes)') : 'Non'],

@@ -867,7 +867,7 @@ router.get('/map', ah(async (req, res) => {
   const markForm = markMatch ? { type: markMatch[1], targetId: Number(markMatch[2]), label: String(req.query.label || '') } : null;
   res.render('map', {
     page: 'map', cx, cy, sel, displaySize, miniSize, mapSizes: MAP_SIZES, miniSizes: MINI_SIZES, layers,
-    paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, palette: MarkerService.PALETTE, markForm,
+    paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, markerColor: MarkerService.DEFAULT_COLOR, markForm,
     mapBoot: { sector: mapView.SECTOR, sectors, mini: miniVillages, attacks, worldSize: cfg.mapSize },
   });
 }));

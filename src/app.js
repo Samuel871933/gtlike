@@ -19,6 +19,8 @@ function createApp() {
   if (config.isProduction) app.set('trust proxy', 1);
 
   app.use(express.static(path.join(__dirname, '..', 'public')));
+  // Terrain de la carte, partagé avec le serveur (src/game/terrain.js).
+  app.get('/js/terrain.js', (req, res) => res.sendFile(path.join(__dirname, 'game', 'terrain.js')));
   app.use(express.urlencoded({ extended: false }));
   app.use(session({
     secret: config.sessionSecret,

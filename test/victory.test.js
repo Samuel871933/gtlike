@@ -19,7 +19,7 @@ let n = 0;
 async function setupWorld(victory) {
   n += 1;
   const slug = `v${n}`;
-  const world = await WorldService.createWorld({ slug, name: slug, config: { newbieDays: 0, placement: { barbariansPerPlayer: 0 }, victory } });
+  const world = await WorldService.createWorld({ slug, name: slug, config: { newbieDays: 0, placement: { emptyVillages: 0 }, victory } });
   const users = {};
   for (const name of ['Alice', 'Bob']) {
     users[name] = await AuthService.register({ username: `${name}${n}`, email: `${name}${n}@example.com`, password: 'motdepasse' });

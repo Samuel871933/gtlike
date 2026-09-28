@@ -75,17 +75,56 @@ async function unpopulate(slug) {
     const tribeIds = [...new Set(players.map((p) => p.tribeId).filter(Boolean))];
     const humans = tribeIds.length ? await Player.count({ where: { tribeId: tribeIds, id: { [Op.notIn]: playerIds } }, transaction: t }) : 0;
     if (humans) throw new Error('Des joueurs réels sont membres de tribus fictives : quitter ces tribus avant --reset.');
-    await Village.destroy({ where: { playerId: playerIds }, transaction: t });
-    await Village.destroy({ where: { worldId: world.id, playerId: null, createdAt: { [Op.between]: [from, to] } }, transaction: t });
-    await Player.update({ tribeId: null, tribeRole: null }, { where: { id: playerIds }, transaction: t });
-    if (tribeIds.length) {
-      await TribeRelation.destroy({ where: { [Op.or]: [{ tribeId: tribeIds }, { otherTribeId: tribeIds }] }, transaction: t });
-      await Tribe.destroy({ where: { id: tribeIds }, transaction: t });
-    }
-    await Player.destroy({ where: { id: playerIds }, transaction: t });
-    await User.destroy({ where: { id: players.map((p) => p.userId) }, transaction: t });
+    const barbIds = (await Village.findAll({
+      where: { worldId: world.id, playerId: null, createdAt: { [Op.between]: [from, to] } }, attributes: ['id'], raw: true, transaction: t,
+    })).map((v) => v.id);
+    const villageIds = [...(await Village.findAll({ where: { playerId: playerIds }, attributes: ['id'], raw: true, transaction: t })).map((v) => v.id), ...barbIds];
+    // Tout ce qui dépend de ces lignes (rapports, succès, ordres, forums de tribu…) : supprimé, ou détaché
+    // quand la référence est facultative (messages d'un joueur réel à un joueur fictif, par exemple).
+    await purge(t, { Villages: villageIds, Tribes: tribeIds, Players: playerIds, Users: players.map((p) => p.userId) });
     console.log(`Peuplement précédent retiré : ${players.length} joueurs fictifs, ${tribeIds.length} tribus.`);
   });
+}
+
+/**
+ * Supprime des lignes et, d'abord, tout ce qui les référence (clés étrangères déclarées dans les modèles) :
+ * suppression si la référence est obligatoire, mise à nul si elle est facultative. `targets` : { table: [ids] }.
+ */
+async function purge(t, targets) {
+  const pending = new Map(Object.entries(targets).map(([table, ids]) => [table, new Set(ids)]));
+  const order = [];
+  const queue = Object.keys(targets);
+  while (queue.length) {
+    const table = queue.shift();
+    const ids = [...pending.get(table)];
+    if (!ids.length) continue;
+    for (const model of Object.values(sequelize.models)) {
+      for (const [attr, def] of Object.entries(model.rawAttributes)) {
+        const ref = def.references && (typeof def.references.model === 'string' ? def.references.model : def.references.model && def.references.model.tableName);
+        if (ref !== table) continue;
+        const child = model.getTableName();
+        const childName = typeof child === 'string' ? child : child.tableName;
+        if (def.allowNull !== false) {
+          if (!targets[childName]) await model.update({ [attr]: null }, { where: { [attr]: ids }, transaction: t, hooks: false });
+          continue;
+        }
+        const rows = await model.findAll({ where: { [attr]: ids }, attributes: ['id'], raw: true, transaction: t });
+        if (!rows.length) continue;
+        if (!pending.has(childName)) pending.set(childName, new Set());
+        const set = pending.get(childName);
+        const before = set.size;
+        rows.forEach((r) => set.add(r.id));
+        if (set.size > before) queue.push(childName);
+      }
+    }
+    order.push(table);
+  }
+  // Les dépendances d'abord (ordre inverse de la découverte), puis les lignes visées.
+  const byTable = new Map(Object.values(sequelize.models).map((m) => { const n = m.getTableName(); return [typeof n === 'string' ? n : n.tableName, m]; }));
+  for (const table of [...new Set(order)].reverse()) {
+    const ids = [...pending.get(table)];
+    if (ids.length) await byTable.get(table).destroy({ where: { id: ids }, transaction: t, hooks: false });
+  }
 }
 
 async function populate(slug, count) {
@@ -141,7 +180,7 @@ async function populate(slug, count) {
       for (let i = 0; i < 40; i++) {
         const nx = x + between(-r, r);
         const ny = y + between(-r, r);
-        if (placer.isFree(nx, ny, 1)) { placer.occupied.add(MapPlacer.key(nx, ny)); return { x: nx, y: ny }; }
+        if (placer.isFree(nx, ny, 1)) return placer.take(nx, ny);
       }
     }
     return placer.findSpot();
@@ -303,4 +342,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { populate };
+module.exports = { populate, purge };

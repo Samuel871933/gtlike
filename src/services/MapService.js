@@ -169,7 +169,8 @@ class MapService {
 
   /**
    * Mini-carte du profil : un bandeau trois fois plus large que haut (au moins 20 cases de haut) qui englobe
-   * les villages du joueur, avec tous les villages qui s'y trouvent. `kind` : player (ce joueur), tribe (sa tribu), other, barb.
+   * les villages du joueur, avec tous les villages qui s'y trouvent. Même format que les autres mini-cartes
+   * (public/js/minimap.js) : [x, y, kind], kind : current (ce joueur, mis en avant), tribe (sa tribu), other, barb.
    */
   static async playerMiniMap(worldId, player, villages) {
     if (!villages.length) return null;
@@ -188,10 +189,10 @@ class MapService {
     });
     const kindOf = (v) => {
       if (!v.playerId) return 'barb';
-      if (v.playerId === player.id) return 'player';
+      if (v.playerId === player.id) return 'current';
       return player.tribeId && v.Player && v.Player.tribeId === player.tribeId ? 'tribe' : 'other';
     };
-    return { x0, y0, width, height, cx, cy, villages: rows.map((v) => ({ x: v.x, y: v.y, kind: kindOf(v) })) };
+    return { x0, y0, width, height, cx, cy, villages: rows.map((v) => [v.x, v.y, kindOf(v)]) };
   }
 
   // Exports publics au format Guerre Tribale (/map/village.txt, /map/player.txt).

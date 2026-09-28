@@ -6,8 +6,10 @@ const GameError = require('./GameError');
 
 const MAX_MARKERS = 50;
 const TYPES = ['player', 'tribe', 'village'];
-// Couleurs proposées pour les marquages (lisibles sur l'herbe de la carte et sur la mini-carte).
-const PALETTE = ['#ff3b30', '#ff9500', '#ffd60a', '#a3e635', '#22c55e', '#14b8a6', '#22d3ee', '#3b82f6', '#8b5cf6', '#e879f9', '#f472b6', '#ffffff'];
+// Couleur libre (sélecteur de couleur), au format #rrggbb : seul format accepté, car elle est écrite telle quelle
+// dans les styles de la carte, de la mini-carte et de la légende.
+const COLOR_RE = /^#[0-9a-f]{6}$/;
+const DEFAULT_COLOR = '#ff3b30';
 
 /**
  * Marquages de carte d'un joueur (comme « Modifier les marquages sur la carte » sur Guerre Tribale) :
@@ -58,7 +60,8 @@ class MarkerService {
    */
   static async set(playerId, worldId, { type, targetId, target, color }) {
     if (!TYPES.includes(type)) throw new GameError('Type de marquage inconnu.');
-    if (!PALETTE.includes(color)) throw new GameError('Couleur inconnue.');
+    color = String(color || '').trim().toLowerCase();
+    if (!COLOR_RE.test(color)) throw new GameError('Couleur invalide (format #rrggbb).');
     const id = await MarkerService.resolve(worldId, type, targetId, target);
     const existing = await MapMarker.findOne({ where: { playerId, targetType: type, targetId: id } });
     if (existing) return existing.update({ color });
@@ -97,7 +100,7 @@ class MarkerService {
   }
 }
 
-MarkerService.PALETTE = PALETTE;
+MarkerService.DEFAULT_COLOR = DEFAULT_COLOR;
 MarkerService.TYPES = TYPES;
 MarkerService.MAX_MARKERS = MAX_MARKERS;
 

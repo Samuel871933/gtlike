@@ -4,8 +4,10 @@
   // Carte façon Guerre Tribale : cases de taille fixe (la taille choisie agrandit vraiment la carte), villages
   // chargés par secteurs de 20 × 20 et déplacement fluide (public/js/map.js). Rien n'est rechargé en naviguant.
   const vid = ctx.village.id;
-  const TILE = 52;
-  const MINI_CELL = 6;
+  // Cases de Guerre Tribale : 53 × 38 px sur la carte (4 × 4 = 212 × 152 px), 5 × 5 px sur la mini-carte (20 × 20 = 100 px).
+  const TILE_W = 53;
+  const TILE_H = 38;
+  const MINI_CELL = 5;
   // Tailles et calques sont mémorisés sur le joueur : les liens n'ont besoin que du centre.
   const link = (x, y) => `/village/${vid}/map?x=${x}&y=${y}`;
   const REL_SWATCH = { own: 'bg-rel-own', tribe: 'bg-rel-tribe', ally: 'bg-rel-ally', nap: 'bg-rel-nap', enemy: 'bg-rel-enemy', other: 'bg-rel-other', barb: 'bg-rel-barb-dim' };
@@ -13,6 +15,8 @@
   const legend = [['own', 'Tes villages'], ['tribe', 'Ta tribu'], ['ally', 'Alliés'], ['nap', 'PNA'], ['enemy', 'Ennemis'], ['other', 'Autres'], ['barb', 'Barbares']];
   const arrowBtn = 'map-controls absolute z-10 flex items-center justify-center border-2 border-black bg-night/80 text-gold-400 shadow-[2px_2px_0_#000] transition hover:bg-head-dark hover:text-parchment-100';
 %>
+<%# Titre, carte et colonne de droite à la taille de leur contenu (centrés), pas de toute la page. %>
+<div class="mx-auto flex w-fit max-w-full flex-col gap-3.5" data-map-page>
 <div class="flex flex-wrap items-end justify-between gap-2.5">
   <div>
     <div class="text-[13px] text-parchment-500">Carte du monde · <%= ctx.world.name %></div>
@@ -31,26 +35,24 @@
 
 <%# Deux colonnes, comme sur Guerre Tribale : à gauche la carte, ses marquages et ses calques ; à droite la mini-carte et les outils. %>
 <div class="flex flex-wrap items-start gap-4" data-map-row>
-  <div class="flex min-w-[min(100%,560px)] max-w-full flex-col gap-4" data-map-col>
+  <div class="flex max-w-full flex-none flex-col gap-4" data-map-col>
     <%# Carte : cadre de taille × taille cases ; les cases sont dessinées et déplacées par map.js. %>
     <section class="<%= ui.panel %> relative max-w-full p-2">
-      <div class="map-frame group/map relative select-none"<%- Object.entries(layers).filter(([, on]) => on).map(([k]) => ` data-layer-${k}`).join('') %>
-           style="--tile:<%= TILE %>px" data-map data-size="<%= displaySize %>" data-tile="<%= TILE %>" data-cx="<%= cx %>" data-cy="<%= cy %>"
+      <div class="map-frame group/map relative w-max max-w-full select-none"<%- Object.entries(layers).filter(([, on]) => on).map(([k]) => ` data-layer-${k}`).join('') %>
+           style="--tile-w:<%= TILE_W %>px;--tile-h:<%= TILE_H %>px;--tile:<%= TILE_H %>px" data-map data-size="<%= displaySize %>" data-tile-w="<%= TILE_W %>" data-tile-h="<%= TILE_H %>" data-cx="<%= cx %>" data-cy="<%= cy %>"
            data-me="<%= ctx.village.x %>|<%= ctx.village.y %>" data-sel="<%= sel ? `${sel.x}|${sel.y}` : '' %>" data-csrf="<%= csrfToken %>" data-spy="<%= spyCount %>">
         <div class="flex">
-          <div class="h-[26px] w-9 shrink-0 border-r border-b border-black bg-night"></div>
-          <div class="relative h-[26px] overflow-hidden border-b border-black bg-night" style="width:calc(var(--tile) * <%= displaySize %>)" data-map-ruler-x></div>
-        </div>
-        <div class="flex">
-          <div class="relative w-9 shrink-0 overflow-hidden border-r border-black bg-night" style="height:calc(var(--tile) * <%= displaySize %>)" data-map-ruler-y></div>
-          <div class="map-viewport relative cursor-grab overflow-hidden bg-map-edge touch-none active:cursor-grabbing" style="width:calc(var(--tile) * <%= displaySize %>);height:calc(var(--tile) * <%= displaySize %>)" data-map-viewport>
+          <div class="map-viewport relative cursor-grab overflow-hidden bg-map-edge touch-none active:cursor-grabbing" style="width:calc(var(--tile-w) * <%= displaySize %>);height:calc(var(--tile-h) * <%= displaySize %>)" data-map-viewport>
             <div class="absolute top-0 left-0 will-change-transform" data-map-plane></div>
             <div class="pointer-events-none absolute inset-0 shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]"></div>
-            <button type="button" class="<%= arrowBtn %> top-1 left-1/2 h-6 w-10 -translate-x-1/2" data-map-step="0,-1" aria-label="Vers le nord" title="Vers le nord"><%- icon('chevronUp', 'size-4', 2.6) %></button>
+            <%# Règles des coordonnées, posées sur les bords de la carte (elles ne lui prennent pas de place), fond transparent. %>
+            <div class="pointer-events-none absolute inset-x-0 top-0 z-[8] h-5 overflow-hidden bg-black/35" data-map-ruler-x></div>
+            <div class="pointer-events-none absolute top-5 bottom-0 left-0 z-[8] w-8 overflow-hidden bg-black/35" data-map-ruler-y></div>
+            <button type="button" class="<%= arrowBtn %> top-6 left-1/2 h-6 w-10 -translate-x-1/2" data-map-step="0,-1" aria-label="Vers le nord" title="Vers le nord"><%- icon('chevronUp', 'size-4', 2.6) %></button>
             <button type="button" class="<%= arrowBtn %> bottom-1 left-1/2 h-6 w-10 -translate-x-1/2" data-map-step="0,1" aria-label="Vers le sud" title="Vers le sud"><%- icon('chevronDown', 'size-4', 2.6) %></button>
-            <button type="button" class="<%= arrowBtn %> top-1/2 left-1 h-10 w-6 -translate-y-1/2" data-map-step="-1,0" aria-label="Vers l’ouest" title="Vers l’ouest"><%- icon('chevronLeft', 'size-4', 2.6) %></button>
+            <button type="button" class="<%= arrowBtn %> top-1/2 left-9 h-10 w-6 -translate-y-1/2" data-map-step="-1,0" aria-label="Vers l’ouest" title="Vers l’ouest"><%- icon('chevronLeft', 'size-4', 2.6) %></button>
             <button type="button" class="<%= arrowBtn %> top-1/2 right-1 h-10 w-6 -translate-y-1/2" data-map-step="1,0" aria-label="Vers l’est" title="Vers l’est"><%- icon('chevronRight', 'size-4', 2.6) %></button>
-            <button type="button" class="map-controls absolute top-1 right-1 z-10 <%= ui.iconBtnOn %>" data-map-center-home aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></button>
+            <button type="button" class="map-controls absolute top-6 right-1 z-10 <%= ui.iconBtnOn %>" data-map-center-home aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></button>
           </div>
           <%# Infobulle au survol d'un village et menu d'actions au clic (remplis par map.js), hors de la zone découpée. %>
           <div class="pointer-events-none absolute z-[15] hidden w-max max-w-[min(460px,calc(100%-12px))] min-w-[280px] border-2 border-black bg-night text-[13px] shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]" data-map-tip>
@@ -101,16 +103,12 @@
                 <label class="<%= ui.label %> min-w-0 flex-1">Nom, tag ou coordonnées<input name="target" required placeholder="Pseudo, tag de tribu ou 500|500" class="<%= ui.inputSm %> w-full"></label>
               </div>
             <% } %>
-            <fieldset class="flex flex-wrap items-center gap-1.5">
-              <legend class="mb-1 text-[13px] text-parchment-400">Couleur</legend>
-              <% palette.forEach((color, i) => { %>
-                <label class="cursor-pointer" title="<%= color %>">
-                  <input type="radio" name="color" value="<%= color %>" class="peer sr-only" <%= i === 0 ? 'checked' : '' %>>
-                  <span class="block size-6 border-2 border-black shadow-[1px_1px_0_#000] peer-checked:outline-2 peer-checked:outline-offset-1 peer-checked:outline-gold-200 peer-focus-visible:outline-2 peer-focus-visible:outline-gold-200" style="background:<%= color %>"></span>
-                </label>
-              <% }) %>
+            <div class="flex flex-wrap items-end gap-2">
+              <label class="<%= ui.label %>">Couleur
+                <input type="color" name="color" value="<%= markerColor %>" class="block h-8 w-16 cursor-pointer border-2 border-black bg-night p-0.5 shadow-[1px_1px_0_#000] focus-visible:outline-2 focus-visible:outline-gold-200 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0">
+              </label>
               <button class="<%= btn('gold', 'sm', 'ml-auto') %>">Enregistrer</button>
-            </fieldset>
+            </div>
           </form>
           <% if (!markers.length) { %>
             <p class="px-3 py-2.5 text-[13px] text-parchment-500">Aucun marquage. Tu peux aussi cliquer un village de la carte puis « Marquer ».</p>
@@ -146,12 +144,13 @@
     </div>
   </div>
 
-  <aside class="flex min-w-[300px] flex-[1_1_320px] flex-col gap-4">
+  <%# Largeur de la mini-carte (cadre, marges du panneau : 28 px ; 250 px au moins pour la recherche) ; toute la ligne quand elle passe sous la carte (map.js). %>
+  <aside class="flex max-w-full flex-none flex-col gap-4" style="width:<%= Math.max(250, miniSize * MINI_CELL + 28) %>px" data-map-aside>
     <%# Mini-carte : 6 px par case pour une vue d'ensemble lisible ; elle suit les déplacements de la carte. %>
     <section class="<%= ui.panel %> max-w-full">
       <%- panelHead('Mini-carte', `<span class="text-[13px] text-parchment-300 tabular-nums" data-mini-label>${miniSize} × ${miniSize}</span>`) %>
       <div class="p-2">
-        <canvas class="block max-w-full cursor-crosshair border-2 border-black bg-mini-bg" style="width:<%= miniSize * MINI_CELL %>px;aspect-ratio:1" data-mini-map data-size="<%= miniSize %>" aria-label="Mini-carte : clique pour recentrer la carte"></canvas>
+        <canvas class="box-content mx-auto block max-w-full cursor-crosshair border-2 border-black bg-mini-bg" style="width:<%= miniSize * MINI_CELL %>px;aspect-ratio:1" data-mini-map data-size="<%= miniSize %>" data-cell="<%= MINI_CELL %>" aria-label="Mini-carte : clique pour recentrer la carte"></canvas>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 border-t border-bronze-800 px-3 py-2 text-[13px]">
         <button type="button" class="<%= ui.link %> cursor-pointer" data-world-open>Carte du monde</button>
@@ -280,6 +279,7 @@
     </section>
   </aside>
 </div>
+</div>
 <%# Carte du monde : fenêtre ouverte sur la page, points chargés à l'ouverture (/map/world). %>
 <div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/70 p-4" data-world-modal role="dialog" aria-modal="true" aria-labelledby="world-title">
   <section class="<%= ui.panel %> flex max-h-full w-full max-w-[900px] flex-col">
@@ -295,5 +295,7 @@
     </div>
   </section>
 </div>
+<script src="/js/terrain.js" defer></script>
+<script src="/js/minimap.js" defer></script>
 <script src="/js/map.js" defer></script>
 <%- include('partials/footer') %>
