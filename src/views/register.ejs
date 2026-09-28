@@ -1,6 +1,6 @@
 <%- include('partials/header', { title: 'Inscription', hero: true, lobbyPage: 'register' }) %>
 <%- include('partials/landing-hero-start', { cta: { href: '#inscription', label: 'Jouer gratuitement' }, login: true }) %>
-  <h1 class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5 font-display text-xl font-black tracking-[0.1em]" id="inscription">CRÉER UN COMPTE</h1>
+  <h1 class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5 font-display text-xl font-bold tracking-[0.02em]" id="inscription">Créer un compte</h1>
   <div class="flex flex-1 flex-col gap-2.5 p-3.5">
     <p class="text-sm text-parchment-300">Un compte, tous les mondes.</p>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
@@ -15,11 +15,11 @@
         <input type="password" name="password" minlength="8" required class="<%= ui.input %> h-10 w-full">
         <span class="text-xs font-normal tracking-normal text-parchment-500 normal-case">8 caractères minimum.</span>
       </label>
-      <button class="<%= btn('gold', 'lg', 'w-full border-[3px] tracking-[0.12em]') %>">Créer mon compte</button>
+      <button class="<%= btn('gold', 'lg', 'w-full border-[3px] tracking-[0.02em]') %>">Créer mon compte</button>
     </form>
     <div class="mt-auto flex flex-col gap-1.5 border-t border-dashed border-bronze-700 pt-2.5">
       <span class="text-xs text-parchment-500">Déjà inscrit ?</span>
-      <a href="/login" class="<%= btn('dark', 'md', 'w-full border-[3px] tracking-[0.12em]') %>">Se connecter</a>
+      <a href="/login" class="<%= btn('dark', 'md', 'w-full border-[3px] tracking-[0.02em]') %>">Se connecter</a>
     </div>
   </div>
 <%- include('partials/landing-hero-end') %>

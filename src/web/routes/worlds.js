@@ -19,22 +19,55 @@ async function victoryLocals(world) {
   return { world, cfg: world.getConfig(), standings, state: world.victoryState || {} };
 }
 
-/** Données de la page des classements (affichée hors partie ou dans l'interface du jeu). */
-async function rankingLocals(world, query) {
-  const type = ['tribes', 'kills', 'continent', 'awards'].includes(query.type) ? query.type : 'players';
-  const awards = type === 'awards' ? await AchievementService.ranking(world.id) : [];
+// Classements : types (menu de gauche) et nombre de lignes par page, comme sur Guerre Tribale.
+const RANKING_TYPES = ['players', 'tribes', 'continent', 'kills', 'awards'];
+const RANKING_PAGE = 25;
+
+/**
+ * Données de la page des classements (affichée hors partie ou dans l'interface du jeu).
+ * Liste complète du type choisi, puis une page de 25 lignes : celle du rang demandé (?rank=), du nom cherché
+ * (?q=), la page demandée (?page=), sinon celle du joueur (ou de sa tribu) qui regarde.
+ * `me` : { playerId, tribeId } du joueur connecté sur ce monde, s'il y joue.
+ */
+async function rankingLocals(world, query, me = {}) {
+  const type = RANKING_TYPES.includes(query.type) ? query.type : 'players';
   const kind = ['att', 'def', 'sup', 'all'].includes(query.kind) ? query.kind : 'all';
-  const players = type === 'players' ? await MapService.ranking(world.id) : [];
-  const tribes = type === 'tribes' ? await TribeService.ranking(world.id) : [];
-  const kills = type === 'kills' ? await MapService.killRanking(world.id, kind) : [];
+  const ALL = 1e9;
+  let rows = [];
   let continent = null;
+  if (type === 'players') rows = (await MapService.ranking(world.id, ALL)).map((player) => ({ player, points: player.points, villages: player.villageCount }));
+  if (type === 'tribes') rows = await TribeService.ranking(world.id, ALL);
+  if (type === 'kills') rows = await MapService.killRanking(world.id, kind, ALL);
+  if (type === 'awards') rows = await AchievementService.ranking(world.id, ALL);
   if (type === 'continent') {
     const list = await MapService.continents(world.id);
     const k = list.includes(query.k) ? query.k : list[0];
     const of = query.of === 'tribes' ? 'tribes' : 'players';
-    continent = { list, k, of, rows: k ? await MapService.continentRanking(world.id, k, { tribes: of === 'tribes' }) : [] };
+    continent = { list, k, of };
+    rows = k ? await MapService.continentRanking(world.id, k, { tribes: of === 'tribes', limit: ALL }) : [];
   }
-  return { world, type, kind, players, tribes, kills, continentRanking: continent, awards };
+
+  const byTribe = type === 'tribes' || (type === 'continent' && continent.of === 'tribes');
+  const isMine = (r) => (byTribe ? r.tribe && r.tribe.id === me.tribeId : r.player && r.player.id === me.playerId);
+  const mine = rows.findIndex(isMine);
+  const q = String(query.q || '').trim().toLowerCase();
+  const found = q ? rows.findIndex((r) => [r.player && r.player.name, r.tribe && r.tribe.name, r.tribe && r.tribe.tag]
+    .some((name) => name && name.toLowerCase().includes(q))) : -1;
+  const rank = Number.parseInt(query.rank, 10);
+  const pages = Math.max(1, Math.ceil(rows.length / RANKING_PAGE));
+  let focus = mine;
+  if (Number.isFinite(rank) && rank > 0) focus = Math.min(rows.length, rank) - 1;
+  if (q) focus = found;
+  const asked = Number.parseInt(query.page, 10);
+  const page = Number.isFinite(asked) ? Math.min(pages, Math.max(1, asked)) : Math.floor(Math.max(0, focus) / RANKING_PAGE) + 1;
+  const offset = (page - 1) * RANKING_PAGE;
+  return {
+    world, type, kind, continentRanking: continent, byTribe,
+    rows: rows.slice(offset, offset + RANKING_PAGE),
+    pager: { page, pages, offset, total: rows.length, focus: focus >= offset && focus < offset + RANKING_PAGE ? focus - offset : -1 },
+    search: { q: String(query.q || ''), rank: Number.isFinite(rank) && rank > 0 ? rank : '', notFound: Boolean(q) && found < 0 },
+    isMine,
+  };
 }
 
 async function findWorld(slug) {
@@ -117,7 +150,9 @@ router.get('/worlds/:slug/victory', requireAuth, ah(async (req, res) => {
 }));
 
 router.get('/worlds/:slug/ranking', requireAuth, ah(async (req, res) => {
-  res.render('ranking', await rankingLocals(await findWorld(req.params.slug), req.query));
+  const world = await findWorld(req.params.slug);
+  const player = await Player.findOne({ where: { worldId: world.id, userId: req.session.userId }, attributes: ['id', 'tribeId'] });
+  res.render('ranking', await rankingLocals(world, req.query, player ? { playerId: player.id, tribeId: player.tribeId } : {}));
 }));
 
 // Exports publics des adversaires vaincus (format Guerre Tribale : rang,id_joueur,score).

@@ -18,7 +18,7 @@
     const shown = Array.from({ length: Math.min(n, 3) }, (_, i) => i + 1);
     return ` <span class="text-[11px] font-semibold text-parchment-500">( ${shown.map((p) => `<a href="${f}/t/${th.id}?page=${p}" class="${ui.link}">${p}</a>`).join(', ')}, <a href="${f}/t/${th.id}?page=last" class="${ui.link}">dernière page</a> )</span>`;
   };
-  const chip = 'inline-flex h-8 items-center gap-1.5 border-2 border-black px-3 text-[13px] font-bold tracking-[0.06em] uppercase no-underline shadow-[2px_2px_0_#000] transition';
+  const chip = 'inline-flex h-8 items-center gap-1.5 border-2 border-black px-3 text-[13px] font-semibold  no-underline shadow-[2px_2px_0_#000] transition';
   const currentSection = forum.view === 'section' ? forum.section.id : forum.view === 'thread' ? forum.section.id : null;
   const mutedSet = forum.muted || new Set();
   // Rangée des sous-forums : les réglages reçoivent { section, threads } par sous-forum.
@@ -60,15 +60,15 @@
         <tbody>
           <% for (const { thread: th, lastPost } of r.threads) { %>
             <tr>
-              <td><a href="<%= f %>/t/<%= th.id %>?page=last" class="<%= ui.linkPlain %> font-bold"><%= th.title %></a></td>
-              <td class="text-center font-bold text-gold-400"><%= th.section.name %></td>
+              <td><a href="<%= f %>/t/<%= th.id %>?page=last" class="<%= ui.linkPlain %> font-semibold"><%= th.title %></a></td>
+              <td class="text-center font-semibold text-gold-400"><%= th.section.name %></td>
               <td class="text-center text-[13px] leading-tight"><%- lastPost ? who(lastPost.author) : '' %><br><span class="text-parchment-500"><%= when(th.lastPostAt, now) %></span></td>
             </tr>
           <% } %>
         </tbody>
       </table>
       <% if (r.pages > 1) { const q = (n) => '?' + new URLSearchParams({ ...forum.query, np: n }).toString(); %>
-        <div class="flex justify-between border-t-2 border-black bg-thead px-3 py-1.5 text-[13px] font-bold">
+        <div class="flex justify-between border-t-2 border-black bg-thead px-3 py-1.5 text-[13px] font-semibold">
           <% if (r.page > 1) { %><a href="<%= q(r.page - 1) %>" class="<%= ui.link %>">« Précédent 5</a><% } else { %><span></span><% } %>
           <% if (r.page < r.pages) { %><a href="<%= q(r.page + 1) %>" class="<%= ui.link %>">Suivant 5 »</a><% } %>
         </div>
@@ -78,8 +78,8 @@
 
   <%# Titre du sous-forum et liens %>
   <div class="flex flex-wrap items-end justify-between gap-3 pt-2">
-    <h2 class="m-0 font-display text-[26px] font-black tracking-[0.1em] uppercase [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]"><%= s.name %><% if (forum.isMuted) { %> <span class="<%= ui.tagMuted %> align-middle">En sourdine</span><% } %></h2>
-    <div class="flex flex-col items-end gap-0.5 text-[13px] font-bold">
+    <h2 class="m-0 font-display text-[26px] font-bold tracking-[0.02em] [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]"><%= s.name %><% if (forum.isMuted) { %> <span class="<%= ui.tagMuted %> align-middle">En sourdine</span><% } %></h2>
+    <div class="flex flex-col items-end gap-0.5 text-[13px] font-semibold">
       <span class="flex flex-wrap justify-end gap-x-4">
         <form method="post" action="<%= f %>/<%= s.id %>/read"><%- csrf %><button class="<%= ui.link %> cursor-pointer">» Marquer le forum comme lu</button></form>
         <form method="post" action="<%= f %>/read-all"><%- csrf %><button class="<%= ui.link %> cursor-pointer">» Marquer tous les forums comme lus</button></form>
@@ -133,14 +133,14 @@
                     <span class="flex size-6 shrink-0 items-center justify-center border-2 border-black <%= isNew ? 'bg-blood-600 text-parchment-100' : 'bg-night text-parchment-500' %>" title="<%= isNew ? 'Nouveaux messages' : 'Lu' %>"><%- icon(th.poll ? 'ranking' : 'messages', 'size-3.5', 2.2) %></span>
                     <span class="min-w-0">
                       <% if (th.pinned) { %><span class="<%= ui.tagGold %> mr-1">Épinglé</span><% } %><% if (th.locked) { %><span class="<%= ui.tagMuted %> mr-1">Verrouillé</span><% } %><% if (th.poll) { %><span class="<%= ui.tagOlive %> mr-1">Sondage</span><% } %>
-                      <a href="<%= f %>/t/<%= th.id %><%= isNew ? '?page=last' : '' %>" class="<%= ui.linkPlain %> <%= isNew ? 'font-bold' : 'font-semibold' %>"><%= th.title %></a><%- pageLinks(th) %>
+                      <a href="<%= f %>/t/<%= th.id %><%= isNew ? '?page=last' : '' %>" class="<%= ui.linkPlain %> <%= isNew ? 'font-semibold' : 'font-semibold' %>"><%= th.title %></a><%- pageLinks(th) %>
                       <% if (forum.results) { %><span class="block text-[11px] text-parchment-500"><%= th.section.name %></span><% } %>
                     </span>
                   </span>
                 </td>
                 <td class="text-center text-[13px] leading-tight"><%- who(th.author) %><br><span class="text-parchment-500"><%= when(th.createdAt, now) %></span></td>
                 <td class="text-center text-[13px] leading-tight"><%- th.lastPost ? who(th.lastPost.author) : '' %><br><span class="text-parchment-500"><%= when(th.lastPostAt, now) %></span></td>
-                <td class="text-center font-bold tabular-nums"><%= num(th.postCount - 1) %></td>
+                <td class="text-center font-semibold tabular-nums"><%= num(th.postCount - 1) %></td>
               </tr>
             <% } %>
           </tbody>
@@ -153,15 +153,15 @@
 
 <% if (forum.view === 'settings') { %>
   <section class="<%= ui.panel %>">
-    <%- panelHead('Réglages du forum', `<span class="font-sans text-[11px] text-parchment-300">SOUS-FORUMS DE LA TRIBU</span>`) %>
+    <%- panelHead('Réglages du forum', `<span class="font-sans text-[11px] text-parchment-300">Sous-forums de la tribu</span>`) %>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %> min-w-[520px]">
         <thead><tr><th>Sous-forum</th><th class="text-right">Sujets</th><th class="text-right">Gestion</th></tr></thead>
         <tbody>
           <% forum.sections.forEach(({ section, threads }, i) => { %>
             <tr>
-              <td><a href="<%= f %>/<%= section.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-display font-bold tracking-[0.08em] uppercase"><span class="size-[7px] shrink-0 rotate-45 border border-black bg-gold-400"></span><%= section.name %></a></td>
-              <td class="text-right font-bold tabular-nums"><%= num(threads) %></td>
+              <td><a href="<%= f %>/<%= section.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-display font-semibold "><span class="size-[7px] shrink-0 rotate-45 border border-black bg-gold-400"></span><%= section.name %></a></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(threads) %></td>
               <td class="text-right whitespace-nowrap">
                 <form method="post" action="<%= f %>/sections/<%= section.id %>/move" class="inline"><%- csrf %><input type="hidden" name="dir" value="-1"><button class="<%= ui.iconBtn %> size-[26px] align-middle" title="Monter" aria-label="Monter" <%= i === 0 ? 'disabled' : '' %>><%- icon('chevronUp', 'size-3', 2.6) %></button></form>
                 <form method="post" action="<%= f %>/sections/<%= section.id %>/move" class="inline"><%- csrf %><input type="hidden" name="dir" value="1"><button class="<%= ui.iconBtn %> size-[26px] align-middle" title="Descendre" aria-label="Descendre" <%= i === forum.sections.length - 1 ? 'disabled' : '' %>><%- icon('chevronDown', 'size-3', 2.6) %></button></form>
@@ -192,7 +192,7 @@
   <div class="flex flex-wrap items-end justify-between gap-2 pt-2">
     <div>
       <a href="<%= f %>/<%= forum.section.id %>" class="<%= ui.link %> inline-flex items-center gap-1.5 text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %><%= forum.section.name %></a>
-      <h2 class="m-0 font-display text-[24px] font-black tracking-[0.08em] uppercase [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]"><%= th.title %></h2>
+      <h2 class="m-0 font-display text-[24px] font-bold [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]"><%= th.title %></h2>
     </div>
     <%- include('pager', { page: forum.page, pages: forum.pages, href: pageHref }) %>
   </div>
@@ -227,7 +227,7 @@
       <article class="border-b border-bronze-800 last:border-b-0" id="p<%= post.id %>">
         <div class="flex flex-wrap items-center justify-between gap-2 bg-thead px-3 py-1.5">
           <span class="flex items-center gap-2">
-            <span class="flex size-6 items-center justify-center border-2 border-black bg-night font-display text-xs font-black text-gold-400"><%= post.author ? post.author.name[0].toUpperCase() : '?' %></span>
+            <span class="flex size-6 items-center justify-center border-2 border-black bg-night font-display text-xs font-bold text-gold-400"><%= post.author ? post.author.name[0].toUpperCase() : '?' %></span>
             <b><%- who(post.author) %></b>
             <% if (post.author && th.playerId === post.playerId) { %><span class="<%= ui.tagGold %>">Auteur</span><% } %>
           </span>
@@ -238,7 +238,7 @@
           <div class="flex flex-wrap items-start gap-3 px-3 pb-2">
             <% if (mine) { %>
               <details class="min-w-0 flex-1">
-                <summary class="cursor-pointer list-none text-[13px] font-bold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden">Modifier</summary>
+                <summary class="cursor-pointer list-none text-[13px] font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden">Modifier</summary>
                 <form method="post" action="<%= f %>/p/<%= post.id %>/edit" class="mt-2 flex flex-col gap-2"><%- csrf %><input type="hidden" name="page" value="<%= forum.page %>">
                   <textarea name="body" rows="5" maxlength="5000" required class="<%= ui.textarea %>" aria-label="Message"><%= post.body %></textarea>
                   <button class="<%= btn('gold', 'sm', 'self-start') %>">Enregistrer</button>
@@ -247,7 +247,7 @@
             <% } %>
             <% if (canDelete) { %>
               <form method="post" action="<%= f %>/p/<%= post.id %>/delete" class="ml-auto" data-confirm="<%= first ? 'Supprimer ce sujet et toutes ses réponses ?' : 'Supprimer ce message ?' %>"><%- csrf %>
-                <button class="cursor-pointer text-[13px] font-bold text-blood-500 hover:text-parchment-100"><%= first ? 'Supprimer le sujet' : 'Supprimer' %></button>
+                <button class="cursor-pointer text-[13px] font-semibold text-blood-500 hover:text-parchment-100"><%= first ? 'Supprimer le sujet' : 'Supprimer' %></button>
               </form>
             <% } %>
           </div>

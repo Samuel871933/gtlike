@@ -1,134 +1,141 @@
 <%- include('partials/header', { title: 'Classement', lobbyPage: 'ranking' }) %>
 <%
+  // Classements, agencés comme sur Guerre Tribale : types à gauche, tableau paginé (25 lignes) à droite,
+  // ouvert sur la page du joueur (ou de sa tribu), avec « Aller à » un rang et une recherche par nom.
   const base = ctx ? `/village/${ctx.village.id}/ranking` : `/worlds/${world.slug}/ranking`;
-  const types = [['players', 'Joueurs'], ['tribes', 'Tribus'], ['continent', 'Continents'], ['kills', 'Adversaires vaincus'], ['awards', 'Succès']];
-  const isMe = (p) => user && p && p.userId === user.id;
-  // Rang : les trois premiers en Cinzel doré dans un médaillon.
-  const rankCell = (i) => i < 3
-    ? `<span class="${i === 0 ? ui.medallionGold : ui.medallion} size-8 font-display text-sm font-extrabold ${i === 0 ? 'text-gold-100' : 'text-gold-300'}">${i + 1}</span>`
-    : `<span class="inline-flex w-8 justify-center font-bold text-parchment-500 tabular-nums">${i + 1}</span>`;
-  // Noms et tags : liens vers les profils en jeu (texte simple sur le classement public).
   const vid = ctx ? ctx.village.id : null;
+  const c = continentRanking;
+  const url = (params) => `${base}?${new URLSearchParams(params)}`;
+  const kills = [['all', 'Total'], ['att', 'En attaque (ODA)'], ['def', 'En défense (ODD)'], ['sup', 'En soutien (ODS)']];
+  // Menu de gauche : [libellé, lien, actif, retrait (sous-entrée)].
+  const menu = [
+    ['Joueurs', url({ type: 'players' }), type === 'players'],
+    ['Tribus', url({ type: 'tribes' }), type === 'tribes'],
+    ['Continent · joueurs', url({ type: 'continent', of: 'players', ...(c ? { k: c.k } : {}) }), type === 'continent' && c.of === 'players'],
+    ['Continent · tribus', url({ type: 'continent', of: 'tribes', ...(c ? { k: c.k } : {}) }), type === 'continent' && c.of === 'tribes'],
+    ['Adversaires vaincus', url({ type: 'kills' }), false, false, true],
+    ...kills.map(([id, name]) => [name, url({ type: 'kills', kind: id }), type === 'kills' && kind === id, true]),
+    ['Succès', url({ type: 'awards' }), type === 'awards'],
+  ];
+  const titles = {
+    players: 'Joueurs', tribes: 'Tribus', awards: 'Succès',
+    kills: `Adversaires vaincus · ${(kills.find(([id]) => id === kind) || kills[0])[1]}`,
+    continent: c ? `Continent ${c.k || ''} · ${c.of === 'tribes' ? 'tribus' : 'joueurs'}` : 'Continent',
+  };
+  // Paramètres à garder dans la pagination et les formulaires « Aller à ».
+  const keep = { type, ...(type === 'kills' ? { kind } : {}), ...(type === 'continent' && c ? { k: c.k || '', of: c.of } : {}) };
+  const rankCell = (i) => i < 3
+    ? `<span class="${i === 0 ? ui.medallionGold : ui.medallion} size-7 font-display text-sm ${i === 0 ? 'text-night' : 'text-gold-300'}">${i + 1}</span>`
+    : `<span class="inline-flex w-7 justify-center text-parchment-400 tabular-nums">${num(i + 1)}</span>`;
+  const who = (p) => playerLink(vid, p, { cls: `${ui.linkPlain} font-semibold` });
   const tribeTag = (tr) => tribeLink(vid, tr);
-  const who = (p) => playerLink(vid, p);
   const tribeFull = (tr) => tribeLink(vid, tr, { name: true, tagCls: ui.tagGold });
-  const empty = (msg) => `<p class="px-4.5 py-4 text-parchment-500">${esc(msg)}</p>`;
+  const perVillage = (points, villages) => (villages ? num(Math.round(points / villages)) : '—');
+  const { page: pg, pages, offset, total, focus } = pager;
+  const rowCls = (r, i) => (isMine(r) || i === focus ? ui.rowActive : '');
+  const cols = {
+    players: ['Joueur', 'Tribu', 'Points', 'Villages', 'Points par village'],
+    tribes: ['Tribu', 'Membres', 'Points', 'Villages', 'Points par village'],
+    continent: [c && c.of === 'tribes' ? 'Tribu' : 'Joueur', `Points sur ${c ? c.k : ''}`, 'Villages'],
+    kills: ['Joueur', 'Tribu', 'Points'],
+    awards: ['Joueur', 'Succès', 'Points'],
+  }[type];
+  const empty = {
+    players: 'Aucun joueur sur ce monde.', tribes: 'Aucune tribu sur ce monde.', continent: 'Personne sur ce continent.',
+    kills: "Personne n'a encore vaincu d'adversaire.", awards: "Aucun succès débloqué pour l'instant.",
+  }[type];
+  const pagerLink = 'text-sm font-medium text-gold-400 no-underline hover:text-parchment-100';
 %>
-<section class="<%= ui.panel %>">
-  <%- panelHead('Classement', `<span class="flex flex-wrap items-center gap-3"><span class="${ui.tagMuted}">${esc(world.name)}</span>${ctx ? '' : `<a href="/worlds/${world.slug}/play" class="${btn('gold', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Retour au village</a>`}</span>`, { tag: 'h1' }) %>
-  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-bronze-900 px-4.5 py-3">
-    <%- segTabs(types.map(([id, name]) => [`${base}?type=${id}`, name, type === id])) %>
-    <% if (type === 'kills') { %>
-      <%- segTabs([['all', 'Total'], ['att', 'En attaque (ODA)'], ['def', 'En défense (ODD)'], ['sup', 'En soutien (ODS)']].map(([id, name]) => [`${base}?type=kills&kind=${id}`, name, kind === id])) %>
-    <% } else if (type === 'continent') { const c = continentRanking; %>
-      <form method="get" class="flex flex-wrap items-center gap-2 text-sm">
-        <input type="hidden" name="type" value="continent">
-        <select name="k" class="<%= ui.inputSm %>" onchange="this.form.submit()" aria-label="Continent">
-          <% for (const k of c.list) { %><option value="<%= k %>" <%= k === c.k ? 'selected' : '' %>><%= k %></option><% } %>
-        </select>
-        <select name="of" class="<%= ui.inputSm %>" onchange="this.form.submit()" aria-label="Classer">
-          <option value="players" <%= c.of === 'players' ? 'selected' : '' %>>Joueurs</option>
-          <option value="tribes" <%= c.of === 'tribes' ? 'selected' : '' %>>Tribus</option>
-        </select>
-        <noscript><button class="<%= btn('dark', 'sm') %>">Afficher</button></noscript>
-      </form>
-    <% } else if (type === 'awards') { %>
-      <p class="text-xs text-parchment-500">Bois 1 point, bronze 2, argent 3, or 4 par succès.</p>
-    <% } %>
+<div class="flex flex-col gap-1">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="<%= ui.h1 %>">Classement</h1>
+    <span class="flex flex-wrap items-center gap-3"><span class="border border-bronze-700 bg-night px-2 py-0.5 text-[13px] text-parchment-400"><%= world.name %></span><% if (!ctx) { %><a href="/worlds/<%= world.slug %>/play" class="<%= btn('gold', 'sm') %>"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Retour au village</a><% } %></span>
   </div>
+</div>
 
-  <% if (type === 'awards') { %>
-    <% if (!awards.length) { %><%- empty("Aucun succès débloqué pour l'instant.") %><% } else { %>
+<div class="grid grid-cols-1 items-start gap-5 md:grid-cols-[210px_minmax(0,1fr)]">
+  <%# Types de classement %>
+  <nav class="<%= ui.panel %>" aria-label="Classements">
+    <%- panelHead('Classements') %>
+    <ul class="flex flex-col py-1">
+      <% for (const [label, href, on, sub, heading] of menu) { %>
+        <li>
+          <% if (heading) { %>
+            <span class="block px-3 pt-2.5 pb-1 text-[13px] font-medium text-parchment-500"><%= label %></span>
+          <% } else { %>
+            <a href="<%= href %>" class="block border-l-2 py-1.5 pr-3 no-underline transition <%= sub ? 'pl-6 text-sm' : 'pl-3' %> <%= on ? 'border-gold-400 bg-row-hover font-semibold text-gold-200' : 'border-transparent text-parchment-300 hover:bg-row-hover hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>><%= label %></a>
+          <% } %>
+        </li>
+      <% } %>
+    </ul>
+  </nav>
+
+  <%# Tableau paginé %>
+  <section class="<%= ui.panel %> min-w-0">
+    <%- panelHead(titles[type], type === 'continent' && c && c.list.length ? `<form method="get" class="flex items-center gap-2 text-sm"><input type="hidden" name="type" value="continent"><input type="hidden" name="of" value="${c.of}"><select name="k" class="${ui.inputSm}" onchange="this.form.submit()" aria-label="Continent">${c.list.map((k) => `<option value="${k}"${k === c.k ? ' selected' : ''}>${k}</option>`).join('')}</select><noscript><button class="${btn('dark', 'sm')}">Afficher</button></noscript></form>` : `<span class="text-[13px] text-parchment-300 tabular-nums">${num(total)} au classement</span>`) %>
+    <% if (search.notFound) { %><p class="border-b border-bronze-800 px-3 py-2 text-sm text-blood-450">Aucun résultat pour « <%= search.q %> ».</p><% } %>
+    <% if (!rows.length) { %>
+      <p class="px-4.5 py-4 text-parchment-500"><%= empty %></p>
+    <% } else { %>
     <div class="overflow-x-auto">
-      <table class="<%= ui.table %>">
-        <thead><tr><th class="w-20">Rang</th><th>Joueur</th><th class="text-right">Succès</th><th class="text-right">Points</th></tr></thead>
+      <table class="<%= ui.table %> [&_td]:py-1.5">
+        <thead><tr><th class="w-16">Rang</th><% cols.forEach((name, i) => { %><th class="<%= i > 0 && !/^Tribu$/.test(name) ? 'text-right' : '' %>"><%= name %></th><% }) %></tr></thead>
         <tbody>
-        <% awards.forEach((r, i) => { %>
-          <tr class="<%= isMe(r.player) ? ui.rowActive : '' %>">
-            <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><%- who(r.player) %></td>
-            <td class="text-right tabular-nums"><%= r.count %></td>
-            <td class="text-right font-extrabold text-gold-200 tabular-nums"><%= r.score %></td>
+        <% rows.forEach((r, i) => { const n = offset + i; %>
+          <tr class="<%= rowCls(r, i) %>">
+            <td><%- rankCell(n) %></td>
+            <% if (type === 'players') { %>
+              <td><%- who(r.player) %></td>
+              <td><%- tribeTag(r.player.Tribe) %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(r.points) %></td>
+              <td class="text-right tabular-nums"><%= num(r.villages) %></td>
+              <td class="text-right text-parchment-300 tabular-nums"><%= perVillage(r.points, r.villages) %></td>
+            <% } else if (type === 'tribes') { %>
+              <td><%- tribeFull(r.tribe) %></td>
+              <td class="text-right tabular-nums"><%= r.members %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(r.points) %></td>
+              <td class="text-right tabular-nums"><%= num(r.villages) %></td>
+              <td class="text-right text-parchment-300 tabular-nums"><%= perVillage(r.points, r.villages) %></td>
+            <% } else if (type === 'continent') { %>
+              <td><%- r.tribe ? tribeFull(r.tribe) : who(r.player) %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(r.points) %></td>
+              <td class="text-right tabular-nums"><%= num(r.villages) %></td>
+            <% } else if (type === 'kills') { %>
+              <td><%- who(r.player) %></td>
+              <td><%- tribeTag(r.player.Tribe) %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(r.score) %></td>
+            <% } else { %>
+              <td><%- who(r.player) %></td>
+              <td class="text-right tabular-nums"><%= r.count %></td>
+              <td class="text-right font-semibold tabular-nums"><%= r.score %></td>
+            <% } %>
           </tr>
         <% }) %>
         </tbody>
       </table>
     </div>
     <% } %>
-  <% } else if (type === 'continent') { const c = continentRanking; %>
-    <% if (!c.rows.length) { %><%- empty('Personne sur ce continent.') %><% } else { %>
-    <div class="overflow-x-auto">
-      <table class="<%= ui.table %>">
-        <thead><tr><th class="w-20">Rang</th><th><%= c.of === 'tribes' ? 'Tribu' : 'Joueur' %></th><th class="text-right">Points sur <%= c.k %></th><th class="text-right">Villages</th></tr></thead>
-        <tbody>
-        <% c.rows.forEach((r, i) => { %>
-          <tr class="<%= r.player && isMe(r.player) ? ui.rowActive : '' %>">
-            <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100">
-              <% if (r.tribe) { %><%- tribeFull(r.tribe) %><% } else { %><%- who(r.player) %><% } %>
-            </td>
-            <td class="text-right font-extrabold tabular-nums"><%= num(r.points) %></td>
-            <td class="text-right tabular-nums"><%= r.villages %></td>
-          </tr>
-        <% }) %>
-        </tbody>
-      </table>
+
+    <%# Pagination et « Aller à » %>
+    <div class="grid grid-cols-3 items-center border-t-2 border-black bg-thead px-3 py-2">
+      <span><% if (pg > 1) { %><a href="<%= url({ ...keep, page: pg - 1 }) %>" class="<%= pagerLink %>">‹ Vers le haut</a><% } %></span>
+      <span class="text-center text-[13px] text-parchment-500 tabular-nums">Page <%= pg %> / <%= pages %></span>
+      <span class="text-right"><% if (pg < pages) { %><a href="<%= url({ ...keep, page: pg + 1 }) %>" class="<%= pagerLink %>">Vers le bas ›</a><% } %></span>
     </div>
-    <% } %>
-  <% } else if (type === 'kills') { %>
-    <% if (!kills.length) { %><%- empty("Personne n'a encore vaincu d'adversaire.") %><% } else { %>
-    <div class="overflow-x-auto">
-      <table class="<%= ui.table %>">
-        <thead><tr><th class="w-20">Rang</th><th>Joueur</th><th>Tribu</th><th class="text-right">Points</th></tr></thead>
-        <tbody>
-        <% kills.forEach(({ player: p, score }, i) => { %>
-          <tr class="<%= isMe(p) ? ui.rowActive : '' %>">
-            <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><%- who(p) %></td>
-            <td><%- tribeTag(p.Tribe) %></td>
-            <td class="text-right font-extrabold tabular-nums"><%= num(score) %></td>
-          </tr>
-        <% }) %>
-        </tbody>
-      </table>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-800 px-3 py-2.5">
+      <form method="get" class="flex items-center gap-2">
+        <% for (const [k, val] of Object.entries(keep)) { %><input type="hidden" name="<%= k %>" value="<%= val %>"><% } %>
+        <label class="text-sm text-parchment-400" for="rank-go">Rang</label>
+        <input id="rank-go" type="number" name="rank" min="1" value="<%= search.rank %>" class="<%= ui.inputSm %> w-24 tabular-nums">
+        <button class="<%= btn('dark', 'sm') %>">Aller à</button>
+      </form>
+      <form method="get" class="flex items-center gap-2">
+        <% for (const [k, val] of Object.entries(keep)) { %><input type="hidden" name="<%= k %>" value="<%= val %>"><% } %>
+        <label class="text-sm text-parchment-400" for="rank-find">Chercher</label>
+        <input id="rank-find" name="q" value="<%= search.q %>" placeholder="<%= byTribe ? 'Nom ou tag' : 'Nom du joueur' %>" class="<%= ui.inputSm %> w-48">
+        <button class="<%= btn('dark', 'sm') %>">Aller à</button>
+      </form>
     </div>
-    <% } %>
-  <% } else if (type === 'players') { %>
-    <div class="overflow-x-auto">
-      <table class="<%= ui.table %>">
-        <thead><tr><th class="w-20">Rang</th><th>Joueur</th><th>Tribu</th><th class="text-right">Points</th><th class="text-right">Villages</th></tr></thead>
-        <tbody>
-        <% players.forEach((p, i) => { %>
-          <tr class="<%= isMe(p) ? ui.rowActive : '' %>">
-            <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><%- who(p) %></td>
-            <td><%- tribeTag(p.Tribe) %></td>
-            <td class="text-right font-extrabold tabular-nums"><%= num(p.points) %></td>
-            <td class="text-right tabular-nums"><%= p.villageCount %></td>
-          </tr>
-        <% }) %>
-        </tbody>
-      </table>
-    </div>
-  <% } else { %>
-    <% if (!tribes.length) { %><%- empty('Aucune tribu sur ce monde.') %><% } else { %>
-    <div class="overflow-x-auto">
-      <table class="<%= ui.table %>">
-        <thead><tr><th class="w-20">Rang</th><th>Tribu</th><th class="text-right">Membres</th><th class="text-right">Points</th><th class="text-right">Villages</th></tr></thead>
-        <tbody>
-        <% tribes.forEach((r, i) => { %>
-          <tr>
-            <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><%- tribeFull(r.tribe) %></td>
-            <td class="text-right tabular-nums"><%= r.members %></td>
-            <td class="text-right font-extrabold tabular-nums"><%= num(r.points) %></td>
-            <td class="text-right tabular-nums"><%= r.villages %></td>
-          </tr>
-        <% }) %>
-        </tbody>
-      </table>
-    </div>
-    <% } %>
-  <% } %>
-</section>
+  </section>
+</div>
 <%- include('partials/footer') %>

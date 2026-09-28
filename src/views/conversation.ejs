@@ -11,9 +11,9 @@
       </div>`) %>
     <div class="<%= ui.panelBody %> gap-4">
       <div class="flex flex-col gap-1">
-        <h1 class="font-display text-lg font-bold wrap-break-word text-parchment-100"><%= conversation.subject %></h1>
+        <h1 class="font-display text-lg font-semibold wrap-break-word text-parchment-100"><%= conversation.subject %></h1>
         <p class="text-sm text-parchment-500">Avec
-          <% others.forEach((p, i) => { %><a href="/village/<%= ctx.village.id %>/players/<%= p.playerId %>" class="<%= ui.linkPlain %> font-bold"><%= p.Player.name %></a><%= i < others.length - 1 ? ', ' : '' %><% }) %>
+          <% others.forEach((p, i) => { %><a href="/village/<%= ctx.village.id %>/players/<%= p.playerId %>" class="<%= ui.linkPlain %> font-semibold"><%= p.Player.name %></a><%= i < others.length - 1 ? ', ' : '' %><% }) %>
           <%= others.length ? '' : 'personne (les autres ont quitté la conversation)' %>
         </p>
       </div>

@@ -29,7 +29,7 @@
               <span class="<%= ui.kicker %>">Retour</span>
               <span class="text-parchment-200"><%= when(run.endsAt, now) %></span>
             </span>
-            <span class="text-lg font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(run.endsAt).getTime() %>"><%= duration((new Date(run.endsAt) - now) / 1000) %></span>
+            <span class="text-lg font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(run.endsAt).getTime() %>"><%= duration((new Date(run.endsAt) - now) / 1000) %></span>
           </div>
           <%- include('partials/units', { units: run.units, losses: null }) %>
           <div class="flex flex-wrap items-center gap-3 border-t border-bronze-900 pt-3"><span class="<%= ui.subLabel %>">Butin prévu</span><%- include('partials/cost', { cost: run.resources, have: null }) %></div>
@@ -41,7 +41,7 @@
                 <label class="<%= ui.tile %> flex min-w-0 flex-col gap-1.5">
                   <span class="flex items-center justify-between gap-1.5">
                     <span class="flex min-w-0 items-center gap-1.5 text-[13px] <%= have ? 'text-parchment-300' : 'text-parchment-600' %>"><span class="<%= have ? 'text-gold-400' : 'text-parchment-700' %>"><%- unitIcon(u.id, 'size-3.5') %></span><span class="truncate"><%= u.name %></span></span>
-                    <button type="button" class="cursor-pointer text-xs font-bold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= u.id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
+                    <button type="button" class="cursor-pointer text-xs font-semibold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= u.id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
                   </span>
                   <input type="number" name="<%= u.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-full min-w-0 tabular-nums" <%= have ? '' : 'disabled' %>>
                 </label>
@@ -59,7 +59,7 @@
               <span class="<%= ui.kicker %>">Débloquée</span>
               <span class="text-parchment-200"><%= when(unlocking.endsAt, now) %></span>
             </span>
-            <span class="text-lg font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(unlocking.endsAt).getTime() %>"><%= duration((new Date(unlocking.endsAt) - now) / 1000) %></span>
+            <span class="text-lg font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(unlocking.endsAt).getTime() %>"><%= duration((new Date(unlocking.endsAt) - now) / 1000) %></span>
           </div>
         <% } else { %>
           <form method="post" action="/village/<%= vid %>/scavenge/<%= option.id %>/unlock" class="<%= ui.box %> flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">

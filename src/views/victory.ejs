@@ -3,12 +3,12 @@
   const v = cfg.victory; const s = standings;
   const names = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège', none: 'Aucune' };
   const pct = (x) => `${x.toFixed(1)} %`;
-  const b = (x) => `<strong class="font-extrabold text-gold-200">${x}</strong>`;
+  const b = (x) => `<strong class="font-semibold text-gold-200">${x}</strong>`;
   // Seuil de victoire, pour situer la part de chaque tribu sur la barre.
   const goal = v.type === 'dominance' ? v.dominance.endgamePercent : v.type === 'runes' ? v.runes.winPercent : null;
   const rankCell = (i) => i < 3
-    ? `<span class="${i === 0 ? ui.medallionGold : ui.medallion} size-8 font-display text-sm font-extrabold ${i === 0 ? 'text-gold-100' : 'text-gold-300'}">${i + 1}</span>`
-    : `<span class="inline-flex w-8 justify-center font-bold text-parchment-500 tabular-nums">${i + 1}</span>`;
+    ? `<span class="${i === 0 ? ui.medallionGold : ui.medallion} size-8 font-display text-sm font-semibold ${i === 0 ? 'text-gold-100' : 'text-gold-300'}">${i + 1}</span>`
+    : `<span class="inline-flex w-8 justify-center font-semibold text-parchment-500 tabular-nums">${i + 1}</span>`;
 %>
 <section class="<%= ui.panel %>">
   <%- panelHead('Fin du monde', `<span class="flex flex-wrap items-center gap-3"><span class="${ui.tagMuted}">${esc(world.name)}</span>${ctx ? '' : `<a href="/worlds/${world.slug}/play" class="${btn('gold', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Retour au village</a>`}</span>`, { tag: 'h1' }) %>
@@ -16,7 +16,7 @@
     <% if (world.endedAt) { %>
       <div class="<%= ui.boxGoldV %> flex items-center gap-3 p-3.5">
         <span class="<%= ui.medallionGold %> size-[46px]"><%- icon('crown', 'size-[22px]') %></span>
-        <p class="text-parchment-200"><strong class="font-display text-[17px] font-bold text-gold-200"><%= state.winnerName %></strong> a gagné le monde <%= when(world.endedAt, now) %>. Le monde est en paix.</p>
+        <p class="text-parchment-200"><strong class="font-display text-[17px] font-semibold text-gold-200"><%= state.winnerName %></strong> a gagné le monde <%= when(world.endedAt, now) %>. Le monde est en paix.</p>
       </div>
     <% } %>
     <div class="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start">
@@ -32,8 +32,8 @@
         <% if (state.holderId && !world.endedAt) { %>
           <div class="<%= ui.boxGold %> col-span-2 flex flex-col gap-1 px-3 py-2.5">
             <dt class="<%= ui.kicker %> text-gold-400">Fin de partie en cours</dt>
-            <dd class="text-parchment-200"><strong class="font-bold text-parchment-100"><%= state.holderName %></strong> · victoire <%= when(state.until, now) %> ·
-              <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(state.until).getTime() %>"><%= duration((new Date(state.until) - now) / 1000) %></span></dd>
+            <dd class="text-parchment-200"><strong class="font-semibold text-parchment-100"><%= state.holderName %></strong> · victoire <%= when(state.until, now) %> ·
+              <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(state.until).getTime() %>"><%= duration((new Date(state.until) - now) / 1000) %></span></dd>
           </div>
         <% } %>
       </dl>
@@ -66,7 +66,7 @@
 
 <% if (s.list && s.list.length) { %>
 <section class="<%= ui.panel %>">
-  <%- panelHead('Classement', goal != null ? `<span class="text-[13px] text-parchment-500">Objectif <span class="font-extrabold text-gold-200 tabular-nums">${goal} %</span></span>` : '') %>
+  <%- panelHead('Classement', goal != null ? `<span class="text-[13px] text-parchment-500">Objectif <span class="font-semibold text-gold-200 tabular-nums">${goal} %</span></span>` : '') %>
   <div class="overflow-x-auto">
     <table class="<%= ui.table %>">
       <thead><tr><th class="w-20">Rang</th><th><%= v.type === 'pointsVillages' && v.pointsVillages.scope === 'player' ? 'Joueur' : 'Tribu' %></th>
@@ -78,21 +78,21 @@
       <% s.list.slice(0, 20).forEach((r, i) => { %>
         <tr>
           <td><%- rankCell(i) %></td>
-          <td class="font-bold whitespace-nowrap text-parchment-100"><%= r.name %></td>
+          <td class="font-semibold whitespace-nowrap text-parchment-100"><%= r.name %></td>
           <% if (s.type === 'dominance' || s.type === 'runes') { %>
             <td class="text-right tabular-nums"><%= num(r.villages) %></td>
             <td class="text-right">
               <span class="inline-flex items-center gap-3">
                 <span class="<%= ui.track %> w-24 max-sm:w-14"><span class="<%= ui.fill %>" style="width: <%= Math.min(100, goal ? (r.percent / goal) * 100 : r.percent).toFixed(1) %>%"></span></span>
-                <span class="w-16 font-extrabold tabular-nums"><%= pct(r.percent) %></span>
+                <span class="w-16 font-semibold tabular-nums"><%= pct(r.percent) %></span>
               </span>
             </td>
           <% } else if (s.type === 'pointsVillages') { %>
-            <td class="text-right font-extrabold tabular-nums"><%= num(r.points) %></td>
+            <td class="text-right font-semibold tabular-nums"><%= num(r.points) %></td>
             <td class="text-right tabular-nums"><%= num(r.villages) %></td>
           <% } else { %>
             <td class="text-right tabular-nums"><%= r.villages %></td>
-            <td class="text-right font-extrabold tabular-nums"><%= num(r.influence) %> / <%= num(s.required) %></td>
+            <td class="text-right font-semibold tabular-nums"><%= num(r.influence) %> / <%= num(s.required) %></td>
           <% } %>
         </tr>
       <% }) %>

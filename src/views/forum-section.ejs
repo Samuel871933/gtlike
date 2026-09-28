@@ -14,10 +14,10 @@
             <% for (const t of threads) { %>
               <tr>
                 <td>
-                  <a href="/forum/t/<%= t.id %>" class="<%= ui.linkPlain %> block max-w-lg truncate font-bold"><%= t.title %></a>
+                  <a href="/forum/t/<%= t.id %>" class="<%= ui.linkPlain %> block max-w-lg truncate font-semibold"><%= t.title %></a>
                   <span class="text-[13px] text-parchment-500">par <%= t.author ? t.author.username : 'Compte supprimé' %></span>
                 </td>
-                <td class="text-right font-bold tabular-nums"><%= num(t.postCount) %></td>
+                <td class="text-right font-semibold tabular-nums"><%= num(t.postCount) %></td>
                 <td class="text-[13px]">
                   <a href="/forum/t/<%= t.id %>?page=last" class="<%= ui.link %>"><%= whenShort(t.lastPostAt, now) %></a>
                   <span class="block text-parchment-500"><%= t.lastPost && t.lastPost.author ? t.lastPost.author.username : 'Compte supprimé' %></span>

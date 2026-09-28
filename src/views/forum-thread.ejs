@@ -11,8 +11,8 @@
     <article class="<%= ui.panel %>" id="p<%= post.id %>">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-bronze-500 bg-head px-3 py-1.5">
         <span class="flex items-center gap-2">
-          <span class="flex size-6 items-center justify-center border-2 border-black bg-night font-display text-xs font-black text-gold-400"><%= post.author ? post.author.username[0].toUpperCase() : '?' %></span>
-          <b class="tracking-[0.04em] <%= post.author ? '' : 'text-parchment-500' %>"><%= post.author ? post.author.username : 'Compte supprimé' %></b>
+          <span class="flex size-6 items-center justify-center border-2 border-black bg-night font-display text-xs font-bold text-gold-400"><%= post.author ? post.author.username[0].toUpperCase() : '?' %></span>
+          <b class="<%= post.author ? '' : 'text-parchment-500' %>"><%= post.author ? post.author.username : 'Compte supprimé' %></b>
           <% if (post.author && thread.userId === post.userId) { %><span class="<%= ui.tagGold %>">Auteur</span><% } %>
         </span>
         <span class="text-xs text-parchment-300 tabular-nums"><%= when(post.createdAt, now) %><%= post.editedAt ? ' · modifié' : '' %></span>
@@ -21,7 +21,7 @@
       <% if (mine) { %>
         <div class="flex flex-wrap items-start gap-2 border-t border-bronze-800 px-3 py-1.5">
           <details class="group min-w-0 flex-1">
-            <summary class="cursor-pointer list-none text-[13px] font-bold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden">Modifier</summary>
+            <summary class="cursor-pointer list-none text-[13px] font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden">Modifier</summary>
             <form method="post" action="/forum/p/<%= post.id %>/edit" class="mt-2 flex flex-col gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="page" value="<%= page %>">
               <textarea name="body" rows="5" maxlength="5000" required class="<%= ui.textarea %>" aria-label="Message"><%= post.body %></textarea>
               <button class="<%= btn('gold', 'sm', 'self-start') %>">Enregistrer</button>
@@ -29,7 +29,7 @@
           </details>
           <% if (!first || thread.postCount === 1) { %>
             <form method="post" action="/forum/p/<%= post.id %>/delete" data-confirm="<%= first ? 'Supprimer ce sujet ?' : 'Supprimer ce message ?' %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button class="cursor-pointer text-[13px] font-bold text-blood-500 hover:text-parchment-100"><%= first ? 'Supprimer le sujet' : 'Supprimer' %></button>
+              <button class="cursor-pointer text-[13px] font-semibold text-blood-500 hover:text-parchment-100"><%= first ? 'Supprimer le sujet' : 'Supprimer' %></button>
             </form>
           <% } %>
         </div>

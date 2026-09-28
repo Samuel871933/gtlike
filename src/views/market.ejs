@@ -6,7 +6,7 @@
   const tabs = [['send', 'Envoyer'], ['offers', 'Offres du marché'], ['mine', 'Mes offres'], ['transports', 'Transports']];
   const amount = (id, n) => `<span class="inline-flex items-center gap-1.5 whitespace-nowrap tabular-nums"><span class="${res[id].text}">${icon(res[id].icon, 'size-4')}</span><strong class="text-parchment-100">${num(n)}</strong> <span class="text-parchment-500">${res[id].label.toLowerCase()}</span></span>`;
   const mapHref = (v) => `/village/${vid}/map?x=${v.x}&y=${v.y}`;
-  const count = (n) => `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${n}</span>`;
+  const count = (n) => `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${n}</span>`;
 %>
 <div class="flex flex-col gap-5">
 <section class="<%= ui.panel %>">
@@ -37,8 +37,8 @@
       <% for (const r of RESOURCES) { const have = Math.floor(ctx.state.resources[r.id]); %>
         <label class="<%= ui.box %> flex flex-col gap-2.5 p-3">
           <span class="flex items-center justify-between gap-2">
-            <span class="flex items-center gap-2.5 font-bold text-parchment-200"><span class="<%= ui.medallion %> size-8 <%= r.text %>"><%- icon(r.icon, 'size-4') %></span><%= r.label %></span>
-            <button type="button" class="cursor-pointer text-[13px] font-bold text-gold-400 tabular-nums hover:text-gold-200" data-fill="<%= r.id %>" data-max="<%= Math.min(have, merchants.free * cap) %>">(<%= num(have) %>)</button>
+            <span class="flex items-center gap-2.5 font-semibold text-parchment-200"><span class="<%= ui.medallion %> size-8 <%= r.text %>"><%- icon(r.icon, 'size-4') %></span><%= r.label %></span>
+            <button type="button" class="cursor-pointer text-[13px] font-semibold text-gold-400 tabular-nums hover:text-gold-200" data-fill="<%= r.id %>" data-max="<%= Math.min(have, merchants.free * cap) %>">(<%= num(have) %>)</button>
           </span>
           <input type="number" name="<%= r.id %>" min="0" placeholder="0" class="<%= ui.input %> w-full tabular-nums">
         </label>
@@ -87,13 +87,13 @@
         <% for (const { offer: o, distance, seconds } of offers) { %>
           <tr>
             <td>
-              <span class="block font-bold whitespace-nowrap text-parchment-100"><%- playerLink(ctx.village.id, o.village.Player) %></span>
+              <span class="block font-semibold whitespace-nowrap text-parchment-100"><%- playerLink(ctx.village.id, o.village.Player) %></span>
               <a href="<%= mapHref(o.village) %>" class="<%= ui.linkPlain %> block text-[13px] whitespace-nowrap text-parchment-500"><%= o.village.name %> <span class="tabular-nums">(<%= o.village.x %>|<%= o.village.y %>)</span></a>
             </td>
             <td><%- amount(o.sellResource, o.sellAmount) %></td>
             <td><%- amount(o.buyResource, o.buyAmount) %></td>
             <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= duration(seconds) %> <span class="text-[13px] text-parchment-600">(<%= distance.toFixed(1) %> c.)</span></td>
-            <td class="text-right font-extrabold tabular-nums"><%= o.count %></td>
+            <td class="text-right font-semibold tabular-nums"><%= o.count %></td>
             <td class="text-right">
               <form method="post" action="/village/<%= vid %>/market/offers/<%= o.id %>/accept" class="inline-flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <input type="number" name="count" min="1" max="<%= o.count %>" value="1" class="<%= ui.inputSm %> w-16 text-right tabular-nums" aria-label="Nombre de lots">
@@ -148,7 +148,7 @@
           <tr>
             <td><%- amount(o.sellResource, o.sellAmount) %></td>
             <td><%- amount(o.buyResource, o.buyAmount) %></td>
-            <td class="text-right font-extrabold tabular-nums"><%= o.count %></td>
+            <td class="text-right font-semibold tabular-nums"><%= o.count %></td>
             <td class="text-right tabular-nums text-parchment-300"><%= o.count * o.merchantsPerOffer %></td>
             <td class="text-right">
               <form method="post" action="/village/<%= vid %>/market/offers/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>"><%- icon('close', 'size-3', 2.6) %>Retirer</button></form>
@@ -174,14 +174,14 @@
             <span class="<%= delivery ? ui.medallionGold : ui.medallionOlive %> size-[30px]"><%- icon(delivery ? 'send' : 'return', 'size-[15px]', 2.2) %></span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="flex min-w-0 items-center gap-2">
-                <span class="shrink-0 font-extrabold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
+                <span class="shrink-0 font-semibold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
                 <span class="shrink-0 text-parchment-600"><%= delivery ? 'vers' : 'depuis' %></span>
                 <a href="<%= mapHref(tr.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.target.name %></a>
                 <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.target.x %>|<%= tr.target.y %>)</span>
               </span>
               <span class="text-[13px] text-parchment-500"><%= tr.merchants %> marchand(s) · <%= whenShort(tr.arrivesAt, now) %></span>
             </span>
-            <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+            <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
           </div>
           <% if (delivery) { %><div class="pl-[42px]"><%- include('partials/cost', { cost: tr.resources, have: null }) %></div><% } %>
         </div>
@@ -205,7 +205,7 @@
               </span>
               <span class="text-[13px] text-parchment-500"><% if (tr.origin.Player) { %><%- playerLink(ctx.village.id, tr.origin.Player, { cls: ui.link }) %> · <% } %><%= whenShort(tr.arrivesAt, now) %></span>
             </span>
-            <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+            <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
           </div>
           <div class="pl-[42px]"><%- include('partials/cost', { cost: tr.resources, have: null }) %></div>
         </div>

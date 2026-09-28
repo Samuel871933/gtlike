@@ -59,7 +59,7 @@
       <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
         <tbody>
           <% for (const [label, value] of stats) { %>
-            <tr><td class="w-1/2 text-parchment-500"><%= label %></td><td class="font-bold text-parchment-100 tabular-nums"><%= value %></td></tr>
+            <tr><td class="w-1/2 text-parchment-500"><%= label %></td><td class="font-semibold text-parchment-100 tabular-nums"><%= value %></td></tr>
           <% } %>
           <tr>
             <td class="text-parchment-500">Tribu</td>
@@ -89,6 +89,9 @@
             <button class="<%= actionItem %> w-full cursor-pointer text-left"><span class="text-gold-400"><%- icon('tribe', 'size-4', 2) %></span>Inviter dans ma tribu</button>
           </form>
         <% } %>
+        <% if (!isMe) { %>
+          <a href="/village/<%= vid %>/map?<%= new URLSearchParams({ mark: `player:${subject.id}`, label: subject.name }) %>#marquages" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('flag', 'size-4', 2) %></span>Marquer sur la carte</a>
+        <% } %>
         <a href="/village/<%= vid %>/ranking" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('ranking', 'size-4', 2) %></span>Voir le classement</a>
         <% if (isMe) { %>
           <a href="#texte" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('edit', 'size-4', 2) %></span>Modifier le texte personnel</a>
@@ -105,9 +108,9 @@
           <tbody>
           <% for (const v of villages) { %>
             <tr>
-              <td class="max-w-0 w-full"><a href="/village/<%= vid %>/villages/<%= v.id %>" class="<%= ui.linkPlain %> block truncate font-bold"><%= v.name %></a></td>
+              <td class="max-w-0 w-full"><a href="/village/<%= vid %>/villages/<%= v.id %>" class="<%= ui.linkPlain %> block truncate font-semibold"><%= v.name %></a></td>
               <td class="whitespace-nowrap tabular-nums"><a href="/village/<%= vid %>/map?x=<%= v.x %>&y=<%= v.y %>&sx=<%= v.x %>&sy=<%= v.y %>" class="<%= ui.linkPlain %>"><%= v.x %>|<%= v.y %></a> <span class="text-parchment-600"><%= continent(v.x, v.y) %></span></td>
-              <td class="text-right font-extrabold tabular-nums"><%= num(v.points) %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(v.points) %></td>
             </tr>
           <% } %>
           </tbody>
@@ -128,7 +131,7 @@
         <% } %>
         <% if (isMe) { %>
           <details class="border-t border-bronze-800 pt-3" <%= subject.profileText ? '' : 'open' %>>
-            <summary class="flex cursor-pointer list-none items-center gap-2 font-bold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('edit', 'size-3.5', 2.2) %>Modifier</summary>
+            <summary class="flex cursor-pointer list-none items-center gap-2 font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('edit', 'size-3.5', 2.2) %>Modifier</summary>
             <form method="post" action="/village/<%= vid %>/profile/text" class="mt-2.5 flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <textarea name="profileText" rows="6" maxlength="2000" class="<%= ui.textarea %> w-full" aria-label="Texte personnel" placeholder="Présentez-vous : recrutement, horaires, devise…"><%= subject.profileText || '' %></textarea>
               <button class="<%= btn('gold', 'md', 'self-start') %>">Enregistrer</button>
@@ -152,7 +155,7 @@
             <li class="flex items-center gap-3.5 border-b border-bronze-800 px-4 py-2.5 last:border-b-0">
               <span class="<%= medal %> <%= tierMedal[a.tier] %> size-12"><%- icon(achIcon[a.def.key] || 'victory', 'size-6') %></span>
               <span class="flex min-w-0 flex-col gap-0.5">
-                <span class="font-bold text-parchment-100"><%= a.def.name %><% if (multi) { %> <span class="<%= tierText[a.tier] %>">(<%= tierName(a.tier) %> · niveau <%= a.tier %>)</span><% } %></span>
+                <span class="font-semibold text-parchment-100"><%= a.def.name %><% if (multi) { %> <span class="<%= tierText[a.tier] %>">(<%= tierName(a.tier) %> · niveau <%= a.tier %>)</span><% } %></span>
                 <span class="text-[13px] leading-snug text-parchment-400"><%= a.def.description %> <span class="text-parchment-500 tabular-nums">— <%= fmt(a) %></span></span>
               </span>
             </li>
@@ -160,14 +163,14 @@
         </ul>
         <% if (rest.length) { %>
           <details class="group border-t border-bronze-800">
-            <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-[13px] font-bold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('plus', 'size-3', 2.6) %>Prochains paliers (<%= rest.length %>)</summary>
+            <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-[13px] font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('plus', 'size-3', 2.6) %>Prochains paliers (<%= rest.length %>)</summary>
             <ul class="grid gap-1.5 px-4 pb-3 sm:grid-cols-2">
               <% for (const a of rest) { const next = a.def.tiers[a.tier];
                    const pct = !a.def.rank && a.value != null ? Math.max(0, Math.min(100, (a.value / next) * 100)) : null; %>
                 <li class="flex items-center gap-2.5 border border-bronze-900 bg-black/25 p-2">
                   <span class="<%= medal %> <%= tierMedal[a.tier] %> size-8 opacity-70"><%- icon(achIcon[a.def.key] || 'victory', 'size-4') %></span>
                   <span class="flex min-w-0 flex-1 flex-col gap-1">
-                    <span class="flex items-baseline justify-between gap-2 text-[13px]"><span class="truncate font-bold text-parchment-300"><%= a.def.name %></span><span class="shrink-0 text-parchment-500 tabular-nums"><%= fmt(a) %> / <%= a.def.rank ? num(next) + 'ᵉ' : num(next) %></span></span>
+                    <span class="flex items-baseline justify-between gap-2 text-[13px]"><span class="truncate font-semibold text-parchment-300"><%= a.def.name %></span><span class="shrink-0 text-parchment-500 tabular-nums"><%= fmt(a) %> / <%= a.def.rank ? num(next) + 'ᵉ' : num(next) %></span></span>
                     <% if (pct != null) { %><span class="<%= ui.track %> h-1"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%"></span></span><% } %>
                   </span>
                 </li>
@@ -186,7 +189,7 @@
           <li class="flex items-center gap-2.5 border px-2.5 py-2 <%= d.count ? 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/2' : 'border-bronze-900 bg-black/25' %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
             <span class="<%= medal %> <%= d.count ? tierMedal[4] : tierMedal[0] %> size-9"><%- icon(dailyIcon[d.def.key] || 'victory', 'size-4') %></span>
             <span class="flex min-w-0 flex-col">
-              <span class="text-lg leading-none font-extrabold tabular-nums <%= d.count ? 'text-gold-200' : 'text-parchment-600' %>"><%= d.count %></span>
+              <span class="text-lg leading-none font-semibold tabular-nums <%= d.count ? 'text-gold-200' : 'text-parchment-600' %>"><%= d.count %></span>
               <span class="truncate text-xs <%= d.count ? 'text-parchment-300' : 'text-parchment-500' %>"><%= d.def.name %></span>
             </span>
           </li>

@@ -1,6 +1,6 @@
 <%- include('partials/header', { title: 'Connexion', hero: true, lobbyPage: 'login' }) %>
 <%- include('partials/landing-hero-start', { cta: { href: '/register', label: 'Jouer gratuitement' } }) %>
-  <h1 class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5 font-display text-xl font-black tracking-[0.1em]">CONNEXION</h1>
+  <h1 class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5 font-display text-xl font-bold tracking-[0.02em]">Connexion</h1>
   <div class="flex flex-1 flex-col gap-2.5 p-3.5">
     <% if (typeof notice !== 'undefined' && notice) { %><div class="<%= ui.alertSuccess %>"><%= notice %></div><% } %>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
@@ -11,12 +11,12 @@
       <label class="<%= ui.label %>">Mot de passe
         <input type="password" name="password" required class="<%= ui.input %> h-10 w-full">
       </label>
-      <button class="<%= btn('gold', 'lg', 'w-full border-[3px] tracking-[0.12em]') %>">Connexion</button>
+      <button class="<%= btn('gold', 'lg', 'w-full border-[3px] tracking-[0.02em]') %>">Connexion</button>
     </form>
     <a href="/password/forgot" class="<%= ui.link %> self-start text-[13px]">Mot de passe oublié ?</a>
     <div class="mt-auto flex flex-col gap-1.5 border-t border-dashed border-bronze-700 pt-2.5">
       <span class="text-xs text-parchment-500">Nouveau dans le jeu ?</span>
-      <a href="/register" class="<%= btn('dark', 'md', 'w-full border-[3px] tracking-[0.12em]') %>">Créer un compte</a>
+      <a href="/register" class="<%= btn('dark', 'md', 'w-full border-[3px] tracking-[0.02em]') %>">Créer un compte</a>
     </div>
   </div>
 <%- include('partials/landing-hero-end') %>

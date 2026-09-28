@@ -15,7 +15,7 @@ class MapService {
   }
 
   /** Villages dans un carré de `size` cases centré sur (cx, cy). */
-  static async area(worldId, cx, cy, size = 15) {
+  static async area(worldId, cx, cy, size = 15, { tribePoints = false } = {}) {
     const half = Math.floor(size / 2);
     const x0 = cx - half;
     const y0 = cy - half;
@@ -26,8 +26,17 @@ class MapService {
         y: { [Op.between]: [y0, y0 + size - 1] },
       },
       attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
+      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points', 'villageCount'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
     });
+    // Points des tribus visibles (infobulle de la carte) : somme des points de leurs membres.
+    const pointsByTribe = new Map();
+    const tribeIds = [...new Set(villages.map((v) => v.Player && v.Player.tribeId).filter(Boolean))];
+    if (tribePoints && tribeIds.length) {
+      const sums = await Player.findAll({
+        where: { tribeId: tribeIds }, attributes: ['tribeId', [sequelize.fn('SUM', sequelize.col('points')), 'total']], group: ['tribeId'], raw: true,
+      });
+      for (const r of sums) pointsByTribe.set(r.tribeId, Number(r.total));
+    }
     const byCoord = new Map(villages.map((v) => [`${v.x}|${v.y}`, v]));
     const rows = [];
     for (let y = y0; y < y0 + size; y++) {
@@ -35,7 +44,7 @@ class MapService {
       for (let x = x0; x < x0 + size; x++) row.push({ x, y, village: byCoord.get(`${x}|${y}`) || null });
       rows.push(row);
     }
-    return { x0, y0, size, rows };
+    return { x0, y0, size, rows, tribePoints: pointsByTribe };
   }
 
   static async ranking(worldId, limit = 100) {

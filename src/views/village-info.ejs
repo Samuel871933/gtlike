@@ -25,14 +25,14 @@
     <div class="<%= ui.panel %> flex flex-wrap items-center justify-between gap-2.5 py-2.5 pr-3.5 pl-5">
       <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
       <div class="flex min-w-0 flex-col gap-1">
-        <h1 class="m-0 truncate font-display text-[26px] font-black tracking-[0.12em] text-parchment-100 uppercase [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]"><%= target.name %></h1>
-        <span class="self-start border px-1.5 py-px text-[11px] font-bold tracking-[0.1em] uppercase <%= rel[1] %>"><%= rel[0] %></span>
+        <h1 class="m-0 truncate font-display text-[26px] font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]"><%= target.name %></h1>
+        <span class="self-start border px-1.5 py-px text-[11px] font-semibold tracking-[0.02em] <%= rel[1] %>"><%= rel[0] %></span>
       </div>
       <div class="flex flex-wrap gap-1">
         <% for (const [k, val, c] of meta) { %>
           <div class="flex min-w-16 flex-col border border-bronze-800 border-t-2 bg-night px-2.5 py-[3px] <%= c %>">
-            <span class="text-[10px] tracking-[0.14em] text-parchment-500 uppercase"><%= k %></span>
-            <span class="text-base font-bold text-parchment-100 tabular-nums"><%= val %></span>
+            <span class="text-[10px] tracking-[0.02em] text-parchment-500"><%= k %></span>
+            <span class="text-base font-semibold text-parchment-100 tabular-nums"><%= val %></span>
           </div>
         <% } %>
       </div>
@@ -44,21 +44,21 @@
         <tbody>
           <tr><td class="w-40 text-parchment-500">Joueur</td><td><% if (owner) { %><a href="/village/<%= vid %>/players/<%= owner.id %>" class="<%= ui.link %>"><%= owner.name %></a><% } else { %>Barbares<% } %></td></tr>
           <tr><td class="text-parchment-500">Tribu</td><td><% if (tribe) { %><a href="/village/<%= vid %>/tribes/<%= tribe.id %>" class="<%= ui.link %>">[<%= tribe.tag %>] <%= tribe.name %></a><% } else { %>—<% } %></td></tr>
-          <tr><td class="text-parchment-500">Points</td><td class="font-bold tabular-nums"><%= num(target.points) %></td></tr>
+          <tr><td class="text-parchment-500">Points</td><td class="font-semibold tabular-nums"><%= num(target.points) %></td></tr>
           <% if (morale != null) { %><tr><td class="text-parchment-500">Morale de tes attaques</td><td><b class="tabular-nums <%= morale < 1 ? 'text-blood-450' : '' %>"><%= Math.round(morale * 100) %> %</b> <span class="text-[13px] text-parchment-500">· plus le joueur est petit face à toi, plus tes troupes perdent en force</span></td></tr><% } %>
-          <% if (target.special) { %><tr><td class="text-parchment-500">Particularité</td><td class="font-bold text-gold-400"><%= target.special === 'rune' ? 'Village de rune' : 'Quartier du Grand Siège' %></td></tr><% } %>
+          <% if (target.special) { %><tr><td class="text-parchment-500">Particularité</td><td class="font-semibold text-gold-400"><%= target.special === 'rune' ? 'Village de rune' : 'Quartier du Grand Siège' %></td></tr><% } %>
         </tbody>
       </table>
     </section>
 
     <% if (!mine && dist) { %>
       <section class="<%= ui.panel %>">
-        <%- panelHead('Durées de trajet', `<span class="font-sans text-[11px] text-parchment-300">DEPUIS ${esc(ctx.village.name.toUpperCase())}</span>`) %>
+        <%- panelHead('Durées de trajet', `<span class="font-sans text-[11px] text-parchment-300">Depuis ${esc(ctx.village.name)}</span>`) %>
         <table class="<%= ui.table %>">
           <thead><tr><th>Unité la plus lente</th><th class="text-right">Durée</th></tr></thead>
           <tbody>
             <% for (const t of travel) { %>
-              <tr><td><span class="inline-flex items-center gap-2"><span class="text-gold-400"><%- unitIcon(t.id, 'size-4', 2) %></span><%= unitName(t.id) %></span></td><td class="text-right font-bold tabular-nums"><%= duration(t.seconds) %></td></tr>
+              <tr><td><span class="inline-flex items-center gap-2"><span class="text-gold-400"><%- unitIcon(t.id, 'size-4', 2) %></span><%= unitName(t.id) %></span></td><td class="text-right font-semibold tabular-nums"><%= duration(t.seconds) %></td></tr>
             <% } %>
           </tbody>
         </table>

@@ -3,6 +3,7 @@
 /*
   Composants de la charte (maquette « GTLike », maquettes/GTLike.html) sous forme de chaînes de classes Tailwind.
   Style « BD » : encre noire (bordures 2px), filet intérieur, ombre portée franche décalée, aucun arrondi.
+  Typographie sobre : casse normale, graisses moyennes (semi-gras pour l'emphase), capitales réservées aux tags.
   Aucun CSS maison : chaque composant n'est qu'un assemblage d'utilitaires, réutilisé dans les vues.
   Les classes sont écrites en entier ici pour que Tailwind les détecte (@source "../web").
 */
@@ -13,7 +14,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const INK = 'border-2 border-black';
 const SHADOW = 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]';
 
-const BTN_BASE = 'inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 border-2 border-black font-bold tracking-[0.1em] whitespace-nowrap uppercase no-underline transition-[transform,background-color,color] hover:-translate-y-px active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale disabled:hover:translate-y-0';
+const BTN_BASE = 'inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 border-2 border-black font-semibold tracking-[0.01em] whitespace-nowrap no-underline transition-[transform,background-color,color] hover:-translate-y-px active:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale disabled:hover:translate-y-0';
 
 const BTN_VARIANTS = {
   // Action principale (Améliorer, Jouer, Connexion).
@@ -29,12 +30,12 @@ const BTN_VARIANTS = {
 };
 
 const BTN_SIZES = {
-  sm: 'h-8 px-3 text-[13px]',
-  md: 'h-9 px-3.5 text-[13px]',
+  sm: 'h-8 px-3 text-sm',
+  md: 'h-9 px-3.5 text-[15px]',
   lg: 'h-11 px-4 text-base',
-  xl: 'h-14 px-8 text-xl tracking-[0.14em]',
+  xl: 'h-14 px-8 text-xl',
   // Bouton secondaire du héros de l'accueil.
-  hero: 'h-14 px-6 text-[15px] tracking-[0.14em]',
+  hero: 'h-14 px-6 text-base',
 };
 
 /** Classes d'un bouton : btn('gold'), btn('dark', 'sm'), btn('red', 'lg', 'w-full'). */
@@ -49,35 +50,36 @@ const ui = {
   panel: `relative ${INK} bg-panel-top ${SHADOW}`,
   // Bandeau rouge souligné de bronze.
   panelHead: 'flex min-h-[34px] flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b-2 border-bronze-500 bg-head px-3 py-1.5 shadow-[inset_0_-1px_0_#000]',
-  panelTitle: 'm-0 flex min-w-0 items-center gap-2 font-display text-sm font-bold tracking-[0.16em] text-parchment-100 uppercase',
+  panelTitle: 'm-0 flex min-w-0 items-center gap-2 text-base font-semibold text-parchment-100',
   panelBody: 'flex flex-col gap-3 p-3',
   diamond: 'size-[7px] shrink-0 rotate-45 border border-black bg-gold-400',
 
   // Textes
-  h1: 'font-display text-lg font-black tracking-[0.1em] text-parchment-100',
-  heading: 'font-display text-[15px] font-bold tracking-[0.08em] text-parchment-100',
-  kicker: 'text-[11px] font-bold tracking-[0.16em] text-gold-400 uppercase',
+  h1: 'font-display text-xl font-semibold tracking-[0.02em] text-parchment-100',
+  heading: 'font-display text-base font-semibold tracking-[0.02em] text-parchment-100',
+  kicker: 'text-[13px] font-medium text-gold-400',
   muted: 'text-parchment-500',
   faint: 'text-parchment-600',
-  num: 'font-bold tabular-nums',
-  link: 'font-bold text-gold-400 no-underline transition hover:text-parchment-100',
+  num: 'font-semibold tabular-nums',
+  link: 'font-medium text-gold-400 no-underline transition hover:text-parchment-100',
   linkPlain: 'text-parchment-100 no-underline transition hover:text-gold-400',
-  sectionLabel: 'flex items-center gap-2.5 text-[11px] font-bold tracking-[0.16em] text-gold-400 uppercase after:h-0.5 after:flex-1 after:bg-linear-to-r after:from-bronze-500 after:to-transparent',
-  subLabel: 'text-[11px] font-bold tracking-[0.14em] text-gold-400 uppercase',
+  sectionLabel: 'flex items-center gap-2.5 text-sm font-semibold text-gold-400 after:h-0.5 after:flex-1 after:bg-linear-to-r after:from-bronze-500 after:to-transparent',
+  subLabel: 'text-[13px] font-medium text-gold-400',
 
   // Formulaires
-  label: 'flex flex-col gap-1 text-[11px] font-bold tracking-[0.16em] text-gold-400 uppercase',
+  label: 'flex flex-col gap-1 text-[13px] font-medium text-parchment-400',
   input: `h-9 px-2.5 text-[15px] tracking-normal normal-case ${FIELD}`,
-  inputSm: `h-8 px-2 text-sm font-bold tracking-normal normal-case ${FIELD}`,
+  inputSm: `h-8 px-2 text-sm font-medium tracking-normal normal-case ${FIELD}`,
   textarea: `px-2.5 py-2 text-[15px] tracking-normal normal-case ${FIELD}`,
   checkbox: 'size-4 shrink-0 accent-blood-700',
-  checkLabel: 'flex min-h-[30px] items-center gap-2 text-[15px] font-semibold text-parchment-300',
+  checkLabel: 'flex min-h-[30px] items-center gap-2 text-[15px] text-parchment-300',
 
   // Tableau pleine largeur (à placer directement dans le panneau, sans panelBody).
-  table: 'w-full border-collapse text-left text-[15px] [&_td]:border-b [&_td]:border-bronze-800 [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle [&_th]:border-b-2 [&_th]:border-black [&_th]:bg-thead [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-[11px] [&_th]:font-bold [&_th]:tracking-[0.14em] [&_th]:whitespace-nowrap [&_th]:text-gold-400 [&_th]:uppercase [&_tbody_tr:nth-child(even)]:bg-row-alt [&_tbody_tr:hover]:bg-row-hover [&_tbody_tr:last-child_td]:border-b-0',
+  table: 'w-full border-collapse text-left text-[15px] [&_td]:border-b [&_td]:border-bronze-800 [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle [&_th]:border-b-2 [&_th]:border-black [&_th]:bg-thead [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-[13px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-gold-400 [&_tbody_tr:nth-child(even)]:bg-row-alt [&_tbody_tr:hover]:bg-row-hover [&_tbody_tr:last-child_td]:border-b-0',
   // Tableau compact, dans un panelBody.
-  tableSm: 'w-full border-collapse text-left text-sm [&_td]:border-b [&_td]:border-bronze-800 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-middle [&_th]:border-b-2 [&_th]:border-black [&_th]:bg-thead [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-[10px] [&_th]:font-bold [&_th]:tracking-[0.14em] [&_th]:whitespace-nowrap [&_th]:text-gold-400 [&_th]:uppercase [&_tbody_tr:last-child_td]:border-b-0',
-  rowActive: 'bg-gold-200/8',
+  tableSm: 'w-full border-collapse text-left text-sm [&_td]:border-b [&_td]:border-bronze-800 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-middle [&_th]:border-b-2 [&_th]:border-black [&_th]:bg-thead [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-xs [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-gold-400 [&_tbody_tr:last-child_td]:border-b-0',
+  // Ligne du joueur (classements, membres) : fond doré, filet à gauche, texte clair.
+  rowActive: 'bg-gold-200/12 [&>td]:bg-gold-200/12 [&>td]:text-gold-50 [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-gold-400)]',
 
   // Encarts
   box: 'border border-bronze-800 bg-panel-lo shadow-[1px_1px_0_#000]',
@@ -85,18 +87,18 @@ const ui = {
   boxGoldV: 'border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-500),3px_3px_0_#050505]',
   boxDashed: 'border border-dashed border-bronze-700',
   tile: 'border border-bronze-800 border-t-2 border-t-bronze-500 bg-night px-2.5 py-1',
-  tileLabel: 'text-[10px] tracking-[0.14em] text-parchment-500 uppercase',
-  tileValue: 'text-base font-bold tabular-nums text-parchment-100',
-  chip: 'inline-flex items-center gap-1.5 border border-bronze-800 bg-night px-2 py-0.5 text-[13px] font-semibold text-parchment-300 shadow-[inset_0_-2px_0_var(--color-panel-lo),1px_1px_0_#000]',
+  tileLabel: 'text-xs text-parchment-500',
+  tileValue: 'text-base font-semibold tabular-nums text-parchment-100',
+  chip: 'inline-flex items-center gap-1.5 border border-bronze-800 bg-night px-2 py-0.5 text-[13px] font-medium text-parchment-300 shadow-[inset_0_-2px_0_var(--color-panel-lo),1px_1px_0_#000]',
 
   // Pastilles
-  countBadge: 'flex h-4 min-w-4 items-center justify-center border border-black bg-blood-600 px-1 text-[11px] font-bold tracking-normal text-parchment-100 shadow-[1px_1px_0_#000]',
-  levelBadge: 'flex h-4 min-w-6 items-center justify-center border border-gold-400 bg-night px-1 text-[10px] font-bold tracking-[0.04em] text-gold-400',
-  tagRed: 'inline-flex items-center border border-black bg-blood-600 px-1.5 py-px text-[11px] font-bold tracking-[0.1em] text-parchment-100 uppercase shadow-[1px_1px_0_#000]',
-  tagSolidRed: 'inline-flex items-center border border-black bg-blood-800 px-1.5 py-px text-[11px] font-bold tracking-[0.12em] text-parchment-100 uppercase',
-  tagOlive: 'inline-flex items-center border border-black bg-olive-700 px-1.5 py-px text-[11px] font-bold tracking-[0.12em] text-parchment-100 uppercase',
-  tagGold: 'inline-flex items-center border border-gold-400 bg-night px-1.5 py-px text-[11px] font-bold tracking-[0.1em] text-gold-400 uppercase',
-  tagMuted: 'inline-flex items-center border border-bronze-700 bg-night px-1.5 py-px text-[11px] font-bold tracking-[0.1em] text-parchment-500 uppercase',
+  countBadge: 'flex h-4 min-w-4 items-center justify-center border border-black bg-blood-600 px-1 text-[11px] font-semibold tracking-normal text-parchment-100 shadow-[1px_1px_0_#000]',
+  levelBadge: 'flex h-4 min-w-6 items-center justify-center border border-gold-400 bg-night px-1 text-[11px] font-semibold text-gold-400',
+  tagRed: 'inline-flex items-center border border-black bg-blood-600 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-100 uppercase shadow-[1px_1px_0_#000]',
+  tagSolidRed: 'inline-flex items-center border border-black bg-blood-800 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-100 uppercase',
+  tagOlive: 'inline-flex items-center border border-black bg-olive-700 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-100 uppercase',
+  tagGold: 'inline-flex items-center border border-gold-400 bg-night px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-gold-400 uppercase',
+  tagMuted: 'inline-flex items-center border border-bronze-700 bg-night px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-500 uppercase',
 
   // Pictogrammes (icône dans un carré d'encre) : ajouter une taille (size-8, size-[42px]…).
   medallion: 'flex shrink-0 items-center justify-center border-2 border-black bg-night text-gold-400 shadow-[inset_0_0_0_1px_var(--color-bronze-700),2px_2px_0_#000]',
@@ -112,16 +114,16 @@ const ui = {
 
   // Onglets segmentés (VUE VILLAGE / LISTE, SORTANTS / ENTRANTS…), posés sur un bandeau rouge.
   seg: 'flex flex-wrap gap-0.5',
-  segOn: 'inline-flex h-6 items-center border border-black bg-night px-2.5 text-xs font-bold tracking-[0.08em] text-gold-200 uppercase no-underline',
-  segOff: 'inline-flex h-6 items-center border border-black px-2.5 text-xs font-bold tracking-[0.08em] text-parchment-300 uppercase no-underline transition hover:bg-head-dark hover:text-parchment-100',
+  segOn: 'inline-flex h-7 items-center border border-black bg-night px-2.5 text-sm font-semibold text-gold-200 no-underline',
+  segOff: 'inline-flex h-7 items-center border border-black px-2.5 text-sm font-medium text-parchment-300 no-underline transition hover:bg-head-dark hover:text-parchment-100',
 
   // Barre de progression : rail d'encre, remplissage hachuré rouge, bord bronze.
   track: 'block h-[7px] overflow-hidden border border-black bg-night',
   fill: 'block h-full border-r-2 border-gold-400 bg-[repeating-linear-gradient(135deg,var(--color-action)_0_5px,var(--color-action-deep)_5px_10px)]',
 
   // Messages
-  alertError: 'border-2 border-black border-l-4 border-l-blood-600 bg-blood-900/60 px-3 py-2 text-[15px] font-semibold text-parchment-100 shadow-[3px_3px_0_#050505]',
-  alertSuccess: 'border-2 border-black border-l-4 border-l-olive-500 bg-olive-700/30 px-3 py-2 text-[15px] font-semibold text-parchment-100 shadow-[3px_3px_0_#050505]',
+  alertError: 'border-2 border-black border-l-4 border-l-blood-600 bg-blood-900/60 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505]',
+  alertSuccess: 'border-2 border-black border-l-4 border-l-olive-500 bg-olive-700/30 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505]',
   alertInfo: 'border-2 border-black border-l-4 border-l-bronze-500 bg-panel-top px-3 py-2 text-[15px] text-parchment-300 shadow-[3px_3px_0_#050505]',
 
   // Grand titre (logo, héros) : aplat parchemin, double ombre d'encre et de sang.
@@ -132,7 +134,7 @@ const ui = {
 };
 
 /**
- * En-tête de panneau : losange bronze + titre en capitales sur bandeau rouge, contenu libre à droite (HTML).
+ * En-tête de panneau : losange bronze + titre sur bandeau rouge, contenu libre à droite (HTML).
  * panelHead('Chantiers', '<span>3 / 5</span>') ; panelHead('Carte', '', { tag: 'h1' }).
  */
 function panelHead(title, right = '', { tag = 'h2', id = '' } = {}) {

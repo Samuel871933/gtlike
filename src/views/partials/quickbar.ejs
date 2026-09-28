@@ -1,0 +1,14 @@
+<%#
+  Barre d'accès rapide (sous le menu principal) : les bâtiments favoris du joueur (étoiles du plan du village,
+  du quartier général et des pages de bâtiment). Rendue seule après un clic sur une étoile (game.js).
+%>
+<% const v = `/village/${ctx.village.id}`;
+   const quick = favoriteBuildings(player, ctx).map((id) => registry.building(id)); %>
+<nav class="flex min-w-0 gap-0.5 overflow-x-auto [scrollbar-width:none]" aria-label="Bâtiments favoris" data-quickbar data-page="<%= page || '' %>">
+  <% for (const b of quick) { const on = page === b.id; %>
+    <a href="<%= v %>/<%= buildingPath(b.id, ctx.cfg) %>" class="flex shrink-0 items-center gap-[5px] border px-[9px] py-1 text-[13px] font-semibold whitespace-nowrap no-underline transition <%= on ? 'border-bronze-500 bg-head-dark text-parchment-100' : 'border-transparent text-gold-400 hover:border-blood-800 hover:bg-row-hover hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>>
+      <%- buildingIcon(b.id, 'size-3.5', 2.2) %><%= b.name %>
+    </a>
+  <% } %>
+  <% if (!quick.length) { %><span class="flex items-center px-2 text-[13px] text-parchment-600">Ajoute des bâtiments en favoris avec l’étoile <span class="mx-1 text-gold-400">★</span></span><% } %>
+</nav>

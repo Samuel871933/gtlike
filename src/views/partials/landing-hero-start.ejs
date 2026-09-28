@@ -26,10 +26,10 @@
 
   <div class="relative mx-auto max-w-[1200px] px-3.5 pt-8.5 pb-10">
     <div class="mb-6.5 text-center">
-      <div class="font-display text-[clamp(56px,10vw,120px)] leading-none font-black tracking-[0.14em] text-parchment-100 [text-shadow:4px_4px_0_#000,8px_8px_0_var(--color-blood-900)]">GTLIKE</div>
+      <div class="font-logo text-[clamp(56px,10vw,120px)] leading-none font-bold tracking-[0.02em] text-parchment-100 [text-shadow:4px_4px_0_#000,8px_8px_0_var(--color-blood-900)]">GTLIKE</div>
       <div class="mt-2.5 flex items-center justify-center gap-3">
         <span class="h-0.5 w-10 bg-bronze-500 sm:w-15"></span>
-        <span class="font-display text-sm font-bold tracking-[0.4em] text-gold-400 sm:text-base">FORGE TON EMPIRE</span>
+        <span class="font-display text-sm font-semibold tracking-[0.02em] text-gold-400 sm:text-base">Forge ton empire</span>
         <span class="h-0.5 w-10 bg-bronze-500 sm:w-15"></span>
       </div>
     </div>
@@ -38,24 +38,24 @@
       <%# Aperçu du jeu : le plan du village, encadré comme une planche de BD. %>
       <div class="relative flex min-h-[420px] items-end border-[3px] border-black bg-[url(/img/game-styles/roman/village.svg)] bg-cover bg-center shadow-[inset_0_0_0_2px_var(--color-blood-800),6px_6px_0_#000] max-lg:hidden">
         <div class="absolute inset-3.5 border-2 border-dashed border-bronze-700" aria-hidden="true"></div>
-        <div class="relative m-3.5 border border-bronze-500 bg-night px-2.5 py-2 text-xs tracking-[0.06em] text-parchment-500">
-          <b class="tracking-[0.14em] text-gold-400">APERÇU · TON VILLAGE</b><br>Quartier général, caserne, forge et muraille : chaque bâtiment compte.
+        <div class="relative m-3.5 border border-bronze-500 bg-night px-2.5 py-2 text-xs text-parchment-500">
+          <b class="tracking-[0.02em] text-gold-400">Aperçu · ton village</b><br>Quartier général, caserne, forge et muraille : chaque bâtiment compte.
         </div>
       </div>
 
       <%# Présentation %>
       <div class="flex flex-col gap-3.5 border-[3px] border-black bg-night/80 p-4.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700),6px_6px_0_#000]">
-        <h2 class="m-0 font-display text-[28px] leading-[1.1] font-black tracking-[0.06em] text-balance">LE MONDE APPARTIENT AUX CONQUÉRANTS</h2>
+        <h2 class="m-0 font-display text-[28px] leading-[1.1] font-bold text-balance">Le monde appartient aux conquérants</h2>
         <p class="m-0 text-[17px] leading-snug text-pretty text-parchment-300">Développe ton village, forme ton armée, noue des alliances au sein de ta tribu et impose-toi dans un monde persistant dominé par la stratégie.</p>
         <div class="flex flex-col gap-2">
           <a href="<%= cta.href %>" class="<%= btn('gold', 'xl', 'h-auto border-[3px] px-3 py-3 max-sm:text-lg') %>"><%= cta.label %></a>
-          <% if (typeof login !== 'undefined' && login) { %><a href="/login" class="<%= btn('dark', 'lg', 'border-[3px] tracking-[0.14em]') %>">Se connecter</a><% } %>
+          <% if (typeof login !== 'undefined' && login) { %><a href="/login" class="<%= btn('dark', 'lg', 'border-[3px] tracking-[0.02em]') %>">Se connecter</a><% } %>
         </div>
         <div class="mt-auto grid grid-cols-3 gap-2">
           <% for (const [ic, t, sub] of features) { %>
             <div class="flex flex-col gap-[5px] border-2 border-black bg-panel-top p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-700),3px_3px_0_#000]">
               <span class="flex size-7 items-center justify-center border-2 border-black bg-blood-800 text-parchment-100"><%- icon(ic, 'size-4', 2.3) %></span>
-              <b class="font-display text-xs tracking-[0.12em] uppercase"><%= t %></b>
+              <b class="font-display text-xs tracking-[0.02em]"><%= t %></b>
               <span class="text-xs leading-tight text-parchment-500"><%= sub %></span>
             </div>
           <% } %>

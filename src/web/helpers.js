@@ -100,6 +100,7 @@ const ICONS = {
   catapult: '<path d="M4 20h16M7 20l5-9 5 9M12 11l6-7"/><circle cx="18" cy="4" r="1.5"/>',
   helm: '<path d="M6 11a6 6 0 0112 0v8H6z"/><path d="M6 14h12M12 5V2"/>',
   crown: '<path d="M4 18h16l1-10-5 4-4-7-4 7-5-4z"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
 };
 
 // Icône de chaque bâtiment et de chaque unité.
@@ -114,6 +115,31 @@ const UNIT_ICONS = {
 
 // Ordre de la barre d'accès rapide (comme sur Guerre Tribale).
 const QUICKBAR = ['main', 'barracks', 'stable', 'garage', 'snob', 'smith', 'place', 'statue', 'market'];
+
+/**
+ * Bâtiments favoris du joueur, dans l'ordre des bâtiments du jeu. Tant qu'il n'a rien choisi : la barre par
+ * défaut (QUICKBAR), limitée aux bâtiments construits dans le village courant.
+ */
+function favoriteBuildings(player, ctx) {
+  const ids = player && Array.isArray(player.favoriteBuildings)
+    ? player.favoriteBuildings
+    : QUICKBAR.filter((id) => ctx && ctx.state.level(id) > 0);
+  const wanted = new Set(ids);
+  return [...registry.BUILDINGS.keys()].filter((id) => wanted.has(id) && (!ctx || registry.building(id).isAvailableIn(ctx.cfg)));
+}
+
+/**
+ * Étoile « favori » d'un bâtiment : petit formulaire (game.js l'envoie sans recharger la page et met à jour
+ * la barre d'accès rapide). `cls` : placement et taille du bouton.
+ */
+function favStar(vid, buildingId, on, csrfToken, cls = 'size-7') {
+  const label = on ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  return `<form method="post" action="/village/${vid}/buildings/${buildingId}/favorite" class="contents" data-fav-form>`
+    + `<input type="hidden" name="_csrf" value="${esc(csrfToken)}">`
+    + `<button class="group/fav inline-flex shrink-0 cursor-pointer items-center justify-center text-parchment-500 transition hover:text-gold-200 aria-pressed:text-gold-200 ${cls}" data-fav="${buildingId}" aria-pressed="${on}" title="${label}" aria-label="${label}">`
+    + icon('star', 'size-[70%] drop-shadow-[0_1px_1px_#000] group-aria-pressed/fav:fill-current', 2)
+    + '</button></form>';
+}
 
 // Groupes d'unités du point de ralliement.
 const UNIT_GROUPS = [
@@ -183,7 +209,7 @@ function tribeLink(vid, tr, { name = false, tagCls = ui.tagMuted, cls = ui.linkP
   if (!tr) return '<span class="text-parchment-700">—</span>';
   const inner = `<span class="${tagCls}">${esc(tr.tag)}</span>${name ? `<span class="truncate">${esc(tr.name)}</span>` : ''}`;
   return vid
-    ? `<a href="/village/${vid}/tribes/${tr.id}" class="${cls} inline-flex min-w-0 items-center gap-2 font-bold whitespace-nowrap">${inner}</a>`
+    ? `<a href="/village/${vid}/tribes/${tr.id}" class="${cls} inline-flex min-w-0 items-center gap-2 font-semibold whitespace-nowrap">${inner}</a>`
     : `<span class="inline-flex min-w-0 items-center gap-2 whitespace-nowrap">${inner}</span>`;
 }
 
@@ -202,6 +228,8 @@ module.exports = {
   laurel,
   shield,
   QUICKBAR,
+  favoriteBuildings,
+  favStar,
   UNIT_GROUPS,
   buildingPath,
   buildingStat,

@@ -17,7 +17,7 @@
         </div>
         <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
           <span class="flex items-center justify-between gap-2">
-            <span class="font-display text-lg font-bold tracking-[0.1em] text-gold-400 uppercase"><%= s.name %></span>
+            <span class="font-display text-lg font-semibold tracking-[0.02em] text-gold-400"><%= s.name %></span>
             <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
           </span>
           <span class="text-sm text-parchment-400"><%= s.description %></span>
@@ -53,7 +53,7 @@
             <span class="<%= ui.medallionGold %> size-9"><%- icon('moon', 'size-4') %></span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="<%= ui.kicker %>"><%= player.isAsleep(now) ? 'Sommeil en cours' : 'Sommeil programmé' %></span>
-              <span class="font-bold text-gold-200 tabular-nums"><%= when(player.sleepStartsAt, now) %> → <%= when(player.sleepEndsAt, now) %></span>
+              <span class="font-semibold text-gold-200 tabular-nums"><%= when(player.sleepStartsAt, now) %> → <%= when(player.sleepEndsAt, now) %></span>
             </span>
             <form method="post" action="/village/<%= vid %>/account/sleep/stop"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button class="<%= btn('dark', 'sm') %>"><%= player.isAsleep(now) ? 'Me réveiller' : 'Annuler' %></button>
@@ -105,7 +105,7 @@
         <ul class="flex flex-col gap-2">
           <% for (const o of sitting) { %>
             <li class="<%= ui.box %> flex flex-wrap items-center gap-3 px-3.5 py-2.5">
-              <span class="min-w-40 flex-1 font-bold text-parchment-100"><%= o.name %> <span class="font-normal text-parchment-500"><%= o.sitterAcceptedAt ? '· vous le remplacez' : '· demande en attente' %></span></span>
+              <span class="min-w-40 flex-1 font-semibold text-parchment-100"><%= o.name %> <span class="font-normal text-parchment-500"><%= o.sitterAcceptedAt ? '· vous le remplacez' : '· demande en attente' %></span></span>
               <div class="flex items-center gap-2">
                 <% if (!o.sitterAcceptedAt) { %>
                   <form method="post" action="/village/<%= vid %>/account/sitting/<%= o.id %>/accept"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('gold', 'sm') %>">Accepter</button></form>

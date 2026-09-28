@@ -169,6 +169,10 @@ const Player = sequelize.define(
     tribeJoinedAt: { type: DataTypes.DATE, allowNull: true },
     // Texte personnel affiché sur le profil public (texte brut, retours à la ligne conservés).
     profileText: { type: DataTypes.TEXT, allowNull: true },
+    // Bâtiments favoris de la barre d'accès rapide (ids) ; nul = barre par défaut (bâtiments construits).
+    favoriteBuildings: { type: DataTypes.JSON, allowNull: true },
+    // Réglages de la carte : { size, mini, layers: { influence: true, … } } ; nul = réglages par défaut.
+    mapSettings: { type: DataTypes.JSON, allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['userId', 'worldId'] }] },
 );
@@ -417,6 +421,19 @@ MapFavorite.belongsTo(Player, { foreignKey: 'playerId' });
 Village.hasMany(MapFavorite, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
 MapFavorite.belongsTo(Village, { foreignKey: 'villageId' });
 
+/** Marquage de carte d'un joueur : une couleur pour un joueur, une tribu ou un village (targetType + targetId). */
+const MapMarker = sequelize.define(
+  'MapMarker',
+  {
+    targetType: { type: DataTypes.STRING(8), allowNull: false },
+    targetId: { type: DataTypes.INTEGER, allowNull: false },
+    color: { type: DataTypes.STRING(7), allowNull: false },
+  },
+  { indexes: [{ unique: true, fields: ['playerId', 'targetType', 'targetId'] }] },
+);
+Player.hasMany(MapMarker, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+MapMarker.belongsTo(Player, { foreignKey: 'playerId' });
+
 /** Demande de réinitialisation du mot de passe : seul le haché SHA-256 du jeton envoyé par e-mail est stocké. */
 const PasswordReset = sequelize.define(
   'PasswordReset',
@@ -530,6 +547,6 @@ Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: fals
 module.exports = {
   sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeMessage, Conversation, ConversationParticipant, ConversationMessage,
-  PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, PasswordReset, ForumThread, ForumPost,
+  PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
 };

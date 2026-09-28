@@ -24,10 +24,10 @@
               <td>
                 <span class="flex items-center gap-3">
                   <span class="<%= ui.medallion %> size-[38px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
-                  <span class="font-bold text-parchment-100"><%= o.type.name %></span>
+                  <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
                 </span>
               </td>
-              <td class="text-right font-extrabold tabular-nums"><%= num(have) %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(have) %></td>
               <td class="text-right"><input type="number" name="<%= o.type.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Renvoyer : <%= o.type.name %>"></td>
             </tr>
           <% } %>
@@ -43,7 +43,10 @@
       <%# Recruter %>
       <section class="<%= ui.panel %> min-w-0">
         <%- panelHead('Recruter', tabsHtml) %>
-        <form method="post" action="/village/<%= vid %>/recruit/<%= building %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <%# data-recruit : coût et durée unitaires, ressources et population disponibles (total calculé par game.js). %>
+        <form method="post" action="/village/<%= vid %>/recruit/<%= building %>"
+              data-recruit="<%= JSON.stringify(Object.fromEntries(available.map((o) => [o.type.id, { ...o.type.cost, pop: o.type.pop, time: o.duration }]))) %>"
+              data-have="<%= JSON.stringify({ ...ctx.state.resources, pop: ctx.state.farmCapacity() - ctx.popUsed() }) %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="overflow-x-auto">
             <table class="<%= ui.table %>">
               <thead><tr><th>Unité</th><th class="max-md:hidden">Coût</th><th class="max-md:hidden">Durée</th><th class="text-right max-md:hidden">Dans le village / total</th><th class="text-right">Recruter</th></tr></thead>
@@ -54,8 +57,8 @@
                     <span class="flex items-center gap-3">
                       <span class="<%= ui.medallion %> size-[42px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
                       <span class="flex min-w-0 flex-col gap-1">
-                        <span class="font-bold text-parchment-100"><%= o.type.name %></span>
-                        <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: null }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span><span class="text-parchment-500 tabular-nums">Au village <span class="font-bold text-parchment-200"><%= num(o.count) %></span> / <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></span>
+                        <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
+                        <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: null }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span><span class="text-parchment-500 tabular-nums">Au village <span class="font-semibold text-parchment-200"><%= num(o.count) %></span> / <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></span>
                       </span>
                     </span>
                   </td>
@@ -63,7 +66,7 @@
                   <td class="whitespace-nowrap text-parchment-300 tabular-nums max-md:hidden">
                     <span class="inline-flex items-center gap-1.5"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span>
                   </td>
-                  <td class="text-right whitespace-nowrap tabular-nums max-md:hidden"><span class="font-extrabold text-parchment-100"><%= num(o.count) %></span> <span class="text-parchment-500">/ <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></td>
+                  <td class="text-right whitespace-nowrap tabular-nums max-md:hidden"><span class="font-semibold text-parchment-100"><%= num(o.count) %></span> <span class="text-parchment-500">/ <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></td>
                   <td class="text-right whitespace-nowrap">
                     <span class="inline-flex flex-col items-end gap-1">
                       <input type="number" name="<%= o.type.id %>" min="0" max="<%= o.max %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Recruter : <%= o.type.name %>">
@@ -75,7 +78,16 @@
               </tbody>
             </table>
           </div>
-          <div class="flex justify-end border-t border-bronze-900 px-4.5 py-3"><button class="<%= btn('gold', 'md') %>"><%- icon('plus', 'size-3.5', 2.4) %>Recruter</button></div>
+          <div class="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 border-t border-bronze-900 px-4.5 py-3">
+            <%# Coût total de la saisie, mis à jour en direct ; en rouge ce qui manque. %>
+            <span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold whitespace-nowrap tabular-nums" data-recruit-total aria-live="polite">
+              <span class="text-parchment-500">Total</span>
+              <% for (const r of RESOURCES) { %><span class="inline-flex items-center gap-1 text-parchment-200" data-total="<%= r.id %>" title="<%= r.label %>"><span class="<%= r.text %>"><%- icon(r.icon, 'size-3.5', 2) %></span><span>0</span></span><% } %>
+              <span class="inline-flex items-center gap-1 text-parchment-400" data-total="pop" title="Population"><%- icon('pop', 'size-3.5', 2) %><span>0</span></span>
+              <span class="inline-flex items-center gap-1 text-parchment-300" data-total="time" title="Durée totale"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><span>0:00:00</span></span>
+            </span>
+            <button class="<%= btn('gold', 'md') %>"><%- icon('plus', 'size-3.5', 2.4) %>Recruter</button>
+          </div>
         </form>
       </section>
     <% } %>
@@ -115,7 +127,7 @@
               <li class="flex items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0">
                 <span class="flex size-8 shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600"><%- unitIcon(o.type.id, 'size-4') %></span>
                 <span class="flex min-w-0 flex-col">
-                  <span class="font-bold text-parchment-300"><%= o.type.name %></span>
+                  <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
                   <span class="text-[13px] text-parchment-500"><%= o.reasons.join(' · ') %></span>
                   <% if (o.reasons.includes('Recherche à la forge') && ctx.state.level('smith') > 0) { %>
                     <a href="/village/<%= vid %>/smith" class="<%= ui.link %> self-start text-xs">Aller à la forge →</a>
@@ -151,7 +163,7 @@
             <span class="absolute -right-1.5 -bottom-1 <%= ui.levelBadge %>"><%= k.level %></span>
           </span>
           <div class="flex min-w-48 flex-1 flex-col gap-2">
-            <p class="text-parchment-400">Village d'attache : <span class="font-bold text-parchment-100"><%= k.home.name %></span> <span class="text-parchment-600 tabular-nums">(<%= k.home.x %>|<%= k.home.y %>)</span></p>
+            <p class="text-parchment-400">Village d'attache : <span class="font-semibold text-parchment-100"><%= k.home.name %></span> <span class="text-parchment-600 tabular-nums">(<%= k.home.x %>|<%= k.home.y %>)</span></p>
             <div class="flex flex-col gap-1">
               <div class="flex justify-between gap-2 text-xs text-parchment-500"><span>Expérience</span><span class="tabular-nums"><%= num(k.xp) %><%= next ? ` / ${num(next)}` : ' · niveau maximal' %></span></div>
               <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= pct %>%"></span></span>
@@ -171,7 +183,7 @@
                 <% for (const sk of ks.SKILLS.filter((x) => x.branch === branch)) { const tier = k.skills[sk.id] || 0; const blocker = ks.learnBlocker(k, sk.id); %>
                   <li class="<%= tier ? ui.boxGold : ui.box %> flex flex-col gap-1.5 p-3 text-sm">
                     <div class="flex items-center justify-between gap-2">
-                      <span class="font-bold text-parchment-100"><%= sk.name %></span>
+                      <span class="font-semibold text-parchment-100"><%= sk.name %></span>
                       <span class="flex gap-1" title="Palier <%= tier %> / 4"><% for (let i = 1; i <= 4; i++) { %><span class="size-2 rotate-45 <%= i <= tier ? 'bg-gold-400' : 'bg-bronze-800' %>"></span><% } %></span>
                     </div>
                     <p class="text-[13px] text-parchment-500"><%= sk.text %> : <%= sk.values.map((v) => sk.flat ? `+${v}` : `${Math.round(v * 100)} %`).join(' / ') %></p>
@@ -194,7 +206,7 @@
             <p class="<%= ui.subLabel %>">Formation</p>
             <% if (k.trainingEndsAt) { %>
               <p class="text-parchment-400">En formation, fin <%= when(k.trainingEndsAt, now) %>
-                · <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(k.trainingEndsAt).getTime() %>"><%= duration((new Date(k.trainingEndsAt) - now) / 1000) %></span>
+                · <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(k.trainingEndsAt).getTime() %>"><%= duration((new Date(k.trainingEndsAt) - now) / 1000) %></span>
                 · +<%= num(k.trainingXp) %> XP</p>
             <% } else if (!k.alive) { %>
               <p class="text-parchment-500">Ressuscitez-le d'abord.</p>
@@ -204,9 +216,9 @@
                   <li>
                     <form method="post" action="/village/<%= vid %>/knights/<%= k.id %>/train" class="<%= ui.box %> flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-sm"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                       <input type="hidden" name="program" value="<%= prog.id %>">
-                      <span class="w-28 font-bold text-parchment-100"><%= prog.name %></span>
+                      <span class="w-28 font-semibold text-parchment-100"><%= prog.name %></span>
                       <span class="w-16 text-parchment-400 tabular-nums"><%= duration(prog.hours * 3600 / ctx.cfg.speed) %></span>
-                      <span class="w-24 font-bold text-gold-200 tabular-nums">+<%= num(prog.xp) %> XP</span>
+                      <span class="w-24 font-semibold text-gold-200 tabular-nums">+<%= num(prog.xp) %> XP</span>
                       <%- include('partials/cost', { cost: prog.cost, have: null }) %>
                       <button class="<%= btn('dark', 'sm', 'ml-auto') %>">Former</button>
                     </form>
@@ -249,7 +261,7 @@
 
 <% if (building === 'statue' && typeof knight !== 'undefined' && knight.enabled) { const kp = knight.player; const prog = Math.min(100, kp.knightProgress); %>
   <section class="<%= ui.panel %>">
-    <%- panelHead('Salle des armes', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${kp.knightItems.length} / ${knight.items.length}</span>`) %>
+    <%- panelHead('Salle des armes', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${kp.knightItems.length} / ${knight.items.length}</span>`) %>
     <div class="flex flex-col gap-4 px-4.5 py-4">
       <p class="text-[15px] text-parchment-400">
         La jauge monte de <%= ctx.cfg.knightItems.progressPerDay %> % par jour (× vitesse du monde) depuis la construction de la statue,
@@ -257,7 +269,7 @@
         L'arme équipée agit quand le paladin accompagne l'armée ou défend un village.
       </p>
       <div class="<%= ui.box %> flex flex-col gap-1.5 p-3">
-        <div class="flex justify-between gap-2"><span class="<%= ui.kicker %>">Prochaine arme</span><span class="font-extrabold text-gold-200 tabular-nums"><%= Math.floor(prog) %> %</span></div>
+        <div class="flex justify-between gap-2"><span class="<%= ui.kicker %>">Prochaine arme</span><span class="font-semibold text-gold-200 tabular-nums"><%= Math.floor(prog) %> %</span></div>
         <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= prog %>%"></span></span>
         <% if (!kp.knightRecruited) { %><p class="text-xs text-parchment-500">Les armes ne sont trouvées qu'après avoir recruté un premier paladin.</p><% } %>
         <% if (!kp.knightProgressAt) { %><p class="text-xs text-parchment-500">La jauge commencera à monter avec le temps une fois la statue construite.</p><% } %>
@@ -272,7 +284,7 @@
           <li class="<%= equipped ? ui.boxGold : ui.box %> flex items-center gap-3 p-3 <%= owned ? '' : 'opacity-50' %>">
             <span class="<%= equipped ? ui.medallionGold : ui.medallion %> size-[38px]"><%- unitIcon(itemIcon, 'size-[19px]') %></span>
             <span class="flex min-w-0 flex-1 flex-col">
-              <span class="font-display text-sm font-bold <%= equipped ? 'text-gold-200' : 'text-parchment-100' %>"><%= item.name %></span>
+              <span class="font-display text-sm font-semibold <%= equipped ? 'text-gold-200' : 'text-parchment-100' %>"><%= item.name %></span>
               <span class="text-[13px] text-parchment-500"><%= effect %></span>
             </span>
             <% if (equipped) { %>

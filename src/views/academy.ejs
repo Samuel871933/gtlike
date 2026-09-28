@@ -46,7 +46,7 @@
             <button class="<%= btn('gold', 'md') %>" <%= maxCoins < 1 ? 'disabled' : '' %>><%- icon('coin', 'size-3.5', 2) %>Frapper</button>
           </span>
         </form>
-        <p class="text-xs text-parchment-600">Encore <span class="font-bold text-parchment-400 tabular-nums"><%= num(slots.coinsForNextSlot) %></span> pièce(s) pour l'emplacement suivant.</p>
+        <p class="text-xs text-parchment-600">Encore <span class="font-semibold text-parchment-400 tabular-nums"><%= num(slots.coinsForNextSlot) %></span> pièce(s) pour l'emplacement suivant.</p>
       </div>
     </section>
 
@@ -59,7 +59,7 @@
             <span class="flex min-w-0 items-center gap-3">
               <span class="<%= ui.medallionGold %> size-[42px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
               <span class="flex min-w-0 flex-col gap-1">
-                <span class="font-display font-bold text-gold-200"><%= o.type.name %></span>
+                <span class="font-display font-semibold text-gold-200"><%= o.type.name %></span>
                 <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: ctx.state.resources }) %>
                   <span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span>

@@ -22,7 +22,7 @@
   <section class="<%= ui.panel %>">
     <%- panelHead('Rapports', `
       <div class="flex flex-wrap items-center gap-3">
-        <span class="text-[13px] font-bold text-parchment-500 tabular-nums">${total}</span>
+        <span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${total}</span>
         <form method="post" action="/village/${vid}/reports/bulk"><input type="hidden" name="_csrf" value="${csrfToken}">
           <button name="action" value="read-all" class="${btn('dark', 'sm')}">${icon('check', 'size-3.5', 2.2)}Tout marquer comme lu</button>
         </form>
@@ -54,7 +54,7 @@
                   <span class="absolute -right-0.5 -bottom-0.5 size-2.5 border border-night <%= k.dot %>" aria-hidden="true"></span>
                 </span>
                 <span class="flex min-w-0 flex-1 flex-col">
-                  <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-extrabold text-parchment-100' %>"><%= r.title %></span>
+                  <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-semibold text-parchment-100' %>"><%= r.title %></span>
                   <span class="text-xs text-parchment-500 tabular-nums sm:hidden"><%= when(r.happenedAt, now) %></span>
                 </span>
                 <% if (!r.isRead) { %>

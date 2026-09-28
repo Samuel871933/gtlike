@@ -1,4 +1,5 @@
 <%- include('partials/header', { title: 'Quartier général' }) %>
+<% const favs = new Set(favoriteBuildings(player, ctx)); %>
 <% const unbuilt = 'flex shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55)]'; %>
 <div class="flex flex-col gap-5">
   <%- include('partials/building-header', { buildingId: 'main' }) %>
@@ -6,7 +7,7 @@
   <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
     <%# Construire %>
     <section class="<%= ui.panel %> min-w-0">
-      <%- panelHead('Construire', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${available.length} bâtiment${available.length > 1 ? 's' : ''}</span>`) %>
+      <%- panelHead('Construire', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${available.length} bâtiment${available.length > 1 ? 's' : ''}</span>`) %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
           <thead><tr><th>Bâtiment</th><th class="max-md:hidden">Coût</th><th class="max-md:hidden">Durée</th><th class="text-right">Action</th></tr></thead>
@@ -20,7 +21,10 @@
                     <% if (o.current > 0) { %><span class="absolute -right-2 -bottom-1.5 <%= ui.levelBadge %>"><%= o.current %></span><% } %>
                   </span>
                   <div class="flex min-w-0 flex-col gap-0.5">
-                    <a href="/village/<%= ctx.village.id %>/<%= buildingPath(o.type.id, ctx.cfg) %>" class="<%= ui.linkPlain %> font-bold"><%= o.type.name %> <span class="font-medium text-parchment-500"><%= o.current > 0 ? `niveau ${o.current}` : 'non construit' %></span></a>
+                    <span class="flex items-center gap-1">
+                      <a href="/village/<%= ctx.village.id %>/<%= buildingPath(o.type.id, ctx.cfg) %>" class="<%= ui.linkPlain %> font-semibold"><%= o.type.name %> <span class="font-medium text-parchment-500"><%= o.current > 0 ? `niveau ${o.current}` : 'non construit' %></span></a>
+                      <%- favStar(ctx.village.id, o.type.id, favs.has(o.type.id), csrfToken, 'size-6') %>
+                    </span>
                     <span class="text-[13px] leading-snug text-parchment-500"><%= o.type.description %></span>
                     <span class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span></span>
                   </div>
@@ -47,7 +51,7 @@
     <aside class="flex flex-col gap-4 max-xl:order-first">
       <%# Constructions en cours %>
       <section class="<%= ui.panel %>">
-        <%- panelHead('Constructions en cours', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.cfg.buildQueueSlots}</span>`) %>
+        <%- panelHead('Constructions en cours', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.cfg.buildQueueSlots}</span>`) %>
         <div class="<%= ui.panelBody %>">
           <%- include('partials/build-queue') %>
         </div>
@@ -61,7 +65,7 @@
               <li class="flex items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0">
                 <span class="<%= unbuilt %> size-8"><%- buildingIcon(o.type.id, 'size-4') %></span>
                 <span class="flex min-w-0 flex-col">
-                  <span class="font-bold text-parchment-300"><%= o.type.name %></span>
+                  <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
                   <span class="text-[13px] text-parchment-500"><%= o.missing.map((m) => `${buildingName(m.building)} niveau ${m.level}`).join(' · ') %></span>
                 </span>
               </li>
@@ -76,7 +80,7 @@
           <div class="<%= ui.panelBody %>">
             <div class="flex flex-wrap gap-1.5">
               <% for (const o of maxed) { %>
-                <span class="<%= ui.chip %>"><span class="text-gold-400"><%- buildingIcon(o.type.id, 'size-3.5') %></span><%= o.type.name %> <strong class="text-parchment-100 tabular-nums">(<%= o.current %>)</strong></span>
+                <span class="<%= ui.chip %> pr-0.5"><span class="text-gold-400"><%- buildingIcon(o.type.id, 'size-3.5') %></span><a href="/village/<%= ctx.village.id %>/<%= buildingPath(o.type.id, ctx.cfg) %>" class="text-inherit no-underline hover:text-parchment-100"><%= o.type.name %></a> <strong class="text-parchment-100 tabular-nums">(<%= o.current %>)</strong><%- favStar(ctx.village.id, o.type.id, favs.has(o.type.id), csrfToken, 'size-5') %></span>
               <% } %>
             </div>
           </div>

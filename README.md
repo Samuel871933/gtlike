@@ -52,29 +52,32 @@ migrations/          Une migration par changement de schéma ; ne jamais modifie
 src/styles/          Point d'entrée Tailwind (@theme) et styles de jeu (game-styles/ : romain, viking)
 src/web/             Routes Express, middlewares, helpers de vue, composants (ui.js), styles de jeu (gameStyles.js)
 src/views/           Pages EJS
-public/              JS client (ressources, comptes à rebours, carte), images (accueil, fonds de village par style)
+public/              JS client (game.js : ressources, comptes à rebours… ; map.js : carte), images (accueil, fonds de village par style)
 maquettes/           Maquette de référence de l'interface (bundle HTML autonome)
 ```
 
 ## Interface
 
 Organisation reprise de Guerre Tribale, habillage de la maquette `maquettes/GTLike.html` (style « BD » : encre
-noire, rouge sang et bronze, aplats et ombres portées, polices Cinzel et Barlow Condensed). En-tête collant :
+noire, rouge sang et bronze, aplats et ombres portées, polices Marcellus (titres), Cinzel (logo) et Barlow Semi Condensed ; casse normale et graisses moyennes, capitales réservées aux tags). En-tête collant :
 menu principal (Aperçu, Carte, Rapports, Messages, Tribu, Classement, Profil ; joueur et rang, fin du monde, compte,
-déconnexion), puis barre du village (changement de village, attaques entrantes, barre rapide des bâtiments construits,
+déconnexion), puis barre du village (changement de village, attaques entrantes, barre rapide des bâtiments favoris — étoile sur le plan du village, au quartier général et sur chaque page de bâtiment ; par défaut les bâtiments construits,
 ressources, entrepôt, population).
 L'aperçu reprend la vue de la cité : barre de titre (coordonnées, continent, points, population, loyauté), plan vu de
 dessus avec les bâtiments en blocs (niveau, nom, compte à rebours des chantiers ; QG et bâtiments militaires dans
 l'enceinte, mines et ferme aux abords, muraille sur la porte sud) ou vue liste, tableau des mouvements de troupes,
-et les encadrés Production, Constructions, Recrutement, Troupes et Paladin. La carte affiche le décor, les villages,
-les flèches d'attaque, un panneau Cible, la mini-carte et la légende. L'accueil (mondes, connexion, inscription)
+et les encadrés Production, Constructions, Recrutement, Troupes et Paladin. La carte ([public/js/map.js](public/js/map.js)) a des cases de
+taille fixe comme sur GT (la taille choisie agrandit vraiment la carte), charge les villages par secteurs de 20 × 20
+(`/map/sector`, [src/web/mapView.js](src/web/mapView.js)) et se déplace sans rechargement (glisser, flèches, clavier,
+mini-carte de 5 px par case qui suit la vue) ; décor, flèches d'attaque et légende. L'accueil (mondes, connexion, inscription)
 reprend l'écran d'accueil de la maquette.
 
 Outils de la maquette : menu « Rapports » de l'en-tête (non-lus par catégorie) ; sur le plan du village, le survol
 d'un bâtiment affiche son encart (coût et durée du niveau suivant, bouton Améliorer), un clic ouvre sa page ; notifications
 en haut à droite. Sur la carte : infobulle au survol (dont la durée du trajet de chaque unité), menu d'actions au clic (voir le village, attaquer, soutenir,
-espionner, ressources, profil, favoris), calques mémorisés dans le navigateur (influence de la tribu, zones ennemies,
-barbares, quadrillage de 5 cases, frontières de continent), recherche (joueur, village, tribu, coordonnées), favoris
+espionner, ressources, profil, favoris), calques (marquages, influence de la tribu, zones ennemies,
+barbares, quadrillage de 5 cases, frontières de continent) et tailles (carte 4×4 à 30×30, mini-carte 20×20 à 120×120) mémorisés
+sur le joueur, marquages de couleur par joueur, tribu ou village (menu d'un village, profil, panneau « Marquages »), recherche (joueur, village, tribu, coordonnées), favoris
 et « Ordres rapides » (modèles d'armée créés au point de ralliement, qui pré-remplissent l'envoi). Pages publiques :
 règles (`/rules`), aide (`/help`), infos de chaque monde (`/worlds/:slug/info`) ; en jeu, « Inviter des joueurs ».
 Morale (3 × points du défenseur ÷ points de l'attaquant + 30 %, entre 30 et 100 %) : affichée au survol et dans le
@@ -226,7 +229,8 @@ Un palier débloqué n'est jamais retiré et génère un rapport.
 Succès quotidiens (pillard, attaquant, défenseur, soutien, grande puissance, brigand du jour) : attribués pour chaque
 journée terminée (heure du serveur) au gagnant unique, 4 points chacun ; les unités attaquantes tuées se partagent
 entre le village et ses soutiens au prorata de la population présente. Classements : joueurs, tribus, continents (points
-des villages situés dans le continent), adversaires vaincus, succès.
+des villages situés dans le continent), adversaires vaincus, succès ; comme sur GT, types dans un menu à gauche,
+pages de 25 ouvertes sur la position du joueur (ou de sa tribu), « Aller à » un rang ou un nom, points par village.
 
 ## Adversaires vaincus
 

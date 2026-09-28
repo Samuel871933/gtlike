@@ -3,7 +3,7 @@
 <footer class="relative z-[2] border-t-2 border-bronze-500 bg-night">
 <div class="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-3 px-2.5 pt-1.5 pb-8 text-xs text-parchment-500">
   <div class="flex flex-wrap gap-3">
-    <b class="tracking-[0.08em] text-gold-400 uppercase"><%= ctx.world.name %></b>
+    <b class="text-gold-400"><%= ctx.world.name %></b>
     <a href="/worlds/<%= ctx.world.slug %>/info" class="<%= ui.link %> font-normal">Réglages du monde</a>
     <a href="/village/<%= ctx.village.id %>/victory" class="<%= ui.link %> font-normal">Fin du monde</a>
     <a href="/forum" class="<%= ui.link %> font-normal">Forum</a>
@@ -22,11 +22,11 @@
 <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-3.5 px-3.5 pt-4.5 pb-10">
   <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3.5">
     <div class="flex flex-col gap-[3px]">
-      <b class="mb-[3px] font-display text-xs tracking-[0.18em] text-gold-400">GTLIKE</b>
+      <b class="mb-[3px] font-logo text-xs tracking-[0.02em] text-gold-400">GTLIKE</b>
       <span class="text-[13px] text-parchment-500">Jeu de stratégie par navigateur, par mondes.</span>
     </div>
     <div class="flex flex-col gap-[3px]">
-      <b class="mb-[3px] font-display text-xs tracking-[0.18em] text-gold-400">JEU</b>
+      <b class="mb-[3px] font-display text-sm text-gold-400">Jeu</b>
       <% if (user) { %>
         <a href="/worlds" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Mondes</a>
         <a href="/account" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Mon compte</a>
@@ -36,11 +36,11 @@
       <% } %>
     </div>
     <div class="flex flex-col gap-[3px]">
-      <b class="mb-[3px] font-display text-xs tracking-[0.18em] text-gold-400">COMMUNAUTÉ</b>
+      <b class="mb-[3px] font-display text-sm text-gold-400">Communauté</b>
       <a href="/forum" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Forum</a>
     </div>
     <div class="flex flex-col gap-[3px]">
-      <b class="mb-[3px] font-display text-xs tracking-[0.18em] text-gold-400">SUPPORT</b>
+      <b class="mb-[3px] font-display text-sm text-gold-400">Support</b>
       <a href="/rules" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Règles</a>
       <a href="/help" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Aide</a>
       <a href="/password/forgot" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Mot de passe oublié</a>

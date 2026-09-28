@@ -2,7 +2,7 @@
 <%
   const roleName = { founder: 'Fondateur', leader: 'Chef', member: 'Membre' };
   const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
-  const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-bold tracking-[0.1em] uppercase';
+  const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-semibold tracking-[0.02em]';
   const relBadge = {
     ally: 'border-rel-ally/60 bg-rel-ally/15 text-rel-ally',
     nap: 'border-rel-nap/60 bg-rel-nap/15 text-rel-nap',
@@ -18,7 +18,7 @@
         <span class="<%= ui.medallionGold %> size-[46px]"><%- icon('tribe', 'size-[22px]') %></span>
         <span class="flex min-w-0 flex-col gap-0.5">
           <span class="<%= ui.kicker %>">Tribu</span>
-          <span class="truncate font-display text-[17px] font-bold text-parchment-100"><%= tribe.name %></span>
+          <span class="truncate font-display text-[17px] font-semibold text-parchment-100"><%= tribe.name %></span>
         </span>
       </div>
       <dl class="grid grid-cols-3 gap-2 sm:w-[420px]">
@@ -33,16 +33,16 @@
 
 <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
   <section class="<%= ui.panel %> min-w-0">
-    <%- panelHead('Membres', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${members.length}</span>`) %>
+    <%- panelHead('Membres', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${members.length}</span>`) %>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %>">
         <thead><tr><th>Joueur</th><th>Rôle</th><th class="text-right">Points</th><th class="text-right">Villages</th></tr></thead>
         <tbody>
         <% for (const m of members) { %>
           <tr class="<%= m.id === ctx.village.playerId ? ui.rowActive : '' %>">
-            <td class="font-bold"><a href="/village/<%= ctx.village.id %>/players/<%= m.id %>" class="<%= ui.linkPlain %>"><%= m.name %></a></td>
+            <td class="font-semibold"><a href="/village/<%= ctx.village.id %>/players/<%= m.id %>" class="<%= ui.linkPlain %>"><%= m.name %></a></td>
             <td><span class="<%= roleTag[m.tribeRole] %>"><%= roleName[m.tribeRole] %></span></td>
-            <td class="text-right font-extrabold tabular-nums"><%= num(m.points) %></td>
+            <td class="text-right font-semibold tabular-nums"><%= num(m.points) %></td>
             <td class="text-right tabular-nums"><%= m.villageCount %></td>
           </tr>
         <% } %>
@@ -58,7 +58,7 @@
       <% for (const r of relations) { %>
         <div class="flex items-center gap-3">
           <span class="<%= relTag %> <%= relBadge[r.type] %> w-20 justify-center"><%= relName[r.type] %></span>
-          <a href="/village/<%= ctx.village.id %>/tribes/<%= r.other.id %>" class="<%= ui.linkPlain %> inline-flex min-w-0 items-center gap-2 font-bold"><span class="<%= ui.tagMuted %>"><%= r.other.tag %></span><span class="truncate"><%= r.other.name %></span></a>
+          <a href="/village/<%= ctx.village.id %>/tribes/<%= r.other.id %>" class="<%= ui.linkPlain %> inline-flex min-w-0 items-center gap-2 font-semibold"><span class="<%= ui.tagMuted %>"><%= r.other.tag %></span><span class="truncate"><%= r.other.name %></span></a>
         </div>
       <% } %>
     </div>

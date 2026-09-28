@@ -10,10 +10,10 @@
           <% for (const s of sections) { const last = s.last; %>
             <tr>
               <td>
-                <a href="/forum/<%= s.id %>" class="<%= ui.linkPlain %> flex items-center gap-2 font-display text-base font-bold tracking-[0.08em] uppercase"><span class="size-[7px] shrink-0 rotate-45 border border-black bg-gold-400"></span><%= s.name %></a>
+                <a href="/forum/<%= s.id %>" class="<%= ui.linkPlain %> flex items-center gap-2 font-display text-base font-semibold "><span class="size-[7px] shrink-0 rotate-45 border border-black bg-gold-400"></span><%= s.name %></a>
                 <span class="block pl-[15px] text-[13px] text-parchment-500"><%= s.description %></span>
               </td>
-              <td class="text-right font-bold tabular-nums"><%= num(s.threads) %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(s.threads) %></td>
               <td class="text-[13px]">
                 <% if (last) { %>
                   <a href="/forum/t/<%= last.id %>?page=last" class="<%= ui.link %> block max-w-64 truncate"><%= last.title %></a>

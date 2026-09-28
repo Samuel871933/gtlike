@@ -15,7 +15,7 @@
   // Lien qui pré-remplit le formulaire avec un modèle d'armée (en gardant la cible saisie).
   const useHref = (tpl) => `/village/${vid}/place?${new URLSearchParams({ x: form.x, y: form.y, ...tpl.units })}`;
   const unitsText = (u) => Object.entries(u).map(([id, n]) => `${num(n)} ${unitName(id)}`).join(' · ');
-  const moveHead = `<div class="hidden grid-cols-[minmax(0,1fr)_150px_110px_40px] gap-4 border-b border-bronze-900 bg-black/25 px-4.5 py-2.5 font-display text-[11px] font-bold tracking-[0.12em] text-parchment-500 sm:grid"><span>ORDRE</span><span>ARRIVÉE</span><span class="text-right">DANS</span><span></span></div>`;
+  const moveHead = `<div class="hidden grid-cols-[minmax(0,1fr)_150px_110px_40px] gap-4 border-b border-bronze-900 bg-black/25 px-4.5 py-2.5 font-display text-[11px] font-semibold tracking-[0.02em] text-parchment-500 sm:grid"><span>Ordre</span><span>Arrivée</span><span class="text-right">Dans</span><span></span></div>`;
 %>
 <div class="flex flex-col gap-5">
 <%- include('partials/building-header', { buildingId: 'place' }) %>
@@ -42,7 +42,7 @@
               <span class="<%= have ? ui.medallion : ui.medallion + ' opacity-40' %> size-[30px]"><%- unitIcon(id, 'size-[15px]') %></span>
               <span class="min-w-0 flex-1 truncate <%= have ? 'text-parchment-200' : 'text-parchment-600' %>"><%= unitName(id) %></span>
               <input type="number" name="<%= id %>" min="0" max="<%= have %>" placeholder="0" value="<%= form.units[id] || '' %>" class="<%= ui.inputSm %> w-16 text-right tabular-nums" <%= have ? '' : 'disabled' %>>
-              <button type="button" class="min-w-10 cursor-pointer text-right text-[13px] font-bold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
+              <button type="button" class="min-w-10 cursor-pointer text-right text-[13px] font-semibold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
             </label>
           <% } %>
         </fieldset>
@@ -59,7 +59,7 @@
       <%# Durée et heure d'arrivée (unité la plus lente), recalculées par game.js à chaque saisie et chaque seconde. %>
       <div class="flex min-h-[38px] flex-col justify-center gap-0.5 sm:mr-auto" data-travel-preview>
         <span class="<%= ui.subLabel %>">Arrivée</span>
-        <span class="text-parchment-500 tabular-nums"><strong class="font-extrabold text-gold-200" data-travel-arrival>—</strong> <span data-travel-duration></span></span>
+        <span class="text-parchment-500 tabular-nums"><strong class="font-semibold text-gold-200" data-travel-arrival>—</strong> <span data-travel-duration></span></span>
       </div>
       <div class="flex flex-wrap gap-2">
         <button name="type" value="attack" class="<%= btn('red') %>"><%- icon('attack', 'size-3.5', 2.2) %>Attaquer</button>
@@ -79,7 +79,7 @@
       <tbody>
         <% for (const tpl of templates) { %>
           <tr>
-            <td class="font-bold"><%= tpl.name %></td>
+            <td class="font-semibold"><%= tpl.name %></td>
             <td class="text-parchment-300"><%- include('partials/units', { units: tpl.units, losses: null }) %></td>
             <td class="text-right whitespace-nowrap">
               <a href="<%= useHref(tpl) %>" class="<%= btn('dark', 'sm') %>">Utiliser</a>
@@ -93,7 +93,7 @@
     </table>
   <% } %>
   <details class="group border-t border-bronze-800" <%= templates.length ? '' : 'open' %>>
-    <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-bold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('plus', 'size-3.5', 2.6) %>Nouveau modèle</summary>
+    <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('plus', 'size-3.5', 2.6) %>Nouveau modèle</summary>
     <form method="post" action="/village/<%= vid %>/templates" class="flex flex-col gap-2.5 px-3 pb-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <label class="<%= ui.label %> max-w-80">Nom<input name="name" maxlength="32" required placeholder="Pilleurs rapides" class="<%= ui.input %>"></label>
       <div class="grid gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
@@ -111,7 +111,7 @@
 </section>
 
 <section class="<%= ui.panel %>">
-  <%- panelHead('Vos ordres', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${outgoing.length}</span>`) %>
+  <%- panelHead('Vos ordres', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${outgoing.length}</span>`) %>
   <div>
     <% if (outgoing.length) { %><%- moveHead %><% } %>
     <% if (!outgoing.length) { %><p class="px-4.5 py-4 text-parchment-500">Aucun ordre.</p><% } %>
@@ -120,13 +120,13 @@
       <div class="grid grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1.5 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]">
         <div class="flex min-w-0 items-center gap-3">
           <span class="<%= st.medal %> size-[30px]"><%- icon(st.icon, 'size-[15px]', 2.2) %></span>
-          <span class="shrink-0 font-extrabold <%= st.verb %>"><%= typeName[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></span>
+          <span class="shrink-0 font-semibold <%= st.verb %>"><%= typeName[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></span>
           <span class="hidden shrink-0 text-parchment-600 sm:inline"><%= c.type === 'return' ? 'depuis' : 'vers' %></span>
           <a href="<%= mapHref(c.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.target.name %></a>
           <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.target.x %>|<%= c.target.y %>)</span>
         </div>
         <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
-        <span class="text-right font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
+        <span class="text-right font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
         <% if (canCancel) { %>
           <form method="post" action="/village/<%= vid %>/command/<%= c.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <button class="<%= ui.iconBtnSm %>" title="Annuler l’ordre" aria-label="Annuler l’ordre"><%- icon('close', 'size-3', 2.6) %></button>
@@ -142,7 +142,7 @@
 </section>
 
 <section class="<%= ui.panel %>">
-  <%- panelHead('Arrivées', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${incoming.length}</span>`) %>
+  <%- panelHead('Arrivées', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${incoming.length}</span>`) %>
   <div>
     <% if (incoming.length) { %><%- moveHead %><% } %>
     <% if (!incoming.length) { %><p class="px-4.5 py-4 text-parchment-500">Rien en approche.</p><% } %>
@@ -150,14 +150,14 @@
       <div class="grid min-h-[50px] grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]">
         <div class="flex min-w-0 items-center gap-3">
           <span class="<%= st.medal %> size-[30px]"><%- icon(st.icon, 'size-[15px]', 2.2) %></span>
-          <span class="shrink-0 font-extrabold <%= st.verb %>"><%= typeName[c.type] %></span>
+          <span class="shrink-0 font-semibold <%= st.verb %>"><%= typeName[c.type] %></span>
           <span class="hidden shrink-0 text-parchment-600 sm:inline">de</span>
           <a href="<%= mapHref(c.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.origin.name %></a>
           <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.origin.x %>|<%= c.origin.y %>)</span>
           <% if (c.origin.Player) { %><span class="hidden truncate text-parchment-500 md:inline">· <%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
         </div>
         <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
-        <span class="text-right font-extrabold tabular-nums <%= c.type === 'attack' ? 'text-blood-300' : 'text-gold-200' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
+        <span class="text-right font-semibold tabular-nums <%= c.type === 'attack' ? 'text-blood-300' : 'text-gold-200' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
         <span></span>
         <span class="col-span-full hidden flex-wrap gap-x-2 text-[13px] text-parchment-500 max-md:flex sm:pl-[42px]"><span class="sm:hidden"><%= whenShort(c.arrivesAt, now) %></span><% if (c.origin.Player) { %><span><%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %></span>
       </div>
@@ -178,10 +178,10 @@
     <tbody>
     <% for (const u of allUnits) { const home = ctx.state.units[u.id] || 0; const away = ctx.awayUnits[u.id] || 0; if (!home && !away) continue; %>
       <tr>
-        <td><span class="flex items-center gap-3"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span><span class="font-bold text-parchment-100"><%= u.name %></span></span></td>
-        <td class="text-right font-extrabold tabular-nums"><%= num(home) %></td>
+        <td><span class="flex items-center gap-3"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span><span class="font-semibold text-parchment-100"><%= u.name %></span></span></td>
+        <td class="text-right font-semibold tabular-nums"><%= num(home) %></td>
         <td class="text-right tabular-nums text-parchment-500"><%= num(away) %></td>
-        <td class="text-right font-extrabold text-gold-200 tabular-nums"><%= num(home + away) %></td>
+        <td class="text-right font-semibold text-gold-200 tabular-nums"><%= num(home + away) %></td>
       </tr>
     <% } %>
     </tbody>
@@ -192,7 +192,7 @@
 
 <div class="grid items-start gap-5 lg:grid-cols-2 [&>*]:min-w-0">
   <section class="<%= ui.panel %>">
-    <%- panelHead('Soutiens dans ce village', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${stacksHere.length}</span>`) %>
+    <%- panelHead('Soutiens dans ce village', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${stacksHere.length}</span>`) %>
     <div class="<%= ui.panelBody %>">
       <% if (!stacksHere.length) { %><p class="text-parchment-500">Aucun soutien.</p><% } %>
       <% for (const s of stacksHere) { %>
@@ -200,7 +200,7 @@
           <div class="flex items-center gap-3">
             <span class="<%= ui.medallionGold %> size-[30px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
             <span class="min-w-0 flex-1">
-              <a href="<%= mapHref(s.origin) %>" class="<%= ui.linkPlain %> font-bold"><%= s.origin.name %></a>
+              <a href="<%= mapHref(s.origin) %>" class="<%= ui.linkPlain %> font-semibold"><%= s.origin.name %></a>
               <span class="text-parchment-600 tabular-nums">(<%= s.origin.x %>|<%= s.origin.y %>)</span>
               <% if (s.origin.Player) { %><span class="text-parchment-500">· <%- playerLink(vid, s.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
             </span>
@@ -213,7 +213,7 @@
   </section>
 
   <section class="<%= ui.panel %>">
-    <%- panelHead('Vos soutiens ailleurs', `<span class="text-[13px] font-bold text-parchment-500 tabular-nums">${stacksAway.length}</span>`) %>
+    <%- panelHead('Vos soutiens ailleurs', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${stacksAway.length}</span>`) %>
     <div class="<%= ui.panelBody %>">
       <% if (!stacksAway.length) { %><p class="text-parchment-500">Aucun soutien envoyé.</p><% } %>
       <% for (const s of stacksAway) { %>
@@ -221,7 +221,7 @@
           <div class="flex items-center gap-3">
             <span class="<%= ui.medallionOlive %> size-[30px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
             <span class="min-w-0 flex-1">
-              <a href="<%= mapHref(s.village) %>" class="<%= ui.linkPlain %> font-bold"><%= s.village.name %></a>
+              <a href="<%= mapHref(s.village) %>" class="<%= ui.linkPlain %> font-semibold"><%= s.village.name %></a>
               <span class="text-parchment-600 tabular-nums">(<%= s.village.x %>|<%= s.village.y %>)</span>
               <% if (s.village.Player) { %><span class="text-parchment-500">· <%- playerLink(vid, s.village.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
             </span>
@@ -244,7 +244,7 @@
       <p class="text-parchment-400">Mêmes règles que les vrais combats (muraille, béliers, morale, chance, bonus de nuit). Rien n'est envoyé.</p>
       <% if (r) { %>
         <div class="<%= r.attackerWins ? ui.alertSuccess : ui.alertError %> flex flex-wrap items-center gap-x-4 gap-y-1">
-          <strong class="font-display tracking-[0.08em] uppercase"><%= r.attackerWins ? "L'attaquant gagne" : 'Le défenseur gagne' %></strong>
+          <strong class="font-display "><%= r.attackerWins ? "L'attaquant gagne" : 'Le défenseur gagne' %></strong>
           <span class="tabular-nums">Attaque <strong><%= num(r.attackStrength) %></strong> · Défense <strong><%= num(r.defenseStrength) %></strong></span>
           <% if (r.wallAfter !== r.wallBefore) { %><span class="tabular-nums">Muraille <%= r.wallBefore %> → <%= r.wallAfter %></span><% } %>
         </div>
@@ -257,12 +257,12 @@
       <tbody>
       <% for (const u of allUnits) { %>
         <tr>
-          <td><span class="flex items-center gap-3"><span class="hidden sm:block"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span></span><span class="font-bold whitespace-nowrap text-parchment-100"><%= u.name %></span></span></td>
+          <td><span class="flex items-center gap-3"><span class="hidden sm:block"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span></span><span class="font-semibold whitespace-nowrap text-parchment-100"><%= u.name %></span></span></td>
           <td class="text-right"><input type="number" name="att_<%= u.id %>" min="0" value="<%= inp.attackers[u.id] || '' %>" placeholder="0" class="<%= ui.inputSm %> w-16 text-right sm:w-24 tabular-nums" aria-label="<%= u.name %> (attaquant)"></td>
           <td class="text-right"><input type="number" name="def_<%= u.id %>" min="0" value="<%= inp.defenders[u.id] || '' %>" placeholder="0" class="<%= ui.inputSm %> w-16 text-right sm:w-24 tabular-nums" aria-label="<%= u.name %> (défenseur)"></td>
           <% if (r) { %>
-            <td class="text-right font-extrabold tabular-nums <%= r.attackerLosses[u.id] ? 'text-blood-300' : 'text-parchment-700' %>"><%= r.attackerLosses[u.id] ? `−${num(r.attackerLosses[u.id])}` : '—' %></td>
-            <td class="text-right font-extrabold tabular-nums <%= r.defenderLosses[u.id] ? 'text-blood-300' : 'text-parchment-700' %>"><%= r.defenderLosses[u.id] ? `−${num(r.defenderLosses[u.id])}` : '—' %></td>
+            <td class="text-right font-semibold tabular-nums <%= r.attackerLosses[u.id] ? 'text-blood-300' : 'text-parchment-700' %>"><%= r.attackerLosses[u.id] ? `−${num(r.attackerLosses[u.id])}` : '—' %></td>
+            <td class="text-right font-semibold tabular-nums <%= r.defenderLosses[u.id] ? 'text-blood-300' : 'text-parchment-700' %>"><%= r.defenderLosses[u.id] ? `−${num(r.defenderLosses[u.id])}` : '—' %></td>
           <% } %>
         </tr>
       <% } %>

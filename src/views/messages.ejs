@@ -11,7 +11,7 @@
             <a href="/village/<%= ctx.village.id %>/messages/<%= c.id %>" class="group flex min-h-14 items-center gap-3 px-4.5 py-2.5 no-underline transition hover:bg-gold-400/5 <%= unread ? 'bg-gold-400/5' : '' %>">
               <span class="<%= unread ? ui.medallionGold : ui.medallion %> size-9 <%= unread ? '' : 'opacity-70' %>"><%- icon('messages', 'size-4') %></span>
               <span class="flex min-w-0 flex-1 flex-col">
-                <span class="truncate transition group-hover:text-gold-200 <%= unread ? 'font-extrabold text-parchment-100' : 'text-parchment-300' %>"><%= c.subject %></span>
+                <span class="truncate transition group-hover:text-gold-200 <%= unread ? 'font-semibold text-parchment-100' : 'text-parchment-300' %>"><%= c.subject %></span>
                 <span class="truncate text-[13px] text-parchment-500">avec <%= others.join(', ') || 'personne' %></span>
               </span>
               <% if (unread) { %><span class="size-2 shrink-0 rotate-45 border border-black bg-gold-200" title="Non lu"></span><span class="sr-only">Non lu</span><% } %>

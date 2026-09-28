@@ -38,7 +38,7 @@
         <%- panelHead(name) %>
         <% for (const [q, a] of items) { %>
           <details class="group border-b border-bronze-800 last:border-b-0">
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 font-bold hover:bg-thead [&::-webkit-details-marker]:hidden">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 font-semibold hover:bg-thead [&::-webkit-details-marker]:hidden">
               <span class="flex items-center gap-2"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= q %></span>
               <span class="text-gold-400 transition group-open:rotate-180"><%- icon('chevronDown', 'size-3.5', 2.6) %></span>
             </summary>

@@ -2,20 +2,20 @@
 <% if (orders.length) { const first = orders[0]; const firstNext = new Date(first.nextAt); %>
   <p class="text-[15px] text-parchment-400">
     Prochaine unité (<%= unitName(first.unit) %>) dans
-    <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= firstNext.getTime() %>"><%= duration((firstNext - now) / 1000) %></span>
+    <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= firstNext.getTime() %>"><%= duration((firstNext - now) / 1000) %></span>
   </p>
   <div class="flex flex-col gap-2">
     <% for (const o of orders) { const running = new Date(o.startsAt) <= now; const end = new Date(o.endsAt); %>
       <div class="<%= running ? ui.boxGold : ui.box %> flex flex-wrap items-center gap-x-3 gap-y-1 p-2.5 ">
         <span class="<%= running ? ui.medallionGold : ui.medallion %> size-[38px]"><%- unitIcon(o.unit, 'size-[19px]') %></span>
         <span class="flex min-w-0 flex-1 flex-col">
-          <span class="truncate font-bold"><span class="tabular-nums"><%= num(o.count - o.done) %></span> <%= unitName(o.unit) %></span>
+          <span class="truncate font-semibold"><span class="tabular-nums"><%= num(o.count - o.done) %></span> <%= unitName(o.unit) %></span>
           <span class="text-[13px] text-parchment-500">Achèvement <%= when(end, now) %></span>
         </span>
         <% if (running) { %>
-          <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= end.getTime() %>"><%= duration((end - now) / 1000) %></span>
+          <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= end.getTime() %>"><%= duration((end - now) / 1000) %></span>
         <% } else { %>
-          <span class="font-extrabold text-parchment-500 tabular-nums"><%= duration((end - new Date(o.startsAt)) / 1000) %></span>
+          <span class="font-semibold text-parchment-500 tabular-nums"><%= duration((end - new Date(o.startsAt)) / 1000) %></span>
         <% } %>
         <form method="post" action="/village/<%= ctx.village.id %>/recruit-order/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button class="<%= ui.iconBtnSm %>" title="Annuler" aria-label="Annuler"><%- icon('close', 'size-3', 2.6) %></button>

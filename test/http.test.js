@@ -150,3 +150,96 @@ test('pages de la maquette GTLike : outils de la carte, contenus publics, mot de
   assert.match(sent.html, /Si un compte utilise cette adresse/);
   assert.equal((await anon(`/password/reset/${'0'.repeat(64)}`)).status, 400);
 });
+
+test('bâtiments favoris : l’étoile ajoute ou retire un bâtiment de la barre d’accès rapide', async () => {
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Fanny', email: 'f@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const quickbar = (html) => html.match(/<nav[^>]*data-quickbar[^>]*>([\s\S]*?)<\/nav>/)[1];
+
+  // Par défaut : les bâtiments construits de la barre (QG, point de ralliement…).
+  const page = await http(joined.location);
+  assert.match(quickbar(page.html), /Quartier général/);
+  assert.doesNotMatch(quickbar(page.html), /Camp de bois/);
+
+  const add = await http(`${joined.location}/buildings/wood/favorite`, { method: 'POST', form: { _csrf: tokenOf(page.html) } });
+  assert.equal(add.status, 302);
+  const after = await http(joined.location);
+  assert.match(quickbar(after.html), /Camp de bois/);
+  assert.match(after.html, /data-fav="wood" aria-pressed="true"/);
+
+  await http(`${joined.location}/buildings/main/favorite`, { method: 'POST', form: { _csrf: tokenOf(after.html) } });
+  assert.doesNotMatch(quickbar((await http(joined.location)).html), /Quartier général/);
+  const unknown = await http(`${joined.location}/buildings/church/favorite`, { method: 'POST', form: { _csrf: tokenOf(after.html) } });
+  assert.equal(unknown.status, 404);
+});
+
+test('classement : menu des types, page du joueur, aller à un rang, recherche', async () => {
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Gaston', email: 'g@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const page = await http(`${joined.location}/ranking`);
+  assert.match(page.html, /aria-label="Classements"/);
+  assert.match(page.html, /Page 1 \/ 1/);
+  assert.match(page.html, /Points par village/);
+  assert.match((await http(`${joined.location}/ranking?rank=1`)).html, /Page 1 \/ 1/);
+  assert.match((await http(`${joined.location}/ranking?q=gast`)).html, /Gaston/);
+  assert.match((await http(`${joined.location}/ranking?q=personne`)).html, /Aucun résultat pour « personne »/);
+  for (const q of ['?type=tribes', '?type=continent&of=tribes', '?type=kills&kind=def', '?type=awards']) {
+    assert.equal((await http(`${joined.location}/ranking${q}`)).status, 200, q);
+  }
+});
+
+test('carte : tailles et calques mémorisés sur le joueur, marquages', async () => {
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Hugo', email: 'h@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const map = `${joined.location}/map`;
+
+  // Tailles de Guerre Tribale, mémorisées : la page suivante les garde sans paramètre.
+  await http(`${map}?size=30&mini=120`);
+  const again = await http(map);
+  assert.match(again.html, /data-map data-size="30"/);
+  assert.match(again.html, /data-mini-map data-size="120"/);
+  assert.equal((await http(`${map}?size=12`)).status, 200);
+  assert.match((await http(map)).html, /data-map data-size="30"/, 'une taille inconnue ne remplace pas la taille mémorisée');
+
+  // Calque désactivé : plus rendu sur la grille.
+  const token = tokenOf(again.html);
+  const frameOf = (html) => html.match(/<div class="map-frame[^>]*>/)[0];
+  assert.match(frameOf(again.html), /data-layer-grid/);
+  await http(`${map}/layers`, { method: 'POST', form: { _csrf: token, layer: 'grid', on: '0' } });
+  assert.doesNotMatch(frameOf((await http(map)).html), /data-layer-grid/);
+
+  // Données chargées pendant les déplacements : secteur de 20 × 20 et mini-carte.
+  const [, x, y] = again.html.match(/data-me="(\d+)\|(\d+)"/);
+  const sector = JSON.parse((await http(`${map}/sector?sx=${Math.floor(x / 20)}&sy=${Math.floor(y / 20)}`)).html);
+  assert.ok(sector.cells.some((c) => c.kind === 'current' && c.x === Number(x) && c.y === Number(y)));
+  assert.equal((await http(`${map}/sector?sx=-1&sy=0`)).status, 404);
+  const mini = JSON.parse((await http(`${map}/mini?x0=${x - 10}&y0=${y - 10}&size=20`)).html);
+  assert.ok(mini.some(([mx, my, kind]) => mx === Number(x) && my === Number(y) && kind === 'current'));
+
+  // Taille changée en direct (map.js) puis mémorisée ; carte du monde chargée à l'ouverture de sa fenêtre.
+  const saved = await http(`${map}/settings`, { method: 'POST', form: { _csrf: token, size: '9' } });
+  assert.equal(saved.status, 302);
+  assert.match((await http(map)).html, /data-map data-size="9"/);
+  const world = JSON.parse((await http(`${map}/world`)).html);
+  assert.ok(world.size > 0 && world.villages.some(([wx, wy, kind]) => wx === Number(x) && wy === Number(y) && kind === 'current'));
+
+  // Marquage d'un village par ses coordonnées, puis suppression.
+  const set = await http(`${map}/markers`, { method: 'POST', form: { _csrf: token, type: 'village', target: `${x}|${y}`, color: '#22c55e' } });
+  assert.equal(set.status, 302);
+  const marked = await http(map);
+  assert.match(marked.html, /"mark":"#22c55e"/);
+  const id = marked.html.match(/map\/markers\/(\d+)\/delete/)[1];
+  await http(`${map}/markers/${id}/delete`, { method: 'POST', form: { _csrf: token } });
+  assert.doesNotMatch((await http(map)).html, /"mark":"#22c55e"/);
+  const bad = await http(`${map}/markers`, { method: 'POST', form: { _csrf: token, type: 'player', target: 'Personne', color: '#22c55e' } });
+  assert.equal(bad.status, 302, 'cible inconnue : message d’erreur et retour à la carte');
+});

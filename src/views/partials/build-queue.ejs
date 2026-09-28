@@ -6,11 +6,11 @@
       <span class="<%= running ? ui.medallionGold : ui.medallion %> size-[38px]"><%- buildingIcon(o.building, 'size-[19px]') %></span>
       <div class="flex min-w-0 flex-1 flex-col gap-1.5">
         <div class="flex flex-wrap justify-between gap-x-2">
-          <span class="truncate font-bold"><%= buildingName(o.building) %> <span class="font-medium text-parchment-500">niveau <%= o.level %></span></span>
+          <span class="truncate font-semibold"><%= buildingName(o.building) %> <span class="font-medium text-parchment-500">niveau <%= o.level %></span></span>
           <% if (running) { %>
-            <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span>
+            <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span>
           <% } else { %>
-            <span class="font-extrabold text-parchment-500 tabular-nums"><%= duration((end - start) / 1000) %></span>
+            <span class="font-semibold text-parchment-500 tabular-nums"><%= duration((end - start) / 1000) %></span>
           <% } %>
         </div>
         <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%"<%- running ? ` data-progress-start="${start}" data-progress-end="${end}"` : '' %>></span></span>

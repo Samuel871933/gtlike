@@ -10,17 +10,20 @@
         <span class="absolute top-0.5 left-0.5 <%= ui.levelBadge %> min-w-0">LV.<%= bLevel %></span>
       </span>
       <div class="flex min-w-0 flex-col gap-0.5">
-        <h1 class="m-0 font-display text-2xl font-black tracking-[0.1em] text-parchment-100 uppercase [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)] sm:text-[28px]"><%= bType.name %> <span class="font-sans text-sm font-bold tracking-[0.08em] text-gold-400 [text-shadow:none]">· <%= bLevel ? `NIVEAU ${bLevel}` : 'NON CONSTRUIT' %></span></h1>
+        <div class="flex items-center gap-1.5">
+          <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)] sm:text-[28px]"><%= bType.name %> <span class="font-sans text-sm font-semibold text-gold-400 [text-shadow:none]">· <%= bLevel ? `niveau ${bLevel}` : 'non construit' %></span></h1>
+          <%- favStar(ctx.village.id, buildingId, favoriteBuildings(player, ctx).includes(buildingId), csrfToken, 'size-8') %>
+        </div>
         <p class="text-sm text-parchment-500"><%= bType.description %></p>
       </div>
     </div>
     <% if (stat) { %>
       <dl class="flex shrink-0 flex-col border border-bronze-800 border-t-2 border-t-bronze-500 bg-night px-2.5 py-1 sm:min-w-52 sm:text-right">
-        <dt class="text-[10px] tracking-[0.14em] text-parchment-500 uppercase"><%= stat.label %></dt>
+        <dt class="text-[10px] tracking-[0.02em] text-parchment-500"><%= stat.label %></dt>
         <dd class="flex flex-wrap items-baseline gap-x-2 sm:justify-end">
-          <span class="text-lg font-bold text-parchment-100 tabular-nums"><%= stat.value %></span>
+          <span class="text-lg font-semibold text-parchment-100 tabular-nums"><%= stat.value %></span>
           <% if (nextStat) { %>
-            <span class="inline-flex items-center gap-1 text-[13px] text-parchment-500"><span class="text-gold-400"><%- icon('arrowRight', 'size-3', 2.6) %></span><span class="font-bold text-gold-200 tabular-nums"><%= nextStat.value %></span> au niv. <%= bLevel + 1 %></span>
+            <span class="inline-flex items-center gap-1 text-[13px] text-parchment-500"><span class="text-gold-400"><%- icon('arrowRight', 'size-3', 2.6) %></span><span class="font-semibold text-gold-200 tabular-nums"><%= nextStat.value %></span> au niv. <%= bLevel + 1 %></span>
           <% } %>
         </dd>
       </dl>

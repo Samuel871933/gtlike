@@ -34,6 +34,9 @@
     iron: 'bg-[radial-gradient(ellipse_at_50%_55%,var(--color-bld-pit)_30%,var(--color-bld-rock)_32%)]',
   };
   const vid = ctx.village.id;
+  const favs = new Set(favoriteBuildings(player, ctx));
+  // Étoile d'un bloc : visible au survol, toujours visible si le bâtiment est en favori.
+  const plotStar = (id) => `<span class="absolute right-[3px] bottom-[21px] z-[2] opacity-0 transition group-hover/plot:opacity-100 focus-within:opacity-100 has-[[aria-pressed=true]]:opacity-100">${favStar(vid, id, favs.has(id), csrfToken, 'size-6 border border-black bg-night/85')}</span>`;
   const plotOf = (id) => {
     const b = registry.BUILDINGS.get(id);
     if (!b || !b.isAvailableIn(ctx.cfg)) return null;
@@ -49,38 +52,41 @@
   const titleOf = (p) => `${p.b.name} · ${p.level ? `niveau ${p.level}` : 'non construit'}${p.last ? ` · niveau ${p.last.level} en file` : ''}`;
   // Pastille de chantier : compte à rebours si en cours, « EN FILE » sinon.
   const timer = (p) => p.running
-    ? `<span class="flex items-center gap-[3px] border-2 border-black bg-blood-700 px-1 text-[10px] font-bold text-parchment-100 tabular-nums shadow-[2px_2px_0_#000]">${icon('smith', 'size-2.5', 3)}<span data-countdown="${new Date(p.running.endsAt).getTime()}">${duration((new Date(p.running.endsAt) - now) / 1000)}</span></span>`
-    : `<span class="border-2 border-black bg-blood-900 px-1 text-[10px] font-bold text-parchment-100 shadow-[2px_2px_0_#000]">EN FILE</span>`;
+    ? `<span class="flex items-center gap-[3px] border-2 border-black bg-blood-700 px-1 text-[10px] font-semibold text-parchment-100 tabular-nums shadow-[2px_2px_0_#000]">${icon('smith', 'size-2.5', 3)}<span data-countdown="${new Date(p.running.endsAt).getTime()}">${duration((new Date(p.running.endsAt) - now) / 1000)}</span></span>`
+    : `<span class="border-2 border-black bg-blood-900 px-1 text-[10px] font-semibold text-parchment-100 shadow-[2px_2px_0_#000]">En file</span>`;
 %>
 <div class="<%= view === 'list' ? 'hidden' : 'hidden md:block' %> bg-night p-2">
   <div class="relative aspect-[966/580] overflow-hidden border-[3px] border-black bg-(image:--game-image-village) bg-cover bg-center">
     <% for (const p of plan) { %>
-      <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute <%= SPOTS[p.b.id] %> data-selected:outline-[3px] data-selected:outline-gold-200 data-selected:shadow-[0_0_0_6px_rgba(0,0,0,0.6),6px_6px_0_rgba(0,0,0,0.6)] h-[16%] w-[14.5%] -translate-1/2 border-[3px] border-black no-underline transition-transform hover:-translate-[calc(50%+2px)] <%= p.level ? `${LOOK[p.b.id]} shadow-[5px_5px_0_rgba(0,0,0,0.55)]` : 'border-dashed bg-black/45' %> <%= p.running ? 'outline-[3px] outline-offset-0 outline-gold-200' : '' %>"
+      <div class="group/plot absolute <%= SPOTS[p.b.id] %> h-[16%] w-[14.5%] -translate-1/2">
+      <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute inset-0 data-selected:outline-[3px] data-selected:outline-gold-200 data-selected:shadow-[0_0_0_6px_rgba(0,0,0,0.6),6px_6px_0_rgba(0,0,0,0.6)] border-[3px] border-black no-underline transition-transform hover:-translate-y-0.5 <%= p.level ? `${LOOK[p.b.id]} shadow-[5px_5px_0_rgba(0,0,0,0.55)]` : 'border-dashed bg-black/45' %> <%= p.running ? 'outline-[3px] outline-offset-0 outline-gold-200' : '' %>"
          title="<%= titleOf(p) %>">
         <% if (!p.level) { %><span class="absolute inset-0 flex items-center justify-center text-parchment-500/70"><%- buildingIcon(p.b.id, 'size-6', 1.8) %></span><% } %>
-        <span class="absolute top-[3px] left-[3px] border px-1 text-[10px] font-bold tracking-[0.04em] <%= p.level ? 'border-gold-400 bg-night text-gold-400' : 'border-bronze-700 bg-night text-parchment-500' %>">LV.<%= p.level %></span>
+        <span class="absolute top-[3px] left-[3px] border px-1 text-[10px] font-semibold <%= p.level ? 'border-gold-400 bg-night text-gold-400' : 'border-bronze-700 bg-night text-parchment-500' %>">LV.<%= p.level %></span>
         <% if (p.last) { %><span class="absolute -top-2.5 -right-[3px]"><%- timer(p) %></span><% } %>
-        <span class="absolute inset-x-0 bottom-0 truncate border-t-2 border-black bg-plate px-1 py-px text-[10px] font-bold tracking-[0.1em] uppercase transition group-hover:bg-head-dark <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
+        <span class="absolute inset-x-0 bottom-0 truncate border-t-2 border-black bg-plate px-1 py-px text-[10px] font-semibold tracking-[0.02em] transition group-hover:bg-head-dark <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
       </a>
+      <%- plotStar(p.b.id) %>
+      </div>
     <% } %>
     <% if (wall) { %>
       <a href="<%= wall.href %>" data-plot="wall" class="absolute top-[85.5%] left-[50%] flex -translate-x-1/2 gap-[3px] no-underline data-selected:outline-2 data-selected:outline-offset-2 data-selected:outline-gold-200" title="<%= titleOf(wall) %>">
-        <span class="border border-gold-400 bg-night px-1 text-[10px] font-bold tracking-[0.04em] whitespace-nowrap text-gold-400 uppercase hover:text-parchment-100"><%= wall.b.name %> LV.<%= wall.level %></span>
+        <span class="border border-gold-400 bg-night px-1 text-[10px] font-semibold whitespace-nowrap text-gold-400 hover:text-parchment-100"><%= wall.b.name %> LV.<%= wall.level %></span>
         <% if (wall.last) { %><%- timer(wall) %><% } %>
       </a>
     <% } %>
     <div class="pointer-events-none absolute right-2 bottom-2 flex gap-[3px]">
-      <span class="border border-bronze-700 bg-night px-1.5 py-0.5 text-[11px] tracking-[0.1em] text-parchment-500 uppercase">Loyauté <%= Math.floor(ctx.state.loyalty) %></span>
+      <span class="border border-bronze-700 bg-night px-1.5 py-0.5 text-[11px] tracking-[0.02em] text-parchment-500">Loyauté <%= Math.floor(ctx.state.loyalty) %></span>
     </div>
   </div>
   <%# Bandeau sous le plan : par défaut le chantier en tête de file ; le survol d'un bâtiment (game.js) affiche son encart. %>
   <div class="mt-2 flex flex-wrap items-center justify-between gap-3 border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top px-2.5 py-2" data-plot-info="">
     <div class="min-w-0 flex-[1_1_260px]">
       <% if (head) { %>
-        <div class="font-display text-base font-bold tracking-[0.1em] uppercase"><%= buildingName(head.building) %> <span class="font-sans text-sm text-gold-400">→ niveau <%= head.level %></span></div>
+        <div class="font-display text-base font-semibold tracking-[0.02em]"><%= buildingName(head.building) %> <span class="font-sans text-sm text-gold-400">→ niveau <%= head.level %></span></div>
         <div class="text-[13px] text-parchment-500"><%= works %> chantier<%= works > 1 ? 's' : '' %> en file · fin <%= when(ctx.buildOrders[works - 1].endsAt, now) %></div>
       <% } else { %>
-        <div class="font-display text-base font-bold tracking-[0.1em] uppercase">Aucun chantier</div>
+        <div class="font-display text-base font-semibold tracking-[0.02em]">Aucun chantier</div>
         <div class="text-[13px] text-parchment-500">Clique un bâtiment pour ouvrir sa page. Les ouvriers attendent tes ordres.</div>
       <% } %>
     </div>
@@ -90,7 +96,7 @@
        const reason = o.blockers[0] || (o.lacksResources ? 'Ressources insuffisantes' : null); %>
     <div class="mt-2 hidden flex-wrap items-center justify-between gap-3 border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top px-2.5 py-2" data-plot-info="<%= p.b.id %>">
       <div class="min-w-0 flex-[1_1_260px]">
-        <div class="font-display text-base font-bold tracking-[0.1em] uppercase"><%= p.b.name %> <span class="font-sans text-sm text-gold-400">· <%= p.level ? `NIVEAU ${p.level}` : 'NON CONSTRUIT' %></span></div>
+        <div class="font-display text-base font-semibold tracking-[0.02em]"><%= p.b.name %> <span class="font-sans text-sm text-gold-400">· <%= p.level ? `niveau ${p.level}` : 'non construit' %></span></div>
         <div class="text-[13px] text-parchment-500"><%= p.b.description %></div>
       </div>
       <div class="flex flex-wrap items-center gap-2.5 text-[13px] tabular-nums">
@@ -117,13 +123,16 @@
 <%# Vue liste (et rendu mobile de la vue cité). %>
 <div class="<%= view === 'list' ? '' : 'md:hidden' %> grid gap-1.5 p-2.5 sm:grid-cols-2 xl:grid-cols-3">
   <% for (const p of [...plan, ...(wall ? [wall] : [])]) { %>
-    <a href="<%= p.href %>" class="<%= ui.box %> flex items-center gap-2.5 p-1.5 no-underline transition hover:bg-row-hover" title="<%= titleOf(p) %>">
+    <div class="<%= ui.box %> flex items-center gap-1 pr-1.5 transition hover:bg-row-hover">
+    <a href="<%= p.href %>" class="flex min-w-0 flex-1 items-center gap-2.5 p-1.5 no-underline" title="<%= titleOf(p) %>">
       <span class="block h-10 w-14 shrink-0 border-2 border-black <%= p.level ? (LOOK[p.b.id] || 'bg-bld-stone') : 'border-dashed bg-black/45' %>"></span>
       <span class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate font-bold tracking-[0.04em] uppercase <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
+        <span class="truncate font-semibold <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
         <span class="text-[13px] text-gold-400"><%= p.level ? `LV.${p.level}` : 'Non construit' %></span>
       </span>
       <% if (p.last) { %><span class="shrink-0"><%- timer(p) %></span><% } %>
     </a>
+    <%- favStar(vid, p.b.id, favs.has(p.b.id), csrfToken) %>
+    </div>
   <% } %>
 </div>

@@ -14,8 +14,10 @@
   Les composants sont des chaînes de classes utilitaires (src/web/ui.js).
 */
 @theme {
-  --font-sans: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --font-display: "Cinzel", Georgia, serif;
+  --font-sans: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+  --font-display: "Marcellus", Georgia, serif;
+  /* Logo seulement : capitales romaines. */
+  --font-logo: "Cinzel", Georgia, serif;
 
   /* Fonds : encre et panneaux */
   --color-night: #0b0b0c;
@@ -185,13 +187,23 @@
 /* Carte du monde : villages progressifs et déplacement direct. */
 .map-viewport { cursor: grab; touch-action: none; user-select: none; }
 .map-viewport.is-dragging { cursor: grabbing; }
-.map-tile {
+/* Calque de la carte (public/js/map.js) : texture d'herbe de 9 × 9 cases, calée sur les coordonnées du monde. */
+[data-map-plane] {
   background-image: linear-gradient(rgb(20 27 17 / .08), rgb(20 27 17 / .08)), url('/img/map/terrain-grass.webp');
-  /* Texture d'herbe de 9 × 9 cases, calée sur la taille des cases (--tile, ajustée par game.js). */
   background-size: auto, calc(var(--tile, 48px) * 9) calc(var(--tile, 48px) * 9);
-  background-position: center, calc(var(--terrain-x, 0) * var(--tile, 48px)) calc(var(--terrain-y, 0) * var(--tile, 48px));
-  box-shadow: none;
+  background-position: 0 0, calc(var(--terrain-x, 0) * var(--tile, 48px)) calc(var(--terrain-y, 0) * var(--tile, 48px));
 }
+/* Quadrillage : trait fin à chaque case, trait appuyé toutes les 5 cases (décalé par --grid-x / --grid-y). */
+.map-grid-lines {
+  background-image:
+    linear-gradient(to right, rgb(0 0 0 / .55) 2px, transparent 2px),
+    linear-gradient(to bottom, rgb(0 0 0 / .55) 2px, transparent 2px),
+    linear-gradient(to right, rgb(0 0 0 / .22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(0 0 0 / .22) 1px, transparent 1px);
+  background-size: calc(var(--tile) * 5) 100%, 100% calc(var(--tile) * 5), var(--tile) 100%, 100% var(--tile);
+  background-position: calc(var(--grid-x, 0) * var(--tile)) 0, 0 calc(var(--grid-y, 0) * var(--tile)), 0 0, 0 0;
+}
+.map-tile { box-shadow: none; }
 .map-tile:hover { filter: brightness(1.16); box-shadow: inset 0 0 0 2px rgb(240 208 138 / .45); }
 .map-tile[data-selected] { position: relative; z-index: 4; box-shadow: inset 0 0 0 3px var(--color-gold-200), inset 0 0 14px rgb(244 219 160 / .5) !important; }
 .map-viewport.is-dragging .map-tile { pointer-events: none; }

@@ -15,13 +15,13 @@ const GAME_STYLES = {
     id: 'roman',
     name: 'Romain',
     description: 'Encre, rouge sang et bronze : la grandeur de l’Empire.',
-    fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Cinzel:wght@700;900&display=swap',
+    fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Marcellus&display=swap',
   },
   viking: {
     id: 'viking',
     name: 'Viking',
     description: 'Fer, givre et palissades de bois : les terres du Nord.',
-    fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Grenze:wght@400;600;700;800&display=swap',
+    fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Grenze:wght@400;500;600;700&display=swap',
   },
 };
 

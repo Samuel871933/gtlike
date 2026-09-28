@@ -19,12 +19,15 @@ const KnightSkillService = require('../../services/KnightSkillService');
 const ScavengeService = require('../../services/ScavengeService');
 const ArmyTemplateService = require('../../services/ArmyTemplateService');
 const FavoriteService = require('../../services/FavoriteService');
+const MarkerService = require('../../services/MarkerService');
+const mapView = require('../mapView');
 const TribeForumService = require('../../services/TribeForumService');
 const scavenging = require('../../game/scavenging');
 const knightSkills = require('../../game/knightSkills');
 const GameError = require('../../services/GameError');
 const registry = require('../../game/registry');
 const combat = require('../../game/combat');
+const { favoriteBuildings } = require('../helpers');
 const { ah, back, flash, requireAuth, loadVillage, ownerOnly } = require('../middleware');
 
 const router = express.Router({ mergeParams: true });
@@ -71,6 +74,24 @@ router.get('/building/:building', (req, res) => {
   if (!type || !type.isAvailableIn(req.ctx.cfg)) throw new GameError('Bâtiment introuvable.', 404);
   res.render('building', { page: type.id, buildingId: type.id, option: VillageService.buildOption(req.ctx, type) });
 });
+
+// Étoile « favori » d'un bâtiment : l'ajoute ou le retire de la barre d'accès rapide. Appel de game.js :
+// réponse JSON avec la barre à jour ; sans JavaScript : retour à la page.
+router.post('/buildings/:buildingId/favorite', ah(async (req, res) => {
+  const id = req.params.buildingId;
+  const type = registry.BUILDINGS.get(id);
+  if (!type || !type.isAvailableIn(req.ctx.cfg)) throw new GameError('Bâtiment inconnu.', 404);
+  const player = await Player.findByPk(me(req));
+  const current = favoriteBuildings(player, req.ctx);
+  const on = !current.includes(id);
+  await player.update({ favoriteBuildings: on ? [...current, id] : current.filter((b) => b !== id) });
+  if (req.get('accept') !== 'application/json') return res.redirect(back(req, base(req)));
+  res.locals.player = player;
+  const html = await new Promise((resolve, reject) => {
+    res.render('partials/quickbar', { page: String(req.body.page || '') }, (err, out) => (err ? reject(err) : resolve(out)));
+  });
+  res.json({ on, html });
+}));
 
 router.post('/build', ah(async (req, res) => {
   const order = await VillageService.build(req.ctx.village.id, String(req.body.building || ''));
@@ -776,7 +797,8 @@ router.post('/reports/:reportId/delete', ah(async (req, res) => {
 
 router.get('/ranking', ah(async (req, res) => {
   const { rankingLocals } = require('./worlds');
-  res.render('ranking', { page: 'ranking', ...(await rankingLocals(req.ctx.world, req.query)) });
+  const viewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId'] });
+  res.render('ranking', { page: 'ranking', ...(await rankingLocals(req.ctx.world, req.query, { playerId: viewer.id, tribeId: viewer.tribeId })) });
 }));
 
 router.get('/victory', ah(async (req, res) => {
@@ -786,49 +808,120 @@ router.get('/victory', ah(async (req, res) => {
 
 // ------------------------------------------------------------ Carte
 
+// Tailles proposées (comme sur Guerre Tribale) et calques de la carte, mémorisés sur le joueur (mapSettings).
+const MAP_SIZES = [4, 5, 7, 9, 11, 13, 15, 20, 30];
+const MINI_SIZES = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120];
+const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: true, borders: true, markers: true };
+
 router.get('/map', ah(async (req, res) => {
   const { village, cfg } = req.ctx;
-  const mapSizes = [7, 9, 11, 13, 15];
-  const miniSizes = [25, 35, 50, 70];
-  const displaySize = mapSizes.includes(Number(req.query.size)) ? Number(req.query.size) : 13;
-  const miniSize = miniSizes.includes(Number(req.query.mini)) ? Number(req.query.mini) : 35;
-  const showWorldMap = req.query.world === '1';
+  const vc = await mapView.viewContext(village, cfg);
+  const { player } = vc;
+  const saved = player.mapSettings || {};
+  // Taille choisie dans « Taille de la carte » : appliquée puis mémorisée ; sinon celle mémorisée.
+  const pick = (value, list, fallback) => (list.includes(Number(value)) ? Number(value) : fallback);
+  const displaySize = pick(req.query.size, MAP_SIZES, pick(saved.size, MAP_SIZES, 13));
+  const miniSize = pick(req.query.mini, MINI_SIZES, pick(saved.mini, MINI_SIZES, 50));
+  if (displaySize !== saved.size || miniSize !== saved.mini) await player.update({ mapSettings: { ...saved, size: displaySize, mini: miniSize } });
+  const layers = { ...MAP_LAYERS, ...(saved.layers || {}) };
   const clamp = (v, d) => {
     const n = Number.parseInt(v, 10);
     return Number.isFinite(n) ? Math.min(cfg.mapSize - 1, Math.max(0, n)) : d;
   };
-  // « Aller à » : une seule case de saisie « 529|546 » (ou x et y séparés).
-  const typed = /^\s*(\d+)\D+(\d+)\s*$/.exec(String(req.query.c || ''));
-  const cx = clamp(typed ? typed[1] : req.query.x, village.x);
-  const cy = clamp(typed ? typed[2] : req.query.y, village.y);
-  // Case sélectionnée (panneau « Cible ») : celle visée, sinon le village courant.
-  const sx = clamp(req.query.sx, typed || req.query.x ? cx : village.x);
-  const sy = clamp(req.query.sy, typed || req.query.y ? cy : village.y);
+  const cx = clamp(req.query.x, village.x);
+  const cy = clamp(req.query.y, village.y);
+  // Case mise en évidence (résultat de recherche, lien vers des coordonnées).
+  const sel = req.query.sx != null ? { x: clamp(req.query.sx, cx), y: clamp(req.query.sy, cy) } : null;
   // Recherche (panneau de la carte) : joueur, village, tribu ; des coordonnées recentrent directement la carte.
   const find = ['player', 'village', 'tribe', 'coords'].includes(req.query.find) ? req.query.find : 'player';
   const q = String(req.query.q || '').trim();
   if (find === 'coords' && q) {
     const m = /^\s*(\d+)\D+(\d+)\s*$/.exec(q);
-    if (m) return res.redirect(`/village/${village.id}/map?x=${clamp(m[1], cx)}&y=${clamp(m[2], cy)}&sx=${clamp(m[1], cx)}&sy=${clamp(m[2], cy)}&size=${displaySize}&mini=${miniSize}`);
+    if (m) return res.redirect(`/village/${village.id}/map?x=${clamp(m[1], cx)}&y=${clamp(m[2], cy)}&sx=${clamp(m[1], cx)}&sy=${clamp(m[2], cy)}`);
   }
   const search = { find, q, results: q && find !== 'coords' ? await MapService.search(village.worldId, find, q) : null };
-  const templates = await ArmyTemplateService.list(village.playerId);
-  const favorites = await FavoriteService.list(village.playerId);
-  const [area, overviewArea, player, movements, worldVillages] = await Promise.all([
-    MapService.area(village.worldId, cx, cy, displaySize),
-    MapService.area(village.worldId, cx, cy, miniSize),
-    Player.findByPk(village.playerId),
+  // Premiers secteurs (zone affichée et ses abords) et mini-carte, intégrés à la page : pas d'attente au premier affichage.
+  const half = Math.floor(displaySize / 2);
+  const around = mapView.sectorsCovering(cx - half - 10, cy - half - 10, cx + half + 10, cy + half + 10);
+  const miniHalf = Math.floor(miniSize / 2);
+  const [templates, sectors, miniVillages, movements] = await Promise.all([
+    ArmyTemplateService.list(village.playerId),
+    Promise.all(around.map(([sx, sy]) => mapView.sector(vc, sx, sy))),
+    mapView.mini(vc, cx - miniHalf, cy - miniHalf, miniSize),
     CommandService.overview(village.id),
-    showWorldMap ? MapService.worldMap(village.worldId) : Promise.resolve([]),
   ]);
-  const relations = await TribeService.relationsOf(player.tribeId);
-  const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => ({ x: c.target.x, y: c.target.y }));
+  const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => [c.target.x, c.target.y]);
   // Infobulle : durée du trajet de chaque unité (minutes par case) ; menu : éclaireurs proposés pour « Espionner ».
   const paces = registry.unitsFor(cfg).map((u) => ({ id: u.id, name: u.name, minutes: u.minutesPerField(cfg) }));
-  // Morale de tes attaques selon les points du joueur visé (null si le monde n'a pas de morale).
-  const moraleOf = cfg.moral ? (points) => combat.morale(player.points, points, true) : null;
   const spyCount = Math.min(req.ctx.state.units.spy || 0, 5);
-  res.render('map', { page: 'map', area, overviewArea, cx, cy, sx, sy, relations, attacks, displaySize, miniSize, mapSizes, miniSizes, showWorldMap, worldVillages, paces, spyCount, search, templates, favorites, moraleOf });
+  // Marquage à créer depuis le menu d'un village (?mark=player:12) : formulaire pré-rempli.
+  const markMatch = /^(player|tribe|village):(\d+)$/.exec(String(req.query.mark || ''));
+  const markForm = markMatch ? { type: markMatch[1], targetId: Number(markMatch[2]), label: String(req.query.label || '') } : null;
+  res.render('map', {
+    page: 'map', cx, cy, sel, displaySize, miniSize, mapSizes: MAP_SIZES, miniSizes: MINI_SIZES, layers,
+    paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, palette: MarkerService.PALETTE, markForm,
+    mapBoot: { sector: mapView.SECTOR, sectors, mini: miniVillages, attacks, worldSize: cfg.mapSize },
+  });
+}));
+
+// Carte : villages d'un secteur de 20 × 20 cases, chargé par le navigateur pendant les déplacements.
+router.get('/map/sector', ah(async (req, res) => {
+  const sx = Number.parseInt(req.query.sx, 10);
+  const sy = Number.parseInt(req.query.sy, 10);
+  const max = Math.ceil(req.ctx.cfg.mapSize / mapView.SECTOR);
+  if (!(sx >= 0 && sy >= 0 && sx < max && sy < max)) throw new GameError('Secteur hors de la carte.', 404);
+  res.json(await mapView.sector(await mapView.viewContext(req.ctx.village, req.ctx.cfg), sx, sy));
+}));
+
+// Mini-carte recentrée : points colorés des villages du carré.
+router.get('/map/mini', ah(async (req, res) => {
+  const size = MINI_SIZES.includes(Number(req.query.size)) ? Number(req.query.size) : 50;
+  const x0 = Number.parseInt(req.query.x0, 10) || 0;
+  const y0 = Number.parseInt(req.query.y0, 10) || 0;
+  res.json(await mapView.mini(await mapView.viewContext(req.ctx.village, req.ctx.cfg), x0, y0, size));
+}));
+
+// Tailles de la carte et de la mini-carte : appliquées en direct par map.js, puis mémorisées ici.
+router.post('/map/settings', ah(async (req, res) => {
+  const player = await Player.findByPk(me(req));
+  const saved = player.mapSettings || {};
+  const size = MAP_SIZES.includes(Number(req.body.size)) ? Number(req.body.size) : saved.size;
+  const mini = MINI_SIZES.includes(Number(req.body.mini)) ? Number(req.body.mini) : saved.mini;
+  await player.update({ mapSettings: { ...saved, size, mini } });
+  if (req.get('accept') === 'application/json') return res.json({ size, mini });
+  res.redirect(`${base(req)}/map`);
+}));
+
+// Carte du monde (fenêtre ouverte par map.js) : un point par village, couleur de la relation ou du marquage.
+router.get('/map/world', ah(async (req, res) => {
+  const vc = await mapView.viewContext(req.ctx.village, req.ctx.cfg);
+  const villages = await MapService.worldMap(req.ctx.village.worldId);
+  res.json({ size: req.ctx.cfg.mapSize, villages: villages.map((v) => [v.x, v.y, mapView.markOf(vc, v) || mapView.kindOf(vc, v)]) });
+}));
+
+// Calques de la carte : interrupteur mémorisé sur le joueur (appel de game.js).
+router.post('/map/layers', ah(async (req, res) => {
+  const layer = String(req.body.layer || '');
+  if (!Object.prototype.hasOwnProperty.call(MAP_LAYERS, layer)) throw new GameError('Calque inconnu.', 404);
+  const player = await Player.findByPk(me(req));
+  const saved = player.mapSettings || {};
+  await player.update({ mapSettings: { ...saved, layers: { ...(saved.layers || {}), [layer]: req.body.on === '1' } } });
+  res.json({ ok: true });
+}));
+
+// Marquages de la carte : ajout (ou changement de couleur) et suppression.
+router.post('/map/markers', ah(async (req, res) => {
+  await MarkerService.set(me(req), req.ctx.village.worldId, {
+    type: req.body.type, targetId: req.body.targetId, target: req.body.target, color: req.body.color,
+  });
+  flash(req, 'success', 'Marquage enregistré.');
+  res.redirect(`${base(req)}/map#marquages`);
+}));
+
+router.post('/map/markers/:markerId/delete', ah(async (req, res) => {
+  await MarkerService.remove(me(req), req.params.markerId);
+  flash(req, 'success', 'Marquage supprimé.');
+  res.redirect(`${base(req)}/map#marquages`);
 }));
 
 module.exports = router;
