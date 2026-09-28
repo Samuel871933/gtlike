@@ -65,17 +65,35 @@
     h ^= h >>> 16;
     return (h >>> 0) / 4294967296;
   };
-  const terrain = (x, y) => {
-    const local = rnd(x, y, 1);
-    const biome = (rnd(Math.floor(x / 4), Math.floor(y / 4), 11) + rnd(Math.floor((x + 2) / 4), Math.floor((y + 2) / 4), 19)) / 2;
-    if (biome < 0.34 && local < 0.34) return 'forest';
-    if (biome > 0.76 && local < 0.07) return 'hill';
-    if (biome > 0.47 && biome < 0.58 && local < 0.055) return 'water';
-    return 'grass';
+  const biomeAt = (x, y) => (
+    rnd(Math.floor(x / 5), Math.floor(y / 5), 11)
+    + rnd(Math.floor((x + 3) / 5), Math.floor((y + 3) / 5), 19)
+  ) / 2;
+  // Un grand décor n'est placé que sur le minimum local de son voisinage : cela forme des amas espacés,
+  // au lieu de remplir chaque case avec le même gros sprite.
+  const isAnchor = (x, y, seed, radius, ceiling) => {
+    const n = rnd(x, y, seed);
+    if (n > ceiling) return false;
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if ((dx || dy) && rnd(x + dx, y + dy, seed) < n) return false;
+      }
+    }
+    return true;
   };
-  const near = (x, y, kinds) => {
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
+  const terrain = (x, y) => {
+    const biome = biomeAt(x, y);
+    if (biome > 0.44 && biome < 0.61 && isAnchor(x, y, 73, 3, 0.11)) return 'lake';
+    if (biome > 0.69 && isAnchor(x, y, 67, 3, 0.16)) return 'hill';
+    if (biome < 0.48 && isAnchor(x, y, 43, 2, 0.2)) return 'forest';
+    if (biome < 0.52 && rnd(x, y, 29) < 0.22) return 'trees';
+    if (biome < 0.58 && rnd(x, y, 23) < 0.11) return 'pine';
+    if (rnd(x, y, 31) < 0.032) return 'rocks';
+    return null;
+  };
+  const near = (x, y, kinds, radius = 1) => {
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dy = -radius; dy <= radius; dy++) {
         const c = cells.get(key(x + dx, y + dy));
         if (c && kinds.includes(c.kind)) return true;
       }
@@ -90,11 +108,15 @@
   let span = 0;
 
   function villageHtml(c) {
-    const mark = c.mark
-      ? `<span class="pointer-events-none absolute bottom-1 left-1 z-[6] hidden size-2.5 border border-black shadow-[1px_1px_0_#000] group-data-[layer-markers]/map:block" style="background:${esc(c.mark)}"></span>` : '';
+    const relationHasDot = ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind);
+    // Une seule pastille par village : le marquage personnalisé remplace la relation. Les barbares,
+    // autres joueurs et PNA sans marquage n'affichent rien.
+    const dot = c.mark
+      ? `<span class="village-relation-dot hidden group-data-[layer-markers]/map:block" style="background:${esc(c.mark)}"></span>`
+      : relationHasDot ? '<span class="village-relation-dot"></span>' : '';
     const fav = c.fav ? '<span class="pointer-events-none absolute top-0 left-0.5 z-[6] text-xs text-gold-200 [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
     const barb = c.kind === 'barb' ? ' group-data-[layer-nobarb]/map:hidden' : '';
-    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level}"${c.mark ? ` style="--village-color:${esc(c.mark)}"` : ''} aria-hidden="true"><span class="village-sprite"></span>${c.special ? '<span class="village-special">★</span>' : ''}</span></span>${mark}${fav}`;
+    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span></span>${fav}`;
   }
 
   function render() {
@@ -121,11 +143,23 @@
           out.push(`<div class="map-tile map-tile--village absolute flex size-(--tile) cursor-pointer items-center justify-center" style="${at(x, y)}" data-map-tile data-x="${x}" data-y="${y}"${sel && sel[0] === x && sel[1] === y ? ' data-selected' : ''} aria-label="${esc(`${c.name} ${x}|${y} · ${c.points} pts · ${c.owner}`)}">${villageHtml(c)}</div>`);
         } else {
           const t = terrain(x, y);
-          if (t !== 'grass') {
-            const rot = Math.floor(rnd(x, y, 31) * 4) * 90;
-            const scale = (0.9 + rnd(x, y, 37) * 0.22).toFixed(2);
-            out.push(`<div class="pointer-events-none absolute flex size-(--tile) items-center justify-center" style="${at(x, y)};--decor-rotate:${rot}deg;--decor-scale:${scale}"><span class="terrain-sprite terrain-sprite--${t}" aria-hidden="true"></span></div>`);
-          }
+          // Le décor principal dessine les biomes. Une seconde couche, indépendante, ajoute de petits
+          // arbres et cailloux entre les villages et jusque dans les grands amas pour lier le paysage.
+          const decorations = t ? [t] : [];
+          const accent = rnd(x, y, 101);
+          const besideVillage = near(x, y, ['current', 'own', 'tribe', 'ally', 'nap', 'enemy', 'other', 'barb']);
+          const pineChance = besideVillage ? 0.34 : 0.16;
+          const rockChance = besideVillage ? 0.08 : 0.045;
+          if (accent < pineChance) decorations.push('pine');
+          else if (accent < pineChance + rockChance) decorations.push('rocks');
+          if (t === 'forest' && rnd(x, y, 107) < 0.72) decorations.push('pine');
+          decorations.forEach((kind, i) => {
+            const scale = (0.84 + rnd(x, y, 37 + i * 7) * 0.22).toFixed(2);
+            const flip = rnd(x, y, 41 + i * 11) > 0.5 ? -1 : 1;
+            const dx = i ? Math.round((rnd(x, y, 113 + i) - 0.5) * tile * 0.72) : 0;
+            const dy = i ? Math.round((rnd(x, y, 127 + i) - 0.5) * tile * 0.58) : 0;
+            out.push(`<div class="map-decor map-decor--${kind} pointer-events-none absolute" style="${at(x, y)};--decor-scale:${scale};--decor-flip:${flip};--decor-x:${dx}px;--decor-y:${dy}px" aria-hidden="true"><span></span></div>`);
+          });
           if (sel && sel[0] === x && sel[1] === y) out.push(`<div class="map-tile pointer-events-none absolute size-(--tile) bg-none" style="${at(x, y)}" data-selected></div>`);
         }
       }
@@ -138,9 +172,9 @@
     layer.innerHTML = out.join('');
     layer.style.width = `${span * tile}px`;
     layer.style.height = `${span * tile}px`;
-    // Texture d'herbe (9 × 9 cases) calée sur les coordonnées du monde.
-    layer.style.setProperty('--terrain-x', String(-(((x0 % 9) + 9) % 9)));
-    layer.style.setProperty('--terrain-y', String(-(((y0 % 9) + 9) % 9)));
+    // Texture d'herbe (6 × 6 cases) calée sur les coordonnées du monde.
+    layer.style.setProperty('--terrain-x', String(-(((x0 % 6) + 6) % 6)));
+    layer.style.setProperty('--terrain-y', String(-(((y0 % 6) + 6) % 6)));
     rulers();
     place();
   }
@@ -187,11 +221,14 @@
     drawMini();
   }
 
-  // Cases de 48 px (comme la carte de Guerre Tribale) ; plus petites seulement si la carte ne tient pas dans la page.
+  // Sur ordinateur, les cases gardent une taille fixe : augmenter le nombre de cases agrandit réellement
+  // la carte au lieu de tout rapetisser. Seuls les petits écrans bénéficient d'une adaptation limitée.
   function fit() {
     const row = frame.closest('[data-map-row]');
     const avail = (row ? row.clientWidth : window.innerWidth) - 16 - 36 - 8;
-    const next = Math.max(16, Math.min(Number(frame.dataset.tile), Math.floor(avail / size)));
+    const nominal = Number(frame.dataset.tile);
+    const mobile = window.matchMedia('(max-width: 639px)').matches;
+    const next = mobile ? Math.max(34, Math.min(nominal, Math.floor(avail / Math.min(size, 11)))) : nominal;
     if (next !== tile || !frame.style.getPropertyValue('--tile')) {
       tile = next;
       frame.style.setProperty('--tile', `${tile}px`);
@@ -454,7 +491,7 @@
     });
   });
 
-  // ------------------------------------------------------------------ Mini-carte (5 px par case), qui suit la carte
+  // ------------------------------------------------------------------ Mini-carte (6 px par case), qui suit la carte
   const mini = document.querySelector('[data-mini-map]');
   let miniSize = mini ? Number(mini.dataset.size) : 0;
   let miniVillages = boot.mini;
@@ -463,9 +500,24 @@
   const css = getComputedStyle(document.documentElement);
   const token = (name) => css.getPropertyValue(`--color-${name}`).trim();
   const miniColors = {
-    current: token('rel-own'), own: token('rel-own'), tribe: token('rel-tribe'), ally: token('rel-ally'), nap: token('rel-nap'),
-    enemy: token('rel-enemy'), other: token('rel-other'), barb: token('rel-barb-dim'),
+    current: '#ffffff', own: '#f0c74b', tribe: '#3159b8', ally: '#4ba7e8', nap: '#9a8bc4',
+    enemy: '#ff2818', other: '#51452b', barb: '#9b9f98',
   };
+  function paintOverviewTerrain(g, x0, y0, side, cell, step = 1) {
+    const px = side * cell;
+    g.fillStyle = '#58732f';
+    g.fillRect(0, 0, px, px);
+    const patch = Math.max(step, 4);
+    for (let oy = 0; oy < side; oy += patch) {
+      for (let ox = 0; ox < side; ox += patch) {
+        const biome = biomeAt(x0 + ox + Math.floor(patch / 2), y0 + oy + Math.floor(patch / 2));
+        if (biome < .38) g.fillStyle = '#496629';
+        else if (biome > .72) g.fillStyle = '#64743a';
+        else g.fillStyle = biome < .54 ? '#54702d' : '#5d7833';
+        g.fillRect(ox * cell, oy * cell, Math.min(patch, side - ox) * cell, Math.min(patch, side - oy) * cell);
+      }
+    }
+  }
   let miniFrame = 0;
   function drawMini() {
     if (!mini || miniFrame) return;
@@ -477,17 +529,23 @@
       if (mini.width !== w) { mini.width = w; mini.height = w; }
       const g = mini.getContext('2d');
       const cell = w / miniSize;
-      g.fillStyle = token('mini-grass-1') || '#33361f';
-      g.fillRect(0, 0, w, w);
+      paintOverviewTerrain(g, miniX0, miniY0, miniSize, cell);
       for (let i = 0; i <= miniSize; i++) {
         const x = miniX0 + i; const y = miniY0 + i;
-        if (x % 10 === 0) { g.fillStyle = x % 100 === 0 ? 'rgba(192,138,72,.85)' : 'rgba(0,0,0,.28)'; g.fillRect(Math.round(i * cell), 0, x % 100 === 0 ? 2 * ratio : ratio, w); }
-        if (y % 10 === 0) { g.fillStyle = y % 100 === 0 ? 'rgba(192,138,72,.85)' : 'rgba(0,0,0,.28)'; g.fillRect(0, Math.round(i * cell), w, y % 100 === 0 ? 2 * ratio : ratio); }
+        if (x % 10 === 0) { g.fillStyle = x % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.22)'; g.fillRect(Math.round(i * cell), 0, x % 100 === 0 ? 2 * ratio : ratio, w); }
+        if (y % 10 === 0) { g.fillStyle = y % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.22)'; g.fillRect(0, Math.round(i * cell), w, y % 100 === 0 ? 2 * ratio : ratio); }
       }
-      const inset = cell > 4 ? cell * 0.14 : 0;
       for (const [x, y, kind] of miniVillages) {
-        g.fillStyle = kind.startsWith('#') ? kind : miniColors[kind] || miniColors.other;
-        g.fillRect((x - miniX0) * cell + inset, (y - miniY0) * cell + inset, Math.max(1, cell - 2 * inset), Math.max(1, cell - 2 * inset));
+        const marked = kind.startsWith('#');
+        const important = marked || ['current', 'own', 'tribe', 'ally', 'nap', 'enemy'].includes(kind);
+        const insetRatio = important ? .07 : .15;
+        const inset = cell > 4 ? cell * insetRatio : Math.min(cell * insetRatio, ratio * .35);
+        const px = (x - miniX0) * cell + inset;
+        const py = (y - miniY0) * cell + inset;
+        const side = Math.max(1, cell - 2 * inset);
+        const color = kind.startsWith('#') ? kind : miniColors[kind] || miniColors.other;
+        g.fillStyle = color;
+        g.fillRect(px, py, side, side);
       }
       if (meX >= miniX0 && meX < miniX0 + miniSize && meY >= miniY0 && meY < miniY0 + miniSize) {
         g.strokeStyle = '#fff'; g.lineWidth = Math.max(1, ratio);
@@ -537,7 +595,7 @@
     if (!mini) return;
     miniSize = n;
     mini.dataset.size = String(n);
-    mini.style.width = `${n * 5}px`;
+    mini.style.width = `${n * 6}px`;
     const label = document.querySelector('[data-mini-label]');
     if (label) label.textContent = `${n} × ${n}`;
     recenterMini(Math.round(cx), Math.round(cy), true);
@@ -577,14 +635,15 @@
     const g = worldCanvas.getContext('2d');
     const v = world.view;
     const scale = w / v.side;
-    g.fillStyle = token('mini-grass-1') || '#33361f'; g.fillRect(0, 0, w, w);
+    const terrainStep = Math.max(1, Math.ceil(v.side / 160));
+    paintOverviewTerrain(g, v.x0, v.y0, v.side, scale, terrainStep);
     // Quadrillage de 10 cases (léger) et frontières de continent (tous les 100) avec leur numéro.
     for (let n = Math.ceil(v.x0 / 10) * 10; n < v.x0 + v.side; n += 10) {
-      g.fillStyle = n % 100 === 0 ? 'rgba(192,138,72,.7)' : 'rgba(0,0,0,.18)';
+      g.fillStyle = n % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.2)';
       g.fillRect(Math.round((n - v.x0) * scale), 0, n % 100 === 0 ? 2 * ratio : ratio, w);
     }
     for (let n = Math.ceil(v.y0 / 10) * 10; n < v.y0 + v.side; n += 10) {
-      g.fillStyle = n % 100 === 0 ? 'rgba(192,138,72,.7)' : 'rgba(0,0,0,.18)';
+      g.fillStyle = n % 100 === 0 ? 'rgba(12,18,8,.78)' : 'rgba(15,23,10,.2)';
       g.fillRect(0, Math.round((n - v.y0) * scale), w, n % 100 === 0 ? 2 * ratio : ratio);
     }
     g.font = `${11 * ratio}px sans-serif`; g.fillStyle = 'rgba(232,224,212,.55)';
@@ -593,11 +652,15 @@
         g.fillText(`K${ky}${kx}`, Math.max(0, (kx * 100 - v.x0) * scale) + 4 * ratio, Math.max(0, (ky * 100 - v.y0) * scale) + 13 * ratio);
       }
     }
-    const dot = Math.max(1.5 * ratio, scale * 0.9);
+    const dot = Math.max(1.65 * ratio, scale * .98);
     for (const [x, y, kind] of world.villages) {
+      const important = kind.startsWith('#') || ['current', 'own', 'tribe', 'ally', 'nap', 'enemy'].includes(kind);
+      const big = kind === 'current' || kind === 'own' ? dot * 1.6 : important ? dot * 1.25 : dot;
+      const px = (x - v.x0) * scale + (scale - big) / 2;
+      const py = (y - v.y0) * scale + (scale - big) / 2;
+      g.fillStyle = '#111'; g.fillRect(px - ratio * .7, py - ratio * .7, big + ratio * 1.4, big + ratio * 1.4);
       g.fillStyle = kind.startsWith('#') ? kind : miniColors[kind] || miniColors.other;
-      const big = kind === 'current' || kind === 'own' ? dot * 1.6 : dot;
-      g.fillRect((x - v.x0) * scale + (scale - big) / 2, (y - v.y0) * scale + (scale - big) / 2, big, big);
+      g.fillRect(px, py, big, big);
     }
     // Zone affichée par la grande carte.
     g.lineWidth = 2 * ratio; g.strokeStyle = '#000';

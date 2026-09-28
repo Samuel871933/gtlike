@@ -811,7 +811,7 @@ router.get('/victory', ah(async (req, res) => {
 // Tailles proposées (comme sur Guerre Tribale) et calques de la carte, mémorisés sur le joueur (mapSettings).
 const MAP_SIZES = [4, 5, 7, 9, 11, 13, 15, 20, 30];
 const MINI_SIZES = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120];
-const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: true, borders: true, markers: true };
+const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true };
 
 router.get('/map', ah(async (req, res) => {
   const { village, cfg } = req.ctx;
@@ -820,9 +820,17 @@ router.get('/map', ah(async (req, res) => {
   const saved = player.mapSettings || {};
   // Taille choisie dans « Taille de la carte » : appliquée puis mémorisée ; sinon celle mémorisée.
   const pick = (value, list, fallback) => (list.includes(Number(value)) ? Number(value) : fallback);
-  const displaySize = pick(req.query.size, MAP_SIZES, pick(saved.size, MAP_SIZES, 13));
-  const miniSize = pick(req.query.mini, MINI_SIZES, pick(saved.mini, MINI_SIZES, 50));
-  if (displaySize !== saved.size || miniSize !== saved.mini) await player.update({ mapSettings: { ...saved, size: displaySize, mini: miniSize } });
+  // Les anciennes grandes tailles enregistrées donnaient une vue initiale trop éloignée. On les ramène
+  // une fois à 15 × 15 ; l'utilisateur peut toujours sélectionner explicitement 20 ou 30 ensuite.
+  const savedSize = pick(saved.size, MAP_SIZES, 13);
+  const normalizedSavedSize = saved.mapZoomV2 ? savedSize : Math.min(savedSize, 15);
+  const displaySize = pick(req.query.size, MAP_SIZES, normalizedSavedSize);
+  const savedMiniSize = pick(saved.mini, MINI_SIZES, 50);
+  const normalizedMiniSize = saved.mapMiniZoomV2 ? savedMiniSize : Math.min(savedMiniSize, 50);
+  const miniSize = pick(req.query.mini, MINI_SIZES, normalizedMiniSize);
+  if (displaySize !== saved.size || miniSize !== saved.mini || !saved.mapZoomV2 || !saved.mapMiniZoomV2) {
+    await player.update({ mapSettings: { ...saved, size: displaySize, mini: miniSize, mapZoomV2: true, mapMiniZoomV2: true } });
+  }
   const layers = { ...MAP_LAYERS, ...(saved.layers || {}) };
   const clamp = (v, d) => {
     const n = Number.parseInt(v, 10);

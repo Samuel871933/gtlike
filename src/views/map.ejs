@@ -1,10 +1,11 @@
 <%- include('partials/header', { title: 'Carte' }) %>
+<link rel="stylesheet" href="/css/map-v3.css">
 <%
   // Carte façon Guerre Tribale : cases de taille fixe (la taille choisie agrandit vraiment la carte), villages
   // chargés par secteurs de 20 × 20 et déplacement fluide (public/js/map.js). Rien n'est rechargé en naviguant.
   const vid = ctx.village.id;
-  const TILE = 48;
-  const MINI_CELL = 5;
+  const TILE = 52;
+  const MINI_CELL = 6;
   // Tailles et calques sont mémorisés sur le joueur : les liens n'ont besoin que du centre.
   const link = (x, y) => `/village/${vid}/map?x=${x}&y=${y}`;
   const REL_SWATCH = { own: 'bg-rel-own', tribe: 'bg-rel-tribe', ally: 'bg-rel-ally', nap: 'bg-rel-nap', enemy: 'bg-rel-enemy', other: 'bg-rel-other', barb: 'bg-rel-barb-dim' };
@@ -146,7 +147,7 @@
   </div>
 
   <aside class="flex min-w-[300px] flex-[1_1_320px] flex-col gap-4">
-    <%# Mini-carte : 5 px par case, comme sur Guerre Tribale ; elle suit les déplacements de la carte. %>
+    <%# Mini-carte : 6 px par case pour une vue d'ensemble lisible ; elle suit les déplacements de la carte. %>
     <section class="<%= ui.panel %> max-w-full">
       <%- panelHead('Mini-carte', `<span class="text-[13px] text-parchment-300 tabular-nums" data-mini-label>${miniSize} × ${miniSize}</span>`) %>
       <div class="p-2">

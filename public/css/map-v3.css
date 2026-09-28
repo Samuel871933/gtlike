@@ -1,0 +1,53 @@
+/* Immediate map asset overrides. The same rules live in src/styles/app.css for the next Tailwind build. */
+:root { --color-mini-bg: #526a2b; --color-mini-grass-1: #5f7932; --color-mini-grass-2: #526a2b; --color-mini-forest: #294c1b; --color-mini-hill: #77713c; --color-mini-water: #3d7391; }
+[data-map-plane] {
+  background-color: #66872f;
+  background-image: linear-gradient(rgb(72 120 29 / .27), rgb(72 120 29 / .27)), url('/img/map/terrain-grass.webp');
+  background-size: auto, calc(var(--tile, 48px) * 6) calc(var(--tile, 48px) * 6);
+}
+
+.map-frame { border: 1px solid #6f5a28; background: #b99d59; box-shadow: 0 0 0 1px #d6c482, inset 0 0 18px rgb(41 31 10 / .45), 3px 4px 0 rgb(0 0 0 / .5); }
+.map-frame [data-map-ruler-x], .map-frame [data-map-ruler-y] { border-color: #463c1f; background: linear-gradient(#5d632f, #424820); color: #efe3b5; box-shadow: inset 0 0 8px rgb(0 0 0 / .35); }
+.map-frame .map-viewport { background-color: #60762d; box-shadow: inset 0 0 0 1px #252b12, inset 0 0 24px rgb(0 0 0 / .22); }
+.map-grid-lines { opacity: .22; }
+
+.map-decor { z-index: 1; width: var(--tile); height: var(--tile); }
+.map-decor > span { position: absolute; left: calc(50% + var(--decor-x, 0px)); top: calc(50% + var(--decor-y, 0px)); width: var(--decor-w); height: var(--decor-h); background: center / contain no-repeat; filter: drop-shadow(0 2px 1px rgb(0 0 0 / .48)); transform: translate(-50%, -50%) scaleX(var(--decor-flip, 1)) scale(var(--decor-scale, 1)); transform-origin: 50% 75%; }
+.map-decor--pine { --decor-w: calc(var(--tile) * .72); --decor-h: calc(var(--tile) * .96); }
+.map-decor--pine > span { background-image: url('/img/map/decor-pine-v4.png'); }
+.map-decor--trees { --decor-w: calc(var(--tile) * 1.15); --decor-h: calc(var(--tile) * 1.08); }
+.map-decor--trees > span { background-image: url('/img/map/decor-trees-v4.png'); }
+.map-decor--forest { --decor-w: calc(var(--tile) * 2.45); --decor-h: calc(var(--tile) * 2.15); }
+.map-decor--forest > span { background-image: url('/img/map/decor-forest-v4.png'); }
+.map-decor--rocks { --decor-w: calc(var(--tile) * .72); --decor-h: calc(var(--tile) * .56); }
+.map-decor--rocks > span { background-image: url('/img/map/decor-rocks-v4.png'); }
+.map-decor--hill { --decor-w: calc(var(--tile) * 2.75); --decor-h: calc(var(--tile) * 1.95); }
+.map-decor--hill > span { background-image: url('/img/map/decor-hill-v4.png'); }
+.map-decor--lake { --decor-w: calc(var(--tile) * 1.9); --decor-h: calc(var(--tile) * 1.45); }
+.map-decor--lake > span { background-image: url('/img/map/decor-lake-v4.png'); }
+
+.village-sprite {
+  background-image: var(--village-image);
+  background-position: center bottom;
+  background-size: var(--village-width, 100%) auto;
+  inset: var(--village-inset, 0 0 3px);
+}
+.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.png'); --village-width: 62%; }
+.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.png'); --village-width: 72%; }
+.village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.png'); --village-width: 82%; }
+.village-marker--4 { --village-image: url('/img/map/villages/beige/level-4.png'); }
+.village-marker--5 { --village-image: url('/img/map/villages/beige/level-5.png'); }
+.village-marker--6 { --village-image: url('/img/map/villages/beige/level-6.png'); }
+.village-marker { width: calc(var(--tile, 52px) * .9); height: calc(var(--tile, 52px) * .9); }
+.village-marker::after { display: none; }
+.village-relation-dot { position: absolute; z-index: 4; left: -2px; bottom: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }
+.village-marker--current { --village-color: #fff; }
+.village-marker--own { --village-color: #f0c74b; }
+.village-marker--tribe { --village-color: #3159b8; }
+.village-marker--ally { --village-color: #4ba7e8; }
+.village-marker--enemy { --village-color: #f04a1e; }
+.map-tile--village { z-index: 3; }
+.village-marker--barb {
+  --village-color: #858585;
+  filter: grayscale(1) saturate(0) brightness(.92) contrast(1.08) drop-shadow(0 2px 1px rgb(0 0 0 / .82));
+}
