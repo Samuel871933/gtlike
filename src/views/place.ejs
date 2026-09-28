@@ -178,7 +178,7 @@
     <tbody>
     <% for (const u of allUnits) { const home = ctx.state.units[u.id] || 0; const away = ctx.awayUnits[u.id] || 0; if (!home && !away) continue; %>
       <tr>
-        <td><span class="flex items-center gap-3"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span><span class="font-semibold text-parchment-100"><%= u.name %></span></span></td>
+        <td><span class="flex items-center gap-3"><span class="<%= ui.medallion %> size-[30px] minimal:size-[24px]"><%- unitIcon(u.id, 'size-[15px]') %></span><span class="font-semibold text-parchment-100"><%= u.name %></span></span></td>
         <td class="text-right font-semibold tabular-nums"><%= num(home) %></td>
         <td class="text-right tabular-nums text-parchment-500"><%= num(away) %></td>
         <td class="text-right font-semibold text-gold-200 tabular-nums"><%= num(home + away) %></td>
@@ -198,7 +198,7 @@
       <% for (const s of stacksHere) { %>
         <div class="<%= ui.box %> flex flex-col gap-2.5 p-3">
           <div class="flex items-center gap-3">
-            <span class="<%= ui.medallionGold %> size-[30px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
+            <span class="<%= ui.medallionGold %> size-[30px] minimal:size-[24px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
             <span class="min-w-0 flex-1">
               <a href="<%= mapHref(s.origin) %>" class="<%= ui.linkPlain %> font-semibold"><%= s.origin.name %></a>
               <span class="text-parchment-600 tabular-nums">(<%= s.origin.x %>|<%= s.origin.y %>)</span>
@@ -219,7 +219,7 @@
       <% for (const s of stacksAway) { %>
         <div class="<%= ui.box %> flex flex-col gap-2.5 p-3">
           <div class="flex items-center gap-3">
-            <span class="<%= ui.medallionOlive %> size-[30px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
+            <span class="<%= ui.medallionOlive %> size-[30px] minimal:size-[24px]"><%- icon('support', 'size-[15px]', 2.2) %></span>
             <span class="min-w-0 flex-1">
               <a href="<%= mapHref(s.village) %>" class="<%= ui.linkPlain %> font-semibold"><%= s.village.name %></a>
               <span class="text-parchment-600 tabular-nums">(<%= s.village.x %>|<%= s.village.y %>)</span>
@@ -257,7 +257,7 @@
       <tbody>
       <% for (const u of allUnits) { %>
         <tr>
-          <td><span class="flex items-center gap-3"><span class="hidden sm:block"><span class="<%= ui.medallion %> size-[30px]"><%- unitIcon(u.id, 'size-[15px]') %></span></span><span class="font-semibold whitespace-nowrap text-parchment-100"><%= u.name %></span></span></td>
+          <td><span class="flex items-center gap-3"><span class="hidden sm:block"><span class="<%= ui.medallion %> size-[30px] minimal:size-[24px]"><%- unitIcon(u.id, 'size-[15px]') %></span></span><span class="font-semibold whitespace-nowrap text-parchment-100"><%= u.name %></span></span></td>
           <td class="text-right"><input type="number" name="att_<%= u.id %>" min="0" value="<%= inp.attackers[u.id] || '' %>" placeholder="0" class="<%= ui.inputSm %> w-16 text-right sm:w-24 tabular-nums" aria-label="<%= u.name %> (attaquant)"></td>
           <td class="text-right"><input type="number" name="def_<%= u.id %>" min="0" value="<%= inp.defenders[u.id] || '' %>" placeholder="0" class="<%= ui.inputSm %> w-16 text-right sm:w-24 tabular-nums" aria-label="<%= u.name %> (défenseur)"></td>
           <% if (r) { %>

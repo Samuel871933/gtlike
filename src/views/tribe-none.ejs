@@ -4,7 +4,7 @@
     <%- panelHead('Fonder une tribu', '', { tag: 'h1' }) %>
     <div class="<%= ui.panelBody %> gap-4">
       <div class="flex items-start gap-3">
-        <span class="<%= ui.medallionGold %> size-[42px]"><%- icon('tribe', 'size-[21px]') %></span>
+        <span class="<%= ui.medallionGold %> size-[42px] minimal:size-[32px]"><%- icon('tribe', 'size-[21px]') %></span>
         <p class="text-parchment-400">Une tribu permet de s'entraider, de coordonner les attaques et de partager la diplomatie. Jusqu'à <strong class="text-parchment-200 tabular-nums"><%= ctx.cfg.tribe.memberLimit %></strong> membres sur ce monde.</p>
       </div>
       <form method="post" action="/village/<%= ctx.village.id %>/tribe/create" class="flex flex-col gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -28,7 +28,7 @@
       <% } else { %>
         <% for (const inv of invites) { %>
           <div class="<%= ui.box %> flex flex-wrap items-center gap-3 p-2.5">
-            <span class="<%= ui.medallion %> size-[38px]"><%- icon('tribe', 'size-[19px]') %></span>
+            <span class="<%= ui.medallion %> size-[38px] minimal:size-[28px]"><%- icon('tribe', 'size-[19px]') %></span>
             <a href="/village/<%= ctx.village.id %>/tribes/<%= inv.Tribe.id %>" class="<%= ui.linkPlain %> flex min-w-40 flex-1 items-center gap-2 font-semibold">
               <span class="<%= ui.tagGold %>"><%= inv.Tribe.tag %></span><span class="truncate"><%= inv.Tribe.name %></span>
             </a>

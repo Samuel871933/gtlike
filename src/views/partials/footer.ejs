@@ -1,7 +1,7 @@
 </main>
 <% if (ctx) { %>
 <footer class="relative z-[2] border-t-2 border-bronze-500 bg-night">
-<div class="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-3 px-2.5 pt-1.5 pb-8 text-xs text-parchment-500">
+<div class="mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] flex-wrap items-center justify-between gap-3 px-2.5 py-1.5 text-xs text-parchment-500">
   <div class="flex flex-wrap gap-3">
     <b class="text-gold-400"><%= ctx.world.name %></b>
     <a href="/worlds/<%= ctx.world.slug %>/info" class="<%= ui.link %> font-normal">Réglages du monde</a>
@@ -19,7 +19,7 @@
 </footer>
 <% } else { %>
 <footer class="relative z-[2] mt-10 shrink-0 border-t-[3px] border-bronze-500 bg-night-deep shadow-[inset_0_2px_0_var(--color-head-dark)]">
-<div class="mx-auto flex w-full max-w-[1200px] flex-col gap-3.5 px-3.5 pt-4.5 pb-10">
+<div class="mx-auto flex w-full max-w-[1200px] flex-col gap-3.5 px-3.5 pt-4.5 pb-4.5">
   <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3.5">
     <div class="flex flex-col gap-[3px]">
       <b class="mb-[3px] font-logo text-xs tracking-[0.02em] text-gold-400">GTLIKE</b>

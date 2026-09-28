@@ -10,6 +10,10 @@
   [data-game-style="viking"] {
     --font-display: "Grenze", Georgia, serif;
     --game-image-village: url("/img/game-styles/viking/village.svg");
+    --game-bg-texture: url("/img/game-styles/viking/background-texture.png");
+    /* Texture sombre : voile léger du dégradé, sans mélange (voir html.game_style body dans app.css). */
+    --game-bg-blend: normal;
+    --game-bg-veil: 40%;
 
     /* Bandeaux de panneau, en-têtes de tableau et bouton d'action : ardoise et givre */
     --color-head: #22394a;
@@ -71,6 +75,9 @@
     --color-gold-ink: #0c1a22;
     --color-gold-shadow: #16303d;
 
+    /* Texte sur aplat foncé */
+    --color-on-accent: #e6edf0;
+
     /* Os et cendre : textes */
     --color-parchment-50: #f4f8fa;
     --color-parchment-100: #e6edf0;
@@ -94,27 +101,6 @@
     --color-shield-edge: #0a0f13;
     --color-shield-mark: #0e2230;
 
-    /* Carte : toundra, pins, roche et fjords */
-    --color-grass-1: #37402f;
-    --color-grass-2: #333c2c;
-    --color-forest: #1f2a22;
-    --color-hill: #3f4447;
-    --color-water: #1d3440;
-    --color-map-edge: #0a0d0f;
-    --color-forest-deep: #121c16;
-    --color-forest-leaf: #2d4032;
-    --color-hill-light: #5a6166;
-    --color-hill-shade: #43494d;
-    --color-hill-line: #7d858a;
-    --color-water-line: #5d8aa0;
-    --color-mini-bg: #283027;
-    --color-mini-grass-1: #313a2b;
-    --color-mini-grass-2: #2e3628;
-    --color-mini-grass-low: #2b3326;
-    --color-mini-grass-high: #363d31;
-    --color-mini-forest-deep: #151d17;
-    --color-mini-forest: #1b241d;
-    --color-mini-hill: #3b4043;
-    --color-mini-water: #1a2f39;
+    /* Carte et mini-carte : jamais redéfinies par un style, pour garder les mêmes couleurs partout. */
   }
 }

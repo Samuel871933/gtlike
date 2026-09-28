@@ -171,7 +171,7 @@
       <% for (const tr of outgoing) { const delivery = tr.type === 'delivery'; %>
         <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-4.5 py-3 last:border-b-0">
           <div class="flex items-center gap-3">
-            <span class="<%= delivery ? ui.medallionGold : ui.medallionOlive %> size-[30px]"><%- icon(delivery ? 'send' : 'return', 'size-[15px]', 2.2) %></span>
+            <span class="<%= delivery ? ui.medallionGold : ui.medallionOlive %> size-[30px] minimal:size-[24px]"><%- icon(delivery ? 'send' : 'return', 'size-[15px]', 2.2) %></span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="flex min-w-0 items-center gap-2">
                 <span class="shrink-0 font-semibold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
@@ -196,7 +196,7 @@
       <% for (const tr of incoming) { %>
         <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-4.5 py-3 last:border-b-0">
           <div class="flex items-center gap-3">
-            <span class="<%= ui.medallionGold %> size-[30px]"><%- buildingIcon('market', 'size-[15px]', 2.2) %></span>
+            <span class="<%= ui.medallionGold %> size-[30px] minimal:size-[24px]"><%- buildingIcon('market', 'size-[15px]', 2.2) %></span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="flex min-w-0 items-center gap-2">
                 <span class="shrink-0 text-parchment-600">de</span>

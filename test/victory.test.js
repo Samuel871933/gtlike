@@ -26,7 +26,14 @@ async function setupWorld(victory) {
   }
   const { player: alice, village: a } = await WorldService.join(users.Alice, slug);
   const { player: bob, village: b } = await WorldService.join(users.Bob, slug);
-  await WorldService.createVillage(world, { x: a.x + 3, y: a.y + 3, player: alice, name: 'A2', buildings: { main: 1 }, now: new Date() });
+  // Deuxième village d'Alice sur une case libre près du premier (Bob est placé au hasard, peut-être juste à côté).
+  let spot = null;
+  for (let d = 3; !spot; d++) {
+    for (const [dx, dy] of [[d, d], [-d, d], [d, -d], [-d, -d]]) {
+      if (!spot && !(await Village.count({ where: { worldId: world.id, x: a.x + dx, y: a.y + dy } }))) spot = { x: a.x + dx, y: a.y + dy };
+    }
+  }
+  await WorldService.createVillage(world, { ...spot, player: alice, name: 'A2', buildings: { main: 1 }, now: new Date() });
   const tribe = await TribeService.create(alice.id, { name: `Tribu ${n}`, tag: `T${n}` });
   return { world, alice, bob, a, b, tribe };
 }

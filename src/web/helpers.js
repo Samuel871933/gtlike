@@ -65,7 +65,8 @@ const ICONS = {
   send: '<path d="M4 12l16-8-6 16-3-7z"/><path d="M11 13l9-9"/>',
   expand: '<path d="M4 20L10 14M14 4h6v6M20 4l-7 7M4 14v6h6"/>',
   // Mouvements
-  attack: '<path d="M5 19L17 7M14 4h6v6M4 16l4 4"/>',
+  attack: '<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
+  troops: '<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
   return: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/>',
   support: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M12 9v6M9 12h6"/>',
   relocate: '<path d="M4 12h16M14 6l6 6-6 6"/>',
@@ -220,6 +221,8 @@ function num(n) {
 module.exports = {
   ...require('./ui'),
   GAME_STYLES: require('./gameStyles').GAME_STYLES,
+  VILLAGE_DESIGNS: require('./villageDesigns').VILLAGE_DESIGNS,
+  GAME_LAYOUTS: require('./gameLayouts').GAME_LAYOUTS,
   RESOURCES,
   BUILDING_ICONS,
   UNIT_ICONS,

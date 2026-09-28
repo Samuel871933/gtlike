@@ -18,21 +18,21 @@ const BTN_BASE = 'inline-flex shrink-0 cursor-pointer items-center justify-cente
 
 const BTN_VARIANTS = {
   // Action principale (Améliorer, Jouer, Connexion).
-  gold: 'bg-action text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-action-line),inset_0_-3px_0_var(--color-action-deep),3px_3px_0_#050505] hover:bg-action-hi hover:text-parchment-100 active:shadow-[inset_0_0_0_1px_var(--color-action-line),1px_1px_0_#050505]',
+  gold: 'bg-action text-on-accent shadow-[inset_0_0_0_1px_var(--color-action-line),inset_0_-3px_0_var(--color-action-deep),3px_3px_0_#050505] hover:bg-action-hi hover:text-on-accent active:shadow-[inset_0_0_0_1px_var(--color-action-line),1px_1px_0_#050505]',
   // Action secondaire : fond d'encre, filet et texte bronze.
   dark: 'bg-panel-lo text-gold-400 shadow-[inset_0_0_0_1px_var(--color-bronze-500),3px_3px_0_#050505] hover:bg-knob-hover hover:text-parchment-100',
   // Attaque : toujours rouge sang, quel que soit le style de jeu.
-  red: 'bg-blood-700 text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-blood-400),inset_0_-3px_0_var(--color-blood-900),3px_3px_0_#050505] hover:bg-blood-600 hover:text-parchment-100 active:shadow-[inset_0_0_0_1px_var(--color-blood-400),1px_1px_0_#050505]',
+  red: 'bg-blood-700 text-on-accent shadow-[inset_0_0_0_1px_var(--color-blood-400),inset_0_-3px_0_var(--color-blood-900),3px_3px_0_#050505] hover:bg-blood-600 hover:text-on-accent active:shadow-[inset_0_0_0_1px_var(--color-blood-400),1px_1px_0_#050505]',
   // Soutien : fond d'encre, filet olive.
   olive: 'bg-panel-lo text-olive-300 shadow-[inset_0_0_0_1px_var(--color-olive-500),3px_3px_0_#050505] hover:bg-olive-700/40 hover:text-parchment-100',
   // Action destructrice discrète (annuler, supprimer).
-  danger: 'bg-blood-900 text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-blood-800),2px_2px_0_#050505] hover:bg-blood-600',
+  danger: 'bg-blood-900 text-on-accent shadow-[inset_0_0_0_1px_var(--color-blood-800),2px_2px_0_#050505] hover:bg-blood-600',
 };
 
 const BTN_SIZES = {
   sm: 'h-8 px-3 text-sm',
-  md: 'h-9 px-3.5 text-[15px]',
-  lg: 'h-11 px-4 text-base',
+  md: 'h-9 px-3.5 text-[15px] minimal:text-sm',
+  lg: 'h-11 px-4 text-base minimal:text-[15px]',
   xl: 'h-14 px-8 text-xl',
   // Bouton secondaire du héros de l'accueil.
   hero: 'h-14 px-6 text-base',
@@ -43,19 +43,20 @@ function btn(variant = 'dark', size = 'md', extra = '') {
   return `${BTN_BASE} ${BTN_VARIANTS[variant] || BTN_VARIANTS.dark} ${BTN_SIZES[size] || BTN_SIZES.md} ${extra}`.trim();
 }
 
-const FIELD = 'border-2 border-black bg-night text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-700)] scheme-dark placeholder:text-parchment-700 focus:shadow-[inset_0_0_0_1px_var(--color-gold-400)] focus:outline-none disabled:opacity-40';
+const FIELD = 'border-2 border-black bg-night text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-700)] scheme-dark medieval:scheme-light placeholder:text-parchment-700 focus:shadow-[inset_0_0_0_1px_var(--color-gold-400)] focus:outline-none disabled:opacity-40';
 
 const ui = {
   // Panneau : aplat sombre, trait d'encre, filet intérieur, ombre portée.
-  panel: `relative ${INK} bg-panel-top ${SHADOW}`,
-  // Bandeau rouge souligné de bronze.
-  panelHead: 'flex min-h-[34px] flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b-2 border-bronze-500 bg-head px-3 py-1.5 shadow-[inset_0_-1px_0_#000]',
-  panelTitle: 'm-0 flex min-w-0 items-center gap-2 text-base font-semibold text-parchment-100',
+  // Style de jeu minimaliste : trait fin brun (1 px, voir app.css) au lieu de l'encre noire.
+  panel: `relative ${INK} bg-panel-top ${SHADOW} minimal:border-bronze-500`,
+  // Bandeau rouge souligné de bronze (fin en style de jeu minimaliste, comme les en-têtes de Guerre Tribale).
+  panelHead: 'flex min-h-[34px] flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b-2 border-bronze-500 bg-head px-3 py-1.5 shadow-[inset_0_-1px_0_#000] minimal:min-h-6 minimal:border-b minimal:py-0.5 minimal:text-[13px]',
+  panelTitle: 'm-0 flex min-w-0 items-center gap-2 text-base font-semibold text-parchment-100 minimal:text-sm',
   panelBody: 'flex flex-col gap-3 p-3',
-  diamond: 'size-[7px] shrink-0 rotate-45 border border-black bg-gold-400',
+  diamond: 'size-[7px] shrink-0 rotate-45 border border-black bg-gold-400 minimal:size-[5px]',
 
   // Textes
-  h1: 'font-display text-xl font-semibold tracking-[0.02em] text-parchment-100',
+  h1: 'font-display text-xl font-semibold tracking-[0.02em] text-parchment-100 minimal:text-lg',
   heading: 'font-display text-base font-semibold tracking-[0.02em] text-parchment-100',
   kicker: 'text-[13px] font-medium text-gold-400',
   muted: 'text-parchment-500',
@@ -68,14 +69,14 @@ const ui = {
 
   // Formulaires
   label: 'flex flex-col gap-1 text-[13px] font-medium text-parchment-400',
-  input: `h-9 px-2.5 text-[15px] tracking-normal normal-case ${FIELD}`,
+  input: `h-9 px-2.5 text-[15px] tracking-normal normal-case minimal:text-sm ${FIELD}`,
   inputSm: `h-8 px-2 text-sm font-medium tracking-normal normal-case ${FIELD}`,
-  textarea: `px-2.5 py-2 text-[15px] tracking-normal normal-case ${FIELD}`,
+  textarea: `px-2.5 py-2 text-[15px] tracking-normal normal-case minimal:text-sm ${FIELD}`,
   checkbox: 'size-4 shrink-0 accent-blood-700',
-  checkLabel: 'flex min-h-[30px] items-center gap-2 text-[15px] text-parchment-300',
+  checkLabel: 'flex min-h-[30px] items-center gap-2 text-[15px] text-parchment-300 minimal:min-h-6 minimal:text-sm',
 
   // Tableau pleine largeur (à placer directement dans le panneau, sans panelBody).
-  table: 'w-full border-collapse text-left text-[15px] [&_td]:border-b [&_td]:border-bronze-800 [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle [&_th]:border-b-2 [&_th]:border-black [&_th]:bg-thead [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-[13px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-gold-400 [&_tbody_tr:nth-child(even)]:bg-row-alt [&_tbody_tr:hover]:bg-row-hover [&_tbody_tr:last-child_td]:border-b-0',
+  table: 'w-full border-collapse text-left text-[15px] [&_td]:border-b [&_td]:border-bronze-800 [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle [&_th]:border-b-2 [&_th]:border-black [&_th]:bg-thead [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-[13px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-gold-400 [&_tbody_tr:nth-child(even)]:bg-row-alt [&_tbody_tr:hover]:bg-row-hover [&_tbody_tr:last-child_td]:border-b-0 minimal:text-sm minimal:[&_th]:py-1 minimal:[&_th]:text-xs',
   // Tableau compact, dans un panelBody.
   tableSm: 'w-full border-collapse text-left text-sm [&_td]:border-b [&_td]:border-bronze-800 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-middle [&_th]:border-b-2 [&_th]:border-black [&_th]:bg-thead [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-xs [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-gold-400 [&_tbody_tr:last-child_td]:border-b-0',
   // Ligne du joueur (classements, membres) : fond doré, filet à gauche, texte clair.
@@ -92,10 +93,10 @@ const ui = {
   chip: 'inline-flex items-center gap-1.5 border border-bronze-800 bg-night px-2 py-0.5 text-[13px] font-medium text-parchment-300 shadow-[inset_0_-2px_0_var(--color-panel-lo),1px_1px_0_#000]',
 
   // Pastilles
-  countBadge: 'flex h-4 min-w-4 items-center justify-center border border-black bg-blood-600 px-1 text-[11px] font-semibold tracking-normal text-parchment-100 shadow-[1px_1px_0_#000]',
+  countBadge: 'flex h-4 min-w-4 items-center justify-center border border-black bg-blood-600 px-1 text-[11px] font-semibold tracking-normal text-on-accent shadow-[1px_1px_0_#000]',
   levelBadge: 'flex h-4 min-w-6 items-center justify-center border border-gold-400 bg-night px-1 text-[11px] font-semibold text-gold-400',
-  tagRed: 'inline-flex items-center border border-black bg-blood-600 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-100 uppercase shadow-[1px_1px_0_#000]',
-  tagSolidRed: 'inline-flex items-center border border-black bg-blood-800 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-100 uppercase',
+  tagRed: 'inline-flex items-center border border-black bg-blood-600 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-on-accent uppercase shadow-[1px_1px_0_#000]',
+  tagSolidRed: 'inline-flex items-center border border-black bg-blood-800 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-on-accent uppercase',
   tagOlive: 'inline-flex items-center border border-black bg-olive-700 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-100 uppercase',
   tagGold: 'inline-flex items-center border border-gold-400 bg-night px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-gold-400 uppercase',
   tagMuted: 'inline-flex items-center border border-bronze-700 bg-night px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-500 uppercase',
@@ -107,10 +108,10 @@ const ui = {
   medallionOlive: 'flex shrink-0 items-center justify-center border-2 border-black bg-olive-500 text-night shadow-[2px_2px_0_#000]',
 
   // Boutons-icônes carrés (flèches, fermer, annuler).
-  iconBtn: 'inline-flex size-[30px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-panel-hi text-parchment-300 shadow-[inset_0_0_0_1px_var(--color-bronze-700),2px_2px_0_#000] transition hover:bg-head-dark hover:text-parchment-100 disabled:cursor-not-allowed disabled:opacity-40',
+  iconBtn: 'inline-flex size-[30px] minimal:size-6 shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-panel-hi text-parchment-300 shadow-[inset_0_0_0_1px_var(--color-bronze-700),2px_2px_0_#000] transition hover:bg-head-dark hover:text-parchment-100 disabled:cursor-not-allowed disabled:opacity-40',
   // Bouton-icône actif (page courante, action principale).
-  iconBtnOn: 'inline-flex size-[30px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-800 text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-gold-400),2px_2px_0_#000] transition hover:bg-blood-700',
-  iconBtnSm: 'inline-flex size-[22px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-900 text-parchment-100 shadow-[1px_1px_0_#000] transition hover:bg-blood-600',
+  iconBtnOn: 'inline-flex size-[30px] minimal:size-6 shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-800 text-on-accent shadow-[inset_0_0_0_1px_var(--color-gold-400),2px_2px_0_#000] transition hover:bg-blood-700',
+  iconBtnSm: 'inline-flex size-[22px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-900 text-on-accent shadow-[1px_1px_0_#000] transition hover:bg-blood-600',
 
   // Onglets segmentés (VUE VILLAGE / LISTE, SORTANTS / ENTRANTS…), posés sur un bandeau rouge.
   seg: 'flex flex-wrap gap-0.5',
@@ -122,12 +123,12 @@ const ui = {
   fill: 'block h-full border-r-2 border-gold-400 bg-[repeating-linear-gradient(135deg,var(--color-action)_0_5px,var(--color-action-deep)_5px_10px)]',
 
   // Messages
-  alertError: 'border-2 border-black border-l-4 border-l-blood-600 bg-blood-900/60 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505]',
-  alertSuccess: 'border-2 border-black border-l-4 border-l-olive-500 bg-olive-700/30 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505]',
-  alertInfo: 'border-2 border-black border-l-4 border-l-bronze-500 bg-panel-top px-3 py-2 text-[15px] text-parchment-300 shadow-[3px_3px_0_#050505]',
+  alertError: 'border-2 border-black border-l-4 border-l-blood-600 bg-blood-900/60 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505] minimal:text-sm',
+  alertSuccess: 'border-2 border-black border-l-4 border-l-olive-500 bg-olive-700/30 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505] minimal:text-sm',
+  alertInfo: 'border-2 border-black border-l-4 border-l-bronze-500 bg-panel-top px-3 py-2 text-[15px] text-parchment-300 shadow-[3px_3px_0_#050505] minimal:text-sm',
 
   // Grand titre (logo, héros) : aplat parchemin, double ombre d'encre et de sang.
-  goldText: 'text-parchment-100 [text-shadow:2px_2px_0_#000,3px_3px_0_var(--color-blood-800)]',
+  goldText: 'text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),3px_3px_0_var(--color-title-shadow-2)]',
 
   // Liste déroulante (<details>) : panneau flottant.
   popover: 'absolute z-30 mt-1 border-2 border-black bg-panel-top p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]',

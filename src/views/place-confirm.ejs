@@ -1,51 +1,67 @@
 <%- include('partials/header', { title: 'Confirmer l’ordre' }) %>
-<% const t = plan.target; const isAttack = plan.type === 'attack'; %>
+<%# Confirmation d'une attaque ou d'un soutien, sur le modèle de Guerre Tribale : tableau de l'ordre, troupes en ligne, bouton d'envoi. %>
+<% const t = plan.target; const isAttack = plan.type === 'attack'; const vid = ctx.village.id;
+   const label = 'w-32 whitespace-nowrap text-parchment-500'; %>
 <section class="<%= ui.panel %> mx-auto w-full max-w-3xl">
-  <%- panelHead('Confirmer l’ordre', `<span class="${isAttack ? ui.tagRed : ui.tagOlive}">${isAttack ? 'Attaque' : 'Soutien'}</span>`) %>
-  <div class="<%= ui.panelBody %> gap-4">
-    <div class="flex min-w-0 items-center gap-4">
-      <span class="<%= isAttack ? ui.medallionRed : ui.medallionOlive %> size-[52px]"><%- icon(isAttack ? 'attack' : 'support', 'size-[26px]', 2) %></span>
-      <div class="flex min-w-0 flex-col gap-0.5">
-        <h1 class="<%= ui.h1 %> min-w-0"><span class="<%= isAttack ? 'text-blood-300' : 'text-olive-300' %>"><%= isAttack ? 'Attaque' : 'Soutien' %></span> sur <%= t.name %> <span class="font-sans font-medium text-parchment-500 tabular-nums">(<%= t.x %>|<%= t.y %>)</span></h1>
-        <p class="text-parchment-400">
-          <% if (t.Player) { %>Joueur : <a href="/village/<%= ctx.village.id %>/players/<%= t.Player.id %>" class="<%= ui.link %>"><%= t.Player.name %></a> · <span class="tabular-nums"><%= num(t.Player.points) %></span> points
-          <% } else { %>Village barbare<% } %>
-        </p>
-      </div>
-    </div>
-
-    <dl class="grid grid-cols-2 gap-2 <%= isAttack ? 'sm:grid-cols-[1fr_1fr_1.6fr_1fr]' : 'sm:grid-cols-[1fr_1fr_1.6fr]' %>">
-      <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Distance</dt><dd class="<%= ui.tileValue %>"><%= plan.distance.toFixed(1) %> cases</dd></div>
-      <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Durée</dt><dd class="<%= ui.tileValue %>"><%= duration(plan.seconds) %></dd></div>
-      <div class="<%= ui.tile %> max-sm:col-span-2"><dt class="<%= ui.tileLabel %>">Arrivée</dt><dd class="<%= ui.tileValue %> whitespace-nowrap tabular-nums" data-arrive-in="<%= plan.seconds * 1000 %>"><%= when(plan.arrivesAt, now) %></dd></div>
-      <% if (isAttack) { %><div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Morale</dt><dd class="<%= ui.tileValue %>"><%= Math.round(plan.morale * 100) %> %</dd></div><% } %>
-    </dl>
-
-    <div class="flex flex-col gap-2">
-      <p class="<%= ui.sectionLabel %>">Troupes</p>
-      <%- include('partials/units', { units: plan.units, losses: null }) %>
-    </div>
-  </div>
-
-  <form method="post" action="/village/<%= ctx.village.id %>/place/send"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <%- panelHead(`${isAttack ? 'Attaque' : 'Soutien'} sur ${t.name}`, `<span class="${isAttack ? ui.tagRed : ui.tagOlive}">${isAttack ? 'Attaque' : 'Soutien'}</span>`, { tag: 'h1' }) %>
+  <form method="post" action="/village/<%= vid %>/place/send" class="<%= ui.panelBody %> gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <input type="hidden" name="x" value="<%= t.x %>">
     <input type="hidden" name="y" value="<%= t.y %>">
     <input type="hidden" name="type" value="<%= plan.type %>">
     <% for (const [id, n] of Object.entries(plan.units)) { %><input type="hidden" name="<%= id %>" value="<%= n %>"><% } %>
+
+    <%# 1. L'ordre. %>
+    <table class="<%= ui.tableSm %> border border-bronze-800 sm:max-w-md">
+      <thead><tr><th colspan="2" class="text-left"><span class="flex items-center gap-1.5"><span class="<%= isAttack ? 'text-blood-450' : 'text-olive-300' %>"><%- icon(isAttack ? 'attack' : 'support', 'size-3.5', 2.2) %></span>Ordre</span></th></tr></thead>
+      <tbody>
+        <tr><td class="<%= label %>">Destination</td><td>
+          <a href="/village/<%= vid %>/villages/<%= t.id %>" class="<%= ui.link %>"><%= t.name %> <span class="tabular-nums">(<%= t.x %>|<%= t.y %>)</span> <%= continent(t.x, t.y) %></a>
+        </td></tr>
+        <% if (t.Player) { %>
+          <tr><td class="<%= label %>">Joueur</td><td>
+            <a href="/village/<%= vid %>/players/<%= t.Player.id %>" class="<%= ui.link %>"><%= t.Player.name %></a> <span class="text-parchment-500 tabular-nums">· <%= num(t.Player.points) %> points</span>
+          </td></tr>
+        <% } %>
+        <tr><td class="<%= label %>">Distance</td><td class="tabular-nums"><%= plan.distance.toFixed(1) %> cases</td></tr>
+        <tr><td class="<%= label %>">Durée</td><td class="tabular-nums"><%= duration(plan.seconds) %></td></tr>
+        <tr><td class="<%= label %>">Arrivée</td><td class="tabular-nums" data-arrive-in="<%= plan.seconds * 1000 %>"><%= when(plan.arrivesAt, now) %></td></tr>
+        <% if (isAttack) { %>
+          <tr><td class="<%= label %>">Moral</td><td class="font-semibold tabular-nums"><%= Math.round(plan.morale * 100) %> %</td></tr>
+          <tr><td class="<%= label %>">Butin possible</td><td><span class="flex items-center gap-1.5 tabular-nums" title="Capacité de transport des troupes"><span class="text-gold-400"><%- icon('storage', 'size-3.5', 2) %></span><%= num(carry) %></span></td></tr>
+        <% } %>
+      </tbody>
+    </table>
+
+    <%# 2. Les troupes : toutes les unités du monde, celles qui ne partent pas en retrait. %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.tableSm %> border border-bronze-800 [&_td]:px-1 [&_td]:text-center [&_th]:px-1">
+        <thead><tr>
+          <% for (const u of worldUnits) { const n = plan.units[u.id] || 0; %>
+            <th class="text-center" title="<%= u.name %>"><span class="flex justify-center <%= n ? 'text-gold-400' : 'opacity-40' %>"><%- unitIcon(u.id, 'size-4') %></span></th>
+          <% } %>
+        </tr></thead>
+        <tbody><tr>
+          <% for (const u of worldUnits) { const n = plan.units[u.id] || 0; %>
+            <td class="tabular-nums <%= n ? 'font-semibold text-parchment-100' : 'text-parchment-600' %>" title="<%= u.name %>"><%= num(n) %></td>
+          <% } %>
+        </tr></tbody>
+      </table>
+    </div>
+
     <% if (plan.catapultTarget) { %>
-      <div class="px-4.5 pb-4">
-        <label class="<%= ui.label %>">Cible des catapultes
-          <select name="catapultTarget" class="<%= ui.input %> w-full sm:w-64">
-            <% for (const b of catapultTargets) { %>
-              <option value="<%= b.id %>" <%= b.id === plan.catapultTarget ? 'selected' : '' %>><%= b.name %></option>
-            <% } %>
-          </select>
-        </label>
-      </div>
+      <label class="<%= ui.label %>">Cible des catapultes
+        <select name="catapultTarget" class="<%= ui.inputSm %> w-full sm:w-64">
+          <% for (const b of catapultTargets) { %>
+            <option value="<%= b.id %>" <%= b.id === plan.catapultTarget ? 'selected' : '' %>><%= b.name %></option>
+          <% } %>
+        </select>
+      </label>
     <% } %>
-    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-900 bg-black/20 px-4.5 py-4">
-      <a href="/village/<%= ctx.village.id %>/place?<%= new URLSearchParams({ x: t.x, y: t.y, ...plan.units }) %>" class="<%= btn('dark') %>"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Retour</a>
-      <button class="<%= btn(isAttack ? 'red' : 'olive') %>"><%- icon(isAttack ? 'attack' : 'support', 'size-3.5', 2.2) %><%= isAttack ? 'Lancer l’attaque' : 'Envoyer le soutien' %></button>
+
+    <%# 3. Envoi. %>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/village/<%= vid %>/place?<%= new URLSearchParams({ x: t.x, y: t.y, ...plan.units }) %>" class="<%= btn('dark', 'sm') %>"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Modifier</a>
+      <button class="<%= btn(isAttack ? 'red' : 'olive', 'sm') %>"><%- icon(isAttack ? 'attack' : 'support', 'size-3.5', 2.2) %><%= isAttack ? 'Attaquer' : 'Soutenir' %></button>
     </div>
   </form>
 </section>

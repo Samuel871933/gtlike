@@ -52,11 +52,11 @@
   const titleOf = (p) => `${p.b.name} · ${p.level ? `niveau ${p.level}` : 'non construit'}${p.last ? ` · niveau ${p.last.level} en file` : ''}`;
   // Pastille de chantier : compte à rebours si en cours, « EN FILE » sinon.
   const timer = (p) => p.running
-    ? `<span class="flex items-center gap-[3px] border-2 border-black bg-blood-700 px-1 text-[10px] font-semibold text-parchment-100 tabular-nums shadow-[2px_2px_0_#000]">${icon('smith', 'size-2.5', 3)}<span data-countdown="${new Date(p.running.endsAt).getTime()}">${duration((new Date(p.running.endsAt) - now) / 1000)}</span></span>`
-    : `<span class="border-2 border-black bg-blood-900 px-1 text-[10px] font-semibold text-parchment-100 shadow-[2px_2px_0_#000]">En file</span>`;
+    ? `<span class="flex items-center gap-[3px] border-2 border-black bg-blood-700 px-1 text-[10px] font-semibold text-on-accent tabular-nums shadow-[2px_2px_0_#000]">${icon('smith', 'size-2.5', 3)}<span data-countdown="${new Date(p.running.endsAt).getTime()}">${duration((new Date(p.running.endsAt) - now) / 1000)}</span></span>`
+    : `<span class="border-2 border-black bg-blood-900 px-1 text-[10px] font-semibold text-on-accent shadow-[2px_2px_0_#000]">En file</span>`;
 %>
 <div class="<%= view === 'list' ? 'hidden' : 'hidden md:block' %> bg-night p-2">
-  <div class="relative aspect-[966/580] overflow-hidden border-[3px] border-black bg-(image:--game-image-village) bg-cover bg-center">
+  <div class="spacing-normal relative aspect-[966/580] overflow-hidden border-[3px] border-black bg-(image:--game-image-village) bg-cover bg-center">
     <% for (const p of plan) { %>
       <div class="group/plot absolute <%= SPOTS[p.b.id] %> h-[16%] w-[14.5%] -translate-1/2">
       <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute inset-0 data-selected:outline-[3px] data-selected:outline-gold-200 data-selected:shadow-[0_0_0_6px_rgba(0,0,0,0.6),6px_6px_0_rgba(0,0,0,0.6)] border-[3px] border-black no-underline transition-transform hover:-translate-y-0.5 <%= p.level ? `${LOOK[p.b.id]} shadow-[5px_5px_0_rgba(0,0,0,0.55)]` : 'border-dashed bg-black/45' %> <%= p.running ? 'outline-[3px] outline-offset-0 outline-gold-200' : '' %>"

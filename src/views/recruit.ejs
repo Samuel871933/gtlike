@@ -23,7 +23,7 @@
             <tr>
               <td>
                 <span class="flex items-center gap-3">
-                  <span class="<%= ui.medallion %> size-[38px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
+                  <span class="<%= ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
                   <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
                 </span>
               </td>
@@ -55,7 +55,7 @@
                 <tr>
                   <td>
                     <span class="flex items-center gap-3">
-                      <span class="<%= ui.medallion %> size-[42px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
+                      <span class="<%= ui.medallion %> size-[42px] minimal:size-[32px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
                       <span class="flex min-w-0 flex-col gap-1">
                         <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
                         <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: null }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span><span class="text-parchment-500 tabular-nums">Au village <span class="font-semibold text-parchment-200"><%= num(o.count) %></span> / <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></span>
@@ -70,7 +70,8 @@
                   <td class="text-right whitespace-nowrap">
                     <span class="inline-flex flex-col items-end gap-1">
                       <input type="number" name="<%= o.type.id %>" min="0" max="<%= o.max %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Recruter : <%= o.type.name %>">
-                      <button type="button" class="<%= maxBtn %>" data-fill="<%= o.type.id %>" data-max="<%= o.max %>">max <%= o.max %></button>
+                      <%# data-cap : maximum du serveur (ressources, population, plafonds) ; data-max suit la saisie des autres lignes (game.js). %>
+                      <button type="button" class="<%= maxBtn %>" data-fill="<%= o.type.id %>" data-max="<%= o.max %>" data-cap="<%= o.max %>" data-recruit-max>max <%= o.max %></button>
                     </span>
                   </td>
                 </tr>
@@ -282,7 +283,7 @@
                : `Baisse la loyauté d'au moins ${item.loyalty} lors d'une attaque de noble`;
              const itemIcon = item.unit ? item.unit : item.siege ? (item.siege.ram ? 'ram' : 'catapult') : item.spy ? 'spy' : 'snob'; %>
           <li class="<%= equipped ? ui.boxGold : ui.box %> flex items-center gap-3 p-3 <%= owned ? '' : 'opacity-50' %>">
-            <span class="<%= equipped ? ui.medallionGold : ui.medallion %> size-[38px]"><%- unitIcon(itemIcon, 'size-[19px]') %></span>
+            <span class="<%= equipped ? ui.medallionGold : ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(itemIcon, 'size-[19px]') %></span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="font-display text-sm font-semibold <%= equipped ? 'text-gold-200' : 'text-parchment-100' %>"><%= item.name %></span>
               <span class="text-[13px] text-parchment-500"><%= effect %></span>

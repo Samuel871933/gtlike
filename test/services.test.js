@@ -70,6 +70,27 @@ test('annulation : remboursement de 90 % et file avancée', async () => {
   assert.equal(+moved.startsAt, +later, 'le camp de bois démarre tout de suite');
 });
 
+test('terminer gratuitement : construction en cours à moins de 3 minutes, file avancée', async () => {
+  const wood = await BuildOrder.findOne({ where: { villageId: village.id, building: 'wood' } });
+  const start = new Date(wood.startsAt);
+  // Chantier de 10 minutes (les premiers niveaux durent moins de 3 minutes à vitesse 1).
+  await wood.update({ endsAt: new Date(start.getTime() + 600 * 1000) });
+  const storage = await VillageService.build(village.id, 'storage', { now: start });
+  const tooEarly = new Date(wood.endsAt.getTime() - 181 * 1000);
+  assert.ok(tooEarly > start, 'la construction dure plus de 3 minutes');
+  await assert.rejects(VillageService.finishBuild(village.id, wood.id, { now: tooEarly }), /plus de 3 minutes/);
+  await assert.rejects(VillageService.finishBuild(village.id, storage.id, { now: tooEarly }), /en cours/);
+
+  const now = new Date(wood.endsAt.getTime() - 120 * 1000);
+  assert.ok(VillageService.canFinishFree(wood, { freeFinishSeconds: 180 }, now));
+  await VillageService.finishBuild(village.id, wood.id, { now });
+  const ctx = await VillageService.withVillage(village.id, async (c) => c, { now });
+  assert.equal(ctx.state.level('wood'), 1, 'niveau appliqué tout de suite');
+  const moved = await BuildOrder.findByPk(storage.id);
+  assert.equal(+moved.startsAt, +now, "l'entrepôt démarre tout de suite");
+  assert.equal(+moved.endsAt - +moved.startsAt, +storage.endsAt - +storage.startsAt, 'même durée');
+});
+
 test('recrutement : caserne requise, unités livrées une par une', async () => {
   await assert.rejects(VillageService.recruit(village.id, 'barracks', { spear: 1 }, { now: T0 }), /non construit/);
 

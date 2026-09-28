@@ -1,4 +1,7 @@
-# Styles de jeu
+# Thèmes de jeu
+
+Dans le code, un thème s'appelle « game style » (`gameStyles.js`, `data-game-style`). Dans l'interface, « Style de jeu »
+désigne un autre réglage, la densité (normal / minimaliste) : voir `src/web/gameLayouts.js`.
 
 Un style de jeu habille toute l'interface **en partie** (barres, panneaux, boutons, plan du village, carte…).
 La page d'accueil, la connexion et les pages publiques des mondes gardent le style par défaut.
@@ -8,7 +11,9 @@ En jeu, `<html>` porte la classe `game_style` et l'attribut `data-game-style="<i
 les vues n'utilisent que des classes Tailwind qui lisent ces jetons (`bg-panel-top`, `text-gold-400`,
 `fill-rel-own`…), donc redéfinir les jetons suffit à changer l'apparence.
 
-Styles disponibles : `roman` (par défaut) et `viking`. Le joueur choisit le sien dans **Compte → Style du
+Styles disponibles : `medieval` (par défaut : clair, couleurs de Guerre Tribale), `roman` (les valeurs de `@theme`) et `viking`.
+`roman.css` répète les valeurs de `@theme` pour chaque jeton qu'un autre style redéfinit : ajouter un jeton à un style
+demande de l'ajouter aussi à `roman.css` avec sa valeur de `@theme` (sinon `test/game-styles.test.js` échoue). Le joueur choisit le sien dans **Compte → Thème de
 jeu** (gratuit) ; le choix est enregistré sur le compte (`User.gameStyle`).
 
 ## Ajouter un style
@@ -43,6 +48,8 @@ Les étapes ci-dessous reprennent le style `viking`, déjà présent : `viking.c
 
 ## Règles
 
+- Ne jamais redéfinir les couleurs de la carte et de la mini-carte (`--color-mini-*`, `--color-map-*`, terrain : `grass`,
+  `forest`, `hill`, `water`…) : elles restent identiques dans tous les styles (vérifié par `test/game-styles.test.js`).
 - Ne jamais écrire de couleur en dur (`#…`, `rgba(…)` teintée) dans une vue du jeu : ajouter un jeton dans
   `@theme` et l'utiliser. Seules les ombres noires neutres (`rgba(0,0,0,…)`) restent littérales.
 - Les SVG en ligne prennent leurs couleurs par classes (`fill-rel-own`, `stroke-gold-400`), jamais par

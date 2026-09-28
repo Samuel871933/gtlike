@@ -7,6 +7,8 @@ const MessageService = require('../services/MessageService');
 const ReportService = require('../services/ReportService');
 const TribeForumService = require('../services/TribeForumService');
 const { gameStyleFor } = require('./gameStyles');
+const { villageDesignFor } = require('./villageDesigns');
+const { gameLayoutFor } = require('./gameLayouts');
 const { Op } = require('sequelize');
 const { User, Village, TribeInvite, Player, Tribe } = require('../models');
 
@@ -70,6 +72,8 @@ const loadVillage = ah(async (req, res, next) => {
   const player = await Player.findByPk(owned.playerId, { include: [{ model: Tribe, attributes: ['id', 'tag'] }] });
   res.locals.player = player;
   res.locals.gameStyle = gameStyleFor(req.user);
+  res.locals.villageDesign = villageDesignFor(req.user);
+  res.locals.gameLayout = gameLayoutFor(req.user);
   res.locals.playerRank = 1 + await Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } });
   res.locals.tribeInvites = await TribeInvite.count({ where: { playerId: owned.playerId } });
   // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.

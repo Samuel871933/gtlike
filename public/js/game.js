@@ -42,6 +42,11 @@
       }
     });
 
+    // Bouton « Terminer » (construction gratuite) : affiché dès qu'il reste au plus 3 minutes.
+    document.querySelectorAll('[data-free-at]').forEach((el) => {
+      el.classList.toggle('hidden', now < Number(el.dataset.freeAt));
+    });
+
     document.querySelectorAll('[data-clock]').forEach((el) => {
       el.textContent = new Date(now).toLocaleString('fr-FR');
     });
@@ -72,15 +77,31 @@
     if (form) scavengePreview(form);
   });
 
-  // Recrutement : coût total (ressources, population, durée) de la saisie, en rouge ce qui manque.
+  // Recrutement : coût total (ressources, population, durée) de la saisie, en rouge ce qui manque ; le maximum de
+  // chaque ligne suit ce que les autres lignes consomment déjà (sans dépasser le maximum du serveur, data-cap).
   function recruitTotal(form) {
     const units = JSON.parse(form.dataset.recruit);
     const have = JSON.parse(form.dataset.have);
     const total = { wood: 0, stone: 0, iron: 0, pop: 0, time: 0 };
+    const counts = {};
     for (const [id, c] of Object.entries(units)) {
       const input = form.querySelector(`input[name="${id}"]`);
       const n = Math.max(0, Math.floor(Number(input && input.value) || 0));
+      counts[id] = n;
       for (const k of Object.keys(total)) total[k] += n * c[k];
+    }
+    for (const [id, c] of Object.entries(units)) {
+      const button = form.querySelector(`[data-recruit-max][data-fill="${id}"]`);
+      if (!button) continue;
+      let max = Number(button.dataset.cap);
+      for (const k of ['wood', 'stone', 'iron', 'pop']) {
+        if (c[k] > 0) max = Math.min(max, Math.floor((have[k] - (total[k] - counts[id] * c[k])) / c[k]));
+      }
+      max = Math.max(0, max);
+      button.dataset.max = String(max);
+      button.textContent = `max ${max.toLocaleString('fr-FR')}`;
+      const input = form.querySelector(`input[name="${id}"]`);
+      if (input) input.max = String(max);
     }
     form.querySelectorAll('[data-total]').forEach((el) => {
       const k = el.dataset.total;
@@ -147,6 +168,26 @@
     if (!e.target.matches('[data-check-all]')) return;
     const form = e.target.closest('form');
     form.querySelectorAll('input[type="checkbox"][name="ids"]').forEach((box) => { box.checked = e.target.checked; });
+  });
+
+  // Renommer le village sur place : le titre devient un champ ; Annuler ou Échap le rétablit.
+  function renameMode(on) {
+    const form = document.querySelector('[data-rename-form]');
+    if (!form) return;
+    const title = document.querySelector('[data-rename-title]');
+    const open = document.querySelector('[data-rename-open]');
+    const input = form.querySelector('input[name="name"]');
+    title.hidden = on;
+    open.hidden = on;
+    form.hidden = !on;
+    if (on) { input.focus(); input.select(); } else { input.value = title.textContent.trim(); }
+  }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-rename-open]')) renameMode(true);
+    else if (e.target.closest('[data-rename-cancel]')) renameMode(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && e.target.closest('[data-rename-form]')) renameMode(false);
   });
 
   // Flèches village précédent / suivant : même page, autre village.

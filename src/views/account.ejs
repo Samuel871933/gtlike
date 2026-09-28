@@ -1,8 +1,8 @@
 <%- include('partials/header', { title: 'Compte' }) %>
 <% const sleep = ctx.cfg.sleep; const vid = ctx.village.id; const scheduled = player.sleepEndsAt && new Date(player.sleepEndsAt) > now; %>
-<%# Style du jeu : réglage du compte connecté (un remplaçant choisit donc le sien). Chaque aperçu porte son propre data-game-style. %>
+<%# Thème de jeu : réglage du compte connecté (un remplaçant choisit donc le sien). Chaque aperçu porte son propre data-game-style. %>
 <section class="<%= ui.panel %>">
-  <%- panelHead('Style du jeu', `<span class="text-[13px] text-parchment-500">Gratuit · change tout l’intérieur du jeu</span>`) %>
+  <%- panelHead('Thème de jeu', `<span class="text-[13px] text-parchment-500">Gratuit · change tout l’intérieur du jeu</span>`) %>
   <div class="grid gap-3 p-4.5 sm:grid-cols-2 xl:grid-cols-3">
     <% for (const s of Object.values(GAME_STYLES)) { const active = gameStyle && gameStyle.id === s.id; %>
       <form method="post" action="/village/<%= vid %>/account/game-style" data-game-style="<%= s.id %>"
@@ -21,6 +21,66 @@
             <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
           </span>
           <span class="text-sm text-parchment-400"><%= s.description %></span>
+          <% if (!active) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
+        </div>
+      </form>
+    <% } %>
+  </div>
+</section>
+<%# Design des villages : skin de ses propres villages sur la carte, vu par tous les joueurs (réglage du compte connecté). %>
+<section class="<%= ui.panel %>" id="design-villages">
+  <%- panelHead('Design des villages', `<span class="text-[13px] text-parchment-500">Gratuit · tes villages sur la carte, vus par tous</span>`) %>
+  <div class="grid gap-3 p-4.5 sm:grid-cols-2 xl:grid-cols-3">
+    <% for (const d of Object.values(VILLAGE_DESIGNS)) { const active = villageDesign && villageDesign.id === d.id; %>
+      <form method="post" action="/village/<%= vid %>/account/village-design"
+            class="flex flex-col overflow-hidden border-2 border-black bg-panel-top <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),5px_5px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="design" value="<%= d.id %>">
+        <%# Les six niveaux, comme sur la carte (herbe de la carte, cases de 53 × 38). %>
+        <div class="m-1 grid grid-cols-3 gap-1 border-2 border-black bg-[url(/img/map/terrain-grass.webp)] bg-size-[220px] p-2">
+          <% for (let level = 1; level <= 6; level++) { %>
+            <img src="/img/map/villages/<%= d.id %>/level-<%= level %>.png" alt="" class="aspect-53/38 w-full object-contain drop-shadow-[0_2px_1px_rgb(0_0_0/0.8)] <%= level <= 2 ? 'p-[9%]' : '' %>" loading="lazy">
+          <% } %>
+        </div>
+        <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
+          <span class="flex items-center justify-between gap-2">
+            <span class="font-display text-lg font-semibold tracking-[0.02em] text-gold-400"><%= d.name %></span>
+            <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
+          </span>
+          <span class="text-sm text-parchment-400"><%= d.description %></span>
+          <% if (!active) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
+        </div>
+      </form>
+    <% } %>
+  </div>
+</section>
+<%# Style de jeu : densité de l'interface (src/web/gameLayouts.js), réglage du compte connecté. Aperçus en px fixes, pour ne pas suivre le style actif. %>
+<section class="<%= ui.panel %>" id="style-de-jeu">
+  <%- panelHead('Style de jeu', `<span class="text-[13px] text-parchment-500">Gratuit · taille des encarts, quel que soit le thème</span>`) %>
+  <div class="grid gap-3 p-4.5 sm:grid-cols-2">
+    <% for (const l of Object.values(GAME_LAYOUTS)) { const active = gameLayout && gameLayout.id === l.id; const mini = l.id === 'minimal'; %>
+      <form method="post" action="/village/<%= vid %>/account/game-layout"
+            class="flex flex-col overflow-hidden border-2 border-black bg-panel-top text-parchment-200 <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),5px_5px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="layout" value="<%= l.id %>">
+        <%# Deux encarts schématiques : en-tête et lignes, à l'échelle de chaque style. %>
+        <div class="m-1 flex h-[132px] flex-col overflow-hidden border-2 border-black bg-night <%= mini ? 'gap-[5px] p-[6px]' : 'gap-[10px] p-[10px]' %>" aria-hidden="true" data-layout-preview>
+          <% for (const rows of [3, 4]) { %>
+            <span class="flex shrink-0 flex-col border-2 border-black bg-panel-top <%= mini ? '' : 'shadow-[4px_4px_0_#050505]' %>">
+              <span class="flex items-center gap-[5px] border-b-bronze-500 bg-head <%= mini ? 'h-[10px] border-b px-[5px]' : 'h-[20px] border-b-2 px-[8px]' %>">
+                <span class="shrink-0 rotate-45 bg-gold-400 <%= mini ? 'size-[3px]' : 'size-[5px]' %>"></span>
+                <span class="w-1/3 bg-parchment-100/70 <%= mini ? 'h-[3px]' : 'h-[5px]' %>"></span>
+              </span>
+              <span class="flex flex-col <%= mini ? 'gap-[3px] p-[4px]' : 'gap-[6px] p-[8px]' %>">
+                <% for (let i = 0; i < (mini ? rows + 2 : rows - 1); i++) { %><span class="bg-parchment-500/40 <%= mini ? 'h-[3px]' : 'h-[5px]' %> <%= ['w-[90%]', 'w-[72%]', 'w-[54%]'][i % 3] %>"></span><% } %>
+              </span>
+            </span>
+          <% } %>
+        </div>
+        <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
+          <span class="flex items-center justify-between gap-2">
+            <span class="font-display text-lg font-semibold tracking-[0.02em] text-gold-400"><%= l.name %></span>
+            <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
+          </span>
+          <span class="text-sm text-parchment-400"><%= l.description %></span>
           <% if (!active) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
         </div>
       </form>

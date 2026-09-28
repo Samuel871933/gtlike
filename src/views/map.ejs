@@ -20,7 +20,7 @@
 <div class="flex flex-wrap items-end justify-between gap-2.5">
   <div>
     <div class="text-[13px] text-parchment-500">Carte du monde · <%= ctx.world.name %></div>
-    <h1 class="m-0 font-display text-[28px] font-bold [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)]" data-map-title>Continent <%= continent(cx, cy) %></h1>
+    <h1 class="m-0 font-display text-[28px] font-bold [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)]" data-map-title>Continent <%= continent(cx, cy) %></h1>
   </div>
   <form method="get" class="flex items-center gap-1" data-map-goto>
     <span class="mr-2 text-[13px] text-parchment-500 tabular-nums max-sm:hidden" data-map-range></span>
@@ -55,7 +55,8 @@
             <button type="button" class="map-controls absolute top-6 right-1 z-10 <%= ui.iconBtnOn %>" data-map-center-home aria-label="Centrer sur mon village" title="Centrer sur mon village"><%- icon('center', 'size-3.5', 2.2) %></button>
           </div>
           <%# Infobulle au survol d'un village et menu d'actions au clic (remplis par map.js), hors de la zone découpée. %>
-          <div class="pointer-events-none absolute z-[15] hidden w-max max-w-[min(460px,calc(100%-12px))] min-w-[280px] border-2 border-black bg-night text-[13px] shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]" data-map-tip>
+          <%# 1 px de marge intérieure : les fonds des blocs ne recouvrent pas le filet bronze de la bordure. %>
+          <div class="pointer-events-none absolute z-[15] hidden w-max max-w-[min(520px,calc(100%-12px))] min-w-[340px] border-2 border-black bg-night p-px text-[13px] shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]" data-map-tip>
             <div class="flex items-baseline justify-between gap-3 border-b border-bronze-500 bg-head-dark px-2.5 py-1.5">
               <b class="truncate font-display text-[15px] font-normal text-parchment-100" data-tip="name"></b>
               <span class="shrink-0 text-xs text-gold-400 tabular-nums"><span data-tip="coords"></span> <span class="text-parchment-400" data-tip="k"></span></span>
@@ -64,19 +65,23 @@
               <dt class="text-parchment-500">Points</dt><dd class="font-semibold tabular-nums" data-tip="points"></dd>
               <dt class="text-parchment-500">Propriétaire</dt><dd class="min-w-0"><span class="font-semibold" data-tip="owner"></span> <span class="text-parchment-400 tabular-nums" data-tip="ownerInfo"></span></dd>
               <dt class="text-parchment-500" data-tip-row="tribe">Tribu</dt><dd class="min-w-0" data-tip-row="tribe"><span class="font-semibold text-gold-200" data-tip="tribe"></span> <span data-tip="tribeName"></span> <span class="text-parchment-400 tabular-nums" data-tip="tribeInfo"></span></dd>
-              <dt class="text-parchment-500">Relation</dt><dd data-tip="rel"></dd>
-              <dt class="text-parchment-500" data-tip-row="dist">Distance</dt><dd class="tabular-nums" data-tip-row="dist" data-tip="dist"></dd>
               <dt class="text-parchment-500" data-tip-row="morale">Morale</dt><dd class="font-semibold tabular-nums" data-tip-row="morale" data-tip="morale"></dd>
             </dl>
             <%# Durée du trajet de chaque unité depuis le village courant (calculée par map.js avec la distance) : icône au-dessus, durée dessous. %>
-            <%# Une seule rangée jusqu'à 10 unités, sinon deux rangées égales. %>
-            <div class="grid gap-px bg-bronze-900 p-px" style="grid-template-columns: repeat(<%= paces.length <= 10 ? paces.length : Math.ceil(paces.length / 2) %>, minmax(0, 1fr))" data-tip-travel>
-              <% for (const u of paces) { %><span class="flex flex-col items-center gap-1 bg-panel-top px-1 pt-1.5 pb-1" title="<%= u.name %>"><span class="text-gold-400"><%- unitIcon(u.id, 'size-4', 2) %></span><span class="text-[11px] text-parchment-200 tabular-nums" data-tip-pace="<%= u.minutes %>"></span></span><% } %>
+            <%# Une seule rangée jusqu'à 10 unités, sinon deux rangées égales ; 50 px par colonne au moins pour « 0:00:00 ». %>
+            <div class="grid gap-px bg-bronze-900 p-px" style="grid-template-columns: repeat(<%= paces.length <= 10 ? paces.length : Math.ceil(paces.length / 2) %>, minmax(50px, 1fr))" data-tip-travel>
+              <% for (const u of paces) { %><span class="flex flex-col items-center gap-1 bg-panel-top px-1.5 pt-1.5 pb-1 whitespace-nowrap" title="<%= u.name %>"><span class="text-gold-400"><%- unitIcon(u.id, 'size-4', 2) %></span><span class="text-[11px] text-parchment-200 tabular-nums" data-tip-pace="<%= u.minutes %>"></span></span><% } %>
             </div>
           </div>
           <div class="map-controls absolute z-[16] hidden w-[200px] border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]" data-map-menu>
             <div class="border-b-2 border-bronze-500 bg-head px-2 py-1 font-display text-xs font-semibold tracking-[0.02em]"><span data-menu-t="name"></span> <span class="font-sans text-parchment-300 tabular-nums" data-menu-t="coords"></span></div>
             <div data-menu-t="actions"></div>
+          </div>
+          <%# Actions rapides autour d'un village d'un autre joueur, comme sur Guerre Tribale : icônes en cercle
+              autour de la case, libellé dessous (nom du village, puis l'action survolée). Rempli par map.js. %>
+          <div class="map-controls pointer-events-none absolute z-[16] hidden size-0" data-map-radial>
+            <div data-radial-items></div>
+            <div class="absolute left-0 -translate-x-1/2 border-2 border-black bg-night px-2 py-0.5 text-center text-xs font-semibold whitespace-nowrap text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000]" data-radial-label></div>
           </div>
         </div>
       </div>
@@ -89,26 +94,23 @@
         <%# Marquages : une couleur par joueur, tribu ou village (carte, mini-carte, légende). %>
         <section class="<%= ui.panel %>" id="marquages">
           <%- panelHead('Marquages sur la carte', `<span class="text-[13px] text-parchment-300 tabular-nums">${markers.length} / 50</span>`) %>
-          <form method="post" action="/village/<%= vid %>/map/markers" class="flex flex-col gap-2.5 border-b border-bronze-800 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <%# Une seule ligne : type, cible (place restante), couleur, bouton ; passe à la ligne sur petit écran. %>
+          <form method="post" action="/village/<%= vid %>/map/markers" class="flex flex-wrap items-end gap-2 border-b border-bronze-800 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <% if (markForm) { %>
               <input type="hidden" name="type" value="<%= markForm.type %>"><input type="hidden" name="targetId" value="<%= markForm.targetId %>">
-              <p class="text-sm text-parchment-300">Nouveau marquage : <strong class="text-parchment-100"><%= { player: 'joueur', tribe: 'tribu', village: 'village' }[markForm.type] %> <%= markForm.label %></strong> <a href="<%= link(cx, cy) %>#marquages" class="ml-1 text-[13px] text-gold-400 no-underline hover:text-parchment-100">Annuler</a></p>
+              <p class="min-w-0 flex-1 self-center text-sm text-parchment-300">Nouveau marquage : <strong class="text-parchment-100"><%= { player: 'joueur', tribe: 'tribu', village: 'village' }[markForm.type] %> <%= markForm.label %></strong> <a href="<%= link(cx, cy) %>#marquages" class="ml-1 text-[13px] text-gold-400 no-underline hover:text-parchment-100">Annuler</a></p>
             <% } else { %>
-              <div class="flex flex-wrap items-end gap-2">
-                <label class="<%= ui.label %>">Marquer
-                  <select name="type" class="<%= ui.inputSm %>">
-                    <option value="player">un joueur</option><option value="tribe">une tribu</option><option value="village">un village</option>
-                  </select>
-                </label>
-                <label class="<%= ui.label %> min-w-0 flex-1">Nom, tag ou coordonnées<input name="target" required placeholder="Pseudo, tag de tribu ou 500|500" class="<%= ui.inputSm %> w-full"></label>
-              </div>
-            <% } %>
-            <div class="flex flex-wrap items-end gap-2">
-              <label class="<%= ui.label %>">Couleur
-                <input type="color" name="color" value="<%= markerColor %>" class="block h-8 w-16 cursor-pointer border-2 border-black bg-night p-0.5 shadow-[1px_1px_0_#000] focus-visible:outline-2 focus-visible:outline-gold-200 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0">
+              <label class="<%= ui.label %>">Marquer
+                <select name="type" class="<%= ui.inputSm %>">
+                  <option value="player">un joueur</option><option value="tribe">une tribu</option><option value="village">un village</option>
+                </select>
               </label>
-              <button class="<%= btn('gold', 'sm', 'ml-auto') %>">Enregistrer</button>
-            </div>
+              <label class="<%= ui.label %> min-w-48 flex-1">Nom, tag ou coordonnées<input name="target" required placeholder="Pseudo, tag de tribu ou 500|500" class="<%= ui.inputSm %> w-full"></label>
+            <% } %>
+            <label class="<%= ui.label %>">Couleur
+              <input type="color" name="color" value="<%= markerColor %>" class="block h-8 w-16 cursor-pointer border-2 border-black bg-night p-0.5 shadow-[1px_1px_0_#000] focus-visible:outline-2 focus-visible:outline-gold-200 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0">
+            </label>
+            <button class="<%= btn('gold', 'sm') %>">Enregistrer</button>
           </form>
           <% if (!markers.length) { %>
             <p class="px-3 py-2.5 text-[13px] text-parchment-500">Aucun marquage. Tu peux aussi cliquer un village de la carte puis « Marquer ».</p>
@@ -136,7 +138,7 @@
             <% for (const [k, label] of [['markers', 'Marquages'], ['influence', 'Influence de ta tribu'], ['enemy', 'Zones ennemies'], ['nobarb', 'Masquer les barbares'], ['grid', 'Quadrillage (5 cases)'], ['borders', 'Frontières de continent']]) { %>
               <button type="button" class="group flex cursor-pointer items-center justify-between border-b border-bronze-900 px-3 py-1.5 text-left text-parchment-400 last:border-b-0 hover:bg-thead aria-pressed:text-parchment-100" data-map-layer="<%= k %>" aria-pressed="<%= layers[k] ? 'true' : 'false' %>">
                 <span><%= label %></span>
-                <span class="relative h-4 w-8 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700)] group-aria-pressed:bg-blood-800"><span class="absolute top-px left-px size-2.5 border border-black bg-parchment-300 transition-[left] group-aria-pressed:left-[17px]"></span></span>
+                <span class="spacing-normal relative h-4 w-8 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700)] group-aria-pressed:bg-blood-800"><span class="absolute top-px left-px size-2.5 border border-black bg-parchment-300 transition-[left] group-aria-pressed:left-[17px]"></span></span>
               </button>
             <% } %>
           </div>
@@ -183,14 +185,14 @@
         <input type="hidden" name="x" value="<%= cx %>"><input type="hidden" name="y" value="<%= cy %>">
         <div class="grid grid-cols-4 border-2 border-black">
           <% for (const [k, label] of [['player', 'Joueur'], ['village', 'Village'], ['tribe', 'Tribu'], ['coords', 'Coord.']]) { %>
-            <label class="cursor-pointer border-r border-black bg-night px-0.5 py-1 text-center text-xs font-semibold text-parchment-500 last:border-r-0 hover:text-parchment-100 has-checked:bg-blood-800 has-checked:text-parchment-100">
+            <label class="cursor-pointer border-r border-black bg-night px-0.5 py-1 text-center text-xs font-semibold text-parchment-500 last:border-r-0 hover:text-parchment-100 has-checked:bg-blood-800 has-checked:text-on-accent">
               <input type="radio" name="find" value="<%= k %>" class="sr-only" <%= search.find === k ? 'checked' : '' %>><%= label %>
             </label>
           <% } %>
         </div>
         <div class="flex">
           <input name="q" value="<%= search.q %>" placeholder="Nom, tag ou 500|500" aria-label="Rechercher" class="<%= ui.input %> min-w-0 flex-1">
-          <button class="flex w-[34px] shrink-0 cursor-pointer items-center justify-center border-2 border-l-0 border-black bg-blood-800 text-parchment-100 hover:bg-blood-600" aria-label="Lancer la recherche"><%- icon('search', 'size-4', 2.6) %></button>
+          <button class="flex w-[34px] shrink-0 cursor-pointer items-center justify-center border-2 border-l-0 border-black bg-blood-800 text-on-accent hover:bg-blood-600" aria-label="Lancer la recherche"><%- icon('search', 'size-4', 2.6) %></button>
         </div>
         <% if (search.results) { %>
           <% if (!search.results.length) { %>

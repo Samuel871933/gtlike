@@ -126,7 +126,8 @@ class VillageState {
       .sort((a, b) => new Date(a.endsAt) - new Date(b.endsAt));
     for (const o of done) {
       this.accrue(new Date(o.endsAt));
-      this.buildings[o.building] = Math.max(this.level(o.building), o.level);
+      // Démolition : le bâtiment descend au niveau de l'ordre ; construction : il y monte.
+      this.buildings[o.building] = o.demolish ? Math.min(this.level(o.building), o.level) : Math.max(this.level(o.building), o.level);
     }
     this.accrue(now);
     return done;

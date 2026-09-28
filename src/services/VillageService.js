@@ -141,7 +141,7 @@ class VillageService {
 
   /** Prochain niveau d'un bâtiment en tenant compte de la file. */
   static nextLevel(ctx, buildingId) {
-    const queued = ctx.buildOrders.filter((o) => o.building === buildingId).map((o) => o.level);
+    const queued = ctx.buildOrders.filter((o) => o.building === buildingId && !o.demolish).map((o) => o.level);
     return Math.max(ctx.state.level(buildingId), ...queued) + 1;
   }
 
@@ -161,6 +161,7 @@ class VillageService {
     }
     option.missing = type.missingRequirements(state.buildings);
     for (const m of option.missing) option.blockers.push(`${registry.building(m.building).name} niveau ${m.level}`);
+    if (ctx.buildOrders.some((o) => o.building === type.id && o.demolish)) option.blockers.push('Démolition en cours');
 
     option.cost = type.costFor(level);
     option.pop = type.popFor(level);
@@ -172,8 +173,50 @@ class VillageService {
       option.blockers.push('La ferme est trop petite');
     }
     if (ctx.buildOrders.length >= cfg.buildQueueSlots) option.blockers.push('La file de construction est pleine');
-    if (!state.canAfford(option.cost)) option.lacksResources = true;
+    if (!state.canAfford(option.cost)) {
+      option.lacksResources = true;
+      // Heure à laquelle la production couvrira le coût (comme « Ressources disponibles … » sur GT).
+      const prod = state.productionPerHour();
+      const waits = ['wood', 'stone', 'iron'].map((r) => {
+        const missing = option.cost[r] - state.resources[r];
+        return missing <= 0 ? 0 : prod[r] > 0 ? (missing / prod[r]) * 3600 : Infinity;
+      });
+      const wait = Math.max(...waits);
+      if (Number.isFinite(wait)) option.availableAt = new Date(ctx.now.getTime() + Math.ceil(wait) * 1000);
+    }
     return option;
+  }
+
+  /**
+   * Démolition d'un niveau (onglet Démolition du QG, comme sur GT) : gratuite, sans remboursement, dans la file
+   * de construction ; durée de construction du niveau actuel. QG niveau `demolishMainLevel` et loyauté à 100 %.
+   */
+  static demolishOption(ctx, type) {
+    const { state, cfg, village } = ctx;
+    const current = state.level(type.id);
+    const option = { type, current, level: current - 1, blockers: [] };
+    option.duration = current > 0 ? Math.round(type.buildTimeFor(current, state.level('main'), cfg)) : 0;
+    if (current <= type.minLevel) option.blockers.push(current > 0 ? 'Niveau minimal' : 'Non construit');
+    if (state.level('main') < cfg.demolishMainLevel) option.blockers.push(`Quartier général niveau ${cfg.demolishMainLevel}`);
+    if ((village.loyalty ?? 100) < 100) option.blockers.push('Loyauté à 100 % requise');
+    if (ctx.buildOrders.some((o) => o.building === type.id)) option.blockers.push('Chantier en cours sur ce bâtiment');
+    if (ctx.buildOrders.length >= cfg.buildQueueSlots) option.blockers.push('La file de construction est pleine');
+    return option;
+  }
+
+  static async demolish(villageId, buildingId, { now } = {}) {
+    return VillageService.withVillage(villageId, async (ctx, t) => {
+      const type = registry.BUILDINGS.get(buildingId);
+      if (!type || !type.isAvailableIn(ctx.cfg)) throw new GameError('Bâtiment inconnu.');
+      const option = VillageService.demolishOption(ctx, type);
+      if (option.blockers.length) throw new GameError(option.blockers[0]);
+      const last = ctx.buildOrders[ctx.buildOrders.length - 1];
+      const startsAt = last ? new Date(last.endsAt) : ctx.now;
+      return BuildOrder.create({
+        villageId: ctx.village.id, building: type.id, level: option.level, demolish: true,
+        startsAt, endsAt: new Date(startsAt.getTime() + option.duration * 1000), wood: 0, stone: 0, iron: 0,
+      }, { transaction: t });
+    }, { now });
   }
 
   static async build(villageId, buildingId, { now } = {}) {
@@ -206,7 +249,8 @@ class VillageService {
       const order = ctx.buildOrders.find((o) => o.id === Number(orderId));
       if (!order) throw new GameError('Construction introuvable.', 404);
 
-      const cancelled = ctx.buildOrders.filter((o) => o.building === order.building && o.level >= order.level);
+      // Une démolition s'annule seule ; un niveau entraîne les niveaux supérieurs du même bâtiment.
+      const cancelled = order.demolish ? [order] : ctx.buildOrders.filter((o) => o.building === order.building && !o.demolish && o.level >= order.level);
       for (const o of cancelled) {
         ctx.state.refund(o, ctx.cfg.cancelRefund);
         await o.destroy({ transaction: t });
@@ -215,6 +259,32 @@ class VillageService {
       await VillageService.reschedule(remaining, ctx.now, t);
       await ctx.village.update(ctx.state.resources, { transaction: t });
     }, { now });
+  }
+
+  /**
+   * Termine tout de suite la construction en cours quand il lui reste au plus `freeFinishSeconds` (3 minutes),
+   * comme sur Guerre Tribale : gratuit, bâtiments seulement. Les constructions suivantes avancent d'autant ;
+   * le niveau est appliqué au prochain rafraîchissement du village (à cet instant).
+   */
+  static async finishBuild(villageId, orderId, { now } = {}) {
+    return VillageService.withVillage(villageId, async (ctx, t) => {
+      const order = ctx.buildOrders.find((o) => o.id === Number(orderId));
+      if (!order) throw new GameError('Construction introuvable.', 404);
+      if (order.demolish) throw new GameError('Une démolition ne peut pas être terminée plus tôt.');
+      if (new Date(order.startsAt) > ctx.now) throw new GameError('Seule la construction en cours peut être terminée.');
+      const left = new Date(order.endsAt) - ctx.now;
+      if (left > ctx.cfg.freeFinishSeconds * 1000) {
+        throw new GameError(`Il reste plus de ${Math.round(ctx.cfg.freeFinishSeconds / 60)} minutes : la construction ne peut pas encore être terminée.`);
+      }
+      await order.update({ endsAt: ctx.now }, { transaction: t });
+      await VillageService.reschedule(ctx.buildOrders.filter((o) => o !== order), ctx.now, t);
+      return order;
+    }, { now });
+  }
+
+  /** La construction en cours peut-elle être terminée gratuitement (au plus `freeFinishSeconds` restantes) ? */
+  static canFinishFree(order, cfg, now) {
+    return !order.demolish && new Date(order.startsAt) <= now && new Date(order.endsAt) - now <= cfg.freeFinishSeconds * 1000;
   }
 
   /**

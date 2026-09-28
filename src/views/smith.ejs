@@ -12,7 +12,7 @@
       </p>
       <% if (running) { %>
         <div class="<%= ui.boxGold %> flex flex-wrap items-center gap-3 p-3">
-          <span class="<%= ui.medallionGold %> size-[38px]"><%- unitIcon(running.unit, 'size-[19px]') %></span>
+          <span class="<%= ui.medallionGold %> size-[38px] minimal:size-[28px]"><%- unitIcon(running.unit, 'size-[19px]') %></span>
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="<%= ui.kicker %>">Recherche en cours</span>
             <span class="text-parchment-300"><strong class="font-display text-gold-200"><%= unitName(running.unit) %></strong> · <%= when(running.endsAt, now) %></span>
@@ -30,7 +30,7 @@
           <tr class="<%= o.running ? ui.rowActive : '' %>">
             <td class="min-w-44">
               <span class="flex items-center gap-3">
-                <span class="<%= o.done ? ui.medallionGold : ui.medallion %> size-[38px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
+                <span class="<%= o.done ? ui.medallionGold : ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
                 <span class="flex min-w-0 flex-col">
                   <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
                   <span class="text-[13px] text-parchment-500"><%= buildingName(o.type.building) %></span>

@@ -31,7 +31,7 @@ function createApp() {
   }));
 
   app.use((req, res, next) => {
-    Object.assign(res.locals, helpers, { now: new Date(), ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null, playerRank: null, gameStyle: null, asSitter: false });
+    Object.assign(res.locals, helpers, { now: new Date(), ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null, playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, asSitter: false });
     next();
   });
   app.use(loadUser);

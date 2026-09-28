@@ -7,6 +7,69 @@
 /* Styles de jeu (peaux de l'interface en partie) : un fichier par style, voir game-styles/README.md. */
 @import "./game-styles/roman.css";
 @import "./game-styles/viking.css";
+@import "./game-styles/medieval.css";
+
+/*
+  Style de jeu « Minimaliste » (src/web/gameLayouts.js) : interface serrée à la Guerre Tribale, quel que soit le thème.
+  L'échelle d'espacement de Tailwind passe de 4 px à 3 px : marges, écarts et hauteurs (p-3, gap-5, h-9…) rétrécissent
+  partout sans toucher aux vues ; les tailles de texte et les valeurs en px ([34px]) ne changent pas. Les composants
+  plus visibles (en-têtes d'encarts, tableaux, ombres) sont ajustés dans src/web/ui.js avec la variante `minimal:`.
+*/
+@custom-variant minimal (&:where([data-game-layout="minimal"], [data-game-layout="minimal"] *));
+
+@layer theme {
+  [data-game-layout="minimal"] {
+    --spacing: 0.1875rem;
+  }
+  /* Les pictogrammes (size-4, size-3…) gardent leur taille : seuls les espaces se resserrent. */
+  [data-game-layout="minimal"] svg {
+    --spacing: 0.25rem;
+  }
+}
+/* Échelle d'espacement d'origine pour un élément dessiné au pixel près (interrupteur, plan du village) :
+   ses tailles (w-8, size-2.5) restent accordées à ses valeurs en px (left-[17px]) en style minimaliste. */
+@utility spacing-normal {
+  --spacing: 0.25rem;
+}
+/* Minimaliste : interface à plat, sans ombres portées ni filets intérieurs (encarts, boutons, pastilles…).
+   La carte du monde et l'aperçu des styles (Compte) gardent leur rendu. Hors calque et !important : l'emporte sur les utilitaires shadow-* et sur
+   les règles des rapports. Les champs perdent leur filet de focus : un contour le remplace. */
+[data-game-layout="minimal"] :not(.map-frame, .map-frame *, [data-layout-preview] *) {
+  box-shadow: none !important;
+}
+/* Minimaliste : traits fins. Les bordures de 2 et 3 px passent à 1 px ; les filets d'accent à gauche (border-l-4,
+   border-l-[3px]) restent. Même exclusions, plus les éléments dessinés au pixel (spacing-normal : plan, interrupteurs). */
+[data-game-layout="minimal"] :not(.map-frame, .map-frame *, [data-layout-preview] *, .spacing-normal, .spacing-normal *) {
+  &:is(.border-2, .border-\[3px\]) { border-width: 1px; }
+  &:is(.border-t-2, .border-t-\[3px\]) { border-top-width: 1px; }
+  &:is(.border-b-2, .border-b-\[3px\]) { border-bottom-width: 1px; }
+  &:is(.border-r-2, .border-r-\[3px\]) { border-right-width: 1px; }
+  &.border-l-2 { border-left-width: 1px; }
+  &.border-2:is(.border-l-4, .border-l-\[3px\]) { border-left-width: revert-layer; }
+}
+[data-game-layout="minimal"] :is(input, select, textarea):focus-visible {
+  outline: 1px solid var(--color-gold-400);
+  outline-offset: -1px;
+}
+
+/*
+  Fond de page en jeu : texture du style (--game-bg-texture) sous le dégradé de la page. Le dégradé est un voile
+  plus ou moins opaque (--game-bg-veil) et se mélange à la texture (--game-bg-blend). Sur un fond sombre, un
+  mélange overlay / soft-light d'un dégradé opaque presque noir efface la texture : les styles sombres utilisent
+  donc un voile partiel en mélange normal, le style clair un voile complet en multiply.
+*/
+html.game_style body {
+  background-image:
+    radial-gradient(ellipse at 50% -10%,
+      color-mix(in srgb, var(--color-halo) var(--game-bg-veil, 100%), transparent),
+      color-mix(in srgb, var(--color-panel-lo) var(--game-bg-veil, 100%), transparent) 45%,
+      color-mix(in srgb, var(--color-night) var(--game-bg-veil, 100%), transparent)),
+    var(--game-bg-texture);
+  background-position: center, center;
+  background-size: cover, cover;
+  background-attachment: fixed, fixed;
+  background-blend-mode: var(--game-bg-blend, normal);
+}
 
 /*
   Uniquement la configuration Tailwind : palette et polices de la charte (maquette « GTLike », maquettes/GTLike.html).
@@ -174,6 +237,11 @@
   --color-crest: #7a1212;
   --color-shield-edge: #0b0b0c;
   --color-shield-mark: #4b0b0b;
+  /* Texte posé sur un aplat foncé (boutons, pastilles, étiquettes rouges) : clair dans tous les styles */
+  --color-on-accent: #e8e0d4;
+  /* Ombres portées des grands titres (encre puis sang) ; un style clair les efface */
+  --color-title-shadow: #000;
+  --color-title-shadow-2: #4b0b0b;
   /* Grain de papier (points clairs) posé sur toute la page */
   --color-grain: rgb(232 224 212 / 0.035);
 }
@@ -207,6 +275,9 @@
   /* Quadrillage (10 cases), frontières de continent (100 cases) */
   --color-mini-grid: rgb(15 23 10 / .22);
   --color-mini-border: rgb(12 18 8 / .78);
+  /* Textes posés sur la carte (règles des coordonnées, étoile des favoris) : clairs dans tous les styles */
+  --color-map-label: #e8e0d4;
+  --color-map-label-me: #e0b04a;
   /* Calques : quadrillage de 5 cases, influence de la tribu, zones ennemies (comme sur la carte) */
   --color-mini-grid-5: rgb(15 23 10 / .4);
   --color-mini-influence: rgb(153 27 27 / .45);
@@ -286,30 +357,58 @@
   --village-color: var(--color-rel-other);
   position: relative;
   display: block;
-  width: calc(var(--tile, 52px) * .9);
-  height: calc(var(--tile, 52px) * .9);
+  /* Toute la case : le village y est centré, aussi grand que possible sans déborder (voir .village-sprite). */
+  width: var(--tile-w, 53px);
+  height: var(--tile-h, 38px);
   filter: drop-shadow(0 2px 1px rgb(0 0 0 / .9));
 }
 .village-marker::after {
   display: none;
 }
-.village-relation-dot { position: absolute; z-index: 4; left: -2px; bottom: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }
+.village-relation-dot { position: absolute; z-index: 4; left: 1px; top: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }
 .map-tile--village { z-index: 3; }
 .village-sprite {
   position: absolute;
-  inset: var(--village-inset, 0 0 3px);
+  /* 1 px de marge ; niveaux 1 et 2 : marge plus large, village plus petit. */
+  inset: var(--village-inset, 1px);
   z-index: 1;
   background-image: var(--village-image);
   background-repeat: no-repeat;
-  background-size: var(--village-width, 100%) auto;
-  background-position: center bottom;
+  background-size: contain;
+  background-position: center;
 }
-.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.png'); --village-width: 62%; }
-.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.png'); --village-width: 72%; }
-.village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.png'); --village-width: 82%; }
+.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.png'); --village-inset: 17%; }
+.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.png'); --village-inset: 9%; }
+.village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.png'); }
 .village-marker--4 { --village-image: url('/img/map/villages/beige/level-4.png'); }
 .village-marker--5 { --village-image: url('/img/map/villages/beige/level-5.png'); }
 .village-marker--6 { --village-image: url('/img/map/villages/beige/level-6.png'); }
+/* Designs des villages (src/web/villageDesigns.js) : skin choisi par le propriétaire, vu par tous (classe village-design--<id>).
+   Beige par défaut ci-dessus ; les barbares n'ont pas de propriétaire et restent beiges. */
+.village-design--blanc-bleu.village-marker--1 { --village-image: url('/img/map/villages/blanc-bleu/level-1.png'); }
+.village-design--blanc-bleu.village-marker--2 { --village-image: url('/img/map/villages/blanc-bleu/level-2.png'); }
+.village-design--blanc-bleu.village-marker--3 { --village-image: url('/img/map/villages/blanc-bleu/level-3.png'); }
+.village-design--blanc-bleu.village-marker--4 { --village-image: url('/img/map/villages/blanc-bleu/level-4.png'); }
+.village-design--blanc-bleu.village-marker--5 { --village-image: url('/img/map/villages/blanc-bleu/level-5.png'); }
+.village-design--blanc-bleu.village-marker--6 { --village-image: url('/img/map/villages/blanc-bleu/level-6.png'); }
+.village-design--noir.village-marker--1 { --village-image: url('/img/map/villages/noir/level-1.png'); }
+.village-design--noir.village-marker--2 { --village-image: url('/img/map/villages/noir/level-2.png'); }
+.village-design--noir.village-marker--3 { --village-image: url('/img/map/villages/noir/level-3.png'); }
+.village-design--noir.village-marker--4 { --village-image: url('/img/map/villages/noir/level-4.png'); }
+.village-design--noir.village-marker--5 { --village-image: url('/img/map/villages/noir/level-5.png'); }
+.village-design--noir.village-marker--6 { --village-image: url('/img/map/villages/noir/level-6.png'); }
+.village-design--viking.village-marker--1 { --village-image: url('/img/map/villages/viking/level-1.png'); }
+.village-design--viking.village-marker--2 { --village-image: url('/img/map/villages/viking/level-2.png'); }
+.village-design--viking.village-marker--3 { --village-image: url('/img/map/villages/viking/level-3.png'); }
+.village-design--viking.village-marker--4 { --village-image: url('/img/map/villages/viking/level-4.png'); }
+.village-design--viking.village-marker--5 { --village-image: url('/img/map/villages/viking/level-5.png'); }
+.village-design--viking.village-marker--6 { --village-image: url('/img/map/villages/viking/level-6.png'); }
+.village-design--rome-antique.village-marker--1 { --village-image: url('/img/map/villages/rome-antique/level-1.png'); }
+.village-design--rome-antique.village-marker--2 { --village-image: url('/img/map/villages/rome-antique/level-2.png'); }
+.village-design--rome-antique.village-marker--3 { --village-image: url('/img/map/villages/rome-antique/level-3.png'); }
+.village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png'); }
+.village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png'); }
+.village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png'); }
 .village-marker--current { --village-color: #fff; }
 .village-marker--own { --village-color: #f0c74b; }
 .village-marker--tribe { --village-color: #3159b8; }
@@ -321,3 +420,82 @@
 .village-marker--large { width: 92px; height: 92px; }
 .village-special { position: absolute; z-index: 3; top: 0; right: 1px; color: var(--color-gold-200); font-size: 13px; text-shadow: 0 1px 2px #000; }
 [data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }
+
+/* Bannière narrative des rapports de combat : le dégradé maintient le texte lisible sur les trois illustrations. */
+.report-hero {
+  position: relative;
+  min-height: 190px;
+  overflow: hidden;
+  border: 1px solid var(--color-bronze-500);
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset 0 0 0 1px var(--color-bronze-700), 0 3px 0 color-mix(in srgb, var(--color-night) 55%, transparent);
+  isolation: isolate;
+}
+.report-hero::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  background: linear-gradient(90deg, var(--color-plate-strong) 0%, var(--color-plate) 42%, transparent 82%), linear-gradient(0deg, var(--color-plate), transparent 55%);
+}
+.report-hero--victory { background-image: url('/img/reports/victory.png'); }
+.report-hero--espionage { background-image: url('/img/reports/espionage.png'); }
+.report-hero--defeat { background-image: url('/img/reports/defeat.png'); }
+.report-hero__content { display: flex; min-height: 190px; max-width: 62%; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: .35rem; padding: 1.25rem; }
+.report-hero__eyebrow { display: inline-flex; align-items: center; gap: .45rem; border-left: 3px solid var(--color-gold-300); background: var(--color-plate-strong); padding: .28rem .65rem; color: var(--color-gold-100); font-size: .7rem; font-weight: 800; letter-spacing: .14em; line-height: 1; text-transform: uppercase; }
+.report-hero--defeat .report-hero__eyebrow { border-left-color: var(--color-blood-300); color: var(--color-blood-200); }
+.report-hero--espionage .report-hero__eyebrow { border-left-color: var(--color-steel-300); color: var(--color-steel-300); }
+.report-hero__title { max-width: 34rem; color: var(--color-parchment-50); font-family: var(--font-display); font-size: clamp(1.25rem, 3vw, 1.85rem); font-weight: 600; line-height: 1.12; text-wrap: balance; text-shadow: 0 2px 4px var(--color-title-shadow); }
+.report-hero__time { display: flex; align-items: center; gap: .4rem; color: var(--color-parchment-300); font-size: .78rem; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px var(--color-title-shadow); }
+.report-hero__conquest { margin-top: .25rem; border: 1px solid var(--color-gold-400); background: var(--color-plate-strong); padding: .25rem .55rem; color: var(--color-gold-100); font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+@media (max-width: 640px) {
+  .report-hero { min-height: 170px; background-position: 62% center; }
+  .report-hero::before { background: linear-gradient(90deg, var(--color-plate-strong), var(--color-plate) 72%, transparent); }
+  .report-hero__content { min-height: 170px; max-width: 84%; padding: 1rem; }
+}
+
+/* Rapport militaire : structure dédiée, couleurs exclusivement issues du thème actif. */
+.battle-report-page { --report-paper: var(--color-panel-top); --report-paper-light: var(--color-well-hi); --report-paper-dark: var(--color-head); --report-ink: var(--color-parchment-100); --report-muted: var(--color-parchment-500); --report-rule: var(--color-bronze-500); color: var(--report-ink); }
+.battle-report-page > section,
+.battle-report-page .report-army-card { border: 1px solid var(--color-bronze-500); background: linear-gradient(100deg, var(--color-glint), transparent 42%), var(--report-paper); box-shadow: inset 0 0 0 1px var(--color-glint-strong), 3px 4px 0 color-mix(in srgb, var(--color-night) 55%, transparent); color: var(--report-ink); }
+.battle-report-page > section > :first-child:not(.report-hero) { border-color: var(--color-bronze-500); background: linear-gradient(var(--color-head), var(--color-head-dark)); color: var(--color-on-accent); }
+.battle-report-page > section > :first-child:not(.report-hero) h1,
+.battle-report-page > section > :first-child:not(.report-hero) h2 { color: var(--color-on-accent); text-shadow: 0 1px var(--color-title-shadow); }
+.battle-report-page > section > div:last-child { background: transparent; }
+.battle-report-page .report-hero { margin: calc(var(--spacing) * -3) calc(var(--spacing) * -3) 0; border-width: 0 0 2px; border-color: var(--color-bronze-500); }
+.battle-report-page dl > div { border: 1px solid var(--report-rule); background: var(--color-tile-hi); box-shadow: inset 0 1px var(--color-glint-strong); }
+.battle-report-page dl dt { color: var(--report-muted); }
+.battle-report-page dl dd { color: var(--report-ink); }
+.report-army-card { overflow: hidden; }
+.report-section-title { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--color-bronze-500); background: linear-gradient(var(--color-head), var(--color-head-dark)); padding: .4rem .65rem; color: var(--color-on-accent); font-family: var(--font-display); font-size: .86rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; text-shadow: 0 1px var(--color-title-shadow); }
+.report-army-card__body { display: flex; flex-direction: column; gap: .65rem; padding: .55rem; }
+.report-party { display: flex; min-width: 0; align-items: center; gap: .7rem; border: 1px solid var(--color-bronze-700); background: var(--color-tile-hi); padding: .45rem .55rem; }
+.report-party__player { display: block; overflow: hidden; color: var(--color-parchment-100); font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.report-party__player a { color: var(--color-gold-200); text-decoration: underline; text-decoration-color: var(--color-gold-600); text-underline-offset: 2px; }
+.report-party__village { display: block; overflow: hidden; color: var(--report-muted); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.report-army-table-wrap { overflow-x: auto; border: 1px solid var(--report-rule); background: var(--report-paper-light); }
+.report-army-table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; color: var(--report-ink); font-size: .76rem; }
+.report-army-table th,
+.report-army-table td { border-right: 1px solid var(--color-bronze-800); border-bottom: 1px solid var(--color-bronze-700); padding: .3rem .22rem; text-align: center; font-variant-numeric: tabular-nums; }
+.report-army-table tr:last-child > * { border-bottom: 0; }
+.report-army-table tr > *:last-child { border-right: 0; }
+.report-army-table thead { background: var(--color-thead); }
+.report-army-table__corner,
+.report-army-table__label { position: sticky; left: 0; z-index: 2; width: 82px; background: var(--color-thead); color: var(--color-gold-200); text-align: left!important; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.report-army-table__unit { height: 48px; color: var(--color-gold-300); }
+.report-army-table__unit span { display: flex; justify-content: center; color: var(--color-gold-400); }
+.report-army-table__unit small { display: block; max-width: 54px; margin: .1rem auto 0; overflow: hidden; font-size: .55rem; font-weight: 700; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.report-army-table td { background: var(--color-panel-mid); font-weight: 700; }
+.report-army-table tbody tr:nth-child(even) td { background: var(--color-row-alt); }
+.report-army-table td.is-zero { color: var(--color-parchment-600); font-weight: 500; }
+.report-army-table td.is-loss { color: var(--color-blood-300); }
+.report-hidden-intel { border: 1px dashed var(--report-rule); background: var(--color-tile-hi); padding: .75rem; color: var(--report-muted); font-size: .8rem; }
+.battle-report-page > section:not(:first-child) .text-parchment-100,
+.battle-report-page > section:not(:first-child) .text-parchment-400,
+.battle-report-page > section:not(:first-child) .text-parchment-500,
+.battle-report-page > section:not(:first-child) .text-parchment-600 { color: var(--report-ink); }
+@media (max-width: 640px) {
+  .report-army-card__body { padding: .4rem; }
+  .report-army-table { min-width: 700px; }
+}

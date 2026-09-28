@@ -11,6 +11,10 @@ const DEFAULTS = {
   mapSize: 1000,
   buildQueueSlots: 2,
   cancelRefund: 0.9,
+  // Construction en cours terminée gratuitement quand il lui reste au plus ce temps (secondes réelles), comme sur GT.
+  freeFinishSeconds: 180,
+  // Démolition au quartier général (comme sur GT) : QG de ce niveau au moins, loyauté à 100 %.
+  demolishMainLevel: 15,
   features: { knight: false, archer: false },
   startBuildings: { main: 1, farm: 1, storage: 1, place: 1 },
   startResources: { wood: 500, stone: 500, iron: 500 },

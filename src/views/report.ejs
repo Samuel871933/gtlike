@@ -5,21 +5,27 @@
   const order = [...registry.UNITS.keys()];
   // Tableau d'unités : une colonne par unité (icône en en-tête), lignes Quantité / Pertes.
   const unitTable = (units, losses) => {
-    const ids = order.filter((id) => (units && units[id] > 0) || (losses && losses[id] > 0));
-    if (!ids.length) return `<p class="text-parchment-500">Aucune troupe.</p>`;
-    const head = ids.map((id) => `<th class="text-center" scope="col" title="${esc(unitName(id))}"><span class="inline-flex text-gold-400">${unitIcon(id, 'size-[18px]')}</span><span class="sr-only">${esc(unitName(id))}</span></th>`).join('');
-    const row = (label, src, cls) => `<tr><td class="${ui.subLabel} w-24 text-[10px]!">${label}</td>${ids.map((id) => {
+    const ids = order;
+    const head = ids.map((id) => `<th class="report-army-table__unit" scope="col" title="${esc(unitName(id))}"><span>${unitIcon(id, 'size-[20px]')}</span><small>${esc(unitName(id))}</small></th>`).join('');
+    const row = (label, src, cls) => `<tr><th class="report-army-table__label" scope="row">${label}</th>${ids.map((id) => {
       const n = (src && src[id]) || 0;
-      return `<td class="text-center font-semibold tabular-nums ${n ? cls : 'text-parchment-600'}">${num(n)}</td>`;
+      return `<td class="${n ? cls : 'is-zero'}">${num(n)}</td>`;
     }).join('')}</tr>`;
-    return `<div class="overflow-x-auto"><table class="${ui.tableSm}"><thead><tr><th></th>${head}</tr></thead><tbody>`
-      + row('Quantité', units, 'text-parchment-100')
-      + (losses ? row('Pertes', losses, 'text-blood-300') : '')
+    return `<div class="report-army-table-wrap"><table class="report-army-table"><thead><tr><th class="report-army-table__corner">Unités</th>${head}</tr></thead><tbody>`
+      + row('Quantité', units, 'is-amount')
+      + (losses ? row('Pertes', losses, 'is-loss') : '')
       + `</tbody></table></div>`;
   };
   const kickers = { world: 'Annonce du monde', scavenge: 'Collecte', award: 'Succès', visit: 'Visite', trade: 'Commerce', support: 'Soutien' };
+  const isBattleReport = !['world', 'scavenge', 'award', 'visit', 'trade', 'support'].includes(d.perspective);
+  const won = isBattleReport ? d.attackerWins : undefined;
+  const good = isBattleReport && (won == null || (d.perspective === 'attacker' ? won : !won));
+  const verdict = isBattleReport
+    ? (won == null ? 'Espionnage' : (d.perspective === 'attacker' ? (won ? 'Victoire' : 'Défaite') : (won ? 'Village vaincu' : 'Attaque repoussée')))
+    : null;
+  const reportVisual = won == null ? 'espionage' : (good ? 'victory' : 'defeat');
 %>
-<div class="mx-auto flex w-full max-w-4xl flex-col gap-5">
+<div class="mx-auto flex w-full max-w-4xl flex-col gap-5 <%= isBattleReport ? 'battle-report-page' : '' %>">
   <section class="<%= ui.panel %>">
     <%- panelHead('Rapport', `
       <div class="flex items-center gap-2">
@@ -29,11 +35,22 @@
         </form>
       </div>`, { tag: 'h1' }) %>
     <div class="<%= ui.panelBody %> gap-4">
-      <div class="flex flex-col gap-1">
-        <% if (kickers[d.perspective]) { %><span class="<%= ui.kicker %>"><%= kickers[d.perspective] %></span><% } %>
-        <p class="font-display text-lg font-semibold wrap-break-word text-parchment-100"><%= report.title %></p>
-        <p class="flex items-center gap-1.5 text-sm text-parchment-500 tabular-nums"><%- icon('clock', 'size-3.5') %><%= when(report.happenedAt, now) %></p>
-      </div>
+      <% if (isBattleReport) { %>
+        <div class="report-hero report-hero--<%= reportVisual %>">
+          <div class="report-hero__content">
+            <span class="report-hero__eyebrow"><%- icon(won == null ? 'eye' : (good ? 'victory' : 'attack'), 'size-4', 2.2) %><%= verdict %></span>
+            <h2 class="report-hero__title"><%= report.title %></h2>
+            <p class="report-hero__time"><%- icon('clock', 'size-3.5') %><%= when(report.happenedAt, now) %></p>
+            <% if (d.conquered) { %><span class="report-hero__conquest">Village conquis</span><% } %>
+          </div>
+        </div>
+      <% } else { %>
+        <div class="flex flex-col gap-1">
+          <% if (kickers[d.perspective]) { %><span class="<%= ui.kicker %>"><%= kickers[d.perspective] %></span><% } %>
+          <p class="font-display text-lg font-semibold wrap-break-word text-parchment-100"><%= report.title %></p>
+          <p class="flex items-center gap-1.5 text-sm text-parchment-500 tabular-nums"><%- icon('clock', 'size-3.5') %><%= when(report.happenedAt, now) %></p>
+        </div>
+      <% } %>
 
       <% if (d.perspective === 'world') { %>
         <p class="<%= ui.alertInfo %>"><%= d.text %></p>
@@ -66,15 +83,6 @@
         <% if (d.from) { %><p><span class="text-parchment-500">Depuis</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p><% } %>
         <%- include('partials/units', { units: d.units, losses: d.losses || null }) %>
       <% } else { %>
-        <%
-          const won = d.attackerWins;
-          const verdict = won == null ? 'Espionnage' : (d.perspective === 'attacker' ? (won ? 'Victoire' : 'Défaite') : (won ? 'Village attaqué et vaincu' : 'Attaque repoussée'));
-          const good = won == null || (d.perspective === 'attacker' ? won : !won);
-        %>
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="<%= won == null ? ui.tagMuted : (good ? ui.tagOlive : ui.tagRed) %> px-3 py-1 text-[11px]"><%= verdict %></span>
-          <% if (d.conquered) { %><span class="<%= ui.tagGold %> px-3 py-1 text-[11px]">Village conquis</span><% } %>
-        </div>
         <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Chance</dt><dd class="<%= ui.tileValue %> <%= d.luck >= 0 ? 'text-olive-300' : 'text-blood-300' %>"><%= (d.luck * 100).toFixed(1) %> %</dd></div>
           <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Morale</dt><dd class="<%= ui.tileValue %>"><%= Math.round(d.morale * 100) %> %</dd></div>
@@ -85,21 +93,21 @@
     </div>
   </section>
 
-  <% if (!['world', 'scavenge', 'award', 'visit', 'trade', 'support'].includes(d.perspective)) { %>
-    <div class="grid gap-5 lg:grid-cols-2">
+  <% if (isBattleReport) { %>
+    <div class="grid gap-4">
       <% for (const [label, side, medal] of [['Attaquant', d.attacker, ui.medallionRed], ['Défenseur', d.defender, ui.medallion]]) { %>
-        <section class="<%= ui.panel %> min-w-0">
-          <%- panelHead(label) %>
-          <div class="<%= ui.panelBody %>">
-            <div class="flex min-w-0 items-center gap-3">
-              <span class="<%= medal %> size-9"><%- icon(label === 'Attaquant' ? 'attack' : 'wall', 'size-4', 2) %></span>
+        <section class="report-army-card min-w-0">
+          <h2 class="report-section-title"><%- icon(label === 'Attaquant' ? 'troops' : 'wall', 'size-4', 2) %><%= label %></h2>
+          <div class="report-army-card__body">
+            <div class="report-party">
+              <span class="<%= medal %> size-9"><%- icon(label === 'Attaquant' ? 'troops' : 'wall', 'size-4', 2) %></span>
               <span class="flex min-w-0 flex-col">
-                <span class="truncate font-semibold text-parchment-100"><%- side.playerId ? playerLink(vid, { id: side.playerId, name: side.playerName }) : esc(side.playerName) %></span>
-                <span class="truncate text-sm text-parchment-500"><%= side.village %></span>
+                <span class="report-party__player"><%- side.playerId ? playerLink(vid, { id: side.playerId, name: side.playerName }) : esc(side.playerName) %></span>
+                <span class="report-party__village"><%= side.village %></span>
               </span>
             </div>
             <% if (label === 'Défenseur' && d.hideDefender) { %>
-              <p class="text-parchment-500">Aucun de vos soldats n'est revenu : aucune information.</p>
+              <p class="report-hidden-intel">Aucun de vos soldats n'est revenu : aucune information sur les troupes adverses.</p>
             <% } else { %>
               <%- unitTable(side.units, side.losses) %>
             <% } %>

@@ -5,18 +5,14 @@
 // Le décor (herbe, forêts, collines, lacs) ne transite pas : il est calculé par le navigateur.
 
 const { Op, fn, col } = require('sequelize');
-const { Player, Village, Tribe } = require('../models');
+const { Player, Village, Tribe, User } = require('../models');
+const { villageDesignFor, DEFAULT_VILLAGE_DESIGN } = require('./villageDesigns');
 const TribeService = require('../services/TribeService');
 const MarkerService = require('../services/MarkerService');
 const FavoriteService = require('../services/FavoriteService');
 const combat = require('../game/combat');
 
 const SECTOR = 20;
-
-// Relation d'un village vu par le joueur : libellé de l'infobulle.
-const REL_LABEL = {
-  current: 'Ce village', own: 'Ton village', tribe: 'Ta tribu', ally: 'Allié', nap: 'PNA', enemy: 'Ennemi', other: 'Joueur', barb: 'Barbare',
-};
 
 // Six silhouettes de village selon les points.
 const villageLevel = (pts) => (pts < 300 ? 1 : pts < 1000 ? 2 : pts < 3000 ? 3 : pts < 6000 ? 4 : pts < 9000 ? 5 : 6);
@@ -55,13 +51,15 @@ function cellOf(vc, v, tribePoints) {
   const p = v.Player;
   const t = p && p.Tribe;
   return {
-    x: v.x, y: v.y, id: v.id, name: v.name, kind, rel: REL_LABEL[kind], level: villageLevel(v.points), points: num(v.points),
+    x: v.x, y: v.y, id: v.id, name: v.name, kind, level: villageLevel(v.points), points: num(v.points),
     owner: p ? p.name : 'Barbares', playerId: p ? p.id : '',
     ownerInfo: p ? `${num(p.points)} points · ${num(p.villageCount)} village${p.villageCount > 1 ? 's' : ''}` : '',
     tribeId: t ? t.id : '', tribe: t ? t.tag : '', tribeName: t ? t.name : '',
     tribeInfo: t && tribePoints.has(t.id) ? `${num(tribePoints.get(t.id))} points` : '',
     special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
     fav: vc.favIds.has(v.id),
+    // Design (skin) choisi par le propriétaire pour ses villages, vu par tous ; les barbares gardent le design par défaut.
+    design: p && p.User ? villageDesignFor(p.User).id : DEFAULT_VILLAGE_DESIGN,
     mark: markOf(vc, v),
     // Morale de tes attaques contre ce joueur (rien contre les barbares et tes propres villages).
     morale: vc.moraleOf && p && kind !== 'own' && kind !== 'current' ? `${Math.round(vc.moraleOf(p.points) * 100)} %` : '',
@@ -75,7 +73,11 @@ async function sector(vc, sx, sy) {
   const villages = await Village.findAll({
     where: { worldId: vc.village.worldId, x: { [Op.between]: [x0, x0 + SECTOR - 1] }, y: { [Op.between]: [y0, y0 + SECTOR - 1] } },
     attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
-    include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points', 'villageCount'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+    include: [{
+      model: Player,
+      attributes: ['id', 'name', 'tribeId', 'points', 'villageCount'],
+      include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }, { model: User, attributes: ['villageDesign'] }],
+    }],
   });
   // Points des tribus présentes (infobulle) : somme des points de leurs membres.
   const tribeIds = [...new Set(villages.map((v) => v.Player && v.Player.tribeId).filter(Boolean))];

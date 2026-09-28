@@ -104,9 +104,9 @@
     const dot = c.mark
       ? `<span class="village-relation-dot hidden group-data-[layer-markers]/map:block" style="background:${esc(c.mark)}"></span>`
       : relationHasDot ? '<span class="village-relation-dot"></span>' : '';
-    const fav = c.fav ? '<span class="pointer-events-none absolute top-0 left-0.5 z-[6] text-xs text-gold-200 [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
+    const fav = c.fav ? '<span class="pointer-events-none absolute bottom-0 left-0.5 z-[6] text-xs leading-none text-map-label-me [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
     const barb = c.kind === 'barb' ? ' group-data-[layer-nobarb]/map:hidden' : '';
-    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span></span>${fav}`;
+    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span></span>${fav}`;
   }
 
   function render() {
@@ -210,7 +210,8 @@
   }
 
   function rulers() {
-    const lab = (v, me) => `text-[11px] font-semibold tabular-nums [text-shadow:1px_1px_0_#000] ${v === me ? 'text-gold-200' : 'text-parchment-100'}`;
+    // Couleurs de carte (--color-map-label*), les mêmes dans tous les styles : la règle est posée sur la carte.
+    const lab = (v, me) => `text-[11px] font-semibold tabular-nums [text-shadow:1px_1px_0_#000] ${v === me ? 'text-map-label-me' : 'text-map-label'}`;
     let hx = '';
     let hy = '';
     for (let i = 0; i < span; i++) {
@@ -251,33 +252,48 @@
     }
     widen();
   }
-  // La page (1500 px au plus) s'élargit quand la carte ne tient plus : 30 × 30 cases = 1590 px de carte.
+  // Sur ordinateur, la carte et la mini-carte restent toujours côte à côte : la page s'élargit au-delà de sa
+  // largeur normale (1500 px, 1120 px en style de jeu minimaliste), quitte à dépasser de l'écran (défilement).
   const main = frame.closest('main');
-  function widen() {
-    if (!main) return;
-    // Cadre et marges du panneau (≈ 24 px), marges de la page (20 px) ; les règles sont posées sur la carte.
-    const needed = size * tw + 24 + 20;
-    main.style.maxWidth = needed > 1500 ? `${needed}px` : '';
-    layoutAside();
-  }
+  function widen() { layoutAside(); }
   // Mise en page à la taille du contenu, calculée ici (une ligne flexible à retour ne sait pas se mesurer) :
-  // chaque colonne à la largeur exacte de sa carte (la carte, la mini-carte ; 250 px au moins), côte à côte si
-  // elles tiennent dans la page, sinon la colonne de droite passe dessous, sur toute la largeur.
+  // chaque colonne à la largeur exacte de sa carte (la carte, la mini-carte ; 250 px au moins). Sur mobile
+  // seulement, la colonne de droite passe dessous, sur toute la largeur, quand elles ne tiennent pas côte à côte.
   const aside = document.querySelector('[data-map-aside]');
   const pageBlock = frame.closest('[data-map-page]');
   const col = frame.closest('[data-map-col]');
+  const row = frame.closest('[data-map-row]');
+  const panel = frame.closest('section');
+  // Marges réelles (elles changent avec le style de jeu) : px(el, 'paddingLeft')…
+  const px = (el, prop) => (el ? parseFloat(getComputedStyle(el)[prop]) || 0 : 0);
+  const setWidth = (el, w) => { if (el.style.width !== w) el.style.width = w; };
+  let mainMax = null;
   function layoutAside() {
     if (!aside || !pageBlock || !main) return;
     const cell = mini ? Number(mini.dataset.cell) : 5;
     // 250 px au moins : largeur minimale de la recherche et des ordres rapides (petites mini-cartes centrées).
     const asideW = Math.max(250, (mini ? Number(mini.dataset.size) : 0) * cell + 28);
-    // Carte, cadre et marges du panneau (22 px).
-    const colW = size * tw + 22;
-    const avail = main.clientWidth - 20;
-    const side = colW + 16 + asideW <= avail;
-    pageBlock.style.width = `${Math.min(avail, side ? colW + 16 + asideW : colW)}px`;
-    aside.style.width = side ? `${asideW}px` : '100%';
-    col.style.width = `${Math.min(avail, colW)}px`;
+    // Carte, cadre de la carte (1 px) et marges et bordures du panneau.
+    const colW = size * tw + 2 + 2 * (px(panel, 'paddingLeft') + px(panel, 'borderLeftWidth'));
+    const gap = px(row, 'columnGap');
+    const pad = px(main, 'paddingLeft') + px(main, 'paddingRight');
+    const mobile = window.matchMedia('(max-width: 639px)').matches;
+    // Largeur de la page : la normale (max-width des classes, lue une fois avant tout style en ligne, bornée par
+    // la fenêtre), ou celle qu'il faut pour tout mettre côte à côte. Calculée sans rien réinitialiser : un style
+    // retiré puis remis ferait bouger la page à chaque rendu et fermerait les listes déroulantes ouvertes.
+    if (mainMax == null) mainMax = parseFloat(getComputedStyle(main).maxWidth) || Infinity;
+    const natural = Math.min(mainMax, document.documentElement.clientWidth);
+    const needed = colW + gap + asideW + pad;
+    const wide = !mobile && needed > natural ? `${needed}px` : '';
+    // Le corps suit : barres du haut, fond et pied de page couvrent toute la largeur défilée.
+    for (const [el, prop] of [[main, 'maxWidth'], [main, 'minWidth'], [document.body, 'minWidth']]) {
+      if (el.style[prop] !== wide) el.style[prop] = wide;
+    }
+    const avail = (wide ? needed : natural) - pad;
+    const side = !mobile || colW + gap + asideW <= avail;
+    setWidth(pageBlock, `${side ? colW + gap + asideW : Math.min(avail, colW)}px`);
+    setWidth(aside, side ? `${asideW}px` : '100%');
+    setWidth(col, `${side ? colW : Math.min(avail, colW)}px`);
   }
 
   // ------------------------------------------------------------------ Déplacements
@@ -411,9 +427,6 @@
     set('tribeName', d.tribeName);
     set('tribeInfo', d.tribeInfo ? `(${d.tribeInfo})` : '');
     show('tribe', Boolean(d.tribeName));
-    set('rel', d.rel);
-    set('dist', `${(Math.round(dist * 10) / 10).toLocaleString('fr-FR')} cases`);
-    show('dist', dist > 0);
     const travel = tip.querySelector('[data-tip-travel]');
     if (travel) {
       travel.classList.toggle('hidden', !dist);
@@ -428,7 +441,7 @@
   }
   viewport.addEventListener('pointerover', (e) => {
     const el = e.target.closest('[data-map-tile]');
-    if (!el || drag || !menu.classList.contains('hidden')) { if (!el) hideTip(); return; }
+    if (!el || drag || menuOpen()) { if (!el) hideTip(); return; }
     showTip(el);
   });
   viewport.addEventListener('pointerleave', hideTip);
@@ -441,7 +454,7 @@
 
   const MENU_ICONS = {
     eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
-    attack: '<path d="M5 19L17 7M14 4h6v6M4 16l4 4"/>',
+    attack: '<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
     support: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M12 9v6M9 12h6"/>',
     market: '<path d="M12 4v16M7 20h10M5 8h14"/><path d="M5 8l-3 6h6zM19 8l-3 6h6z"/>',
     profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/>',
@@ -449,9 +462,59 @@
     open: '<path d="M3 9l9-5 9 5z"/><path d="M5 20h14M6 17h12M7 17V10M11 17V10M13 17V10M17 17V10"/>',
     star: '<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
     mark: '<path d="M6 21V3"/><path d="M6 4h11l-3 4 3 4H6"/>',
+    message: '<rect x="3" y="5" width="18" height="14"/><path d="M3 6l9 7 9-7"/>',
+    // Deux épées croisées (envoyer des troupes).
+    troops: '<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
+    // Longue-vue (espionnage).
+    spy: '<circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L21 21"/>',
   };
-  const MENU_COLORS = { attack: 'text-blood-500', support: 'text-steel-300', star: 'text-gold-200', mark: 'text-gold-400' };
-  const closeMenu = () => menu && menu.classList.add('hidden');
+  const MENU_COLORS = { attack: 'text-blood-500', troops: 'text-blood-500', support: 'text-steel-300', star: 'text-gold-200', mark: 'text-gold-400' };
+  const radial = frame.querySelector('[data-map-radial]');
+  const closeMenu = () => { if (menu) menu.classList.add('hidden'); if (radial) radial.classList.add('hidden'); };
+  const menuOpen = () => (menu && !menu.classList.contains('hidden')) || (radial && !radial.classList.contains('hidden'));
+
+  // Actions rapides d'un village d'un autre joueur (ou barbare), comme sur Guerre Tribale : une icône sur chaque
+  // pointe d'une étoile à 5 branches autour de la case (en haut les ressources, puis dans le sens des aiguilles
+  // d'une montre profil, message, favoris, et les troupes à gauche). Chaque action garde sa pointe : un barbare
+  // (sans profil ni message) laisse ces deux pointes vides.
+  function openRadial(el, d, { tplOption, target }) {
+    const actions = [
+      ['troops', tplOption && tplOption.value ? `Envoyer des troupes · ${tplOption.textContent}` : 'Envoyer des troupes', `${base}/place?${target}`],
+      ...(d.playerId ? [['profile', `Profil de ${d.owner}`, `${base}/players/${d.playerId}`]] : []),
+      ...(d.playerId ? [['message', `Écrire à ${d.owner}`, `${base}/messages/new?${new URLSearchParams({ to: d.owner })}`]] : []),
+      ['star', d.fav ? 'Retirer des favoris' : 'Ajouter aux favoris', `${base}/favorites/${d.id}`, 'post'],
+      ['market', 'Envoyer des ressources', `${base}/market?tab=send&x=${d.x}&y=${d.y}`],
+    ];
+    // Cercle un peu aplati, à la forme de la case (53 × 38) : les icônes ne couvrent pas le village.
+    const rx = tw * 0.95 + 8; const ry = th * 0.95 + 12;
+    const btn = 'pointer-events-auto absolute flex size-[30px] -translate-1/2 cursor-pointer items-center justify-center border-2 border-black bg-panel-top no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000] transition hover:scale-110 hover:bg-head-dark hover:text-parchment-100';
+    const svg = (ic) => `<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MENU_ICONS[ic]}</svg>`;
+    const POINT = { market: 0, profile: 1, message: 2, star: 3, troops: 4 };
+    radial.querySelector('[data-radial-items]').innerHTML = actions.map(([ic, label, href, kind]) => {
+      const a = (-90 + POINT[ic] * 72) * (Math.PI / 180);
+      const at = `left:${Math.round(Math.cos(a) * rx)}px;top:${Math.round(Math.sin(a) * ry)}px`;
+      const cls = `${btn} ${MENU_COLORS[ic] || 'text-parchment-300'}`;
+      const attrs = `style="${at}" title="${esc(label)}" aria-label="${esc(label)}" data-radial-action="${esc(label)}"`;
+      if (kind === 'post') return `<form method="post" action="${esc(href)}" class="contents"><input type="hidden" name="_csrf" value="${esc(frame.dataset.csrf)}"><button class="${cls}" ${attrs}>${svg(ic)}</button></form>`;
+      return `<a href="${esc(href)}" class="${cls}" ${attrs}>${svg(ic)}</a>`;
+    }).join('');
+    const label = radial.querySelector('[data-radial-label]');
+    const caption = `${d.name} (${d.x}|${d.y})${d.morale ? ` · morale ${d.morale}` : ''}`;
+    label.textContent = caption;
+    label.style.top = `${Math.round(ry + 18)}px`;
+    radial.dataset.caption = caption;
+    // Centre du cercle : centre de la case, dans le cadre de la carte.
+    const f = frame.getBoundingClientRect(); const r = el.getBoundingClientRect();
+    radial.style.left = `${r.left - f.left + r.width / 2}px`;
+    radial.style.top = `${r.top - f.top + r.height / 2}px`;
+    radial.classList.remove('hidden');
+  }
+  if (radial) {
+    radial.addEventListener('pointerover', (e) => {
+      const b = e.target.closest('[data-radial-action]');
+      radial.querySelector('[data-radial-label]').textContent = b ? b.dataset.radialAction : radial.dataset.caption;
+    });
+  }
   function openMenu(el) {
     const d = cellOf(el);
     if (!d || !menu) { closeMenu(); return; }
@@ -464,6 +527,9 @@
     const target = `x=${d.x}&y=${d.y}${tplUnits ? `&${tplUnits}` : ''}`;
     const allowed = (k) => quick[k] !== false;
     const markUrl = (type, id, label) => `${base}/map?${new URLSearchParams({ x: Math.round(cx), y: Math.round(cy), mark: `${type}:${id}`, label })}#marquages`;
+    closeMenu();
+    // Village d'un autre joueur ou barbare : actions rapides en cercle ; ses propres villages : menu.
+    if (!mine && radial) { openRadial(el, d, { tplOption, target }); return; }
     const actions = mine
       ? [['open', 'Ouvrir le village', `/village/${d.id}`], ['attack', 'Recruter', `/village/${d.id}/recruit/barracks`], ['center', 'Centrer ici', null, 'center']]
       : [
@@ -499,7 +565,7 @@
     moveTo(x, y);
   });
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('[data-map-menu]') && !e.target.closest('[data-map-viewport]')) closeMenu();
+    if (!e.target.closest('[data-map-menu]') && !e.target.closest('[data-map-radial]') && !e.target.closest('[data-map-viewport]')) closeMenu();
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 

@@ -78,8 +78,8 @@ reprend l'écran d'accueil de la maquette.
 
 Outils de la maquette : menu « Rapports » de l'en-tête (non-lus par catégorie) ; sur le plan du village, le survol
 d'un bâtiment affiche son encart (coût et durée du niveau suivant, bouton Améliorer), un clic ouvre sa page ; notifications
-en haut à droite. Sur la carte : infobulle au survol (dont la durée du trajet de chaque unité), menu d'actions au clic (voir le village, attaquer, soutenir,
-espionner, ressources, profil, favoris), calques (marquages, influence de la tribu, zones ennemies,
+en haut à droite. Sur la carte : infobulle au survol (dont la durée du trajet de chaque unité), actions rapides au clic sur un village d'un autre joueur, en cercle autour de la case comme sur GT
+(envoyer des troupes, profil, message, favoris, ressources ; menu pour ses propres villages), calques (marquages, influence de la tribu, zones ennemies,
 barbares, quadrillage de 5 cases, frontières de continent) et tailles (carte 4×4 à 30×30, mini-carte 20×20 à 120×120) mémorisés
 sur le joueur, marquages de couleur par joueur, tribu ou village (menu d'un village, profil, panneau « Marquages »), recherche (joueur, village, tribu, coordonnées), favoris
 et « Ordres rapides » (modèles d'armée créés au point de ralliement, qui pré-remplissent l'envoi). Pages publiques :
@@ -105,8 +105,18 @@ Mot de passe oublié : lien à usage unique valable une heure (seul le haché du
 d'envoi n'est configuré : [src/services/Mailer.js](src/services/Mailer.js) écrit les e-mails dans les logs du
 serveur ; brancher un vrai transport avant la production. Le classement et la fin du monde restent dans l'interface du jeu.
 
-Styles de jeu : l'intérieur du jeu (pas la page d'accueil) change d'habillage selon le style choisi dans
-Compte → Style du jeu (romain par défaut, viking ; gratuits). Voir [src/styles/game-styles/README.md](src/styles/game-styles/README.md).
+Thèmes de jeu : l'intérieur du jeu (pas la page d'accueil) change d'habillage selon le thème choisi dans
+Compte → Thème de jeu (médiéval par défaut : clair, aux couleurs de Guerre Tribale ; romain, viking ; gratuits).
+Style de jeu (Compte → Style de jeu, `src/web/gameLayouts.js`) : normal, ou minimaliste (encarts serrés et en-têtes fins
+à la Guerre Tribale, contenu limité à 1120 px), quel que soit le thème. En minimaliste, `<html data-game-layout="minimal">`
+réduit l'échelle d'espacement de Tailwind (`--spacing`) et active la variante `minimal:` (voir `src/styles/app.css`).
+Design des villages (Compte → Design des villages) : un skin pour ses propres villages sur la carte, vu par tous les
+joueurs (beige par défaut, blanc et bleu, noir ; gratuits ; les barbares restent beiges) : voir
+[src/web/villageDesigns.js](src/web/villageDesigns.js). Voir [src/styles/game-styles/README.md](src/styles/game-styles/README.md).
+Quartier général agencé comme sur GT : onglets Construction et Démolition, file en cours (durée, achèvement, annulation ;
+« Terminer » gratuit sous `freeFinishSeconds`, 3 min), tableau des bâtiments avec leurs besoins (bois, argile, fer, durée,
+population) et l'heure à laquelle les ressources seront disponibles. Démolition : un niveau à la fois, gratuite et sans
+remboursement, dans la file de construction ; QG niveau `demolishMainLevel` (15) et loyauté à 100 %.
 Chaque bâtiment a sa page avec un en-tête commun (statistique au niveau actuel et au suivant) ; les bâtiments
 sans action propre ont une page d'information avec les niveaux suivants. Le point de ralliement est en onglets
 (Commandes, Troupes, Simulateur de combat, Collecte) ; caserne, écurie et atelier ont un onglet Désaffectation.

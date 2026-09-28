@@ -20,7 +20,7 @@
   <%- panelHead(tribe.name, segTabs(tabs.map(([id, name]) => [`${t}?tab=${id}`, name, tab === id])), { tag: 'h1' }) %>
   <div class="<%= ui.panelBody %> sm:flex-row sm:items-center sm:justify-between">
     <div class="flex min-w-0 items-center gap-3">
-      <span class="<%= ui.medallionGold %> size-[46px]"><%- icon('tribe', 'size-[22px]') %></span>
+      <span class="<%= ui.medallionGold %> size-[46px] minimal:size-[34px]"><%- icon('tribe', 'size-[22px]') %></span>
       <span class="flex min-w-0 flex-col gap-1">
         <span class="flex flex-wrap items-center gap-2">
           <span class="<%= ui.tagGold %>"><%= tribe.tag %></span>

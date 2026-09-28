@@ -25,7 +25,10 @@ test.before(async () => {
   let player;
   ({ village: a, player } = await WorldService.join(u, 'w1', { now: T0 }));
   const world = await (require('../src/models').World).findOne();
-  a2 = await WorldService.createVillage(world, { x: a.x + 3, y: a.y, player, name: 'Second', buildings: { main: 1, farm: 5, storage: 5, statue: 1 }, now: T0 });
+  // Deuxième village sur une case libre près du premier (le barbare de l'inscription tombe à 2 à 6 cases).
+  let dx = 3;
+  while (await Village.count({ where: { worldId: world.id, x: a.x + dx, y: a.y } })) dx++;
+  a2 = await WorldService.createVillage(world, { x: a.x + dx, y: a.y, player, name: 'Second', buildings: { main: 1, farm: 5, storage: 5, statue: 1 }, now: T0 });
   await Village.update({
     resourcesAt: T0, wood: 20000, stone: 20000, iron: 20000, units: { knight: 1 },
     buildings: { main: 5, farm: 10, storage: 15, statue: 1 },

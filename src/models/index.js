@@ -11,6 +11,10 @@ const User = sequelize.define('User', {
   passwordHash: { type: DataTypes.STRING, allowNull: false },
   // Style de jeu choisi (src/web/gameStyles.js) ; nul = style par défaut.
   gameStyle: { type: DataTypes.STRING(16), allowNull: true },
+  // Design des villages sur la carte (src/web/villageDesigns.js) ; nul = design par défaut.
+  villageDesign: { type: DataTypes.STRING(16), allowNull: true },
+  // Style de jeu (densité de l'interface) (src/web/gameLayouts.js) : normal ou minimaliste ; nul = normal.
+  gameLayout: { type: DataTypes.STRING(16), allowNull: true },
 });
 
 /** Un monde (serveur) avec sa configuration propre. */
@@ -221,6 +225,8 @@ const BuildOrder = sequelize.define(
     wood: { type: DataTypes.INTEGER, allowNull: false },
     stone: { type: DataTypes.INTEGER, allowNull: false },
     iron: { type: DataTypes.INTEGER, allowNull: false },
+    // Démolition : le bâtiment descend au niveau `level` (au lieu de monter), sans coût.
+    demolish: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { indexes: [{ fields: ['villageId'] }, { fields: ['endsAt'] }] },
 );

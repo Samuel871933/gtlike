@@ -57,7 +57,7 @@
         <% for (const o of available) { %>
           <form method="post" action="/village/<%= vid %>/recruit/snob" class="<%= ui.box %> flex flex-wrap items-center gap-x-4 gap-y-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <span class="flex min-w-0 items-center gap-3">
-              <span class="<%= ui.medallionGold %> size-[42px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
+              <span class="<%= ui.medallionGold %> size-[42px] minimal:size-[32px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
               <span class="flex min-w-0 flex-col gap-1">
                 <span class="font-display font-semibold text-gold-200"><%= o.type.name %></span>
                 <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">

@@ -1,46 +1,126 @@
 <%- include('partials/header', { title: 'Quartier général' }) %>
-<% const favs = new Set(favoriteBuildings(player, ctx)); %>
-<% const unbuilt = 'flex shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55)]'; %>
+<%
+  // Quartier général, agencé comme sur Guerre Tribale : onglets Construction / Démolition, file en cours
+  // (construction, durée, achèvement, annulation), puis tableau des bâtiments (besoins, bouton du niveau suivant).
+  // Pas de colonne « Accélération » : aucune option premium (voir README, Hors périmètre).
+  const vid = ctx.village.id;
+  const favs = new Set(favoriteBuildings(player, ctx));
+  const unbuilt = 'flex shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55)]';
+  const tabHref = (t) => `/village/${vid}/main${t === 'demolition' ? '?tab=demolition' : ''}`;
+  const clock = (s) => `<span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600">${icon('clock', 'size-3.5', 2)}</span>${duration(s)}</span>`;
+  const rows = [...available, ...maxed];
+  const nameCell = (o, level) => `
+    <div class="flex items-center gap-3">
+      <span class="relative shrink-0">
+        <span class="${level > 0 ? ui.medallion : unbuilt} size-[38px] minimal:size-[28px]">${buildingIcon(o.type.id, 'size-[19px]')}</span>
+      </span>
+      <span class="flex min-w-0 flex-col">
+        <span class="flex items-center gap-1">
+          <a href="/village/${vid}/${buildingPath(o.type.id, ctx.cfg)}" class="${ui.linkPlain} font-semibold">${esc(o.type.name)}</a>
+          ${favStar(vid, o.type.id, favs.has(o.type.id), csrfToken, 'size-5')}
+        </span>
+        <span class="text-[13px] text-parchment-500">${level > 0 ? `Niveau ${level}` : 'non construit'}</span>
+      </span>
+    </div>`;
+%>
 <div class="flex flex-col gap-5">
   <%- include('partials/building-header', { buildingId: 'main' }) %>
 
-  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
-    <%# Construire %>
+  <%- segTabs([[tabHref('build'), 'Construction', tab === 'build'], [tabHref('demolition'), 'Démolition', tab === 'demolition']]) %>
+
+  <%# File en cours (constructions et démolitions). %>
+  <% if (ctx.buildOrders.length) { %>
     <section class="<%= ui.panel %> min-w-0">
-      <%- panelHead('Construire', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${available.length} bâtiment${available.length > 1 ? 's' : ''}</span>`) %>
+      <%- panelHead('Constructions en cours', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.cfg.buildQueueSlots}</span>`) %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
-          <thead><tr><th>Bâtiment</th><th class="max-md:hidden">Coût</th><th class="max-md:hidden">Durée</th><th class="text-right">Action</th></tr></thead>
+          <thead><tr><th>Construction</th><th>Durée</th><th class="max-sm:hidden">Achèvement</th><th class="text-right">Annulation</th></tr></thead>
           <tbody>
-          <% for (const o of available) { const reason = o.blockers[0] || (o.lacksResources ? 'Ressources insuffisantes' : null); %>
-            <tr>
-              <td class="md:min-w-64">
-                <div class="flex items-center gap-3">
-                  <span class="relative shrink-0">
-                    <span class="<%= o.current > 0 ? ui.medallion : unbuilt %> size-[42px]"><%- buildingIcon(o.type.id, 'size-[21px]') %></span>
-                    <% if (o.current > 0) { %><span class="absolute -right-2 -bottom-1.5 <%= ui.levelBadge %>"><%= o.current %></span><% } %>
+          <% for (const o of ctx.buildOrders) {
+               const running = new Date(o.startsAt) <= now; const start = new Date(o.startsAt).getTime(); const end = new Date(o.endsAt).getTime();
+               const pct = running ? Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100)) : 0;
+               const freeAt = end - ctx.cfg.freeFinishSeconds * 1000; %>
+            <tr class="<%= running ? '[&>td]:border-b-0' : '' %>">
+              <td>
+                <div class="flex items-center gap-2.5">
+                  <span class="<%= running ? ui.medallionGold : ui.medallion %> size-8"><%- buildingIcon(o.building, 'size-4') %></span>
+                  <span class="flex flex-col">
+                    <span class="font-semibold"><%= buildingName(o.building) %></span>
+                    <span class="text-[13px] <%= o.demolish ? 'text-blood-300' : 'text-parchment-500' %>"><%= o.demolish ? `Démolition → niveau ${o.level}` : `Niveau ${o.level}` %></span>
                   </span>
-                  <div class="flex min-w-0 flex-col gap-0.5">
-                    <span class="flex items-center gap-1">
-                      <a href="/village/<%= ctx.village.id %>/<%= buildingPath(o.type.id, ctx.cfg) %>" class="<%= ui.linkPlain %> font-semibold"><%= o.type.name %> <span class="font-medium text-parchment-500"><%= o.current > 0 ? `niveau ${o.current}` : 'non construit' %></span></a>
-                      <%- favStar(ctx.village.id, o.type.id, favs.has(o.type.id), csrfToken, 'size-6') %>
-                    </span>
-                    <span class="text-[13px] leading-snug text-parchment-500"><%= o.type.description %></span>
-                    <span class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span></span>
-                  </div>
                 </div>
               </td>
-              <td class="max-md:hidden"><%- include('partials/cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %></td>
-              <td class="whitespace-nowrap max-md:hidden text-parchment-300 tabular-nums">
-                <span class="inline-flex items-center gap-1.5"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span>
+              <td class="font-semibold whitespace-nowrap tabular-nums">
+                <% if (running) { %><span class="text-gold-200" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span><% } else { %><span class="text-parchment-400"><%= duration((end - start) / 1000) %></span><% } %>
               </td>
+              <td class="whitespace-nowrap text-parchment-300 max-sm:hidden"><%= when(o.endsAt, now) %></td>
               <td class="text-right">
-                <form method="post" action="/village/<%= ctx.village.id %>/build" class="inline-flex flex-col items-end gap-1"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                  <input type="hidden" name="building" value="<%= o.type.id %>">
-                  <button class="<%= btn('gold', 'sm', 'min-w-28') %>" <%= reason ? 'disabled' : '' %>><%= o.level === 1 ? 'Construire' : `Niveau ${o.level}` %></button>
-                  <% if (reason) { %><span class="text-xs whitespace-nowrap text-blood-300"><%= reason %></span><% } %>
-                </form>
+                <div class="inline-flex items-center gap-1.5">
+                  <% if (running && !o.demolish) { %>
+                    <%# Terminer gratuitement : visible dès qu'il reste au plus 3 minutes (game.js l'affiche au bon moment). %>
+                    <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/finish" class="<%= now >= freeAt ? '' : 'hidden' %>" data-free-at="<%= freeAt %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button class="<%= btn('gold', 'sm') %>" title="Gratuit : moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes">Terminer</button>
+                    </form>
+                  <% } %>
+                  <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button class="<%= btn('danger', 'sm') %>"><%- icon('close', 'size-3', 2.6) %>Annuler</button>
+                  </form>
+                </div>
               </td>
+            </tr>
+            <% if (running) { %>
+              <tr class="hover:bg-transparent!"><td colspan="4" class="pt-0!"><span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%" data-progress-start="<%= start %>" data-progress-end="<%= end %>"></span></span></td></tr>
+            <% } %>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+      <p class="border-t border-bronze-800 px-3 py-1.5 text-xs text-parchment-600">
+        Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources (rien pour une démolition) ·
+        moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes : « Terminer » est gratuit.
+      </p>
+    </section>
+  <% } %>
+
+  <% if (tab === 'build') { %>
+    <%# Bâtiments : besoins du niveau suivant (bois, argile, fer, durée, population) et bouton de construction. %>
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead('Bâtiments', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${available.length} à construire</span>`) %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead>
+            <tr>
+              <th>Bâtiments</th>
+              <th colspan="5" class="max-md:hidden">Besoins</th>
+              <th class="text-right">Construction</th>
+            </tr>
+          </thead>
+          <tbody>
+          <% for (const o of rows) { %>
+            <tr>
+              <td class="md:min-w-56"><%- nameCell(o, o.current) %></td>
+              <% if (o.maxed) { %>
+                <td colspan="6" class="text-center text-sm text-parchment-500">Bâtiment complètement terminé</td>
+              <% } else { const reason = o.blockers[0] || null; %>
+                <% for (const r of RESOURCES) { const short = o.cost[r.id] > ctx.state.resources[r.id]; %>
+                  <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= short ? 'text-blood-400' : '' %>"><span class="<%= r.text %>"><%- icon(r.icon, 'size-3.5', 2) %></span><%= num(o.cost[r.id]) %></span></td>
+                <% } %>
+                <td class="whitespace-nowrap max-md:hidden"><%- clock(o.duration) %></td>
+                <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= reason === 'La ferme est trop petite' ? 'text-blood-400' : 'text-parchment-300' %>"><span class="text-pop"><%- icon('pop', 'size-3.5', 2) %></span><%= num(o.pop) %></span></td>
+                <td class="text-right">
+                  <% if (reason) { %>
+                    <span class="text-[13px] text-parchment-500"><%= reason %></span>
+                  <% } else if (o.lacksResources) { %>
+                    <span class="text-[13px] leading-tight text-parchment-500"><%= o.availableAt ? `Ressources disponibles ${when(o.availableAt, now)}` : 'Ressources insuffisantes' %></span>
+                  <% } else { %>
+                    <form method="post" action="/village/<%= vid %>/build" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="hidden" name="building" value="<%= o.type.id %>">
+                      <button class="<%= btn('gold', 'sm', 'min-w-28') %>"><%= o.level === 1 ? 'Construire' : `Niveau ${o.level}` %></button>
+                    </form>
+                  <% } %>
+                  <span class="mt-1 flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs md:hidden"><%- include('partials/cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %><%- clock(o.duration) %></span>
+                </td>
+              <% } %>
             </tr>
           <% } %>
           </tbody>
@@ -48,45 +128,54 @@
       </div>
     </section>
 
-    <aside class="flex flex-col gap-4 max-xl:order-first">
-      <%# Constructions en cours %>
+    <% if (locked.length) { %>
       <section class="<%= ui.panel %>">
-        <%- panelHead('Constructions en cours', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.cfg.buildQueueSlots}</span>`) %>
-        <div class="<%= ui.panelBody %>">
-          <%- include('partials/build-queue') %>
-        </div>
+        <%- panelHead('Pas encore disponible') %>
+        <ul class="grid sm:grid-cols-2 xl:grid-cols-3">
+          <% for (const o of locked) { %>
+            <li class="flex items-center gap-3 border-b border-bronze-800 px-3 py-2">
+              <span class="<%= unbuilt %> size-8"><%- buildingIcon(o.type.id, 'size-4') %></span>
+              <span class="flex min-w-0 flex-col">
+                <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
+                <span class="text-[13px] text-parchment-500"><%= o.missing.map((m) => `${buildingName(m.building)} niveau ${m.level}`).join(' · ') %></span>
+              </span>
+            </li>
+          <% } %>
+        </ul>
       </section>
-
-      <% if (locked.length) { %>
-        <section class="<%= ui.panel %>">
-          <%- panelHead('Pas encore disponible') %>
-          <ul class="flex flex-col">
-            <% for (const o of locked) { %>
-              <li class="flex items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0">
-                <span class="<%= unbuilt %> size-8"><%- buildingIcon(o.type.id, 'size-4') %></span>
-                <span class="flex min-w-0 flex-col">
-                  <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
-                  <span class="text-[13px] text-parchment-500"><%= o.missing.map((m) => `${buildingName(m.building)} niveau ${m.level}`).join(' · ') %></span>
-                </span>
-              </li>
-            <% } %>
-          </ul>
-        </section>
-      <% } %>
-
-      <% if (maxed.length) { %>
-        <section class="<%= ui.panel %>">
-          <%- panelHead('Niveau maximum') %>
-          <div class="<%= ui.panelBody %>">
-            <div class="flex flex-wrap gap-1.5">
-              <% for (const o of maxed) { %>
-                <span class="<%= ui.chip %> pr-0.5"><span class="text-gold-400"><%- buildingIcon(o.type.id, 'size-3.5') %></span><a href="/village/<%= ctx.village.id %>/<%= buildingPath(o.type.id, ctx.cfg) %>" class="text-inherit no-underline hover:text-parchment-100"><%= o.type.name %></a> <strong class="text-parchment-100 tabular-nums">(<%= o.current %>)</strong><%- favStar(ctx.village.id, o.type.id, favs.has(o.type.id), csrfToken, 'size-5') %></span>
-              <% } %>
-            </div>
-          </div>
-        </section>
-      <% } %>
-    </aside>
-  </div>
+    <% } %>
+  <% } else { %>
+    <%# Démolition : un niveau à la fois, gratuite et sans remboursement ; QG niveau 15 et loyauté à 100 %. %>
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead('Démolition') %>
+      <p class="border-b border-bronze-800 px-3 py-2 text-sm text-parchment-400">
+        Démolir fait perdre un niveau au bâtiment, sans rendre de ressources ; la population qu'il occupait est libérée.
+        Il faut un quartier général de niveau <%= ctx.cfg.demolishMainLevel %> et une loyauté de 100 %.
+      </p>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Bâtiments</th><th>Durée</th><th class="text-right">Démolition</th></tr></thead>
+          <tbody>
+          <% for (const o of demolitions) { const reason = o.blockers[0] || null; %>
+            <tr>
+              <td class="md:min-w-56"><%- nameCell(o, o.current) %></td>
+              <td class="whitespace-nowrap"><%- reason === 'Niveau minimal' ? '' : clock(o.duration) %></td>
+              <td class="text-right">
+                <% if (reason) { %>
+                  <span class="text-[13px] text-parchment-500"><%= reason %></span>
+                <% } else { %>
+                  <form method="post" action="/village/<%= vid %>/demolish" class="inline" data-confirm="Démolir <%= o.type.name %> au niveau <%= o.level %> ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <input type="hidden" name="building" value="<%= o.type.id %>">
+                    <button class="<%= btn('danger', 'sm', 'min-w-28') %>">Niveau <%= o.level %></button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
 </div>
 <%- include('partials/footer') %>

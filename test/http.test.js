@@ -74,17 +74,43 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   const built = await http(`${joined.location}/build`, { method: 'POST', form: { building: 'wood', _csrf: tokenOf(main.html) } });
   assert.equal(built.status, 302);
   const after = await http(`${joined.location}/main`);
-  assert.match(after.html, /Camp de bois <span class="font-medium text-parchment-500">niveau 1<\/span>/);
+  // File du QG : le camp de bois niveau 1 en cours, avec son bouton d'annulation.
+  assert.match(after.html, /<span class="font-semibold">Camp de bois<\/span>\s*<span class="text-\[13px\] text-parchment-500">Niveau 1<\/span>/);
+  assert.match(after.html, /\/build\/\d+\/cancel/);
+  // Onglet Démolition.
+  assert.match((await http(`${joined.location}/main?tab=demolition`)).html, /Quartier général niveau 15/);
 
-  // Style de jeu : romain par défaut en jeu, choix enregistré sur le compte, page d'accueil jamais stylée.
-  assert.match(after.html, /data-game-style="roman"/);
+  // Thème de jeu : médiéval par défaut en jeu, choix enregistré sur le compte, page d'accueil jamais stylée.
+  assert.match(after.html, /data-game-style="medieval"/);
   const styled = await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
   assert.equal(styled.status, 302);
-  assert.match((await http(joined.location)).html, /class="h-full scheme-dark game_style" data-game-style="viking"/);
+  assert.match((await http(joined.location)).html, /class="h-full scheme-dark medieval:scheme-light game_style" data-game-style="viking"/);
   assert.doesNotMatch((await http('/worlds')).html, /data-game-style/);
   const unknown = await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'inconnu', _csrf: tokenOf(after.html) } });
   assert.equal(unknown.status, 302);
   assert.match((await http(joined.location)).html, /data-game-style="viking"/);
+  // Style Médiéval (clair, couleurs de Guerre Tribale), puis retour au viking pour la suite.
+  await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'medieval', _csrf: tokenOf(after.html) } });
+  const medieval = (await http(joined.location)).html;
+  assert.match(medieval, /data-game-style="medieval"/);
+  assert.match(medieval, /family=Alegreya/);
+  await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
+
+  // Style de jeu (densité) : normal par défaut, minimaliste enregistré sur le compte (indépendant du thème), inconnu refusé.
+  assert.match(medieval, /data-game-layout="normal"/);
+  await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'minimal', _csrf: tokenOf(after.html) } });
+  await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'inconnu', _csrf: tokenOf(after.html) } });
+  const minimal = (await http(joined.location)).html;
+  assert.match(minimal, /data-game-style="viking" data-game-layout="minimal"/);
+  assert.doesNotMatch((await http('/worlds')).html, /data-game-layout/);
+  await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'normal', _csrf: tokenOf(after.html) } });
+
+  // Design des villages : skin de ses villages, envoyé avec chaque case (vu par tous) ; beige par défaut, design inconnu refusé.
+  assert.match((await http(`${joined.location}/map`)).html, /"design":"beige"/);
+  await http(`${joined.location}/account/village-design`, { method: 'POST', form: { design: 'blanc-bleu', _csrf: tokenOf(after.html) } });
+  assert.match((await http(`${joined.location}/map`)).html, /"design":"blanc-bleu"/);
+  await http(`${joined.location}/account/village-design`, { method: 'POST', form: { design: 'inconnu', _csrf: tokenOf(after.html) } });
+  assert.match((await http(`${joined.location}/map`)).html, /"design":"blanc-bleu"/);
 
   for (const page of ['', '/place', '/map', '/reports', '/messages', '/tribe', '/market', '/ranking', '/ranking?type=continent', '/victory']) {
     const r = await http(joined.location + page);

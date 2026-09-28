@@ -11,6 +11,12 @@
 */
 
 const GAME_STYLES = {
+  medieval: {
+    id: 'medieval',
+    name: 'Médiéval',
+    description: 'Parchemin, cuir et encre brune : l’esprit de Guerre Tribale.',
+    fonts: 'https://fonts.googleapis.com/css2?family=Alegreya:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap',
+  },
   roman: {
     id: 'roman',
     name: 'Romain',
@@ -25,7 +31,8 @@ const GAME_STYLES = {
   },
 };
 
-const DEFAULT_GAME_STYLE = 'roman';
+// Style par défaut : Médiéval, clair, aux couleurs de Guerre Tribale.
+const DEFAULT_GAME_STYLE = 'medieval';
 
 /** Le style existe-t-il ? */
 const isGameStyle = (id) => Object.prototype.hasOwnProperty.call(GAME_STYLES, id);

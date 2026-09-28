@@ -1,6 +1,6 @@
 <!doctype html>
-<%# En jeu, <html> porte le style de jeu (src/web/gameStyles.js) : la page d'accueil garde le style par défaut. %>
-<html lang="fr" class="h-full scheme-dark<%= ctx && gameStyle ? ' game_style' : '' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %>>
+<%# En jeu, <html> porte le thème de jeu (src/web/gameStyles.js) et le style de jeu (src/web/gameLayouts.js) : la page d'accueil garde le style par défaut. %>
+<html lang="fr" class="h-full scheme-dark medieval:scheme-light<%= ctx && gameStyle ? ' game_style' : '' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %><%- ctx && gameLayout ? ` data-game-layout="${gameLayout.id}"` : '' %>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,15 +11,16 @@
   <% for (const href of fontLinks) { %><link rel="stylesheet" href="<%= href %>"><% } %>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="relative flex min-h-full flex-col bg-night bg-radial-[ellipse_at_50%_-10%] from-halo via-panel-lo via-45% to-night font-sans text-[15px] leading-snug text-parchment-100 antialiased [font-synthesis-weight:none]">
+<body class="relative flex min-h-full flex-col minimal:text-sm bg-night bg-radial-[ellipse_at_50%_-10%] from-halo via-panel-lo via-45% to-night font-sans text-[15px] leading-snug text-parchment-100 antialiased [font-synthesis-weight:none]">
 <%# Grain de papier sur toute la page (maquette : trame de points clairs). %>
 <div class="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(var(--color-grain)_1px,transparent_1.2px)] bg-size-[4px_4px] mix-blend-screen" aria-hidden="true"></div>
 <%
   // Logo : aplat parchemin, double ombre d'encre et de sang.
   const logoText = (cls) => `<span class="font-logo font-bold tracking-[0.02em] ${ui.goldText} ${cls}">GTLIKE</span>`;
   const navLink = 'flex shrink-0 items-center gap-[7px] border-r border-bronze-800 px-3.5 text-sm font-semibold tracking-[0.02em] whitespace-nowrap no-underline transition';
-  const navOn = 'bg-blood-800 text-parchment-100 shadow-[inset_0_-3px_0_var(--color-gold-400),inset_0_3px_0_#000]';
-  const navOff = 'text-parchment-300 hover:bg-blood-700 hover:text-parchment-100';
+  // Onglet actif et survol : aplat rouge (brun en style Médiéval), texte et icône clairs.
+  const navOn = 'bg-blood-800 text-on-accent shadow-[inset_0_-3px_0_var(--color-gold-400)] medieval:bg-action medieval:shadow-[inset_0_-3px_0_var(--color-action-line)] medieval:[&>span:first-child]:text-on-accent';
+  const navOff = 'text-parchment-300 hover:bg-blood-700 hover:text-on-accent medieval:hover:bg-action-hi medieval:hover:[&>span:first-child]:text-on-accent';
 %>
 
 <% if (ctx) {
@@ -36,9 +37,9 @@
 %>
 <%# 1. Barre du haut : logo et monde, menu principal, joueur et réglages. %>
 <header class="sticky top-0 z-40 border-b-[3px] border-bronze-500 bg-night shadow-[0_2px_0_var(--color-head-dark),0_6px_0_rgba(0,0,0,0.6)]">
-<div class="mx-auto flex min-h-12 w-full max-w-[1500px] items-stretch">
+<div class="mx-auto flex min-h-12 w-full max-w-[1500px] minimal:max-w-[1120px] items-stretch">
   <a href="<%= v %>" class="flex shrink-0 items-center gap-2.5 border-r-[3px] border-black bg-head-dark pr-6 pl-3 no-underline shadow-[inset_-1px_0_0_var(--color-bronze-500)] [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]" title="Aperçu du village">
-    <%- logoText('text-[22px]') %>
+    <%- logoText('text-[22px] minimal:text-lg') %>
     <span class="border border-bronze-500 bg-night px-[5px] py-px text-[11px] font-semibold tracking-[0.02em] text-gold-400 max-md:hidden"><%= ctx.world.name %></span>
   </a>
   <nav class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none]" aria-label="Menu principal">
@@ -80,7 +81,7 @@
     ]]);
   }
 %>
-<div class="relative mx-auto h-0 w-full max-w-[1500px]">
+<div class="relative mx-auto h-0 w-full max-w-[1500px] minimal:max-w-[1120px]">
   <% for (const [id, title, items] of menus) { %>
     <div class="absolute top-0 left-0 z-50 hidden w-[210px] border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]" data-menu="<%= id %>">
       <div class="border-b-2 border-bronze-500 bg-head px-2.5 py-[5px] font-display text-xs font-semibold tracking-[0.02em]"><%= title %></div>
@@ -101,12 +102,15 @@
   const prev = myVillages.length > 1 ? myVillages[(idx - 1 + myVillages.length) % myVillages.length] : null;
   const next = myVillages.length > 1 ? myVillages[(idx + 1) % myVillages.length] : null;
   // Barre rapide de Guerre Tribale : accès direct aux bâtiments construits.
-  const chip = 'flex items-center gap-[5px] border border-bronze-800 bg-night px-2 py-[3px] whitespace-nowrap shadow-[inset_0_-2px_0_var(--color-panel-lo),1px_1px_0_#000]';
+  const chip = 'flex items-center gap-[5px] border border-bronze-800 bg-night px-2 py-[3px] whitespace-nowrap no-underline shadow-[inset_0_-2px_0_var(--color-panel-lo),1px_1px_0_#000] transition hover:border-bronze-500 hover:bg-row-hover';
+  // Chaque encart mène à son bâtiment : camp de bois, carrière d'argile, mine de fer (même identifiant que la
+  // ressource), entrepôt, ferme.
+  const bld = (id) => `/village/${ctx.village.id}/building/${id}`;
   const arrow = 'flex size-[26px] shrink-0 items-center justify-center border-2 border-black bg-night text-gold-400 no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-700)] transition hover:bg-head-dark hover:text-parchment-100';
 %>
 <%# 2. Barre du village : changement de village, attaques entrantes, barre rapide, ressources. %>
 <div class="border-t border-black bg-panel-hi shadow-[inset_0_1px_0_var(--color-bronze-800)]">
-<div class="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-1.5 px-2.5 py-[5px]">
+<div class="mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] flex-wrap items-center justify-between gap-1.5 px-2.5 py-[5px]">
   <div class="flex min-w-0 flex-[1_1_520px] items-center gap-1.5">
     <div class="flex shrink-0 items-center gap-1">
       <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
@@ -137,24 +141,24 @@
   </div>
   <div class="flex min-w-0 flex-[0_1_auto] gap-[3px] overflow-x-auto [scrollbar-width:none]">
     <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; %>
-      <div class="<%= chip %>" title="<%= r.label %> · +<%= num(prod[r.id]) %>/h · entrepôt <%= num(cap) %>">
+      <a href="<%= bld(r.id) %>" class="<%= chip %>" title="<%= r.label %> · +<%= num(prod[r.id]) %>/h · entrepôt <%= num(cap) %>">
         <span class="<%= r.text %>"><%- icon(r.icon, 'size-[15px]', 2) %></span>
         <span class="text-sm font-semibold tabular-nums <%= value >= cap ? 'text-blood-450' : 'text-parchment-100' %>" data-res="<%= value %>" data-rate="<%= prod[r.id] %>" data-cap="<%= cap %>"
               data-at="<%= ctx.state.resourcesAt.getTime() %>"><%= num(value) %></span>
-      </div>
+      </a>
     <% } %>
-    <div class="<%= chip %>" title="Capacité de l'entrepôt">
+    <a href="<%= bld('storage') %>" class="<%= chip %>" title="Capacité de l'entrepôt">
       <span class="text-gold-400"><%- icon('storage', 'size-[15px]', 2) %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(cap) %></span>
-    </div>
-    <div class="<%= chip %>" title="Population utilisée / capacité de la ferme">
+    </a>
+    <a href="<%= bld('farm') %>" class="<%= chip %>" title="Population utilisée / capacité de la ferme">
       <span class="text-pop"><%- icon('pop', 'size-[15px]', 2) %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(ctx.popUsed()) %>/<%= num(ctx.state.farmCapacity()) %></span>
-    </div>
+    </a>
   </div>
 </div>
 </div>
 </header>
 
-<main class="relative z-[2] mx-auto flex w-full max-w-[1500px] grow flex-col gap-3.5 px-2.5 pt-3.5 pb-10">
+<main class="relative z-[2] mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] grow flex-col gap-3.5 px-2.5 pt-3.5 pb-10 minimal:gap-2.5 minimal:py-6">
 <% } else {
   const w = typeof world !== 'undefined' && world ? world : null;
   const lobbyLink = (href, label, active) => `<a href="${href}" class="shrink-0 text-[13px] font-semibold tracking-[0.02em] no-underline transition ${active ? 'text-parchment-100' : 'text-gold-400 hover:text-parchment-100'}">${label}</a>`;
@@ -226,7 +230,7 @@
 <% } %>
 <% if (flash) { const bad = flash.type === 'error'; %>
   <%# Notification (maquette : encart en haut à droite) ; game.js la ferme après quelques secondes. %>
-  <div class="fixed top-[108px] right-3.5 z-[70] flex max-w-[340px] items-center gap-2.5 border-2 border-black bg-panel-top px-3 py-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000] transition-opacity duration-500 max-sm:inset-x-3.5 max-sm:max-w-none" role="<%= bad ? 'alert' : 'status' %>" data-toast>
+  <div class="fixed top-[108px] right-3.5 minimal:top-[86px] z-[70] flex max-w-[340px] items-center gap-2.5 border-2 border-black bg-panel-top px-3 py-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000] transition-opacity duration-500 max-sm:inset-x-3.5 max-sm:max-w-none" role="<%= bad ? 'alert' : 'status' %>" data-toast>
     <span class="size-2.5 shrink-0 rotate-45 border border-black <%= bad ? 'bg-blood-600' : 'bg-olive-500' %>"></span>
     <span class="font-semibold"><%= flash.message %></span>
     <button type="button" class="ml-auto shrink-0 cursor-pointer text-parchment-500 hover:text-parchment-100" data-toast-close aria-label="Fermer"><%- icon('close', 'size-3.5', 3) %></button>

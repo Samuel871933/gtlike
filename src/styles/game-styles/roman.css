@@ -1,7 +1,7 @@
 /*
-  Style de jeu « Romain » (style par défaut).
-  Ses couleurs et polices sont les valeurs de @theme (app.css) : rien à redéfinir, seulement les images
-  propres au style. Un autre style (viking…) redéfinit ici n'importe quel jeton --color-*, --font-*
+  Style de jeu « Romain ».
+  Ses couleurs et polices sont les valeurs de @theme (app.css), répétées ci-dessous pour les jetons que les
+  autres styles redéfinissent (voir le commentaire du bloc). Un autre style (viking…) redéfinit ici n'importe quel jeton --color-*, --font-*
   et --game-image-* : tout l'intérieur du jeu suit, la page d'accueil (hors jeu) n'est pas concernée.
 */
 
@@ -11,5 +11,121 @@
 @layer theme {
   [data-game-style="roman"] {
     --game-image-village: url("/img/game-styles/roman/village.svg");
+    --game-bg-texture: url("/img/game-styles/roman/background-texture.png");
+    /* Texture sombre : voile léger du dégradé, sans mélange (voir html.game_style body dans app.css). */
+    --game-bg-blend: normal;
+    --game-bg-veil: 40%;
+
+    /* Valeurs de @theme (app.css) pour chaque jeton redéfini par un autre style : un élément romain posé dans
+       une page d'un autre style (aperçu de la page Compte) garde ainsi ses propres couleurs.
+       Doit rester identique à @theme (vérifié par test/game-styles.test.js). */
+    --font-display: "Marcellus", Georgia, serif;
+    --color-head: #651313;
+    --color-head-dark: #4b0b0b;
+    --color-thead: #231414;
+    --color-row-hover: #2a1818;
+    --color-row-alt: #151212;
+    --color-action: #991b1b;
+    --color-action-hi: #b52020;
+    --color-action-line: #c23a2a;
+    --color-action-deep: #4b0b0b;
+    --color-grain: rgb(232 224 212 / 0.035);
+    --color-knob-hover: #2a1e14;
+    --color-night: #0b0b0c;
+    --color-halo: #2a1212;
+    --color-panel-hi: #1a1818;
+    --color-panel-top: #171414;
+    --color-panel-mid: #171414;
+    --color-panel-lo: #121214;
+    --color-panel-edge: #121214;
+    --color-knob-hi: #1a1818;
+    --color-knob-lo: #1a1818;
+    --color-knob-on-hi: #4b0b0b;
+    --color-knob-on-lo: #4b0b0b;
+    --color-well-hi: #0b0b0c;
+    --color-well-lo: #0b0b0c;
+    --color-bar-hi: #1a1818;
+    --color-vbar-hi: #1a1818;
+    --color-vbar-lo: #1a1818;
+    --color-core-hi: #0b0b0c;
+    --color-core-lo: #0b0b0c;
+    --color-tile-hi: #171414;
+    --color-plate: rgb(11 11 12 / 0.85);
+    --color-plate-strong: rgb(11 11 12 / 0.9);
+    --color-bronze-200: #d5a563;
+    --color-bronze-300: #c08a48;
+    --color-bronze-400: #ad7a3e;
+    --color-bronze-500: #9a6a35;
+    --color-bronze-600: #5e4a3a;
+    --color-bronze-700: #493636;
+    --color-bronze-800: #302828;
+    --color-bronze-900: #241e1e;
+    --color-bronze-950: #6e4c26;
+    --color-gold-50: #f4e2b2;
+    --color-gold-100: #ecd08a;
+    --color-gold-200: #e0b04a;
+    --color-gold-250: #e8c77a;
+    --color-gold-300: #d6a044;
+    --color-gold-400: #c08a48;
+    --color-gold-500: #b07a3a;
+    --color-gold-600: #9a6a35;
+    --color-gold-700: #7a5228;
+    --color-gold-ink: #0b0b0c;
+    --color-gold-shadow: #4b0b0b;
+    --color-on-accent: #e8e0d4;
+    --color-parchment-50: #f2ece2;
+    --color-parchment-100: #e8e0d4;
+    --color-parchment-200: #e8e0d4;
+    --color-parchment-300: #d5c5a5;
+    --color-parchment-350: #c9bba0;
+    --color-parchment-400: #bcb09e;
+    --color-parchment-500: #a79e92;
+    --color-parchment-600: #8c8378;
+    --color-parchment-700: #6f675e;
+    --color-glint: rgb(232 224 212 / 0.06);
+    --color-glint-strong: rgb(232 224 212 / 0.1);
+    --color-glow: rgb(224 176 74 / 0.35);
+    --color-glow-soft: rgb(224 176 74 / 0.15);
+    --color-glow-select: rgb(224 176 74 / 0.45);
+    --color-crest: #7a1212;
+    --color-shield-edge: #0b0b0c;
+    --color-shield-mark: #4b0b0b;
+    --color-night-deep: #070707;
+    --color-blood-100: #f0b77a;
+    --color-blood-200: #f0a08a;
+    --color-blood-300: #ee8a70;
+    --color-blood-350: #e0806a;
+    --color-blood-400: #c23a2a;
+    --color-blood-450: #e07a2e;
+    --color-blood-500: #e0543a;
+    --color-blood-shadow: #4b0b0b;
+    --color-olive-300: #8fa05a;
+    --color-olive-500: #7d8b4a;
+    --color-olive-700: #4a5429;
+    --color-steel-300: #9fb2c0;
+    --color-steel-500: #7e93a3;
+    --color-wood: #c08a48;
+    --color-clay: #d8674a;
+    --color-iron: #aeb6c0;
+    --color-pop: #8fa05a;
+    --color-bld-marble: #b8a887;
+    --color-bld-marble-dk: #9c8d70;
+    --color-bld-stone: #8c7b62;
+    --color-bld-stone-dk: #6e5f4a;
+    --color-bld-slate: #6e6352;
+    --color-bld-timber: #5a3a2a;
+    --color-bld-timber-dk: #442b1f;
+    --color-bld-grain: #8a6a3a;
+    --color-bld-grain-dk: #6e532c;
+    --color-bld-soot: #332c2a;
+    --color-bld-fire: #d2541b;
+    --color-bld-field: #6b5a2a;
+    --color-bld-field-lt: #8a7434;
+    --color-bld-rock: #6d6a64;
+    --color-bld-pit: #2a2826;
+    --color-bld-clay: #a0553a;
+    --color-bld-clay-dk: #6e3a24;
+    --color-title-shadow: #000;
+    --color-title-shadow-2: #4b0b0b;
   }
 }

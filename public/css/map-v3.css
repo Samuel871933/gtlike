@@ -46,21 +46,48 @@
 .map-decor--rocks > span { background-image: url('/img/map/decor-rocks-v4.png'); }
 .map-decor--hill { --decor-w: calc(var(--tile) * 1.65); --decor-h: calc(var(--tile) * 1.5); --decor-oy: calc(var(--tile) * -0.08); }
 .map-decor--hill > span { background-image: url('/img/map/decor-hill-v5.png'); }
+/* Village centré dans sa case (53 × 38), aussi grand que possible sans déborder ; niveaux 1 et 2 plus petits. */
 .village-sprite {
   background-image: var(--village-image);
-  background-position: center bottom;
-  background-size: var(--village-width, 100%) auto;
-  inset: var(--village-inset, 0 0 3px);
+  background-position: center;
+  background-size: contain;
+  inset: var(--village-inset, 1px);
 }
-.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.png'); --village-width: 62%; }
-.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.png'); --village-width: 72%; }
-.village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.png'); --village-width: 82%; }
+.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.png'); --village-inset: 17%; }
+.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.png'); --village-inset: 9%; }
+.village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.png'); }
 .village-marker--4 { --village-image: url('/img/map/villages/beige/level-4.png'); }
 .village-marker--5 { --village-image: url('/img/map/villages/beige/level-5.png'); }
 .village-marker--6 { --village-image: url('/img/map/villages/beige/level-6.png'); }
-.village-marker { width: calc(var(--tile, 52px) * .9); height: calc(var(--tile, 52px) * .9); }
+/* Designs des villages (src/web/villageDesigns.js) : skin choisi par le propriétaire, vu par tous (classe village-design--<id>).
+   Beige par défaut ci-dessus ; les barbares n'ont pas de propriétaire et restent beiges. */
+.village-design--blanc-bleu.village-marker--1 { --village-image: url('/img/map/villages/blanc-bleu/level-1.png'); }
+.village-design--blanc-bleu.village-marker--2 { --village-image: url('/img/map/villages/blanc-bleu/level-2.png'); }
+.village-design--blanc-bleu.village-marker--3 { --village-image: url('/img/map/villages/blanc-bleu/level-3.png'); }
+.village-design--blanc-bleu.village-marker--4 { --village-image: url('/img/map/villages/blanc-bleu/level-4.png'); }
+.village-design--blanc-bleu.village-marker--5 { --village-image: url('/img/map/villages/blanc-bleu/level-5.png'); }
+.village-design--blanc-bleu.village-marker--6 { --village-image: url('/img/map/villages/blanc-bleu/level-6.png'); }
+.village-design--noir.village-marker--1 { --village-image: url('/img/map/villages/noir/level-1.png'); }
+.village-design--noir.village-marker--2 { --village-image: url('/img/map/villages/noir/level-2.png'); }
+.village-design--noir.village-marker--3 { --village-image: url('/img/map/villages/noir/level-3.png'); }
+.village-design--noir.village-marker--4 { --village-image: url('/img/map/villages/noir/level-4.png'); }
+.village-design--noir.village-marker--5 { --village-image: url('/img/map/villages/noir/level-5.png'); }
+.village-design--noir.village-marker--6 { --village-image: url('/img/map/villages/noir/level-6.png'); }
+.village-design--viking.village-marker--1 { --village-image: url('/img/map/villages/viking/level-1.png'); }
+.village-design--viking.village-marker--2 { --village-image: url('/img/map/villages/viking/level-2.png'); }
+.village-design--viking.village-marker--3 { --village-image: url('/img/map/villages/viking/level-3.png'); }
+.village-design--viking.village-marker--4 { --village-image: url('/img/map/villages/viking/level-4.png'); }
+.village-design--viking.village-marker--5 { --village-image: url('/img/map/villages/viking/level-5.png'); }
+.village-design--viking.village-marker--6 { --village-image: url('/img/map/villages/viking/level-6.png'); }
+.village-design--rome-antique.village-marker--1 { --village-image: url('/img/map/villages/rome-antique/level-1.png'); }
+.village-design--rome-antique.village-marker--2 { --village-image: url('/img/map/villages/rome-antique/level-2.png'); }
+.village-design--rome-antique.village-marker--3 { --village-image: url('/img/map/villages/rome-antique/level-3.png'); }
+.village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png'); }
+.village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png'); }
+.village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png'); }
+.village-marker { width: var(--tile-w, 53px); height: var(--tile-h, 38px); }
 .village-marker::after { display: none; }
-.village-relation-dot { position: absolute; z-index: 4; left: -2px; bottom: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }
+.village-relation-dot { position: absolute; z-index: 4; left: 1px; top: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }
 .village-marker--current { --village-color: #fff; }
 .village-marker--own { --village-color: #f0c74b; }
 .village-marker--tribe { --village-color: #3159b8; }

@@ -342,4 +342,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { populate, purge };
+module.exports = { populate, purge, villageData };

@@ -11,7 +11,7 @@
       </span>
       <div class="flex min-w-0 flex-col gap-0.5">
         <div class="flex items-center gap-1.5">
-          <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_#000,4px_4px_0_var(--color-blood-900)] sm:text-[28px]"><%= bType.name %> <span class="font-sans text-sm font-semibold text-gold-400 [text-shadow:none]">· <%= bLevel ? `niveau ${bLevel}` : 'non construit' %></span></h1>
+          <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[28px]"><%= bType.name %> <span class="font-sans text-sm font-semibold text-gold-400 [text-shadow:none]">· <%= bLevel ? `niveau ${bLevel}` : 'non construit' %></span></h1>
           <%- favStar(ctx.village.id, buildingId, favoriteBuildings(player, ctx).includes(buildingId), csrfToken, 'size-8') %>
         </div>
         <p class="text-sm text-parchment-500"><%= bType.description %></p>

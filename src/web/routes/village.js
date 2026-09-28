@@ -59,9 +59,12 @@ router.post('/rename', ah(async (req, res) => {
 // ------------------------------------------------------------ Quartier général
 
 router.get('/main', (req, res) => {
-  const options = registry.buildingsFor(req.ctx.cfg).map((type) => VillageService.buildOption(req.ctx, type));
+  const types = registry.buildingsFor(req.ctx.cfg);
+  const options = types.map((type) => VillageService.buildOption(req.ctx, type));
   res.render('main', {
     page: 'main',
+    tab: req.query.tab === 'demolition' ? 'demolition' : 'build',
+    demolitions: types.map((type) => VillageService.demolishOption(req.ctx, type)).filter((o) => o.current > 0),
     available: options.filter((o) => !o.maxed && !(o.missing && o.missing.length)),
     maxed: options.filter((o) => o.maxed),
     locked: options.filter((o) => !o.maxed && o.missing && o.missing.length),
@@ -96,6 +99,20 @@ router.post('/buildings/:buildingId/favorite', ah(async (req, res) => {
 router.post('/build', ah(async (req, res) => {
   const order = await VillageService.build(req.ctx.village.id, String(req.body.building || ''));
   flash(req, 'success', `${registry.building(order.building).name} niveau ${order.level} ajouté à la file.`);
+  res.redirect(back(req, `${base(req)}/main`));
+}));
+
+// Démolition d'un niveau (onglet Démolition du QG).
+router.post('/demolish', ah(async (req, res) => {
+  const order = await VillageService.demolish(req.ctx.village.id, String(req.body.building || ''));
+  flash(req, 'success', `Démolition de ${registry.building(order.building).name} (niveau ${order.level + 1} → ${order.level}) ajoutée à la file.`);
+  res.redirect(`${base(req)}/main?tab=demolition`);
+}));
+
+// Terminer gratuitement la construction en cours (au plus 3 minutes restantes).
+router.post('/build/:orderId/finish', ah(async (req, res) => {
+  const order = await VillageService.finishBuild(req.ctx.village.id, req.params.orderId);
+  flash(req, 'success', `${registry.building(order.building).name} niveau ${order.level} terminé.`);
   res.redirect(back(req, `${base(req)}/main`));
 }));
 
@@ -367,7 +384,10 @@ router.post('/place/confirm', ah(async (req, res) => {
   const plan = await orUnwind(req, res, order, () => CommandService.preview(req.ctx.village.id, order));
   if (!plan) return;
   const catapultTargets = registry.buildingsFor(req.ctx.cfg).filter((b) => !combat.UNDESTROYABLE.has(b.id));
-  res.render('place-confirm', { page: 'place', plan, catapultTargets });
+  // Troupes en tableau, comme sur Guerre Tribale : toutes les unités du monde, même à 0 ; butin possible (attaque).
+  res.render('place-confirm', {
+    page: 'place', plan, catapultTargets, worldUnits: registry.unitsFor(req.ctx.cfg), carry: combat.carryCapacity(plan.units),
+  });
 }));
 
 router.post('/place/send', ah(async (req, res) => {
@@ -708,10 +728,30 @@ router.use('/account', (req, res, next) => (req.method === 'POST' ? ownerOnly(re
 router.post('/account/game-style', ah(async (req, res) => {
   const { isGameStyle, GAME_STYLES } = require('../gameStyles');
   const id = String(req.body.style || '');
-  if (!isGameStyle(id)) throw new GameError('Style inconnu.');
+  if (!isGameStyle(id)) throw new GameError('Thème inconnu.');
   await req.user.update({ gameStyle: id });
-  flash(req, 'success', `Style ${GAME_STYLES[id].name} appliqué.`);
+  flash(req, 'success', `Thème ${GAME_STYLES[id].name} appliqué.`);
   res.redirect(`${base(req)}/account`);
+}));
+
+// Style de jeu : densité de l'interface (normal ou minimaliste), indépendante du thème.
+router.post('/account/game-layout', ah(async (req, res) => {
+  const { isGameLayout, GAME_LAYOUTS } = require('../gameLayouts');
+  const id = String(req.body.layout || '');
+  if (!isGameLayout(id)) throw new GameError('Style de jeu inconnu.');
+  await req.user.update({ gameLayout: id });
+  flash(req, 'success', `Style de jeu ${GAME_LAYOUTS[id].name.toLowerCase()} appliqué.`);
+  res.redirect(`${base(req)}/account#style-de-jeu`);
+}));
+
+// Design des villages : skin de ses villages sur la carte, vu par tous (réglage du compte, comme le style de jeu).
+router.post('/account/village-design', ah(async (req, res) => {
+  const { isVillageDesign, VILLAGE_DESIGNS } = require('../villageDesigns');
+  const id = String(req.body.design || '');
+  if (!isVillageDesign(id)) throw new GameError('Design de village inconnu.');
+  await req.user.update({ villageDesign: id });
+  flash(req, 'success', `Design ${VILLAGE_DESIGNS[id].name.toLowerCase()} appliqué à tes villages : tous les joueurs les voient ainsi.`);
+  res.redirect(`${base(req)}/account#design-villages`);
 }));
 
 router.post('/account/sitter', ah(async (req, res) => {
@@ -922,6 +962,12 @@ router.post('/map/markers', ah(async (req, res) => {
   await MarkerService.set(me(req), req.ctx.village.worldId, {
     type: req.body.type, targetId: req.body.targetId, target: req.body.target, color: req.body.color,
   });
+  // Le nouveau marquage doit se voir : le calque Marquages est réactivé s'il était masqué.
+  const player = await Player.findByPk(me(req));
+  const saved = player.mapSettings || {};
+  if (saved.layers && saved.layers.markers === false) {
+    await player.update({ mapSettings: { ...saved, layers: { ...saved.layers, markers: true } } });
+  }
   flash(req, 'success', 'Marquage enregistré.');
   res.redirect(`${base(req)}/map#marquages`);
 }));

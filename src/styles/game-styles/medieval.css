@@ -1,0 +1,152 @@
+/*
+  Style de jeu « Médiéval » : les couleurs de Guerre Tribale. Parchemin clair (#f4e4bc), en-têtes havane
+  (#c1a264), bordures et liens brun foncé (#7d510f, #603000), texte presque noir. C'est un style clair :
+  les jetons de texte (parchment-*) deviennent foncés, les fonds (night, panel-*) clairs ; le texte posé sur
+  les aplats foncés (boutons, pastilles rouges) passe par --color-on-accent, qui reste clair.
+  Les couleurs d'information (diplomatie sur la carte, mini-carte, terrain) restent celles du style par défaut.
+*/
+
+@custom-variant medieval (&:where([data-game-style="medieval"], [data-game-style="medieval"] *));
+
+@layer theme {
+  [data-game-style="medieval"] {
+    --font-display: "Alegreya", Georgia, serif;
+    --game-image-village: url("/img/game-styles/medieval/village.svg");
+    --game-bg-texture: url("/img/game-styles/medieval/background-texture.png");
+    /* Style clair : texture crème fondue doucement, sans brunir le fond. Voile crème partiel en mélange normal :
+       en soft-light, un dégradé crème opaque ne laisse presque rien voir de la texture (fond uni). */
+    --game-bg-blend: normal;
+    --game-bg-veil: 55%;
+
+    /* Fonds : parchemin (contenu), crème (champs, encarts) */
+    --color-night: #fbf3dc;
+    --color-night-deep: #efdcaf;
+    --color-halo: #c9a765;
+    --color-panel-hi: #f8ecc9;
+    --color-panel-top: #f4e4bc;
+    --color-panel-mid: #f0deb2;
+    --color-panel-lo: #ead6a8;
+    --color-panel-edge: #d8bd82;
+    --color-knob-hi: #ecd9ab;
+    --color-knob-lo: #e3cc98;
+    --color-knob-on-hi: #c1a264;
+    --color-knob-on-lo: #b39353;
+    --color-knob-hover: #fff5da;
+    --color-well-hi: #fffaea;
+    --color-well-lo: #ead6a8;
+    --color-bar-hi: #e3cc98;
+    --color-vbar-hi: rgb(227 204 152 / 0.96);
+    --color-vbar-lo: rgb(214 186 128 / 0.96);
+    --color-core-hi: #fff8e3;
+    --color-core-lo: #ead6a8;
+    --color-tile-hi: rgb(255 248 227 / 0.7);
+    --color-plate: rgb(244 228 188 / 0.9);
+    --color-plate-strong: rgb(244 228 188 / 0.95);
+    --color-grain: rgb(96 48 0 / 0.035);
+
+    /* En-têtes havane, lignes de tableau alternées */
+    --color-head: #c1a264;
+    --color-head-dark: #ad8c4c;
+    --color-thead: #dcc494;
+    --color-row-hover: #fff5da;
+    --color-row-alt: #efdfb6;
+
+    /* Bouton d'action : brun de Guerre Tribale, texte clair (--color-on-accent) */
+    --color-action: #804000;
+    --color-action-hi: #955214;
+    --color-action-line: #b77b33;
+    --color-action-deep: #4f2800;
+    --color-on-accent: #fff5e0;
+
+    /* Brun : bordures et filets (les nuances claires pour les séparations discrètes) */
+    --color-bronze-200: #4f2e0a;
+    --color-bronze-300: #603000;
+    --color-bronze-400: #6e4210;
+    --color-bronze-500: #7d510f;
+    --color-bronze-600: #8f6a36;
+    --color-bronze-700: #b08e55;
+    --color-bronze-800: #cdb07a;
+    --color-bronze-900: #dcc494;
+    --color-bronze-950: #7d510f;
+
+    /* Liens, titres de colonnes, accents : brun des liens de Guerre Tribale */
+    --color-gold-50: #2c1a05;
+    --color-gold-100: #3a2206;
+    --color-gold-200: #603000;
+    --color-gold-250: #6b3a08;
+    --color-gold-300: #6e4210;
+    --color-gold-400: #7d4a0d;
+    --color-gold-500: #8a5a1a;
+    --color-gold-600: #a0702c;
+    --color-gold-700: #b8894a;
+    --color-gold-ink: #fff5e0;
+    --color-gold-shadow: #d8bd82;
+
+    /* Textes : encre brune, du plus foncé au plus pâle */
+    --color-parchment-50: #1a1005;
+    --color-parchment-100: #22160a;
+    --color-parchment-200: #2e1f0e;
+    --color-parchment-300: #3d2c16;
+    --color-parchment-350: #4a3820;
+    --color-parchment-400: #5a4528;
+    --color-parchment-500: #6e5733;
+    --color-parchment-600: #85693f;
+    --color-parchment-700: #a08658;
+
+    /* Rouge : les teintes de texte foncées pour rester lisibles sur le parchemin */
+    --color-blood-100: #8a3a10;
+    --color-blood-200: #93280f;
+    --color-blood-300: #a02a14;
+    --color-blood-350: #a3301c;
+    --color-blood-400: #b0301c;
+    --color-blood-450: #a8520c;
+    --color-blood-500: #b02a18;
+    --color-blood-shadow: #d8bd82;
+
+    /* Vert (succès, retours) et acier (soutiens), foncés pour le texte */
+    --color-olive-300: #4a5e1a;
+    --color-olive-500: #5d7026;
+    --color-olive-700: #9fb06a;
+    --color-steel-300: #3a566b;
+    --color-steel-500: #4d6a80;
+
+    /* Ressources, lisibles sur fond clair */
+    --color-wood: #8a5a1a;
+    --color-clay: #b0452a;
+    --color-iron: #5c6773;
+    --color-pop: #5d7026;
+
+    /* Reflets, halos et blasons */
+    --color-glint: rgb(255 255 255 / 0.3);
+    --color-glint-strong: rgb(255 255 255 / 0.45);
+    --color-glow: rgb(128 64 0 / 0.25);
+    --color-glow-soft: rgb(128 64 0 / 0.12);
+    --color-glow-select: rgb(128 64 0 / 0.35);
+    --color-crest: #804000;
+    --color-shield-edge: #3a2206;
+    --color-shield-mark: #603000;
+
+    /* Plan du village : matériaux clairs et ensoleillés (pierre blonde, bois, tuiles) */
+    --color-bld-marble: #dccfb0;
+    --color-bld-marble-dk: #c2b08b;
+    --color-bld-stone: #b5a384;
+    --color-bld-stone-dk: #978566;
+    --color-bld-slate: #9c8f76;
+    --color-bld-timber: #8c5c36;
+    --color-bld-timber-dk: #6e4526;
+    --color-bld-grain: #bb934f;
+    --color-bld-grain-dk: #9c7639;
+    --color-bld-soot: #5c4c40;
+    --color-bld-fire: #e0641f;
+    --color-bld-field: #a38d3f;
+    --color-bld-field-lt: #c6ac55;
+    --color-bld-rock: #9c978c;
+    --color-bld-pit: #6d665b;
+    --color-bld-clay: #c46b45;
+    --color-bld-clay-dk: #9c4f2f;
+
+    /* Grands titres : pas d'ombre portée sur le parchemin */
+    --color-title-shadow: transparent;
+    --color-title-shadow-2: transparent;
+  }
+}
