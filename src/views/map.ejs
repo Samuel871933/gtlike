@@ -150,11 +150,11 @@
     <section class="<%= ui.panel %> max-w-full">
       <%- panelHead('Mini-carte', `<span class="text-[13px] text-parchment-300 tabular-nums" data-mini-label>${miniSize} × ${miniSize}</span>`) %>
       <div class="p-2">
-        <canvas class="box-content mx-auto block max-w-full cursor-crosshair border-2 border-black bg-mini-bg" style="width:<%= miniSize * MINI_CELL %>px;aspect-ratio:1" data-mini-map data-size="<%= miniSize %>" data-cell="<%= MINI_CELL %>" aria-label="Mini-carte : clique pour recentrer la carte"></canvas>
+        <canvas class="box-content mx-auto block max-w-full cursor-grab touch-none border-2 border-black bg-mini-bg" style="width:<%= miniSize * MINI_CELL %>px;aspect-ratio:1" data-mini-map data-size="<%= miniSize %>" data-cell="<%= MINI_CELL %>" aria-label="Mini-carte : clique pour recentrer la carte, fais-la glisser pour déplacer la carte"></canvas>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 border-t border-bronze-800 px-3 py-2 text-[13px]">
         <button type="button" class="<%= ui.link %> cursor-pointer" data-world-open>Carte du monde</button>
-        <span class="text-parchment-600">Clique pour recentrer</span>
+        <span class="text-parchment-600">Clique ou fais glisser</span>
       </div>
     </section>
     <%# Légende : couleurs de la diplomatie, puis les marquages du joueur. %>

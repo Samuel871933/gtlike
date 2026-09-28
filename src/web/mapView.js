@@ -96,14 +96,20 @@ function sectorsCovering(x0, y0, x1, y1) {
   return out;
 }
 
-/** Mini-carte : [x, y, relation ou couleur de marquage] pour chaque village du carré. */
+/** Mini-carte : [x, y, relation, couleur de marquage ?] pour chaque village du carré (public/js/minimap.js). */
 async function mini(vc, x0, y0, size) {
   const villages = await Village.findAll({
     where: { worldId: vc.village.worldId, x: { [Op.between]: [x0, x0 + size - 1] }, y: { [Op.between]: [y0, y0 + size - 1] } },
     attributes: ['id', 'x', 'y', 'playerId'],
     include: [{ model: Player, attributes: ['tribeId'] }],
   });
-  return villages.map((v) => [v.x, v.y, markOf(vc, v) || kindOf(vc, v)]);
+  return villages.map((v) => point(vc, v));
 }
 
-module.exports = { SECTOR, viewContext, kindOf, markOf, sector, sectorsCovering, mini, villageLevel };
+/** Point de mini-carte : le marquage à part, pour que ses calques (marquages, barbares) s'appliquent. */
+function point(vc, v) {
+  const mark = markOf(vc, v);
+  return mark ? [v.x, v.y, kindOf(vc, v), mark] : [v.x, v.y, kindOf(vc, v)];
+}
+
+module.exports = { SECTOR, point, viewContext, kindOf, markOf, sector, sectorsCovering, mini, villageLevel };

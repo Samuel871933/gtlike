@@ -900,11 +900,11 @@ router.post('/map/settings', ah(async (req, res) => {
   res.redirect(`${base(req)}/map`);
 }));
 
-// Carte du monde (fenêtre ouverte par map.js) : un point par village, couleur de la relation ou du marquage.
+// Carte du monde (fenêtre ouverte par map.js) : un point par village (relation, marquage), comme la mini-carte.
 router.get('/map/world', ah(async (req, res) => {
   const vc = await mapView.viewContext(req.ctx.village, req.ctx.cfg);
   const villages = await MapService.worldMap(req.ctx.village.worldId);
-  res.json({ size: req.ctx.cfg.mapSize, villages: villages.map((v) => [v.x, v.y, mapView.markOf(vc, v) || mapView.kindOf(vc, v)]) });
+  res.json({ size: req.ctx.cfg.mapSize, villages: villages.map((v) => mapView.point(vc, v)) });
 }));
 
 // Calques de la carte : interrupteur mémorisé sur le joueur (appel de game.js).

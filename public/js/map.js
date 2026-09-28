@@ -525,18 +525,23 @@
   }
 
   // ------------------------------------------------------------------ Calques (mémorisés sur le joueur)
+  // Aussi appliqués à la mini-carte et à la carte du monde (public/js/minimap.js).
+  const LAYER_KEYS = ['markers', 'influence', 'enemy', 'nobarb', 'grid', 'borders'];
+  const layersOn = () => Object.fromEntries(LAYER_KEYS.map((k) => [k, frame.hasAttribute(`data-layer-${k}`)]));
   document.querySelectorAll('[data-map-layer]').forEach((b) => {
     b.addEventListener('click', () => {
       const k = b.dataset.mapLayer;
       const on = b.getAttribute('aria-pressed') !== 'true';
       frame.toggleAttribute(`data-layer-${k}`, on);
       b.setAttribute('aria-pressed', String(on));
+      drawMini();
+      if (modal && !modal.classList.contains('hidden')) drawWorld();
       const body = new URLSearchParams({ _csrf: frame.dataset.csrf, layer: k, on: on ? '1' : '0' });
       fetch(`${base}/map/layers`, { method: 'POST', body, headers: { accept: 'application/json' } }).catch(() => {});
     });
   });
 
-  // ------------------------------------------------------------------ Mini-carte (6 px par case), qui suit la carte
+  // ------------------------------------------------------------------ Mini-carte (5 px par case), qui suit la carte
   const mini = document.querySelector('[data-mini-map]');
   let miniSize = mini ? Number(mini.dataset.size) : 0;
   let miniVillages = boot.mini;
@@ -550,27 +555,67 @@
       miniFrame = 0;
       window.GTMinimap.draw(mini, {
         x0: miniX0, y0: miniY0, width: miniSize, height: miniSize, villages: miniVillages,
-        home: [meX, meY], frame: { x: cx - half, y: cy - half, size },
+        frame: { x: cx - half, y: cy - half, size }, layers: layersOn(),
       });
     });
   }
-  // Quand la carte s'éloigne du centre de la mini-carte, celle-ci se recentre (points chargés par /map/mini).
+  // Points d'un carré de la mini-carte (/map/mini). Ils remplacent ceux de ce carré et s'ajoutent aux autres, pour
+  // que la mini-carte reste remplie quand on la fait glisser. `move` : la mini-carte se cale ensuite sur ce carré.
+  function loadMini(x0, y0, move) {
+    fetch(`${base}/map/mini?x0=${x0}&y0=${y0}&size=${miniSize}`, { headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((list) => {
+        if (!list) return;
+        const inside = ([x, y]) => x >= x0 && y >= y0 && x < x0 + miniSize && y < y0 + miniSize;
+        miniVillages = [...miniVillages.filter((v) => !inside(v)), ...list];
+        if (move) { miniX0 = x0; miniY0 = y0; }
+        drawMini();
+      })
+      .catch(() => {});
+  }
+  // Quand la carte s'éloigne du centre de la mini-carte, celle-ci se recentre.
   function recenterMini(x, y, force = false) {
-    if (!mini) return;
+    if (!mini || miniDrag) return;
     const mx = miniX0 + Math.floor(miniSize / 2);
     const my = miniY0 + Math.floor(miniSize / 2);
     if (!force && Math.abs(x - mx) < miniSize / 4 && Math.abs(y - my) < miniSize / 4) return;
-    const x0 = x - Math.floor(miniSize / 2);
-    const y0 = y - Math.floor(miniSize / 2);
-    fetch(`${base}/map/mini?x0=${x0}&y0=${y0}&size=${miniSize}`, { headers: { accept: 'application/json' } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((list) => { if (list) { miniVillages = list; miniX0 = x0; miniY0 = y0; drawMini(); } })
-      .catch(() => {});
+    loadMini(x - Math.floor(miniSize / 2), y - Math.floor(miniSize / 2), true);
   }
+  // Glisser la mini-carte, comme sur Guerre Tribale : on l'attrape, elle suit la souris case par case et la carte
+  // suit. Un appui sans déplacement recentre la carte sur la case visée.
+  let miniDrag = null;
+  let miniLoad = null;
   if (mini) {
-    mini.addEventListener('click', (e) => {
-      moveTo(...window.GTMinimap.cellAt(mini, { x0: miniX0, y0: miniY0, width: miniSize, height: miniSize }, e));
+    mini.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      miniDrag = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: Math.round(cx), cy: Math.round(cy), x0: miniX0, y0: miniY0, ox: 0, oy: 0, moved: false };
+      mini.setPointerCapture(e.pointerId);
     });
+    mini.addEventListener('pointermove', (e) => {
+      const d = miniDrag;
+      if (!d || e.pointerId !== d.id) return;
+      const dx = e.clientX - d.x; const dy = e.clientY - d.y;
+      if (!d.moved && Math.hypot(dx, dy) < 4) return;
+      if (!d.moved) { d.moved = true; mini.classList.add('cursor-grabbing'); }
+      const cell = mini.getBoundingClientRect().width / miniSize;
+      const ox = Math.round(dx / cell); const oy = Math.round(dy / cell);
+      if (ox === d.ox && oy === d.oy) return;
+      d.ox = ox; d.oy = oy;
+      miniX0 = d.x0 - ox; miniY0 = d.y0 - oy;
+      moveTo(d.cx - ox, d.cy - oy, { animate: false });
+      // Points de la zone découverte, chargés dès que le glisser marque une pause.
+      clearTimeout(miniLoad);
+      miniLoad = setTimeout(() => loadMini(miniX0, miniY0, false), 120);
+    });
+    const endMiniDrag = (e) => {
+      const d = miniDrag;
+      if (!d || e.pointerId !== d.id) return;
+      miniDrag = null;
+      mini.classList.remove('cursor-grabbing');
+      if (!d.moved) moveTo(...window.GTMinimap.cellAt(mini, { x0: miniX0, y0: miniY0, width: miniSize, height: miniSize }, e));
+    };
+    mini.addEventListener('pointerup', endMiniDrag);
+    mini.addEventListener('pointercancel', endMiniDrag);
     window.addEventListener('resize', () => { layoutAside(); drawMini(); });
   }
 
@@ -627,7 +672,7 @@
     const v = world.view;
     window.GTMinimap.draw(worldCanvas, {
       x0: v.x0, y0: v.y0, width: v.side, height: v.side, villages: world.villages,
-      home: [meX, meY], frame: { x: cx - half, y: cy - half, size },
+      frame: { x: cx - half, y: cy - half, size }, layers: layersOn(),
     });
   }
   function openWorld() {

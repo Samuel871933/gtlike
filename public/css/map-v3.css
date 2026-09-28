@@ -25,13 +25,16 @@
 /* La rive source est volontairement riche en herbe. On la repousse de 19 % vers la terre afin
    que seule une berge fine entre dans la case d'eau, avec la même épaisseur que les coins. */
 .map-shore--n { transform: translateY(-19%); }
-.map-shore--e { transform: rotate(90deg) translateY(-19%); }
 .map-shore--s { transform: rotate(180deg) translateY(-19%); }
-.map-shore--w { transform: rotate(270deg) translateY(-19%); }
 .map-shore-corner { background: center / 100% 100% no-repeat url('/img/map/shore-corner-v1.png'); }
-.map-shore-corner--ne { transform: rotate(90deg); }
 .map-shore-corner--se { transform: rotate(180deg); }
-.map-shore-corner--sw { transform: rotate(270deg); }
+/* Rives tournées d'un quart de tour : la case fait 53 × 38, l'image est donc posée en 38 × 53 au centre
+   avant rotation, pour couvrir exactement la case (sinon deux bandes d'eau restent à nu sur les côtés). */
+.map-shore--e, .map-shore--w, .map-shore-corner--ne, .map-shore-corner--sw { inset: auto; left: 50%; top: 50%; width: var(--tile-h); height: var(--tile-w); }
+.map-shore--e { transform: translate(-50%, -50%) rotate(90deg) translateY(-19%); }
+.map-shore--w { transform: translate(-50%, -50%) rotate(270deg) translateY(-19%); }
+.map-shore-corner--ne { transform: translate(-50%, -50%) rotate(90deg); }
+.map-shore-corner--sw { transform: translate(-50%, -50%) rotate(270deg); }
 
 .map-decor { z-index: 1; width: var(--tile-w); height: var(--tile-h); }
 .map-decor > span { position: absolute; left: calc(50% + var(--decor-x, 0px)); top: calc(50% + var(--decor-y, 0px) + var(--decor-oy, 0px)); width: var(--decor-w); height: var(--decor-h); background: center / contain no-repeat; filter: drop-shadow(0 2px 1px rgb(0 0 0 / .48)); transform: translate(-50%, -50%) scaleX(var(--decor-flip, 1)) scale(var(--decor-scale, 1)); transform-origin: 50% 75%; }

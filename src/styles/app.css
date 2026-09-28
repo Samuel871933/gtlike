@@ -195,7 +195,8 @@
   --color-mini-hill: #77713c;
   --color-mini-water: #3d7391;
   /* Villages */
-  --color-mini-current: #ffffff;
+  /* Village actuel : blanc pâle, sans contour */
+  --color-mini-current: #ece6d8;
   --color-mini-own: #f0c74b;
   --color-mini-tribe: #3159b8;
   --color-mini-ally: #4ba7e8;
@@ -206,6 +207,10 @@
   /* Quadrillage (10 cases), frontières de continent (100 cases) */
   --color-mini-grid: rgb(15 23 10 / .22);
   --color-mini-border: rgb(12 18 8 / .78);
+  /* Calques : quadrillage de 5 cases, influence de la tribu, zones ennemies (comme sur la carte) */
+  --color-mini-grid-5: rgb(15 23 10 / .4);
+  --color-mini-influence: rgb(153 27 27 / .45);
+  --color-mini-enemy-zone: rgb(240 74 30 / .32);
 }
 
 /* Carte du monde : villages progressifs et déplacement direct. */
@@ -249,13 +254,16 @@
 /* La rive source est volontairement riche en herbe. On la repousse de 19 % vers la terre afin
    que seule une berge fine entre dans la case d'eau, avec la même épaisseur que les coins. */
 .map-shore--n { transform: translateY(-19%); }
-.map-shore--e { transform: rotate(90deg) translateY(-19%); }
 .map-shore--s { transform: rotate(180deg) translateY(-19%); }
-.map-shore--w { transform: rotate(270deg) translateY(-19%); }
 .map-shore-corner { background: center / 100% 100% no-repeat url('/img/map/shore-corner-v1.png'); }
-.map-shore-corner--ne { transform: rotate(90deg); }
 .map-shore-corner--se { transform: rotate(180deg); }
-.map-shore-corner--sw { transform: rotate(270deg); }
+/* Rives tournées d'un quart de tour : la case fait 53 × 38, l'image est donc posée en 38 × 53 au centre
+   avant rotation, pour couvrir exactement la case (sinon deux bandes d'eau restent à nu sur les côtés). */
+.map-shore--e, .map-shore--w, .map-shore-corner--ne, .map-shore-corner--sw { inset: auto; left: 50%; top: 50%; width: var(--tile-h); height: var(--tile-w); }
+.map-shore--e { transform: translate(-50%, -50%) rotate(90deg) translateY(-19%); }
+.map-shore--w { transform: translate(-50%, -50%) rotate(270deg) translateY(-19%); }
+.map-shore-corner--ne { transform: translate(-50%, -50%) rotate(90deg); }
+.map-shore-corner--sw { transform: translate(-50%, -50%) rotate(270deg); }
 .map-tile:hover { filter: brightness(1.16); box-shadow: inset 0 0 0 2px rgb(240 208 138 / .45); }
 .map-tile[data-selected] { position: relative; z-index: 4; box-shadow: inset 0 0 0 3px var(--color-gold-200), inset 0 0 14px rgb(244 219 160 / .5) !important; }
 .map-viewport.is-dragging .map-tile { pointer-events: none; }
