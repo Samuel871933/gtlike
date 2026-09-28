@@ -37,11 +37,12 @@ class BuildingType {
     return formulas.buildTime(this.buildTime, this.buildTimeFactor, level, hqLevel, world.speed);
   }
 
-  /** Points cumulés du bâtiment au niveau `level`. */
+  /**
+   * Points du bâtiment au niveau `level` (total, pas un gain par niveau) : `points × 1.2^(niveau − 1)`, arrondi.
+   * Village complet sans église ni tour de guet : 12 154 points, comme sur Guerre Tribale.
+   */
   pointsAt(level) {
-    let total = 0;
-    for (let i = 1; i <= level; i++) total += Math.round(this.points * Math.pow(1.2, i - 1));
-    return total;
+    return level > 0 ? Math.round(this.points * Math.pow(1.2, level - 1)) : 0;
   }
 
   /** Prérequis non remplis pour un jeu de niveaux donné : [{ building, level }]. */

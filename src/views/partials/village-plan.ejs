@@ -2,8 +2,8 @@
   Plan du village (maquette « GTLike », vue de la cité) : bâtiments en blocs vus de dessus sur le fond du style de jeu
   (--game-image-village, voir src/styles/game-styles/). Emplacements en % d'une scène 966 × 580 : QG et bâtiments
   militaires dans l'enceinte, mines et ferme aux abords, muraille en étiquette sur la porte sud.
-  Chaque bloc porte son niveau (LV.x), son nom et, s'il est en chantier, le compte à rebours. Un clic sélectionne le
-  bâtiment et affiche son encart sous le plan (coût et durée du niveau suivant, Améliorer) ; un second clic ouvre sa page.
+  Chaque bloc porte son niveau (LV.x), son nom et, s'il est en chantier, le compte à rebours. Le survol d'un
+  bâtiment affiche son encart sous le plan (coût et durée du niveau suivant, Améliorer) ; un clic ouvre sa page.
   Local requis : buildOptions (VillageService.buildOption par bâtiment).
   `view` : 'city' (plan, écrans moyens et plus) ou 'list' (liste, toujours utilisée sur mobile).
 %>
@@ -73,7 +73,7 @@
       <span class="border border-bronze-700 bg-night px-1.5 py-0.5 text-[11px] tracking-[0.1em] text-parchment-500 uppercase">Loyauté <%= Math.floor(ctx.state.loyalty) %></span>
     </div>
   </div>
-  <%# Bandeau sous le plan : par défaut le chantier en tête de file ; un clic sur un bâtiment (game.js) affiche son encart. %>
+  <%# Bandeau sous le plan : par défaut le chantier en tête de file ; le survol d'un bâtiment (game.js) affiche son encart. %>
   <div class="mt-2 flex flex-wrap items-center justify-between gap-3 border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top px-2.5 py-2" data-plot-info="">
     <div class="min-w-0 flex-[1_1_260px]">
       <% if (head) { %>
@@ -81,7 +81,7 @@
         <div class="text-[13px] text-parchment-500"><%= works %> chantier<%= works > 1 ? 's' : '' %> en file · fin <%= when(ctx.buildOrders[works - 1].endsAt, now) %></div>
       <% } else { %>
         <div class="font-display text-base font-bold tracking-[0.1em] uppercase">Aucun chantier</div>
-        <div class="text-[13px] text-parchment-500">Clique un bâtiment pour l’améliorer. Les ouvriers attendent tes ordres.</div>
+        <div class="text-[13px] text-parchment-500">Clique un bâtiment pour ouvrir sa page. Les ouvriers attendent tes ordres.</div>
       <% } %>
     </div>
     <a href="/village/<%= vid %>/main" class="<%= btn('gold', 'md') %>"><%- icon('overview', 'size-3.5', 2.2) %>Quartier général</a>

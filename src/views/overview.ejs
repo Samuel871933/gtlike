@@ -19,10 +19,13 @@
   // Seconde ligne d'un ordre : unités (ou attaquant, pour une attaque entrante) et butin rapporté.
   const unitsLine = (units) => Object.entries(units || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, n]) => `${num(n)} ${unitName(id)}`).join(' · ');
   const lootLine = (loot) => RESOURCES.filter((r) => loot && loot[r.id] > 0).map((r) => `${num(loot[r.id])} ${r.label.toLowerCase()}`).join(' · ');
-  const subOf = ({ c, dir }) => {
-    const from = c.origin && c.origin.Player ? c.origin.Player.name : 'Barbares';
-    if (dir === 'in' && c.type === 'attack') return `Attaquant : ${from}`;
-    const parts = [dir === 'in' ? from : null, c.type === 'return' ? lootLine(c.loot) : null, unitsLine(c.units)].filter(Boolean);
+  // `html` : l'expéditeur devient un lien vers son profil (le reste est échappé).
+  const subOf = ({ c, dir }, html = false) => {
+    const owner = c.origin && c.origin.Player;
+    const from = html ? playerLink(ctx.village.id, owner, { cls: ui.link }) : (owner ? owner.name : 'Barbares');
+    const text = (s) => (html && s ? esc(s) : s);
+    if (dir === 'in' && c.type === 'attack') return `${text('Attaquant : ')}${from}`;
+    const parts = [dir === 'in' ? from : null, text(c.type === 'return' ? lootLine(c.loot) : null), text(unitsLine(c.units))].filter(Boolean);
     return parts.join(' · ');
   };
   const shown = allMoves ? moves : moves.slice(0, 9);
@@ -109,7 +112,7 @@
                 <span class="flex size-[22px] shrink-0 items-center justify-center border-2 border-black text-night shadow-[2px_2px_0_#000] <%= st.box %>"><%- icon(st.icon, 'size-[13px]', 3.2) %></span>
                 <div class="min-w-0">
                   <div class="truncate font-bold <%= dir === 'in' && c.type === 'attack' ? 'text-blood-500' : '' %>"><%= dir === 'in' ? (c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant') : verbs[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></div>
-                  <% if (sub) { %><div class="truncate text-[11px] text-parchment-500" title="<%= sub %>"><%= sub %></div><% } %>
+                  <% if (sub) { %><div class="truncate text-[11px] text-parchment-500" title="<%= sub %>"><%- subOf(m, true) %></div><% } %>
                 </div>
               </div>
               <div class="min-w-0 truncate border-r border-bronze-900 px-2.5 py-[5px]">

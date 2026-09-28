@@ -1,6 +1,7 @@
 'use strict';
 
 const registry = require('../game/registry');
+const { ui, esc } = require('./ui');
 const { continent } = require('../game/MapPlacer');
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -168,6 +169,24 @@ function shield(fill, { cls = 'w-4', emblem = '', glow = false } = {}) {
   return `<svg class="${cls} ${f} shrink-0" viewBox="0 0 20 22" aria-hidden="true"><path class="${fill} stroke-shield-edge" d="M2 2h16v8c0 5.5-4 8.5-8 10C6 18.5 2 15.5 2 10z" stroke-width="1.6" stroke-linejoin="round"/><path d="M4.5 4h11" stroke="#fff" stroke-opacity="0.35" stroke-width="1.2" stroke-linecap="round"/>${e}</svg>`;
 }
 
+/**
+ * Nom d'un joueur, avec lien vers son profil quand on est en jeu (`vid` : village courant ; sans village,
+ * texte simple, les profils n'existant que dans le jeu). `p` nul : texte de remplacement (`none`).
+ */
+function playerLink(vid, p, { cls = ui.linkPlain, none = 'Barbares' } = {}) {
+  if (!p) return `<span class="text-parchment-500">${esc(none)}</span>`;
+  return vid ? `<a href="/village/${vid}/players/${p.id}" class="${cls}">${esc(p.name)}</a>` : `<span>${esc(p.name)}</span>`;
+}
+
+/** Tribu : tag (et nom si `name`), avec lien vers sa page publique en jeu. */
+function tribeLink(vid, tr, { name = false, tagCls = ui.tagMuted, cls = ui.linkPlain } = {}) {
+  if (!tr) return '<span class="text-parchment-700">—</span>';
+  const inner = `<span class="${tagCls}">${esc(tr.tag)}</span>${name ? `<span class="truncate">${esc(tr.name)}</span>` : ''}`;
+  return vid
+    ? `<a href="/village/${vid}/tribes/${tr.id}" class="${cls} inline-flex min-w-0 items-center gap-2 font-bold whitespace-nowrap">${inner}</a>`
+    : `<span class="inline-flex min-w-0 items-center gap-2 whitespace-nowrap">${inner}</span>`;
+}
+
 function num(n) {
   return Math.floor(n).toLocaleString('fr-FR');
 }
@@ -191,6 +210,8 @@ module.exports = {
   when,
   whenShort,
   num,
+  playerLink,
+  tribeLink,
   continent,
   buildingName: (id) => registry.building(id).name,
   unitName: (id) => registry.unit(id).name,

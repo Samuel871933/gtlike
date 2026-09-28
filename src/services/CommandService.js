@@ -474,11 +474,11 @@ class CommandService {
     const attackerSeesDefense = hasUnits(survivors);
     const data = {
       attacker: {
-        playerName: origin.Player.name, villageId: origin.id, village: villageLabel(origin),
+        playerName: origin.Player.name, playerId: origin.Player.id, villageId: origin.id, village: villageLabel(origin),
         units: cmd.units, losses: result.attackerLosses,
       },
       defender: {
-        playerName: defenderPlayer ? defenderPlayer.name : 'Barbares', villageId: target.id, village: villageLabel(target),
+        playerName: defenderPlayer ? defenderPlayer.name : 'Barbares', playerId: defenderPlayer ? defenderPlayer.id : null, villageId: target.id, village: villageLabel(target),
         units: defenders, losses: addUnits(homeLosses, stackReports.reduce((acc, s) => addUnits(acc, s.losses), {})),
       },
       attackerWins: result.hasBattle ? result.attackerWins : null,

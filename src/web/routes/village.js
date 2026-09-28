@@ -305,6 +305,8 @@ router.get('/place', ah(async (req, res) => {
     },
     units: registry.unitsFor(req.ctx.cfg).filter((u) => (req.ctx.state.units[u.id] || 0) > 0),
     allUnits: registry.unitsFor(req.ctx.cfg),
+    // Minutes par case de chaque unité : aperçu de la durée et de l'heure d'arrivée dans le formulaire.
+    pace: Object.fromEntries(registry.unitsFor(req.ctx.cfg).map((u) => [u.id, u.minutesPerField(req.ctx.cfg)])),
     sim: tab === 'sim' ? simulate(req.query, req.ctx.cfg) : null,
     query: req.query,
     templates: await ArmyTemplateService.list(me(req)),
@@ -324,15 +326,33 @@ router.post('/templates/:templateId/delete', ah(async (req, res) => {
   res.redirect(`${base(req)}/place#modeles`);
 }));
 
+/** Point de ralliement pré-rempli avec la cible et les troupes d'un ordre (retour après un refus). */
+const placeWith = (req, order) => `${base(req)}/place?${new URLSearchParams({ x: req.body.x || '', y: req.body.y || '', ...order.units })}`;
+
+/** Erreur métier sur un ordre : message et retour au formulaire pré-rempli (les autres erreurs remontent). */
+async function orUnwind(req, res, order, run) {
+  try {
+    return await run();
+  } catch (err) {
+    if (!(err instanceof GameError) || err.status >= 500 || err.status === 404) throw err;
+    flash(req, 'error', err.message);
+    res.redirect(placeWith(req, order));
+    return null;
+  }
+}
+
 router.post('/place/confirm', ah(async (req, res) => {
   const order = readOrder(req);
-  const plan = await CommandService.preview(req.ctx.village.id, order);
+  const plan = await orUnwind(req, res, order, () => CommandService.preview(req.ctx.village.id, order));
+  if (!plan) return;
   const catapultTargets = registry.buildingsFor(req.ctx.cfg).filter((b) => !combat.UNDESTROYABLE.has(b.id));
   res.render('place-confirm', { page: 'place', plan, catapultTargets });
 }));
 
 router.post('/place/send', ah(async (req, res) => {
-  const cmd = await CommandService.send(req.ctx.village.id, readOrder(req));
+  const order = readOrder(req);
+  const cmd = await orUnwind(req, res, order, () => CommandService.send(req.ctx.village.id, order));
+  if (!cmd) return;
   flash(req, 'success', cmd.type === 'attack' ? 'Attaque envoyée.' : 'Soutien envoyé.');
   res.redirect(`${base(req)}/place`);
 }));
@@ -572,7 +592,21 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const achievements = await AchievementService.overview(profile.player.id);
   const daily = await DailyService.countsFor(profile.player.id);
   const isMe = profile.player.id === me(req);
-  res.render('player', { ...profile, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe });
+  // Invitation possible depuis le profil : on dirige une tribu et le joueur n'en fait pas partie.
+  const viewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId', 'tribeRole'] });
+  const canInvite = !isMe && Boolean(viewer.tribeId) && ['founder', 'leader'].includes(viewer.tribeRole) && profile.player.tribeId !== viewer.tribeId;
+  // `subject` et non `player` : `player` est le joueur connecté, utilisé par l'en-tête.
+  const { player: subject, ...rest } = profile;
+  res.render('player', { ...rest, subject, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
+}));
+
+// Texte personnel du profil (réservé au titulaire du compte, pas au remplaçant).
+router.post('/profile/text', ownerOnly, ah(async (req, res) => {
+  const text = String(req.body.profileText || '').replace(/\r\n/g, '\n').trim();
+  if (text.length > 2000) throw new GameError('Le texte personnel est limité à 2 000 caractères.');
+  await Player.update({ profileText: text || null }, { where: { id: me(req) } });
+  flash(req, 'success', 'Profil mis à jour.');
+  res.redirect(`${base(req)}/players/${me(req)}`);
 }));
 
 // Inviter des joueurs : lien d'inscription à partager.
@@ -789,12 +823,12 @@ router.get('/map', ah(async (req, res) => {
   ]);
   const relations = await TribeService.relationsOf(player.tribeId);
   const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => ({ x: c.target.x, y: c.target.y }));
-  // Infobulle : durée du trajet d'un lancier (minutes par case) ; menu : éclaireurs proposés pour « Espionner ».
-  const paceMinutes = registry.unit('spear').minutesPerField(cfg);
+  // Infobulle : durée du trajet de chaque unité (minutes par case) ; menu : éclaireurs proposés pour « Espionner ».
+  const paces = registry.unitsFor(cfg).map((u) => ({ id: u.id, name: u.name, minutes: u.minutesPerField(cfg) }));
   // Morale de tes attaques selon les points du joueur visé (null si le monde n'a pas de morale).
   const moraleOf = cfg.moral ? (points) => combat.morale(player.points, points, true) : null;
   const spyCount = Math.min(req.ctx.state.units.spy || 0, 5);
-  res.render('map', { page: 'map', area, overviewArea, cx, cy, sx, sy, relations, attacks, displaySize, miniSize, mapSizes, miniSizes, showWorldMap, worldVillages, paceMinutes, spyCount, search, templates, favorites, moraleOf });
+  res.render('map', { page: 'map', area, overviewArea, cx, cy, sx, sy, relations, attacks, displaySize, miniSize, mapSizes, miniSizes, showWorldMap, worldVillages, paces, spyCount, search, templates, favorites, moraleOf });
 }));
 
 module.exports = router;

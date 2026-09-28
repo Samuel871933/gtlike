@@ -145,10 +145,44 @@ class MapService {
     const player = await Player.findOne({ where: { id: Number(playerId), worldId }, include: [{ model: Tribe }] });
     if (!player) return null;
     const [villages, better] = await Promise.all([
-      Village.findAll({ where: { playerId: player.id }, attributes: ['id', 'name', 'x', 'y', 'points'], order: [['points', 'DESC']] }),
+      Village.findAll({ where: { playerId: player.id }, attributes: ['id', 'name', 'x', 'y', 'points'] }),
       Player.count({ where: { worldId, [Op.or]: [{ points: { [Op.gt]: player.points } }, { points: player.points, id: { [Op.lt]: player.id } }] } }),
     ]);
-    return { player, villages, rank: better + 1 };
+    // Ordre alphabétique, avec les numéros dans l'ordre naturel (« 2 » avant « 10 »), comme sur Guerre Tribale.
+    villages.sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true, sensitivity: 'base' }));
+    // Rang aux adversaires vaincus (total ODA + ODD + ODS), seulement si le joueur en a.
+    const kills = player.killsAttacker + player.killsDefender + player.killsSupporter;
+    const killsRank = kills > 0
+      ? 1 + await Player.count({ where: { worldId, [Op.and]: [sequelize.literal(`("killsAttacker" + "killsDefender" + "killsSupporter") > ${Number(kills)}`)] } })
+      : null;
+    return { player, villages, rank: better + 1, killsRank, miniMap: await MapService.playerMiniMap(worldId, player, villages) };
+  }
+
+  /**
+   * Mini-carte du profil : un bandeau trois fois plus large que haut (au moins 20 cases de haut) qui englobe
+   * les villages du joueur, avec tous les villages qui s'y trouvent. `kind` : player (ce joueur), tribe (sa tribu), other, barb.
+   */
+  static async playerMiniMap(worldId, player, villages) {
+    if (!villages.length) return null;
+    const xs = villages.map((v) => v.x);
+    const ys = villages.map((v) => v.y);
+    const height = Math.min(100, Math.max(20, Math.max(...ys) - Math.min(...ys) + 7, Math.ceil((Math.max(...xs) - Math.min(...xs) + 7) / 3)));
+    const width = height * 3;
+    const cx = Math.round((Math.min(...xs) + Math.max(...xs)) / 2);
+    const cy = Math.round((Math.min(...ys) + Math.max(...ys)) / 2);
+    const x0 = cx - Math.floor(width / 2);
+    const y0 = cy - Math.floor(height / 2);
+    const rows = await Village.findAll({
+      where: { worldId, x: { [Op.between]: [x0, x0 + width - 1] }, y: { [Op.between]: [y0, y0 + height - 1] } },
+      attributes: ['x', 'y', 'playerId'],
+      include: [{ model: Player, attributes: ['tribeId'] }],
+    });
+    const kindOf = (v) => {
+      if (!v.playerId) return 'barb';
+      if (v.playerId === player.id) return 'player';
+      return player.tribeId && v.Player && v.Player.tribeId === player.tribeId ? 'tribe' : 'other';
+    };
+    return { x0, y0, width, height, cx, cy, villages: rows.map((v) => ({ x: v.x, y: v.y, kind: kindOf(v) })) };
   }
 
   // Exports publics au format Guerre Tribale (/map/village.txt, /map/player.txt).

@@ -72,6 +72,46 @@
     if (form) scavengePreview(form);
   });
 
+  // Point de ralliement : durée du trajet (unité la plus lente, comme le serveur) et heure d'arrivée.
+  function arrivalText(date, now) {
+    const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}:${String(date.getMilliseconds()).padStart(3, '0')}`;
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(date) - day(now)) / 86400000);
+    if (diff === 0) return `aujourd'hui à ${time}`;
+    if (diff === 1) return `demain à ${time}`;
+    return `le ${pad(date.getDate())}/${pad(date.getMonth() + 1)} à ${time}`;
+  }
+  function travelPreview(form) {
+    const pace = JSON.parse(form.dataset.travel);
+    let minutes = 0;
+    for (const [id, m] of Object.entries(pace)) {
+      const input = form.querySelector(`input[name="${id}"]`);
+      if (input && Number(input.value) > 0) minutes = Math.max(minutes, m);
+    }
+    const x = form.querySelector('input[name="x"]').value;
+    const y = form.querySelector('input[name="y"]').value;
+    const dist = Math.hypot(Number(x) - Number(form.dataset.fromX), Number(y) - Number(form.dataset.fromY));
+    const seconds = Math.round(dist * minutes * 60);
+    const ok = minutes && x !== '' && y !== '' && seconds > 0;
+    const now = new Date(serverNow());
+    form.querySelector('[data-travel-arrival]').textContent = ok ? arrivalText(new Date(now.getTime() + seconds * 1000), now) : '—';
+    form.querySelector('[data-travel-duration]').textContent = ok ? `(${fmt(seconds)})` : '';
+  }
+  document.addEventListener('input', (e) => {
+    const form = e.target.closest('form[data-travel]');
+    if (form) travelPreview(form);
+  });
+  // Heure d'arrivée si l'ordre part maintenant (confirmation et formulaire d'envoi), rafraîchie à chaque image pour les ms.
+  function arrivalFrame() {
+    document.querySelectorAll('form[data-travel]').forEach(travelPreview);
+    document.querySelectorAll('[data-arrive-in]').forEach((el) => {
+      const now = new Date(serverNow());
+      el.textContent = arrivalText(new Date(now.getTime() + Number(el.dataset.arriveIn)), now);
+    });
+    requestAnimationFrame(arrivalFrame);
+  }
+  if (document.querySelector('form[data-travel], [data-arrive-in]')) requestAnimationFrame(arrivalFrame);
+
   // Carte : un clic sur une case la sélectionne et remplit le panneau « Cible » (sans recharger la page).
   const PILL = 'self-start border px-1.5 py-px text-[11px] font-bold tracking-[0.1em] uppercase';
   let mapWasDragged = false;
@@ -146,7 +186,12 @@
     set('owner', d.owner);
     set('tribe', `${d.tribe} · ${d.rel}`);
     set('points', d.points);
-    set('dist', d.eta ? `${d.dist} · ${d.eta}` : d.dist);
+    set('dist', d.dist);
+    const travel = tip.querySelector('[data-tip-travel]');
+    if (travel) {
+      travel.classList.toggle('hidden', !d.fields);
+      travel.querySelectorAll('[data-tip-pace]').forEach((el) => { el.textContent = fmt(Math.round(d.fields * Number(el.dataset.tipPace) * 60)); });
+    }
     // Morale : affichée seulement contre un autre joueur ; en orange sous 100 %.
     const mor = tip.querySelector('[data-tip="morale"]');
     set('morale', d.morale || '');
@@ -391,12 +436,10 @@
     if (form) scavengePreview(form);
   });
 
-  // Plan du village : un premier clic sélectionne le bâtiment et affiche son encart (coût, Améliorer), un second ouvre sa page.
-  document.addEventListener('click', (e) => {
+  // Plan du village : le survol d'un bâtiment affiche son encart (coût, Améliorer) sous le plan ; le clic ouvre sa page.
+  document.addEventListener('pointerover', (e) => {
     const plot = e.target.closest('[data-plot]');
-    if (!plot || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    if (plot.hasAttribute('data-selected')) return;
-    e.preventDefault();
+    if (!plot || plot.hasAttribute('data-selected')) return;
     document.querySelectorAll('[data-plot][data-selected]').forEach((p) => p.removeAttribute('data-selected'));
     plot.setAttribute('data-selected', '');
     document.querySelectorAll('[data-plot-info]').forEach((info) => {

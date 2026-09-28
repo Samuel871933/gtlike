@@ -167,6 +167,8 @@ const Player = sequelize.define(
     // Compteurs des succès (pillages, conquêtes, unités tuées…) et date d'entrée dans la tribu.
     stats: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
     tribeJoinedAt: { type: DataTypes.DATE, allowNull: true },
+    // Texte personnel affiché sur le profil public (texte brut, retours à la ligne conservés).
+    profileText: { type: DataTypes.TEXT, allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['userId', 'worldId'] }] },
 );

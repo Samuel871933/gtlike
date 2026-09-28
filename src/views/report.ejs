@@ -94,7 +94,7 @@
             <div class="flex min-w-0 items-center gap-3">
               <span class="<%= medal %> size-9"><%- icon(label === 'Attaquant' ? 'attack' : 'wall', 'size-4', 2) %></span>
               <span class="flex min-w-0 flex-col">
-                <span class="truncate font-bold text-parchment-100"><%= side.playerName %></span>
+                <span class="truncate font-bold text-parchment-100"><%- side.playerId ? playerLink(vid, { id: side.playerId, name: side.playerName }) : esc(side.playerName) %></span>
                 <span class="truncate text-sm text-parchment-500"><%= side.village %></span>
               </span>
             </div>

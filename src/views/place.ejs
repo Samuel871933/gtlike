@@ -32,7 +32,7 @@
       <% for (const tpl of templates) { %><a href="<%= useHref(tpl) %>" class="<%= ui.chip %> no-underline hover:bg-head-dark hover:text-parchment-100" title="<%= unitsText(tpl.units) %>"><%= tpl.name %></a><% } %>
     </div>
   <% } %>
-  <form method="post" action="/village/<%= vid %>/place/confirm"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <form method="post" action="/village/<%= vid %>/place/confirm" data-travel="<%= JSON.stringify(pace) %>" data-from-x="<%= ctx.village.x %>" data-from-y="<%= ctx.village.y %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="grid gap-3 px-4.5 py-4 sm:grid-cols-2 xl:grid-cols-4">
       <% for (const [name, ids] of groups) { %>
         <fieldset class="<%= ui.box %> flex min-w-0 flex-col gap-1 px-3 pt-1 pb-2.5">
@@ -56,6 +56,11 @@
           <input type="number" name="y" value="<%= form.y %>" placeholder="y" required class="<%= ui.input %> w-24 tabular-nums">
         </span>
       </label>
+      <%# Durée et heure d'arrivée (unité la plus lente), recalculées par game.js à chaque saisie et chaque seconde. %>
+      <div class="flex min-h-[38px] flex-col justify-center gap-0.5 sm:mr-auto" data-travel-preview>
+        <span class="<%= ui.subLabel %>">Arrivée</span>
+        <span class="text-parchment-500 tabular-nums"><strong class="font-extrabold text-gold-200" data-travel-arrival>—</strong> <span data-travel-duration></span></span>
+      </div>
       <div class="flex flex-wrap gap-2">
         <button name="type" value="attack" class="<%= btn('red') %>"><%- icon('attack', 'size-3.5', 2.2) %>Attaquer</button>
         <button name="type" value="support" class="<%= btn('olive') %>"><%- icon('support', 'size-3.5', 2.2) %>Soutenir</button>
@@ -149,12 +154,12 @@
           <span class="hidden shrink-0 text-parchment-600 sm:inline">de</span>
           <a href="<%= mapHref(c.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.origin.name %></a>
           <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.origin.x %>|<%= c.origin.y %>)</span>
-          <% if (c.origin.Player) { %><span class="hidden truncate text-parchment-500 md:inline">· <%= c.origin.Player.name %></span><% } %>
+          <% if (c.origin.Player) { %><span class="hidden truncate text-parchment-500 md:inline">· <%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
         </div>
         <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
         <span class="text-right font-extrabold tabular-nums <%= c.type === 'attack' ? 'text-blood-300' : 'text-gold-200' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
         <span></span>
-        <span class="col-span-full hidden flex-wrap gap-x-2 text-[13px] text-parchment-500 max-md:flex sm:pl-[42px]"><span class="sm:hidden"><%= whenShort(c.arrivesAt, now) %></span><% if (c.origin.Player) { %><span><%= c.origin.Player.name %></span><% } %></span>
+        <span class="col-span-full hidden flex-wrap gap-x-2 text-[13px] text-parchment-500 max-md:flex sm:pl-[42px]"><span class="sm:hidden"><%= whenShort(c.arrivesAt, now) %></span><% if (c.origin.Player) { %><span><%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %></span>
       </div>
     <% } %>
   </div>
@@ -197,7 +202,7 @@
             <span class="min-w-0 flex-1">
               <a href="<%= mapHref(s.origin) %>" class="<%= ui.linkPlain %> font-bold"><%= s.origin.name %></a>
               <span class="text-parchment-600 tabular-nums">(<%= s.origin.x %>|<%= s.origin.y %>)</span>
-              <% if (s.origin.Player) { %><span class="text-parchment-500">· <%= s.origin.Player.name %></span><% } %>
+              <% if (s.origin.Player) { %><span class="text-parchment-500">· <%- playerLink(vid, s.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
             </span>
             <form method="post" action="/village/<%= vid %>/support/<%= s.id %>/withdraw"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('dark', 'sm') %>">Renvoyer</button></form>
           </div>
@@ -218,7 +223,7 @@
             <span class="min-w-0 flex-1">
               <a href="<%= mapHref(s.village) %>" class="<%= ui.linkPlain %> font-bold"><%= s.village.name %></a>
               <span class="text-parchment-600 tabular-nums">(<%= s.village.x %>|<%= s.village.y %>)</span>
-              <% if (s.village.Player) { %><span class="text-parchment-500">· <%= s.village.Player.name %></span><% } %>
+              <% if (s.village.Player) { %><span class="text-parchment-500">· <%- playerLink(vid, s.village.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
             </span>
             <form method="post" action="/village/<%= vid %>/support/<%= s.id %>/withdraw"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('dark', 'sm') %>">Rappeler</button></form>
           </div>

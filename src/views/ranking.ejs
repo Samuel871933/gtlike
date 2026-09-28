@@ -7,7 +7,11 @@
   const rankCell = (i) => i < 3
     ? `<span class="${i === 0 ? ui.medallionGold : ui.medallion} size-8 font-display text-sm font-extrabold ${i === 0 ? 'text-gold-100' : 'text-gold-300'}">${i + 1}</span>`
     : `<span class="inline-flex w-8 justify-center font-bold text-parchment-500 tabular-nums">${i + 1}</span>`;
-  const tribeTag = (tr) => tr ? `<span class="${ui.tagMuted}">${esc(tr.tag)}</span>` : '<span class="text-parchment-700">—</span>';
+  // Noms et tags : liens vers les profils en jeu (texte simple sur le classement public).
+  const vid = ctx ? ctx.village.id : null;
+  const tribeTag = (tr) => tribeLink(vid, tr);
+  const who = (p) => playerLink(vid, p);
+  const tribeFull = (tr) => tribeLink(vid, tr, { name: true, tagCls: ui.tagGold });
   const empty = (msg) => `<p class="px-4.5 py-4 text-parchment-500">${esc(msg)}</p>`;
 %>
 <section class="<%= ui.panel %>">
@@ -42,7 +46,7 @@
         <% awards.forEach((r, i) => { %>
           <tr class="<%= isMe(r.player) ? ui.rowActive : '' %>">
             <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><%= r.player.name %></td>
+            <td class="font-bold text-parchment-100"><%- who(r.player) %></td>
             <td class="text-right tabular-nums"><%= r.count %></td>
             <td class="text-right font-extrabold text-gold-200 tabular-nums"><%= r.score %></td>
           </tr>
@@ -61,7 +65,7 @@
           <tr class="<%= r.player && isMe(r.player) ? ui.rowActive : '' %>">
             <td><%- rankCell(i) %></td>
             <td class="font-bold text-parchment-100">
-              <% if (r.tribe) { %><span class="inline-flex items-center gap-2 whitespace-nowrap"><span class="<%= ui.tagGold %>"><%= r.tribe.tag %></span><%= r.tribe.name %></span><% } else { %><%= r.player.name %><% } %>
+              <% if (r.tribe) { %><%- tribeFull(r.tribe) %><% } else { %><%- who(r.player) %><% } %>
             </td>
             <td class="text-right font-extrabold tabular-nums"><%= num(r.points) %></td>
             <td class="text-right tabular-nums"><%= r.villages %></td>
@@ -80,7 +84,7 @@
         <% kills.forEach(({ player: p, score }, i) => { %>
           <tr class="<%= isMe(p) ? ui.rowActive : '' %>">
             <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><%= p.name %></td>
+            <td class="font-bold text-parchment-100"><%- who(p) %></td>
             <td><%- tribeTag(p.Tribe) %></td>
             <td class="text-right font-extrabold tabular-nums"><%= num(score) %></td>
           </tr>
@@ -97,7 +101,7 @@
         <% players.forEach((p, i) => { %>
           <tr class="<%= isMe(p) ? ui.rowActive : '' %>">
             <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><%= p.name %></td>
+            <td class="font-bold text-parchment-100"><%- who(p) %></td>
             <td><%- tribeTag(p.Tribe) %></td>
             <td class="text-right font-extrabold tabular-nums"><%= num(p.points) %></td>
             <td class="text-right tabular-nums"><%= p.villageCount %></td>
@@ -115,7 +119,7 @@
         <% tribes.forEach((r, i) => { %>
           <tr>
             <td><%- rankCell(i) %></td>
-            <td class="font-bold text-parchment-100"><span class="inline-flex items-center gap-2 whitespace-nowrap"><span class="<%= ui.tagGold %>"><%= r.tribe.tag %></span><%= r.tribe.name %></span></td>
+            <td class="font-bold text-parchment-100"><%- tribeFull(r.tribe) %></td>
             <td class="text-right tabular-nums"><%= r.members %></td>
             <td class="text-right font-extrabold tabular-nums"><%= num(r.points) %></td>
             <td class="text-right tabular-nums"><%= r.villages %></td>

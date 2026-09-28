@@ -2,7 +2,7 @@
 
 // Définitions des bâtiments, valeurs d'un monde à vitesse 1 (source : get_building_info de fr105).
 // Coût du niveau N : base × facteur^(N-1). Pop totale au niveau N : pop × popFactor^(N-1).
-// `points` : points du niveau 1, ×1.2 par niveau (valeurs communautaires, à vérifier).
+// `points` : points du niveau 1 ; au niveau n, le bâtiment vaut `points × 1.2^(n-1)` au total (village complet : 12 154).
 // `requires` : niveaux minimum d'autres bâtiments.
 // `feature` : module du monde qui doit être activé pour que le bâtiment existe.
 

@@ -13,7 +13,7 @@
   };
   const roleTag = { founder: ui.tagGold, leader: ui.tagGold, member: ui.tagMuted };
   const isFounder = player.tribeRole === 'founder';
-  const authorOf = (m) => (m.Player ? m.Player.name : 'Joueur supprimé');
+  const authorOf = (m) => playerLink(vid, m.Player, { none: 'Joueur supprimé' });
 %>
 <%# En-tête de la tribu : identité, chiffres clés, onglets. %>
 <section class="<%= ui.panel %>">
@@ -66,7 +66,7 @@
         <% if (!messages.length) { %><p class="text-parchment-500">Le mur est vide.</p><% } %>
         <% for (const m of messages.slice(0, 3)) { %>
           <div class="<%= ui.box %> flex flex-col gap-1.5 p-3">
-            <p class="text-xs text-parchment-500"><strong class="font-bold text-parchment-200"><%= authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
+            <p class="text-xs text-parchment-500"><strong class="font-bold text-parchment-200"><%- authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
             <p class="line-clamp-3 text-sm whitespace-pre-line text-parchment-300"><%= m.body %></p>
           </div>
         <% } %>
@@ -131,7 +131,7 @@
             <div class="<%= ui.box %> flex items-center justify-between gap-3 py-2 pr-2 pl-3">
               <span class="flex min-w-0 items-center gap-2.5">
                 <span class="<%= ui.medallion %> size-7"><%- icon('profile', 'size-3.5') %></span>
-                <span class="truncate font-bold"><%= inv.Player.name %></span>
+                <span class="truncate font-bold"><%- playerLink(vid, inv.Player) %></span>
               </span>
               <form method="post" action="<%= t %>/invites/<%= inv.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button class="<%= btn('danger', 'sm') %>">Retirer</button>
@@ -207,7 +207,7 @@
           <span class="<%= ui.medallion %> size-9"><%- icon('profile', 'size-4') %></span>
           <div class="flex min-w-0 flex-1 flex-col gap-1.5">
             <div class="flex items-center justify-between gap-3">
-              <p class="text-xs text-parchment-500"><strong class="text-sm font-bold text-parchment-100"><%= authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
+              <p class="text-xs text-parchment-500"><strong class="text-sm font-bold text-parchment-100"><%- authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
               <% if (m.playerId === player.id || canManage) { %>
                 <form method="post" action="<%= t %>/messages/<%= m.id %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <button class="<%= ui.iconBtnSm %>" title="Supprimer" aria-label="Supprimer le message"><%- icon('trash', 'size-3.5', 2.2) %></button>

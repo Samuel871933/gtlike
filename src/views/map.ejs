@@ -61,7 +61,7 @@
     const v = cell.village;
     const t = v ? 'grass' : terrain(cell.x, cell.y);
     const d = Math.hypot(cell.x - ctx.village.x, cell.y - ctx.village.y);
-    const base = { x: cell.x, y: cell.y, k: continent(cell.x, cell.y), dist: d ? `${(Math.round(d * 10) / 10).toLocaleString('fr-FR')} cases` : '—', eta: d ? eta(d) : '', bg: tileBg(cell.x, cell.y, t) };
+    const base = { x: cell.x, y: cell.y, k: continent(cell.x, cell.y), dist: d ? `${(Math.round(d * 10) / 10).toLocaleString('fr-FR')} cases` : '—', fields: d, bg: tileBg(cell.x, cell.y, t) };
     if (!v) return { ...base, name: TERRAIN_NAME[t], desc: TERRAIN_DESC[t] };
     const kind = kindOf(v);
     return {
@@ -79,7 +79,6 @@
     const c = byCoord.get(`${x + dx}|${y + dy}`);
     return c && c.village && kinds.includes(kindOf(c.village));
   }));
-  const eta = (d) => duration(Math.round(d * paceMinutes * 60));
   const favIds = new Set(favorites.map((f) => f.villageId));
   const selCell = byCoord.get(`${sx}|${sy}`) || { x: sx, y: sy, village: null };
   const sel = cellData(selCell);
@@ -165,6 +164,10 @@
             <span class="text-parchment-500">Points</span><span class="tabular-nums" data-tip="points"></span>
             <span class="text-parchment-500">Distance</span><span class="tabular-nums" data-tip="dist"></span>
             <span class="text-parchment-500" data-tip-row="morale">Morale</span><span class="font-bold tabular-nums" data-tip="morale"></span>
+          </div>
+          <%# Durée du trajet de chaque unité depuis le village courant (calculée par game.js avec la distance). %>
+          <div class="grid grid-cols-2 gap-x-2.5 gap-y-0.5 border-t border-bronze-800 px-2 py-[5px] text-xs" data-tip-travel>
+            <% for (const u of paces) { %><span class="flex items-center gap-1.5" title="<%= u.name %>"><span class="text-gold-400"><%- unitIcon(u.id, 'size-3', 2) %></span><span class="tabular-nums" data-tip-pace="<%= u.minutes %>"></span></span><% } %>
           </div>
         </div>
         <div class="map-controls absolute z-[16] hidden w-[200px] border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]" data-map-menu>
@@ -333,7 +336,7 @@
             <li class="flex items-center justify-between gap-2 border-b border-bronze-800 px-2.5 py-1 last:border-b-0 hover:bg-thead">
               <span class="flex min-w-0 flex-col">
                 <a href="<%= link(fv.x, fv.y) %>&sx=<%= fv.x %>&sy=<%= fv.y %>" class="<%= ui.linkPlain %> truncate font-bold"><span class="text-gold-200">★</span> <%= fv.name %></a>
-                <span class="truncate text-[11px] text-parchment-500"><%= fv.Player ? fv.Player.name : 'Barbares' %> · <%= num(fv.points) %> pts</span>
+                <span class="truncate text-[11px] text-parchment-500"><%- fv.Player ? playerLink(vid, fv.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) : 'Barbares' %> · <%= num(fv.points) %> pts</span>
               </span>
               <span class="flex shrink-0 items-center gap-2">
                 <span class="text-xs font-bold text-gold-400 tabular-nums"><%= fv.x %>|<%= fv.y %></span>

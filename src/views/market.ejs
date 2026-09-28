@@ -87,7 +87,7 @@
         <% for (const { offer: o, distance, seconds } of offers) { %>
           <tr>
             <td>
-              <span class="block font-bold whitespace-nowrap text-parchment-100"><%= o.village.Player.name %></span>
+              <span class="block font-bold whitespace-nowrap text-parchment-100"><%- playerLink(ctx.village.id, o.village.Player) %></span>
               <a href="<%= mapHref(o.village) %>" class="<%= ui.linkPlain %> block text-[13px] whitespace-nowrap text-parchment-500"><%= o.village.name %> <span class="tabular-nums">(<%= o.village.x %>|<%= o.village.y %>)</span></a>
             </td>
             <td><%- amount(o.sellResource, o.sellAmount) %></td>
@@ -203,7 +203,7 @@
                 <a href="<%= mapHref(tr.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.origin.name %></a>
                 <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.origin.x %>|<%= tr.origin.y %>)</span>
               </span>
-              <span class="text-[13px] text-parchment-500"><%= tr.origin.Player ? `${tr.origin.Player.name} · ` : '' %><%= whenShort(tr.arrivesAt, now) %></span>
+              <span class="text-[13px] text-parchment-500"><% if (tr.origin.Player) { %><%- playerLink(ctx.village.id, tr.origin.Player, { cls: ui.link }) %> · <% } %><%= whenShort(tr.arrivesAt, now) %></span>
             </span>
             <span class="font-extrabold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
           </div>

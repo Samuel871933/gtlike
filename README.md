@@ -10,6 +10,7 @@ npm start          # compile le CSS puis lance le serveur
 npm test
 npm run migrate    # applique les migrations (obligatoire en production)
 npm run migrate -- status | down | create nom-de-la-migration
+npm run populate   # monde « speed » : 1000 joueurs fictifs, tribus, barbares (-- <monde> <nombre> [--reset])
 ```
 
 Le style est uniquement en Tailwind, sans CSS maison : [src/styles/app.css](src/styles/app.css) ne contient que
@@ -20,6 +21,9 @@ devDependencies, installer donc aussi les dépendances de développement pour co
 
 Deux mondes sont créés au premier lancement (voir [scripts/seed.js](scripts/seed.js)) : `w1` (vitesse 1, classique)
 et `speed` (vitesse 100, tous les modules, pour tester vite).
+`npm run populate` remplit un monde de test comme une vraie partie ([scripts/populate.js](scripts/populate.js)) :
+joueurs de 1 à ~40 villages (bâtiments, troupes et ressources cohérents), ~65 % en tribu avec diplomatie, villages barbares.
+Comptes fictifs : `<nom>@bots.gtlike.local`, mot de passe `motdepasse` (connexion avec le nom du joueur).
 
 ## Organisation
 
@@ -66,9 +70,9 @@ et les encadrés Production, Constructions, Recrutement, Troupes et Paladin. La 
 les flèches d'attaque, un panneau Cible, la mini-carte et la légende. L'accueil (mondes, connexion, inscription)
 reprend l'écran d'accueil de la maquette.
 
-Outils de la maquette : menu « Rapports » de l'en-tête (non-lus par catégorie) ; sur le plan du village, un clic
-sélectionne un bâtiment (coût et durée du niveau suivant, bouton Améliorer), un second ouvre sa page ; notifications
-en haut à droite. Sur la carte : infobulle au survol, menu d'actions au clic (voir le village, attaquer, soutenir,
+Outils de la maquette : menu « Rapports » de l'en-tête (non-lus par catégorie) ; sur le plan du village, le survol
+d'un bâtiment affiche son encart (coût et durée du niveau suivant, bouton Améliorer), un clic ouvre sa page ; notifications
+en haut à droite. Sur la carte : infobulle au survol (dont la durée du trajet de chaque unité), menu d'actions au clic (voir le village, attaquer, soutenir,
 espionner, ressources, profil, favoris), calques mémorisés dans le navigateur (influence de la tribu, zones ennemies,
 barbares, quadrillage de 5 cases, frontières de continent), recherche (joueur, village, tribu, coordonnées), favoris
 et « Ordres rapides » (modèles d'armée créés au point de ralliement, qui pré-remplissent l'envoi). Pages publiques :
@@ -99,6 +103,7 @@ Compte → Style du jeu (romain par défaut, viking ; gratuits). Voir [src/style
 Chaque bâtiment a sa page avec un en-tête commun (statistique au niveau actuel et au suivant) ; les bâtiments
 sans action propre ont une page d'information avec les niveaux suivants. Le point de ralliement est en onglets
 (Commandes, Troupes, Simulateur de combat, Collecte) ; caserne, écurie et atelier ont un onglet Désaffectation.
+À l'envoi de troupes, l'heure d'arrivée s'affiche en direct à côté de la cible (unité la plus lente choisie).
 
 ## Principes
 
@@ -162,8 +167,9 @@ et les pertes des éclaireurs.
   au rafraîchissement du village ; la boucle de jeu les rafraîchit toutes les 10 minutes.
 - Renommer un village depuis son aperçu.
 - Messagerie privée : conversations jusqu'à 10 destinataires, réponses, non-lus, départ d'une conversation.
-- Profil public de chaque joueur (rang, tribu, villages), accessible depuis les tribus, la messagerie
-  et la confirmation d'attaque.
+- Profil de chaque joueur, agencé comme sur Guerre Tribale : mini-carte de ses villages, fiche (points, rang,
+  adversaires vaincus, tribu), actions (message, carte, invitation en tribu), villages par ordre alphabétique,
+  texte personnel modifiable, succès par catégorie. Noms et tags sont cliquables partout dans le jeu.
 
 ## Recherche à la forge
 

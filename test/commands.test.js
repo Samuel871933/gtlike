@@ -105,7 +105,8 @@ test('soutien : stationné chez l’allié, défend, puis rappelé', async () =>
   const defense = await Report.findOne({ where: { playerId: b.playerId, type: 'defense' } });
   assert.equal(defense.data.attackerWins, false);
   await stack.reload();
-  assert.ok(stack.units.spear < 50 && stack.units.spear > 40);
+  // Quelques pertes (morale de 75 % pour Alice), mais la défense tient.
+  assert.ok(stack.units.spear < 50 && stack.units.spear > 30);
 
   const u1 = (await Village.findByPk(a.id, { include: ['Player'] })).Player.userId;
   await CommandService.withdrawSupport(stack.id, u1, { now: atk.arrivesAt });

@@ -14,10 +14,10 @@
       </div>
     </div>
 
-    <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <dl class="grid grid-cols-2 gap-2 <%= isAttack ? 'sm:grid-cols-[1fr_1fr_1.6fr_1fr]' : 'sm:grid-cols-[1fr_1fr_1.6fr]' %>">
       <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Distance</dt><dd class="<%= ui.tileValue %>"><%= plan.distance.toFixed(1) %> cases</dd></div>
       <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Durée</dt><dd class="<%= ui.tileValue %>"><%= duration(plan.seconds) %></dd></div>
-      <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Arrivée</dt><dd class="<%= ui.tileValue %>"><%= when(plan.arrivesAt, now) %></dd></div>
+      <div class="<%= ui.tile %> max-sm:col-span-2"><dt class="<%= ui.tileLabel %>">Arrivée</dt><dd class="<%= ui.tileValue %> whitespace-nowrap tabular-nums" data-arrive-in="<%= plan.seconds * 1000 %>"><%= when(plan.arrivesAt, now) %></dd></div>
       <% if (isAttack) { %><div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Morale</dt><dd class="<%= ui.tileValue %>"><%= Math.round(plan.morale * 100) %> %</dd></div><% } %>
     </dl>
 
@@ -44,7 +44,7 @@
       </div>
     <% } %>
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-900 bg-black/20 px-4.5 py-4">
-      <a href="/village/<%= ctx.village.id %>/place" class="<%= btn('dark') %>"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Retour</a>
+      <a href="/village/<%= ctx.village.id %>/place?<%= new URLSearchParams({ x: t.x, y: t.y, ...plan.units }) %>" class="<%= btn('dark') %>"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Retour</a>
       <button class="<%= btn(isAttack ? 'red' : 'olive') %>"><%- icon(isAttack ? 'attack' : 'support', 'size-3.5', 2.2) %><%= isAttack ? 'Lancer l’attaque' : 'Envoyer le soutien' %></button>
     </div>
   </form>
