@@ -1,7 +1,12 @@
 <%- include('partials/header', { title: 'Forge' }) %>
 <% const running = ctx.researchOrders[0]; %>
 <div class="flex flex-col gap-5">
-  <%- include('partials/building-header', { buildingId: 'smith' }) %>
+  <%- include('partials/building-header', { buildingId: 'smith' , illustration: 'wide' }) %>
+
+  <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
+  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+    <div class="max-xl:hidden xl:sticky xl:top-24"><%- include('partials/building-illustration', { buildingId: 'smith' }) %></div>
+    <div class="flex min-w-0 flex-col gap-5">
 
   <section class="<%= ui.panel %>">
     <%- panelHead('Recherches') %>
@@ -59,5 +64,7 @@
     </div>
     <p class="border-t border-bronze-900 px-4.5 py-3 text-sm text-parchment-500">Lancier et porte-épée ne demandent pas de recherche.</p>
   </section>
+    </div>
+  </div>
 </div>
 <%- include('partials/footer') %>

@@ -1,0 +1,6 @@
+<%# Illustration d'un bâtiment : son image du plan du village (palier selon le niveau) posée sur la texture du
+    village. `buildingId`, `level` ; `cls` : taille du cadre ; non construit : image grisée. %>
+<% const illLevel = typeof level !== 'undefined' ? level : ctx.state.level(buildingId); %>
+<span class="relative flex shrink-0 items-center justify-center overflow-hidden border-2 border-black bg-panel-hi bg-[url(/img/village/medieval/background-v2.png)] bg-cover bg-center shadow-[inset_0_0_0_1px_var(--color-bronze-500),3px_3px_0_#000] <%= typeof cls !== 'undefined' ? cls : 'aspect-[8/7] w-full' %>">
+  <%- buildingImg(buildingId, illLevel, 'h-auto w-[85%] drop-shadow-[3px_5px_0_rgba(0,0,0,0.45)]', { alt: `${registry.building(buildingId).name}${illLevel ? ` niveau ${illLevel}` : ' (non construit)'}` }) %>
+</span>

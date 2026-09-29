@@ -1,7 +1,7 @@
 <%- include('partials/header', { title: subject.name }) %>
 <%
-  // Profil d'un joueur, organisé comme sur Guerre Tribale : à gauche la mini-carte, la fiche, les actions et les
-  // villages (ordre alphabétique) ; à droite le texte personnel puis les succès obtenus, par catégorie.
+  // Profil d'un joueur, organisé comme sur Guerre Tribale : à gauche la mini-carte, la fiche et les villages
+  // (ordre alphabétique) ; à droite le texte personnel puis les succès obtenus, par catégorie.
   const vid = ctx.village.id;
   const killsTotal = subject.killsAttacker + subject.killsDefender + subject.killsSupporter;
   const fmt = (a) => a.value == null ? '—' : a.def.rank ? `${num(a.value)}ᵉ` : num(a.value);
@@ -13,79 +13,52 @@
   const medal = TIER_STYLES.medal;
   const tierMedal = TIER_STYLES.border;
   const tierText = TIER_STYLES.text;
-  const score = achievements.reduce((n, a) => n + a.tier, 0);
   const GROUPS = [['progress', 'Étapes'], ['battle', 'Combat'], ['misc', 'Divers']];
-  const actionItem = 'flex items-center gap-2.5 border-b border-bronze-800 px-3 py-2 font-semibold text-parchment-200 no-underline transition last:border-b-0 hover:bg-row-hover hover:text-gold-200';
   const mm = miniMap;
+  // Actions discrètes sous la fiche, comme le lien « Fiche du joueur » de GT.
+  const action = 'inline-flex items-center gap-1.5 font-semibold text-gold-400 no-underline hover:text-parchment-100';
   const stats = [
     ['Points', num(subject.points)],
     ['Rang', `${num(rank)}ᵉ`],
-    ['Adversaires vaincus', `${num(killsTotal)}${killsRank ? ` (${num(killsRank)}ᵉ)` : ''}`],
-    ['Villages', num(villages.length)],
-    ['Succès', `${score} points`],
+    ['Adversaires vaincus', `${num(killsTotal)}${killsRank ? ` (${num(killsRank)}ᵉ)` : ''}`,
+      `En attaque ${num(subject.killsAttacker)} · en défense ${num(subject.killsDefender)} · en soutien ${num(subject.killsSupporter)}`],
   ];
 %>
-<div class="flex flex-col gap-1">
-  <h1 class="<%= ui.h1 %>"><%= subject.name %><% if (subject.Tribe) { %> <span class="font-sans text-lg font-medium text-blood-450">[<%= subject.Tribe.tag %>]</span><% } %></h1>
-</div>
+<h1 class="<%= ui.h1 %>">Profil</h1>
 
-<div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+<%# Comme sur GT : à gauche la fiche (mini-carte, chiffres, tribu) et les villages ; à droite le texte et les succès. %>
+<div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
   <div class="flex min-w-0 flex-col gap-5">
-    <%# Fiche : mini-carte et statistiques %>
     <section class="<%= ui.panel %>">
-      <%- panelHead(subject.name, `<span class="${ui.medallion} size-7">${icon('profile', 'size-3.5')}</span>`) %>
+      <%- panelHead(subject.Tribe ? `${subject.name} [${subject.Tribe.tag}]` : subject.name, `<span class="${ui.medallion} size-7">${icon('profile', 'size-3.5')}</span>`) %>
       <% if (mm) { %>
         <a href="/village/<%= vid %>/map?x=<%= mm.cx %>&y=<%= mm.cy %>" class="block border-b-2 border-black bg-mini-bg" title="Voir sur la carte">
           <canvas class="block w-full" style="aspect-ratio:<%= mm.width %>/<%= mm.height %>" data-minimap="<%= JSON.stringify({ x0: mm.x0, y0: mm.y0, width: mm.width, height: mm.height, villages: mm.villages }) %>" role="img" aria-label="Villages de <%= subject.name %> sur la carte"></canvas>
         </a>
-        <div class="flex flex-wrap gap-x-3 gap-y-1 border-b border-bronze-800 px-3 py-1.5 text-[11px] text-parchment-500">
-          <span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-current"></span>Ce joueur</span>
-          <% if (subject.Tribe) { %><span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-tribe"></span>Sa tribu</span><% } %>
-          <span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-other"></span>Autres joueurs</span>
-          <span class="inline-flex items-center gap-1.5"><span class="size-2 border border-black bg-mini-barb"></span>Barbares</span>
-        </div>
       <% } %>
       <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
         <tbody>
-          <% for (const [label, value] of stats) { %>
-            <tr><td class="w-1/2 text-parchment-500"><%= label %></td><td class="font-semibold text-parchment-100 tabular-nums"><%= value %></td></tr>
+          <% for (const [label, value, title] of stats) { %>
+            <tr><td class="w-2/5 text-parchment-500"><%= label %></td><td class="font-semibold text-parchment-100 tabular-nums"<% if (title) { %> title="<%= title %>"<% } %>><%= value %></td></tr>
           <% } %>
           <tr>
             <td class="text-parchment-500">Tribu</td>
             <td><%- subject.Tribe ? tribeLink(vid, subject.Tribe, { name: true, tagCls: ui.tagGold }) : '<span class="text-parchment-500">Sans tribu</span>' %></td>
           </tr>
-          <tr>
-            <td class="text-parchment-500">ODA · ODD · ODS</td>
-            <td class="text-parchment-300 tabular-nums"><%= num(subject.killsAttacker) %> · <%= num(subject.killsDefender) %> · <%= num(subject.killsSupporter) %></td>
-          </tr>
         </tbody>
       </table>
-    </section>
-
-    <%# Actions %>
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Actions') %>
-      <div class="flex flex-col">
-        <% if (!isMe) { %>
-          <a href="/village/<%= vid %>/messages/new?to=<%= encodeURIComponent(subject.name) %>" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('messages', 'size-4', 2) %></span>Écrire un message</a>
-        <% } %>
-        <% if (mm) { %>
-          <a href="/village/<%= vid %>/map?x=<%= mm.cx %>&y=<%= mm.cy %>" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('map', 'size-4', 2) %></span>Voir sur la carte</a>
-        <% } %>
-        <% if (canInvite) { %>
-          <form method="post" action="/village/<%= vid %>/tribe/invite" class="contents"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <input type="hidden" name="name" value="<%= subject.name %>">
-            <button class="<%= actionItem %> w-full cursor-pointer text-left"><span class="text-gold-400"><%- icon('tribe', 'size-4', 2) %></span>Inviter dans ma tribu</button>
-          </form>
-        <% } %>
-        <% if (!isMe) { %>
-          <a href="/village/<%= vid %>/map?<%= new URLSearchParams({ mark: `player:${subject.id}`, label: subject.name }) %>#marquages" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('flag', 'size-4', 2) %></span>Marquer sur la carte</a>
-        <% } %>
-        <a href="/village/<%= vid %>/ranking" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('ranking', 'size-4', 2) %></span>Voir le classement</a>
-        <% if (isMe) { %>
-          <a href="#texte" class="<%= actionItem %>"><span class="text-gold-400"><%- icon('edit', 'size-4', 2) %></span>Modifier le texte personnel</a>
-        <% } %>
-      </div>
+      <% if (!isMe) { %>
+        <div class="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-bronze-800 px-3 py-2 text-[13px]">
+          <a href="/village/<%= vid %>/messages/new?to=<%= encodeURIComponent(subject.name) %>" class="<%= action %>"><%- icon('messages', 'size-3.5', 2) %>Écrire un message</a>
+          <% if (canInvite) { %>
+            <form method="post" action="/village/<%= vid %>/tribe/invite" class="contents"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="hidden" name="name" value="<%= subject.name %>">
+              <button class="<%= action %> cursor-pointer"><%- icon('tribe', 'size-3.5', 2) %>Inviter dans ma tribu</button>
+            </form>
+          <% } %>
+          <a href="/village/<%= vid %>/map?<%= new URLSearchParams({ mark: `player:${subject.id}`, label: subject.name }) %>#marquages" class="<%= action %>"><%- icon('flag', 'size-3.5', 2) %>Marquer sur la carte</a>
+        </div>
+      <% } %>
     </section>
 
     <%# Villages, par ordre alphabétique %>
@@ -98,7 +71,7 @@
           <% for (const v of villages) { %>
             <tr>
               <td class="max-w-0 w-full"><a href="/village/<%= vid %>/villages/<%= v.id %>" class="<%= ui.linkPlain %> block truncate font-semibold"><%= v.name %></a></td>
-              <td class="whitespace-nowrap tabular-nums"><a href="/village/<%= vid %>/map?x=<%= v.x %>&y=<%= v.y %>&sx=<%= v.x %>&sy=<%= v.y %>" class="<%= ui.linkPlain %>"><%= v.x %>|<%= v.y %></a> <span class="text-parchment-600"><%= continent(v.x, v.y) %></span></td>
+              <td class="whitespace-nowrap tabular-nums"><a href="/village/<%= vid %>/villages/<%= v.id %>" class="<%= ui.linkPlain %>"><%= v.x %>|<%= v.y %></a> <span class="text-parchment-600"><%= continent(v.x, v.y) %></span></td>
               <td class="text-right font-semibold tabular-nums"><%= num(v.points) %></td>
             </tr>
           <% } %>
@@ -134,8 +107,9 @@
     <% let anchored = false;
        for (const [group, title] of GROUPS) {
          const list = achievements.filter((a) => a.def.group === group);
-         if (!list.length) continue;
          const won = list.filter((a) => a.tier).sort((a, b) => b.tier - a.tier);
+         // Profil d'un autre joueur : seules les catégories où il a obtenu quelque chose, comme sur GT.
+         if (!list.length || (!isMe && !won.length)) continue;
          const rest = list.filter((a) => !a.tier || a.tier < a.def.tiers.length);
          // Ancre #succes (lien « Voir vos succès » des rapports) sur la première catégorie.
          const anchor = anchored ? '' : ' id="succes"'; anchored = true; %>
@@ -148,12 +122,13 @@
               <span class="<%= medal %> <%= tierMedal[a.tier] %> size-12"><%- icon(achIcon[a.def.key] || 'victory', 'size-6') %></span>
               <span class="flex min-w-0 flex-col gap-0.5">
                 <span class="font-semibold text-parchment-100"><%= a.def.name %><% if (multi) { %> <span class="<%= tierText[a.tier] %>">(<%= tierName(a.tier) %> · niveau <%= a.tier %>)</span><% } %></span>
-                <span class="text-[13px] leading-snug text-parchment-400"><%= a.def.description %> <span class="text-parchment-500 tabular-nums">— <%= fmt(a) %></span></span>
+                <span class="text-[13px] leading-snug text-parchment-400"><%= a.def.description %></span>
+                <span class="text-xs text-parchment-500 tabular-nums">Total : <%= fmt(a) %></span>
               </span>
             </li>
           <% } %>
         </ul>
-        <% if (rest.length) { %>
+        <% if (isMe && rest.length) { %>
           <details class="group border-t border-bronze-800">
             <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-[13px] font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('plus', 'size-3', 2.6) %>Prochains paliers (<%= rest.length %>)</summary>
             <ul class="grid gap-1.5 px-4 pb-3 sm:grid-cols-2">
@@ -173,11 +148,13 @@
       </section>
     <% } %>
 
-    <%# Succès quotidiens %>
+    <%# Succès quotidiens (ceux obtenus au moins une fois ; tous sur son propre profil) %>
+    <% const shownDaily = isMe ? daily : daily.filter((d) => d.count); %>
+    <% if (shownDaily.length) { %>
     <section class="<%= ui.panel %>">
       <%- panelHead('Succès quotidiens', `<span class="text-[13px] text-parchment-500">4 points chacun</span>`) %>
       <ul class="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
-        <% for (const d of daily) { %>
+        <% for (const d of shownDaily) { %>
           <li class="flex items-center gap-2.5 border px-2.5 py-2 <%= d.count ? 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/2' : 'border-bronze-900 bg-black/25' %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
             <span class="<%= medal %> <%= d.count ? tierMedal[4] : tierMedal[0] %> size-9"><%- icon(dailyIcon[d.def.key] || 'victory', 'size-4') %></span>
             <span class="flex min-w-0 flex-col">
@@ -188,6 +165,7 @@
         <% } %>
       </ul>
     </section>
+    <% } %>
   </div>
 </div>
 <% if (mm) { %><script src="/js/terrain.js" defer></script>

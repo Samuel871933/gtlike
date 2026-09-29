@@ -1,7 +1,12 @@
 <%- include('partials/header', { title: 'Académie' }) %>
 <% const vid = ctx.village.id; const maxBtn = `${ui.link} cursor-pointer text-xs tabular-nums`; %>
 <div class="flex flex-col gap-5">
-  <%- include('partials/building-header', { buildingId: 'snob' }) %>
+  <%- include('partials/building-header', { buildingId: 'snob', illustration: 'wide' }) %>
+
+  <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
+  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+    <div class="max-xl:hidden xl:sticky xl:top-24"><%- include('partials/building-illustration', { buildingId: 'snob' }) %></div>
+    <div class="flex min-w-0 flex-col gap-5">
 
   <section class="<%= ui.panel %>">
     <%- panelHead('Emplacements de noble') %>
@@ -85,6 +90,8 @@
         </p>
       </div>
     </section>
+  </div>
+    </div>
   </div>
 </div>
 <%- include('partials/footer') %>

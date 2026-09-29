@@ -1,6 +1,6 @@
 <!doctype html>
 <%# En jeu, <html> porte le thème de jeu (src/web/gameStyles.js) et le style de jeu (src/web/gameLayouts.js) : la page d'accueil garde le style par défaut. %>
-<html lang="fr" class="h-full scheme-dark medieval:scheme-light<%= ctx && gameStyle ? ' game_style' : '' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %><%- ctx && gameLayout ? ` data-game-layout="${gameLayout.id}"` : '' %>>
+<html lang="fr" class="h-full scheme-dark light:scheme-light<%= ctx && gameStyle ? ' game_style' : '' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %><%- ctx && gameLayout ? ` data-game-layout="${gameLayout.id}"` : '' %>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,15 +18,16 @@
   // Logo : aplat parchemin, double ombre d'encre et de sang.
   const logoText = (cls) => `<span class="font-logo font-bold tracking-[0.02em] ${ui.goldText} ${cls}">GTLIKE</span>`;
   const navLink = 'flex shrink-0 items-center gap-[7px] border-r border-bronze-800 px-3.5 text-sm font-semibold tracking-[0.02em] whitespace-nowrap no-underline transition';
-  // Onglet actif et survol : aplat rouge (brun en style Médiéval), texte et icône clairs.
-  const navOn = 'bg-blood-800 text-on-accent shadow-[inset_0_-3px_0_var(--color-gold-400)] medieval:bg-action medieval:shadow-[inset_0_-3px_0_var(--color-action-line)] medieval:[&>span:first-child]:text-on-accent';
-  const navOff = 'text-parchment-300 hover:bg-blood-700 hover:text-on-accent medieval:hover:bg-action-hi medieval:hover:[&>span:first-child]:text-on-accent';
+  // Onglet actif et survol : aplat rouge (couleur d'action dans les styles clairs), texte et icône clairs.
+  // Égypte : barre noire au texte or, onglet actif or au texte noir.
+  const navOn = 'bg-blood-800 text-on-accent shadow-[inset_0_-3px_0_var(--color-gold-400)] light:bg-action light:shadow-[inset_0_-3px_0_var(--color-action-line)] light:[&>span:first-child]:text-on-accent egypt:bg-head egypt:text-parchment-100 egypt:shadow-[inset_0_-3px_0_var(--color-action)] egypt:[&>span:first-child]:text-parchment-100';
+  const navOff = 'text-parchment-300 hover:bg-blood-700 hover:text-on-accent light:hover:bg-action-hi light:hover:[&>span:first-child]:text-on-accent egypt:text-on-accent egypt:[&>span:first-child]:text-on-accent';
 %>
 
 <% if (ctx) {
   const v = `/village/${ctx.village.id}`;
   const navItems = [
-    [v, 'Aperçu', 'overview', page === 'overview', 0, ui.countBadge],
+    [`${v}/villages`, 'Aperçu', 'overview', page === 'overview' || page === 'villages', 0, ui.countBadge],
     [`${v}/map`, 'Carte', 'map', page === 'map', 0, ui.countBadge],
     [`${v}/reports`, 'Rapports', 'reports', page === 'reports', unreadReports, ui.countBadge],
     [`${v}/messages`, 'Messages', 'messages', page === 'messages', unreadMessages, `${ui.countBadge} bg-gold-400 text-night`],
@@ -36,7 +37,7 @@
   ];
 %>
 <%# 1. Barre du haut : logo et monde, menu principal, joueur et réglages. %>
-<header class="sticky top-0 z-40 border-b-[3px] border-bronze-500 bg-night shadow-[0_2px_0_var(--color-head-dark),0_6px_0_rgba(0,0,0,0.6)]">
+<header class="sticky top-0 z-40 border-b-[3px] border-bronze-500 bg-night shadow-[0_2px_0_var(--color-head-dark),0_6px_0_rgba(0,0,0,0.6)] egypt:border-action-line egypt:bg-action">
 <div class="mx-auto flex min-h-12 w-full max-w-[1500px] minimal:max-w-[1120px] items-stretch">
   <a href="<%= v %>" class="flex shrink-0 items-center gap-2.5 border-r-[3px] border-black bg-head-dark pr-6 pl-3 no-underline shadow-[inset_-1px_0_0_var(--color-bronze-500)] [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]" title="Aperçu du village">
     <%- logoText('text-[22px] minimal:text-lg') %>
@@ -56,8 +57,8 @@
   <div class="flex shrink-0 items-center gap-2 border-l-[3px] border-black px-2.5 shadow-[inset_1px_0_0_var(--color-bronze-800)]">
     <% if (player) { %>
       <a href="<%= v %>/ranking" class="flex flex-col items-end leading-[1.05] no-underline max-md:hidden" title="Votre classement sur <%= ctx.world.name %>">
-        <span class="text-[15px] font-semibold text-parchment-100"><%= player.name %><% if (player.Tribe) { %> <span class="text-blood-600">[<%= player.Tribe.tag %>]</span><% } %></span>
-        <span class="text-[11px] text-parchment-500 tabular-nums">#<%= num(playerRank) %> · <%= num(player.points) %> pts</span>
+        <span class="text-[15px] font-semibold text-parchment-100 egypt:text-on-accent"><%= player.name %><% if (player.Tribe) { %> <span class="text-blood-600">[<%= player.Tribe.tag %>]</span><% } %></span>
+        <span class="text-[11px] text-parchment-500 tabular-nums egypt:text-gold-700">#<%= num(playerRank) %> · <%= num(player.points) %> pts</span>
       </a>
     <% } %>
     <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-4', 2.2) %></a>
@@ -113,24 +114,27 @@
   <div class="flex min-w-0 flex-[1_1_520px] items-center gap-1.5">
     <div class="flex shrink-0 items-center gap-1">
       <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
-      <% if (myVillages.length > 1) { %>
-        <details class="group relative">
-          <summary class="flex h-[26px] cursor-pointer list-none items-center gap-1.5 border border-bronze-500 bg-night px-2 text-sm font-semibold text-parchment-100 hover:text-gold-200 [&::-webkit-details-marker]:hidden" title="Changer de village">
-            <span class="max-w-44 truncate"><%= ctx.village.name %></span><span class="text-xs text-gold-400 tabular-nums"><%= ctx.village.x %>|<%= ctx.village.y %></span><%- icon('chevronDown', 'size-3 text-parchment-500 transition group-open:rotate-180', 3) %>
-          </summary>
-          <ul class="<%= ui.popover %> left-0 max-h-80 w-72 overflow-y-auto p-0">
-            <% for (const mv of myVillages) { %>
-              <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 border-b border-bronze-800 px-2.5 py-1.5 text-sm font-semibold no-underline <%= mv.id === ctx.village.id ? 'bg-head-dark text-parchment-100' : 'text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>">
-                <span class="flex items-center gap-1.5 truncate"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= mv.name %></span><span class="shrink-0 text-xs text-gold-400 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
-              </a></li>
-            <% } %>
-          </ul>
-        </details>
-      <% } else { %>
-        <a href="/village/<%= ctx.village.id %>" class="flex h-[26px] items-center gap-1.5 border border-bronze-500 bg-night px-2 text-sm font-semibold text-parchment-100 no-underline hover:text-gold-200">
+      <%# Nom du village : lien vers son aperçu. Le bouton à côté ouvre la liste des villages pour changer de village
+          (même page, autre village). %>
+      <div class="relative flex items-center">
+        <a href="/village/<%= ctx.village.id %>" class="flex h-[26px] items-center gap-1.5 border border-bronze-500 bg-night px-2 text-sm font-semibold text-parchment-100 no-underline hover:text-gold-200" title="Aperçu du village">
           <span class="max-w-44 truncate"><%= ctx.village.name %></span><span class="text-xs text-gold-400 tabular-nums"><%= ctx.village.x %>|<%= ctx.village.y %></span>
         </a>
-      <% } %>
+        <% if (myVillages.length > 1) { %>
+          <details class="group">
+            <summary class="flex h-[26px] cursor-pointer list-none items-center border border-l-0 border-bronze-500 bg-night px-1.5 text-parchment-500 hover:bg-head-dark hover:text-gold-200 [&::-webkit-details-marker]:hidden" title="Changer de village" aria-label="Changer de village">
+              <%- icon('chevronDown', 'size-3 transition group-open:rotate-180', 3) %>
+            </summary>
+            <ul class="<%= ui.popover %> top-full left-0 max-h-80 w-72 overflow-y-auto p-0">
+              <% for (const mv of myVillages) { %>
+                <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 border-b border-bronze-800 px-2.5 py-1.5 text-sm font-semibold no-underline <%= mv.id === ctx.village.id ? 'bg-head-dark text-parchment-100' : 'text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>">
+                  <span class="flex items-center gap-1.5 truncate"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= mv.name %></span><span class="shrink-0 text-xs text-gold-400 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
+                </a></li>
+              <% } %>
+            </ul>
+          </details>
+        <% } %>
+      </div>
       <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.6) %></a><% } %>
       <% if (incomingAttacks) { %>
         <a href="/village/<%= ctx.village.id %>/place?tab=troops" class="<%= ui.tagRed %> h-[26px] gap-1 no-underline" title="Attaques en approche"><%- icon('attack', 'size-3', 2.6) %><%= incomingAttacks %></a>
@@ -170,6 +174,7 @@
   <nav class="flex min-w-0 flex-wrap gap-x-4 gap-y-1" aria-label="Menu">
     <% if (user) { %>
       <%- lobbyLink('/worlds', 'Accueil', current === 'worlds') %>
+      <%- lobbyLink('/servers', 'Serveurs', current === 'servers') %>
       <%- lobbyLink('/rules', 'Règles', current === 'rules') %>
       <%- lobbyLink('/help', 'Aide', current === 'help') %>
       <%- lobbyLink('/forum', 'Forum', current === 'forum') %>

@@ -60,7 +60,7 @@ async function checkPassword(userId, password) {
 }
 
 /**
- * Retire un joueur d'un monde : ses villages redeviennent barbares (avec leurs troupes),
+ * Retire un joueur d'un monde : ses villages redeviennent barbares (avec leurs troupes si barbarian.troops),
  * ses files, troupes et marchands à l'extérieur, offres, rapports et invitations disparaissent,
  * la tribu passe à un autre membre (ou est dissoute), puis le joueur est supprimé.
  */
@@ -80,8 +80,9 @@ AccountService.removePlayer = async function removePlayer(playerId, t) {
     await SupportStack.destroy({ where: byOrigin, transaction: t });
     await Transport.destroy({ where: byOrigin, transaction: t });
     await ScavengeRun.destroy({ where: byVillage, transaction: t });
+    const cfg = await AccountService.world(player, t);
     await Village.update(
-      { playerId: null, name: 'Village barbare', loyalty: 100, grownAt: new Date() },
+      { playerId: null, name: 'Village barbare', loyalty: 100, grownAt: new Date(), ...(cfg.barbarian.troops ? {} : { units: {} }) },
       { where: { id: { [Op.in]: ids } }, transaction: t },
     );
   }

@@ -1,0 +1,153 @@
+<%- include('partials/header', { title: 'Aperçus des villages' }) %>
+<%
+  // Aperçus des villages de Guerre Tribale : un onglet par vue, une ligne par village. Le nom d'un village mène à son
+  // aperçu ; les pastilles, chiffres et marchands mènent au bâtiment concerné de ce village.
+  const vid = ctx.village.id;
+  const tabs = segTabs([
+    ['combined', 'Combiné'], ['prod', 'Production'], ['units', 'Troupes'], ['buildings', 'Bâtiments'],
+  ].map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, mode === m]));
+  const units = registry.unitsFor(ctx.cfg);
+  const buildings = registry.buildingsFor(ctx.cfg);
+  const at = (r, path = '') => `/village/${r.village.id}${path}`;
+  const th = 'border-r border-bronze-800 last:border-r-0';
+  const td = 'border-r border-bronze-900 last:border-r-0';
+  const zero = 'text-parchment-600';
+  const clock = (d) => whenShort(d, ctx.now);
+
+  // Colonne « Village » : nom (et attaques en approche), coordonnées et continent en dessous pour rester étroite.
+  const villageCell = (r) => `<span class="flex items-center gap-1.5"><a href="${at(r)}" class="${ui.linkPlain} block max-w-44 truncate font-semibold" title="${esc(r.village.name)}">${esc(r.village.name)}</a>`
+    + (r.incomingAttacks ? `<a href="${at(r, '/place?tab=troops')}" class="${ui.tagRed} gap-1 no-underline" title="Attaques en approche">${icon('attack', 'size-3', 2.6)}${r.incomingAttacks}</a>` : '')
+    + `</span><span class="block text-xs text-gold-400 tabular-nums">${r.village.x}|${r.village.y} ${continent(r.village.x, r.village.y)}</span>`;
+  // En-têtes : visuel du bâtiment (image du plan du village) et icône de l'unité.
+  const bImg = (id) => buildingImg(id, 1, 'mx-auto h-6 w-7 max-w-none');
+  const uImg = (id) => `<span class="inline-flex">${unitIcon(id, 'size-5 min-h-5 min-w-5')}</span>`;
+
+  // Combiné : pastille d'activité par bâtiment (vert : file en cours ; bronze : rien ; gris : non construit).
+  const ACTIVITY = ['main', 'barracks', 'stable', 'garage', 'smith', 'snob'].filter((id) => buildings.some((b) => b.id === id));
+  const activity = (r, id) => {
+    if (!r.buildings[id]) return { cls: 'border-dashed bg-transparent', title: 'Non construit' };
+    let busy;
+    if (id === 'main') busy = r.buildOrders.length && `Construction : ${r.buildOrders.length} en file, fin ${clock(r.buildOrders[r.buildOrders.length - 1].endsAt)}`;
+    else if (id === 'smith') busy = r.researchOrders.length && `Recherche : ${r.researchOrders.map((o) => unitName(o.unit)).join(', ')}`;
+    else { const list = r.recruiting(id); busy = list.length && `Recrutement : ${list.map((o) => `${num(o.count - o.done)} ${unitName(o.unit)}`).join(', ')}, fin ${clock(list[list.length - 1].endsAt)}`; }
+    return busy ? { cls: 'bg-[#4fa33a]', title: busy } : { cls: 'bg-bronze-700', title: 'Aucune activité' };
+  };
+
+  const full = (r, id) => r.resources[id] >= r.storage * 0.9;
+  const sum = (key, id) => rows.reduce((n, r) => n + (r[key][id] || 0), 0);
+%>
+<div class="flex flex-col gap-5">
+  <h1 class="<%= ui.h1 %>">Aperçus des villages</h1>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead(`Villages (${rows.length})`, tabs) %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %> text-[13px] [&_td]:px-1.5 [&_td]:py-1 [&_th]:px-1 [&_th]:py-1 whitespace-nowrap">
+        <% if (mode === 'combined') { %>
+          <thead><tr>
+            <th class="<%= th %>">Village</th>
+            <% for (const id of ACTIVITY) { %><th class="<%= th %> text-center" title="<%= buildingName(id) %>"><%- bImg(id) %></th><% } %>
+            <th class="<%= th %> text-center" title="Ferme : population libre (niveau)"><%- bImg('farm') %></th>
+            <% for (const u of units) { %><th class="<%= th %> text-center" title="<%= u.name %>"><%- uImg(u.id) %></th><% } %>
+            <th class="<%= th %> text-center" title="Marchands disponibles"><%- bImg('market') %></th>
+          </tr></thead>
+          <tbody>
+          <% for (const r of rows) { %>
+            <tr>
+              <td class="<%= td %>"><%- villageCell(r) %></td>
+              <% for (const id of ACTIVITY) { const a = activity(r, id); %>
+                <td class="<%= td %> text-center"><a href="<%= at(r, '/' + buildingPath(id, ctx.cfg)) %>" class="inline-block size-3 rounded-full border border-black align-middle shadow-[1px_1px_0_#000] <%= a.cls %>" title="<%= buildingName(id) %> : <%= a.title %>" aria-label="<%= buildingName(id) %> : <%= a.title %>"></a></td>
+              <% } %>
+              <% const free = r.pop.max - r.pop.used; %>
+              <td class="<%= td %> text-center font-semibold tabular-nums"><a href="<%= at(r, '/' + buildingPath('farm', ctx.cfg)) %>" class="no-underline <%= free <= 0 ? 'text-blood-450' : 'text-gold-200' %>"><%= num(free) %> <span class="font-normal text-parchment-500">(<%= r.buildings.farm || 0 %>)</span></a></td>
+              <% for (const u of units) { const n = r.units[u.id] || 0; %>
+                <td class="<%= td %> text-center tabular-nums <%= n ? 'font-semibold' : zero %>"><%= num(n) %></td>
+              <% } %>
+              <td class="<%= td %> text-center tabular-nums"><% if (r.merchants.total) { %><a href="<%= at(r, '/market') %>" class="<%= ui.link %>"><%= r.merchants.free %>/<%= r.merchants.total %></a><% } else { %><span class="<%= zero %>">—</span><% } %></td>
+            </tr>
+          <% } %>
+          </tbody>
+        <% } else if (mode === 'prod') { %>
+          <thead><tr>
+            <th class="<%= th %>">Village</th><th class="<%= th %> text-right">Points</th>
+            <th class="<%= th %>">Ressources</th><th class="<%= th %> text-right">Entrepôt</th>
+            <th class="<%= th %> text-center">Marchands</th><th class="<%= th %> text-right">Ferme</th><th class="<%= th %>">Constructions</th>
+          </tr></thead>
+          <tbody>
+          <% for (const r of rows) { %>
+            <tr>
+              <td class="<%= td %>"><%- villageCell(r) %></td>
+              <td class="<%= td %> text-right font-semibold tabular-nums"><%= num(r.points) %></td>
+              <td class="<%= td %>">
+                <span class="flex items-center gap-3">
+                  <% for (const res of RESOURCES) { %>
+                    <span class="inline-flex items-center gap-1 tabular-nums <%= full(r, res.id) ? 'font-semibold text-blood-450' : '' %>" title="<%= res.label %> : +<%= num(Math.round(r.production[res.id])) %> / heure"><%- resourceIcon(res.id, 'size-4 min-h-4 min-w-4') %><%= num(Math.floor(r.resources[res.id])) %></span>
+                  <% } %>
+                </span>
+              </td>
+              <td class="<%= td %> text-right tabular-nums"><%= num(r.storage) %></td>
+              <td class="<%= td %> text-center tabular-nums"><% if (r.merchants.total) { %><a href="<%= at(r, '/market') %>" class="<%= ui.link %>"><%= r.merchants.free %>/<%= r.merchants.total %></a><% } else { %><span class="<%= zero %>">—</span><% } %></td>
+              <td class="<%= td %> text-right tabular-nums <%= r.pop.used >= r.pop.max ? 'text-blood-450' : '' %>"><%= num(r.pop.used) %>/<%= num(r.pop.max) %></td>
+              <td class="<%= td %>">
+                <% if (r.buildOrders.length) { const o = r.buildOrders[0]; %>
+                  <a href="<%= at(r, '/main') %>" class="<%= ui.linkPlain %>"><%= buildingName(o.building) %> <span class="text-parchment-500">niv. <%= o.level %></span></a>
+                  <span class="text-parchment-500 tabular-nums">· <%= clock(o.endsAt) %><%= r.buildOrders.length > 1 ? ` · +${r.buildOrders.length - 1}` : '' %></span>
+                <% } else { %><span class="<%= zero %>">Aucune</span><% } %>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+          <% if (rows.length > 1) { %>
+            <tfoot><tr class="border-t-2 border-black bg-thead font-semibold">
+              <td class="px-2 py-1.5">Total</td><td class="px-2 py-1.5 text-right tabular-nums"><%= num(rows.reduce((n, r) => n + r.points, 0)) %></td>
+              <td class="px-2 py-1.5" colspan="5"><span class="flex items-center gap-3"><% for (const res of RESOURCES) { %><span class="inline-flex items-center gap-1 tabular-nums"><%- resourceIcon(res.id, 'size-4 min-h-4 min-w-4') %><%= num(Math.floor(sum('resources', res.id))) %></span><% } %></span></td>
+            </tr></tfoot>
+          <% } %>
+        <% } else if (mode === 'units') { %>
+          <thead><tr>
+            <th class="<%= th %>">Village</th><th class="<%= th %>"></th>
+            <% for (const u of units) { %><th class="<%= th %> text-center" title="<%= u.name %>"><%- uImg(u.id) %></th><% } %>
+          </tr></thead>
+          <tbody>
+          <% for (const r of rows) { %>
+            <tr>
+              <td class="<%= td %>" rowspan="2"><%- villageCell(r) %></td>
+              <td class="<%= td %> text-parchment-500">Au village</td>
+              <% for (const u of units) { const n = r.units[u.id] || 0; %><td class="<%= td %> text-center tabular-nums <%= n ? 'font-semibold' : zero %>"><%= num(n) %></td><% } %>
+            </tr>
+            <tr>
+              <td class="<%= td %> text-parchment-500">Hors du village</td>
+              <% for (const u of units) { const n = r.away[u.id] || 0; %><td class="<%= td %> text-center tabular-nums <%= n ? '' : zero %>"><%= num(n) %></td><% } %>
+            </tr>
+          <% } %>
+          </tbody>
+          <% if (rows.length > 1) { %>
+            <tfoot><tr class="border-t-2 border-black bg-thead font-semibold">
+              <td class="px-2 py-1.5" colspan="2">Total</td>
+              <% for (const u of units) { %><td class="px-2 py-1.5 text-center tabular-nums"><%= num(sum('units', u.id) + sum('away', u.id)) %></td><% } %>
+            </tr></tfoot>
+          <% } %>
+        <% } else { %>
+          <thead><tr>
+            <th class="<%= th %>">Village</th><th class="<%= th %> text-right">Points</th>
+            <% for (const b of buildings) { %><th class="<%= th %> text-center" title="<%= b.name %>"><%- bImg(b.id) %></th><% } %>
+          </tr></thead>
+          <tbody>
+          <% for (const r of rows) { %>
+            <tr>
+              <td class="<%= td %>"><%- villageCell(r) %></td>
+              <td class="<%= td %> text-right font-semibold tabular-nums"><%= num(r.points) %></td>
+              <% for (const b of buildings) { const lvl = r.buildings[b.id] || 0; const queued = r.buildOrders.filter((o) => o.building === b.id).length; %>
+                <td class="<%= td %> text-center tabular-nums <%= lvl ? '' : zero %>" title="<%= b.name %><%= queued ? ` : ${queued} en file` : '' %>">
+                  <a href="<%= at(r, '/' + buildingPath(b.id, ctx.cfg)) %>" class="no-underline <%= lvl ? 'text-parchment-100 hover:text-gold-400' : zero %>"><%= lvl %></a><% if (queued) { %><span class="ml-0.5 text-[11px] text-[#4fa33a]">+<%= queued %></span><% } %>
+                </td>
+              <% } %>
+            </tr>
+          <% } %>
+          </tbody>
+        <% } %>
+      </table>
+    </div>
+  </section>
+</div>
+<%- include('partials/footer') %>

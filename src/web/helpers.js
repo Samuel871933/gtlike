@@ -68,6 +68,15 @@ function buildingSpriteTier(id, level) {
   return level >= thresholds[1] ? 3 : level >= thresholds[0] ? 2 : 1;
 }
 const buildingSprite = (id, level) => `/img/village/medieval/tier-${buildingSpriteTier(id, level)}/${id === 'storage' ? 'storage-clean' : id}.png`;
+/**
+ * Visuel d'un bâtiment, composant commun à toute l'interface (listes, files, en-têtes, barre rapide…) : l'image du
+ * plan du village au palier de `level` (ratio 8:7), grisée quand le bâtiment n'est pas construit (niveau 0).
+ * `cls` : taille et placement ; `alt` : texte alternatif (décoratif par défaut).
+ */
+function buildingImg(id, level, cls = 'h-7 w-8', { alt = '', lazy = false } = {}) {
+  const off = level > 0 ? '' : ' opacity-50 grayscale';
+  return `<img src="${buildingSprite(id, Math.max(1, level || 0))}" alt="${esc(alt)}" width="32" height="28"${lazy ? ' loading="lazy"' : ''} class="shrink-0 object-contain${off} ${cls}"${alt ? '' : ' aria-hidden="true"'}>`;
+}
 
 /** Unité qui donne la vitesse d'un ordre : la plus lente, ou le paladin qu'un soutien accompagne (icône des ordres). */
 function paceUnit(units, type) {
@@ -155,6 +164,7 @@ const ICONS = {
   hide: '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M4 13h16M6 9V7a2 2 0 012-2h8a2 2 0 012 2v2M12 12v3"/>',
   coin: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="1"/><path d="M8 10V7a4 4 0 018 0v3M12 14v3"/>',
   bolt: '<path d="M4 14L14 2l-2 8h8L10 22l2-8z"/>',
   moon: '<path d="M20 14A8 8 0 1110 4a6 6 0 0010 10z"/>',
   // Unités
@@ -170,11 +180,7 @@ const ICONS = {
   star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
 };
 
-// Icône de chaque bâtiment et de chaque unité.
-const BUILDING_ICONS = {
-  main: 'overview', barracks: 'tribe', stable: 'horse', garage: 'workshop', snob: 'academy', smith: 'smith', place: 'flag',
-  statue: 'statue', market: 'market', wood: 'wood', stone: 'stone', iron: 'iron', farm: 'farm', storage: 'storage', hide: 'hide', wall: 'wall',
-};
+// Icône de chaque unité.
 const UNIT_ICONS = {
   spear: '/img/units/spear.png?v=1',
   sword: '/img/units/sword.png?v=1',
@@ -256,9 +262,33 @@ function icon(name, cls = 'size-4', strokeWidth = 1.8) {
   return `<svg class="${cls} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.flag}</svg>`;
 }
 
-const buildingIcon = (id, cls, strokeWidth) => icon(BUILDING_ICONS[id] || 'flag', cls, strokeWidth);
 /** Icône raster commune à toutes les représentations d'unités dans l'interface. */
 const unitIcon = (id, cls = 'size-7') => `<img src="${UNIT_ICONS[id] || UNIT_ICONS.spear}" class="${cls} min-h-7 min-w-7 shrink-0 object-contain" alt="" aria-hidden="true">`;
+/** Pictogramme commun des ordres : type de trajet et unité qui fixe sa vitesse. */
+function orderBadge(type, units, size = 'md') {
+  const types = {
+    attack: { box: 'bg-blood-600', icon: 'attack', name: 'Attaque' },
+    return: { box: 'bg-gold-400', icon: 'return', name: 'Retour' },
+    support: { box: 'bg-steel-500', icon: 'support', name: 'Soutien' },
+    relocate: { box: 'bg-olive-500', icon: 'relocate', name: 'Déménagement' },
+  };
+  const sizes = {
+    sm: { box: 'size-5 shadow-[1px_1px_0_#000]', icon: 'size-[12px]', stroke: 3.2, unit: 'size-4' },
+    md: { box: 'size-[22px] shadow-[2px_2px_0_#000]', icon: 'size-[13px]', stroke: 3.2, unit: 'size-[18px]' },
+    lg: { box: 'size-[30px] shadow-[2px_2px_0_#000]', icon: 'size-[15px]', stroke: 2.2, unit: 'size-6' },
+    map: { box: 'size-[18px] shadow-[1px_1px_0_#000]', icon: 'size-[10px]', stroke: 3, unit: 'size-3.5' },
+  };
+  const t = types[type] || types.support;
+  const s = sizes[size] || sizes.md;
+  const pace = units ? paceUnit(units, type) : null;
+  const unit = pace ? (size === 'map'
+    ? `<img src="${UNIT_ICONS[pace.id] || UNIT_ICONS.spear}" class="${s.unit} shrink-0 object-contain" alt="" aria-hidden="true">`
+    : unitIcon(pace.id, s.unit)) : '';
+  const unitWrap = size === 'map'
+    ? 'flex size-[18px] shrink-0 items-center justify-center border border-black bg-panel-top p-px shadow-[1px_1px_0_#000]'
+    : 'flex shrink-0 text-gold-400';
+  return `<span class="flex shrink-0 items-center ${size === 'map' ? 'gap-0.5' : 'gap-1.5'}"><span class="flex shrink-0 items-center justify-center border-2 border-black text-night ${s.box} ${t.box}" title="${t.name}">${icon(t.icon, s.icon, s.stroke)}</span>${pace ? `<span class="${unitWrap}" title="Unité la plus lente : ${esc(pace.name)}">${unit}</span>` : ''}</span>`;
+}
 /** Icône raster commune aux ressources, au stockage et à la population. */
 const resourceIcon = (id, cls = 'size-8') => `<img src="${RESOURCE_ICONS[id] || RESOURCE_ICONS.storage}" class="${cls} min-h-8 min-w-8 shrink-0 object-contain" alt="" aria-hidden="true">`;
 
@@ -304,10 +334,12 @@ module.exports = {
   GAME_LAYOUTS: require('./gameLayouts').GAME_LAYOUTS,
   RESOURCES,
   RESOURCE_ICONS,
-  BUILDING_ICONS,
   UNIT_ICONS,
-  buildingIcon,
+  buildingImg,
+  VILLAGE_PLAN: require('./villagePlan'),
+  ...require('./worldLabels'),
   unitIcon,
+  orderBadge,
   resourceIcon,
   laurel,
   shield,

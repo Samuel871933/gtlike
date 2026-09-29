@@ -3,7 +3,7 @@
   <% for (const o of ctx.buildOrders) { const running = new Date(o.startsAt) <= now; const start = new Date(o.startsAt).getTime(); const end = new Date(o.endsAt).getTime();
        const pct = running ? Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100)) : 0; %>
     <div class="<%= running ? ui.boxGold : ui.box %> flex items-center gap-3 p-2.5 ">
-      <span class="<%= running ? ui.medallionGold : ui.medallion %> size-[38px] minimal:size-[28px]"><%- buildingIcon(o.building, 'size-[19px]') %></span>
+      <%- buildingImg(o.building, o.level, 'h-[35px] w-10 minimal:h-7 minimal:w-8') %>
       <div class="flex min-w-0 flex-1 flex-col gap-1.5">
         <div class="flex flex-wrap justify-between gap-x-2">
           <span class="truncate font-semibold"><%= buildingName(o.building) %> <span class="font-medium <%= o.demolish ? 'text-blood-300' : 'text-parchment-500' %>"><%= o.demolish ? `démolition → niveau ${o.level}` : `niveau ${o.level}` %></span></span>

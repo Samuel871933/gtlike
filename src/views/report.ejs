@@ -5,19 +5,6 @@
   // Colonnes d'unités : toutes, sauf la milice quand le combat n'en compte pas.
   const withMilitia = ['attacker', 'defender'].some((k) => d[k] && ((d[k].units || {}).militia || (d[k].losses || {}).militia));
   const order = [...registry.UNITS.keys()].filter((id) => id !== 'militia' || withMilitia);
-  // Tableau d'unités : une colonne par unité (icône en en-tête), lignes Quantité / Pertes.
-  const unitTable = (units, losses) => {
-    const ids = order;
-    const head = ids.map((id) => `<th class="report-army-table__unit" scope="col" title="${esc(unitName(id))}"><span>${unitIcon(id, 'size-[20px]')}</span><small>${esc(unitName(id))}</small></th>`).join('');
-    const row = (label, src, cls) => `<tr><th class="report-army-table__label" scope="row">${label}</th>${ids.map((id) => {
-      const n = (src && src[id]) || 0;
-      return `<td class="${n ? cls : 'is-zero'}">${num(n)}</td>`;
-    }).join('')}</tr>`;
-    return `<div class="report-army-table-wrap"><table class="report-army-table"><thead><tr><th class="report-army-table__corner">Unités</th>${head}</tr></thead><tbody>`
-      + row('Quantité', units, 'is-amount')
-      + (losses ? row('Pertes', losses, 'is-loss') : '')
-      + `</tbody></table></div>`;
-  };
   const kickers = { world: 'Annonce du monde', scavenge: 'Collecte', award: 'Succès', visit: 'Visite', trade: 'Commerce', support: 'Soutien' };
   const isBattleReport = !['world', 'scavenge', 'award', 'visit', 'trade', 'support'].includes(d.perspective);
   const won = isBattleReport ? d.attackerWins : undefined;
@@ -25,7 +12,19 @@
   const verdict = isBattleReport
     ? (won == null ? 'Espionnage' : (d.perspective === 'attacker' ? (won ? 'Victoire' : 'Défaite') : (won ? 'Village vaincu' : 'Attaque repoussée')))
     : null;
-  const reportVisual = won == null ? 'espionage' : (good ? 'victory' : 'defeat');
+  const reportKinds = {
+    world: { visual: 'world', label: 'Annonce du monde', icon: 'crown' },
+    scavenge: { visual: 'scavenge', label: 'Collecte de ressources', icon: 'farm' },
+    award: { visual: 'award', label: 'Récompense obtenue', icon: 'victory' },
+    visit: { visual: 'visit', label: 'Visite', icon: 'moon' },
+    trade: { visual: 'trade', label: 'Commerce', icon: 'market' },
+    support: { visual: 'support', label: 'Soutien', icon: 'support' },
+  };
+  const reportKind = isBattleReport
+    ? (d.conquered && d.perspective === 'attacker'
+      ? { visual: 'conquest', label: 'Village conquis', icon: 'crown' }
+      : { visual: won == null ? 'espionage' : (good ? 'victory' : 'defeat'), label: verdict, icon: won == null ? 'eye' : (good ? 'victory' : 'attack') })
+    : (reportKinds[d.perspective] || { visual: 'world', label: kickers[d.perspective] || 'Rapport', icon: 'reports' });
   // Rapports de commerce comme sur GT : « Vendeur : joueur » puis « Village : nom (x|y) K55 » avec lien vers la carte.
   const partyRows = (label, p) => {
     if (!p) return '';
@@ -40,8 +39,15 @@
     return `<span class="inline-flex items-center gap-1.5 font-semibold tabular-nums"><span class="text-parchment-400">${num(n)}×</span><span title="${esc(r.label)}">${resourceIcon(r.id)}</span>${num(res.amount)}</span>`; };
   const actionLink = `${ui.link} inline-flex items-center gap-1.5 text-sm`;
   const ownsVillage = (id) => myVillages.some((v) => v.id === id);
+  const spiedBuildings = Object.entries(d.intel?.buildings || {}).filter(([, level]) => level > 0);
+  const buildingColumnSize = Math.ceil(spiedBuildings.length / 2);
+  const luckPercent = isBattleReport ? Math.round(d.luck * 1000) / 10 : 0;
+  const moralePercent = isBattleReport ? Math.round(d.morale * 100) : 100;
+  const luckTone = luckPercent > 0 ? 'positive' : luckPercent < 0 ? 'negative' : 'neutral';
+  const moraleTone = moralePercent >= 80 ? 'positive' : moralePercent >= 50 ? 'neutral' : 'negative';
+  const impactTone = d.perspective === 'attacker' ? 'text-olive-300' : 'text-blood-300';
 %>
-<div class="mx-auto flex w-full max-w-4xl flex-col gap-5 <%= isBattleReport ? 'battle-report-page' : '' %>">
+<div class="report-detail-page mx-auto flex w-full max-w-4xl flex-col gap-5">
   <section class="<%= ui.panel %>">
     <% const arrow = (id, dir, label) => id
          ? `<a href="/village/${vid}/reports/${id}" class="${ui.iconBtn}" title="${label}" aria-label="${label}">${icon(dir, 'size-3.5', 2.4)}</a>`
@@ -55,31 +61,21 @@
         </form>
       </div>`, { tag: 'h1' }) %>
     <div class="<%= ui.panelBody %> gap-4">
-      <% if (isBattleReport) { %>
-        <div class="report-hero report-hero--<%= reportVisual %>">
-          <div class="report-hero__content">
-            <span class="report-hero__eyebrow"><%- icon(won == null ? 'eye' : (good ? 'victory' : 'attack'), 'size-4', 2.2) %><%= verdict %></span>
-            <h2 class="report-hero__title"><%= report.title %></h2>
-            <p class="report-hero__time"><%- icon('clock', 'size-3.5') %><%= when(report.happenedAt, now) %></p>
-            <% if (d.conquered) { %><span class="report-hero__conquest">Village conquis</span><% } %>
-          </div>
+      <div class="report-hero report-hero--<%= reportKind.visual %>" style="background-image: url('/img/reports/<%= reportKind.visual %>.png?v=2')">
+        <div class="report-hero__content">
+          <span class="report-hero__eyebrow"><%- icon(reportKind.icon, 'size-4', 2.2) %><%= reportKind.label %></span>
+          <h2 class="report-hero__title"><%= report.title %></h2>
+          <p class="report-hero__time"><%- icon('clock', 'size-3.5') %><%= when(report.happenedAt, now) %></p>
+          <% if (d.conquered && d.perspective === 'defender') { %><span class="report-hero__conquest">Village perdu</span><% } %>
         </div>
-      <% } else { %>
-        <%# En-tête des rapports comme sur GT : Objet, puis Envoyé. %>
-        <div class="overflow-x-auto border border-bronze-800">
-          <table class="<%= ui.table %>">
-            <thead><tr><th class="w-28">Objet</th><th class="whitespace-normal"><span class="text-[15px] font-semibold text-parchment-100"><%= report.title %></span><% if (kickers[d.perspective]) { %> <span class="text-[13px] font-normal text-parchment-500">· <%= kickers[d.perspective] %></span><% } %></th></tr></thead>
-            <tbody><tr><td class="text-parchment-400">Envoyé</td><td class="tabular-nums"><%= when(report.happenedAt, now) %></td></tr></tbody>
-          </table>
-        </div>
-      <% } %>
+      </div>
 
       <% if (d.perspective === 'world') { %>
         <p class="<%= ui.alertInfo %>"><%= d.text %></p>
       <% } else if (d.perspective === 'scavenge') { %>
         <div class="<%= ui.box %> flex flex-col gap-3 p-3.5">
           <p><span class="text-parchment-500">Village</span> <span class="font-semibold"><%= d.village %></span></p>
-          <%- include('partials/units', { units: d.units, losses: null }) %>
+          <%- include('partials/units', { units: d.units, losses: null, iconSize: 'size-8' }) %>
           <div class="flex flex-wrap items-center gap-3"><span class="<%= ui.subLabel %>">Butin</span><%- include('partials/cost', { cost: d.received, have: null }) %></div>
         </div>
         <p class="text-xs text-parchment-600">Ce qui dépasse la capacité de l'entrepôt est perdu.</p>
@@ -103,7 +99,7 @@
       <% } else if (d.perspective === 'visit') { %>
         <p class="<%= ui.box %> flex items-center gap-3 px-4 py-3 text-parchment-300"><span class="text-gold-400"><%- icon('moon', 'size-4') %></span><%= d.sleeper %> était en mode sommeil : aucun combat, les troupes sont reparties.</p>
         <p><span class="text-parchment-500">De</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p>
-        <%- include('partials/units', { units: d.units, losses: null }) %>
+        <%- include('partials/units', { units: d.units, losses: null, iconSize: 'size-8' }) %>
       <% } else if (d.perspective === 'trade' && d.kind === 'offer') { const arrived = new Date(d.arrivesAt) <= now; %>
         <%# Offre acceptée : Vendeur / Acheteur, ce qui a été vendu et payé, arrivée du paiement, « Re-créer l'offre ». %>
         <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3 shadow-[3px_3px_0_#050505]">
@@ -139,13 +135,20 @@
         </div>
       <% } else if (d.perspective === 'support') { %>
         <% if (d.from) { %><p><span class="text-parchment-500">Depuis</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p><% } %>
-        <%- include('partials/units', { units: d.units, losses: d.losses || null }) %>
+        <%- include('partials/units', { units: d.units, losses: d.losses || null, iconSize: 'size-8' }) %>
       <% } else { %>
-        <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Chance</dt><dd class="<%= ui.tileValue %> <%= d.luck >= 0 ? 'text-olive-300' : 'text-blood-300' %>"><%= (d.luck * 100).toFixed(1) %> %</dd></div>
-          <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Morale</dt><dd class="<%= ui.tileValue %>"><%= Math.round(d.morale * 100) %> %</dd></div>
+        <dl class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div class="<%= ui.tile %>">
+            <dt class="<%= ui.tileLabel %>">Chance de l’attaquant</dt>
+            <dd class="<%= ui.tileValue %> report-stat--<%= luckTone %>"><%= luckPercent > 0 ? '+' : '' %><%= luckPercent.toFixed(1) %> %</dd>
+            <dd class="report-meter report-meter--luck report-meter--<%= luckTone %>" aria-hidden="true"><span style="left: <%= luckPercent < 0 ? 50 - Math.min(50, Math.abs(luckPercent) * 2) : 50 %>%; width: <%= Math.min(50, Math.abs(luckPercent) * 2) %>%"></span></dd>
+          </div>
+          <div class="<%= ui.tile %>">
+            <dt class="<%= ui.tileLabel %>">Moral de l’attaquant</dt>
+            <dd class="<%= ui.tileValue %> report-stat--<%= moraleTone %>"><%= moralePercent %> %</dd>
+            <dd class="report-meter report-meter--<%= moraleTone %>" aria-hidden="true"><span style="width: <%= Math.min(100, Math.max(0, moralePercent)) %>%"></span></dd>
+          </div>
           <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Bonus de nuit</dt><dd class="<%= ui.tileValue %>"><%= d.night ? 'oui' : 'non' %></dd></div>
-          <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Muraille</dt><dd class="<%= ui.tileValue %>"><%= d.wall.before %><%= d.wall.after !== d.wall.before ? ` → ${d.wall.after}` : '' %></dd></div>
         </dl>
       <% } %>
     </div>
@@ -167,7 +170,7 @@
             <% if (label === 'Défenseur' && d.hideDefender) { %>
               <p class="report-hidden-intel">Aucun de vos soldats n'est revenu : aucune information sur les troupes adverses.</p>
             <% } else { %>
-              <%- unitTable(side.units, side.losses) %>
+              <%- include('partials/report-army-table', { ids: order, units: side.units, losses: side.losses }) %>
             <% } %>
           </div>
         </section>
@@ -176,7 +179,7 @@
 
     <% const hasLoot = d.carry > 0 || (d.loot && (d.loot.wood + d.loot.stone + d.loot.iron) > 0);
        const hasItems = d.attackerItem || (d.defenderItems && d.defenderItems.length); %>
-    <% if (hasLoot || hasItems || d.loyalty || d.catapult) { %>
+    <% if (hasLoot || hasItems || d.loyalty || d.catapult || d.wall) { %>
       <section class="<%= ui.panel %>">
         <%- panelHead('Résultat') %>
         <div class="<%= ui.panelBody %> gap-0 py-1">
@@ -193,16 +196,22 @@
               <span><%= [d.attackerItem ? `attaque — ${d.attackerItem}` : null, d.defenderItems && d.defenderItems.length ? `défense — ${d.defenderItems.join(', ')}` : null].filter(Boolean).join(' · ') %></span>
             </div>
           <% } %>
-          <% if (d.loyalty) { %>
+          <% if (d.wall) { const wallDamage = d.wall.before - d.wall.after; %>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
-              <span class="<%= ui.subLabel %> w-28">Loyauté</span>
-              <span class="font-semibold tabular-nums"><%= d.loyalty.before %> <span class="text-parchment-500">→</span> <span class="<%= d.loyalty.after < d.loyalty.before ? 'text-blood-300' : '' %>"><%= d.loyalty.after %></span></span>
+              <span class="<%= ui.subLabel %> w-28">Muraille</span>
+              <span class="inline-flex items-center gap-2 text-sm"><%- buildingImg('wall', Math.max(1, d.wall.before), 'h-7 w-8') %><span>niveau <strong class="tabular-nums"><%= d.wall.before %></strong> → <strong class="<%= wallDamage > 0 ? impactTone : '' %> tabular-nums"><%= d.wall.after %></strong><% if (wallDamage > 0) { %> <span class="text-parchment-500">(<%= wallDamage %> niveau<%= wallDamage > 1 ? 'x' : '' %> détruit<%= wallDamage > 1 ? 's' : '' %>)</span><% } else { %> <span class="text-parchment-500">(intacte)</span><% } %></span></span>
             </div>
           <% } %>
           <% if (d.catapult) { %>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
-              <span class="<%= ui.subLabel %> w-28">Catapultes</span>
-              <span><%= d.catapult.name %> <span class="font-semibold tabular-nums"><%= d.catapult.before %> → <%= d.catapult.after %></span></span>
+              <span class="<%= ui.subLabel %> w-28">Bâtiment ciblé</span>
+              <span class="inline-flex items-center gap-2 text-sm"><%- buildingImg(d.catapult.building, Math.max(1, d.catapult.before), 'h-7 w-8') %><span><strong><%= d.catapult.name %></strong> : <% if (d.catapult.after < d.catapult.before) { %>niveau <strong class="tabular-nums"><%= d.catapult.before %></strong> → <strong class="<%= impactTone %> tabular-nums"><%= d.catapult.after %></strong> <span class="text-parchment-500">(<%= d.catapult.before - d.catapult.after %> niveau<%= d.catapult.before - d.catapult.after > 1 ? 'x' : '' %> détruit<%= d.catapult.before - d.catapult.after > 1 ? 's' : '' %>)</span><% } else { %>aucun niveau détruit<% } %></span></span>
+            </div>
+          <% } %>
+          <% if (d.loyalty) { %>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
+              <span class="<%= ui.subLabel %> w-28">Loyauté</span>
+              <span class="text-sm">A baissé de <strong class="tabular-nums"><%= d.loyalty.before %></strong> à <strong class="<%= impactTone %> tabular-nums"><%= d.loyalty.after %></strong><% if (d.conquered) { %> <span class="font-semibold <%= impactTone %>">· Village <%= d.perspective === 'attacker' ? 'conquis' : 'perdu' %></span><% } %></span>
             </div>
           <% } %>
         </div>
@@ -212,25 +221,35 @@
     <% if (d.perspective === 'attacker' && d.intel && Object.keys(d.intel).length) { %>
       <section class="<%= ui.panel %>">
         <%- panelHead('Espionnage', `<span class="text-gold-400">${icon('eye', 'size-4')}</span>`) %>
-        <div class="<%= ui.panelBody %> gap-4">
+        <div class="<%= ui.panelBody %> report-intel gap-4">
           <% if (d.intel.resources) { %>
-            <div class="flex flex-wrap items-center gap-3"><span class="<%= ui.subLabel %> w-28">Ressources</span><%- include('partials/cost', { cost: d.intel.resources, have: null }) %></div>
+            <section class="report-intel__group" aria-labelledby="intel-resources">
+              <h3 id="intel-resources" class="<%= ui.subLabel %> mb-1 border-b border-bronze-800 bg-thead px-2 py-1">Ressources espionnées</h3>
+              <div class="<%= ui.box %> flex flex-wrap items-center gap-2 px-3 py-2"><%- include('partials/cost', { cost: d.intel.resources, have: null }) %></div>
+            </section>
           <% } %>
-          <% if (d.intel.buildings) { %>
-            <div class="flex flex-col gap-2">
-              <span class="<%= ui.subLabel %>">Bâtiments</span>
-              <div class="flex flex-wrap gap-1.5">
-                <% for (const [id, lvl] of Object.entries(d.intel.buildings).filter(([, l]) => l > 0)) { %>
-                  <span class="<%= ui.chip %>"><span class="text-gold-400"><%- buildingIcon(id, 'size-3.5') %></span><%= buildingName(id) %> <strong class="text-parchment-100 tabular-nums"><%= lvl %></strong></span>
+          <% if (spiedBuildings.length) { %>
+            <section class="report-intel__group" aria-labelledby="intel-buildings">
+              <h3 id="intel-buildings" class="<%= ui.subLabel %> mb-1 border-b border-bronze-800 bg-thead px-2 py-1">Bâtiments</h3>
+              <div class="report-intel__buildings">
+                <% for (const column of [spiedBuildings.slice(0, buildingColumnSize), spiedBuildings.slice(buildingColumnSize)]) { if (!column.length) continue; %>
+                  <table class="<%= ui.tableSm %> bg-panel-lo">
+                    <thead><tr><th scope="col">Bâtiment</th><th scope="col">Niveau</th></tr></thead>
+                    <tbody>
+                      <% for (const [id, level] of column) { %>
+                        <tr><td><span class="report-intel__building-name"><%- buildingImg(id, Math.max(1, level), '', { lazy: true }) %><%= buildingName(id) %></span></td><td class="text-center font-semibold tabular-nums"><%= level %></td></tr>
+                      <% } %>
+                    </tbody>
+                  </table>
                 <% } %>
               </div>
-            </div>
+            </section>
           <% } %>
           <% if (d.intel.units) { %>
-            <div class="flex flex-col gap-2">
-              <span class="<%= ui.subLabel %>">Troupes</span>
-              <%- unitTable(d.intel.units, null) %>
-            </div>
+            <section class="report-intel__group" aria-labelledby="intel-units">
+              <h3 id="intel-units" class="<%= ui.subLabel %> mb-1 border-b border-bronze-800 bg-thead px-2 py-1">Troupes détectées</h3>
+              <%- include('partials/report-army-table', { ids: order, units: d.intel.units, losses: null }) %>
+            </section>
           <% } %>
         </div>
       </section>

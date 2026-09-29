@@ -1,26 +1,64 @@
 <%- include('partials/header', { title: 'Collecte' }) %>
 <% const vid = ctx.village.id; const carry = Object.fromEntries(units.map((u) => [u.id, u.carry])); %>
 <div class="flex flex-col gap-5">
-<%- include('partials/building-header', { buildingId: 'place' }) %>
+<%- include('partials/building-header', { buildingId: 'place', illustration: 'wide' }) %>
 
 <section class="<%= ui.panel %>">
   <%- panelHead('Collecte', include('partials/place-tabs', { placeTab: 'scavenge' })) %>
   <div class="<%= ui.panelBody %>">
     <p class="text-parchment-400">
-      Envoyez des troupes du village ramasser des ressources, sans combat. Plus l'option est avancée, plus elle rapporte
-      (par rapport à la capacité de transport des troupes envoyées) et plus elle dure. Une expédition ne peut pas être annulée ;
-      le butin au-delà de l'entrepôt est perdu.
+      Envoyez vos troupes ramasser des ressources aux alentours. Choisissez leur nombre dans une collecte disponible, puis lancez l'expédition.
+      Les troupes reviennent seules avec leur butin ; une expédition ne peut pas être rappelée.
     </p>
   </div>
 </section>
 
-<div class="grid items-start gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+<section class="<%= ui.panel %>" data-scavenge-selection>
+  <%- panelHead('Troupes à envoyer') %>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[344px] table-fixed border-collapse text-xs sm:min-w-[576px] sm:text-sm [&_td]:px-0.5 [&_td]:py-1 [&_td]:text-center [&_th]:px-0.5 [&_th]:py-1 [&_th]:text-center sm:[&_td]:px-1.5 sm:[&_th]:px-1.5 [&_tr>th:first-child]:w-14 [&_tr>th:first-child]:text-left sm:[&_tr>th:first-child]:w-24">
+      <thead class="bg-thead"><tr class="border-b border-bronze-700/50"><th scope="col" class="font-medium text-gold-400">Unités</th><% for (const u of units) { %><th scope="col" title="<%= u.name %>"><span class="flex justify-center"><%- unitIcon(u.id, 'size-7') %></span><span class="sr-only"><%= u.name %></span></th><% } %></tr></thead>
+      <tbody>
+        <tr class="border-b border-bronze-700/50"><th scope="row" class="font-medium text-gold-400">Quantité</th><% for (const u of units) { const have = ctx.state.units[u.id] || 0; %><td><input type="number" name="<%= u.id %>" min="0" max="<%= have %>" placeholder="0" aria-label="<%= u.name %> à envoyer" class="<%= ui.inputSm %> mx-auto block h-7 w-9 px-0 text-center text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none sm:h-8 sm:w-14 sm:text-sm" <%= have ? '' : 'disabled' %>></td><% } %></tr>
+        <tr><th scope="row" class="font-medium text-gold-400"><span class="sm:hidden">Dispo.</span><span class="max-sm:hidden">Disponibles</span></th><% for (const u of units) { const have = ctx.state.units[u.id] || 0; %><td><button type="button" class="cursor-pointer text-xs font-semibold tabular-nums sm:text-sm <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= u.id %>" data-max="<%= have %>" aria-label="Sélectionner tous les <%= u.name %> disponibles"><%= num(have) %></button></td><% } %></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4 [&>*]:min-w-0">
   <% for (const { option, unlocked, unlocking, run } of options) {
-       const state = run ? ['En cours', ui.tagGold] : unlocked ? ['Disponible', ui.tagOlive] : unlocking ? ['Déblocage', ui.tagGold] : ['Verrouillée', ui.tagMuted]; %>
-    <section class="<%= ui.panel %>">
+       const state = run ? ['En cours', ui.tagGold] : unlocked ? ['Disponible', ui.tagOlive] : unlocking ? ['Déblocage', ui.tagGold] : ['Verrouillée', ui.tagMuted];
+       const image = ['/img/scavenge/small.png', '/img/scavenge/medium.png', '/img/scavenge/large.png', '/img/scavenge/massive.png'][option.id - 1] || '/img/scavenge/small.png'; %>
+    <section class="<%= ui.panel %> flex flex-col overflow-hidden">
+      <div class="relative aspect-[4/3] overflow-hidden border-b-2 border-bronze-500 sm:aspect-[3/4]">
+        <img src="<%= image %>" alt="" loading="lazy" decoding="async" class="h-full w-full object-cover object-center <%= unlocked || run ? '' : 'grayscale' %>">
+        <% if (!unlocked && !run) { %><span class="absolute inset-0 bg-night/20" aria-hidden="true"></span><span class="absolute top-2 right-2 <%= ui.medallion %> size-9"><%- icon('lock', 'size-5') %></span><% } %>
+        <% if (!unlocked && !unlocking && !run) { const why = resourcesWhen(ctx.state, option.unlock.cost, now); %>
+          <form method="post" action="/village/<%= vid %>/scavenge/<%= option.id %>/unlock" class="absolute inset-x-2 bottom-2 z-10 flex flex-col gap-1.5 border-2 border-black bg-panel-top/95 p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),3px_3px_0_#050505]"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <span class="<%= ui.subLabel %>">Coût de déblocage</span>
+            <%- include('partials/cost', { cost: option.unlock.cost, have: ctx.state.resources }) %>
+            <span class="inline-flex items-center gap-1 text-xs text-parchment-400 tabular-nums"><%- icon('clock', 'size-3.5') %><%= duration(option.unlock.hours * 3600 / ctx.cfg.speed) %></span>
+            <button class="<%= btn('dark', 'sm') %> self-start" <%= why ? 'disabled' : '' %>>Débloquer</button>
+            <% if (why) { %><span class="text-xs text-blood-300"><%= why %></span><% } %>
+          </form>
+        <% } %>
+      </div>
       <%- panelHead(option.name, `<span class="${state[1]}">${state[0]}</span>`) %>
-      <div class="<%= ui.panelBody %>">
-        <p class="text-parchment-400">Rapporte <strong class="text-gold-200 tabular-nums"><%= Math.round(option.lootFactor * 100) %> %</strong> de la capacité de transport</p>
+      <div class="<%= ui.panelBody %> flex-1">
+        <p class="text-sm text-parchment-400">Butin : <strong class="text-gold-200 tabular-nums"><%= Math.round(option.lootFactor * 100) %> %</strong> de la capacité de transport</p>
+
+        <% if (!run) { %>
+          <div class="<%= ui.boxGold %> flex flex-col gap-1.5 p-2.5" data-scavenge-preview data-loot="<%= option.lootFactor %>" data-speed="<%= ctx.cfg.speed %>" data-carry='<%= JSON.stringify(carry) %>'>
+            <span class="<%= ui.subLabel %>">Butin estimé avec la sélection</span>
+            <div class="flex flex-wrap gap-x-3 gap-y-1 text-sm font-semibold tabular-nums text-gold-200" aria-live="polite">
+              <% for (const r of ['wood', 'stone', 'iron']) { %>
+                <span class="inline-flex items-center gap-1" title="<%= r === 'wood' ? 'Bois' : r === 'stone' ? 'Argile' : 'Fer' %>"><%- resourceIcon(r, 'size-7') %><span data-scavenge-resource="<%= r %>">0</span></span>
+              <% } %>
+            </div>
+            <span class="text-xs text-parchment-400">Durée estimée : <strong class="text-gold-200 tabular-nums" data-scavenge-duration>—</strong></span>
+          </div>
+        <% } %>
 
         <% if (run) { %>
           <div class="<%= ui.boxGold %> flex items-center gap-3 p-3">
@@ -36,19 +74,8 @@
         <% } else if (unlocked) { %>
           <form method="post" action="/village/<%= vid %>/scavenge/<%= option.id %>/send" class="flex flex-col gap-3" data-scavenge
                 data-loot="<%= option.lootFactor %>" data-speed="<%= ctx.cfg.speed %>" data-carry='<%= JSON.stringify(carry) %>'><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <% for (const u of units) { const have = ctx.state.units[u.id] || 0; %>
-                <label class="<%= ui.tile %> flex min-w-0 flex-col gap-1.5">
-                  <span class="flex items-center justify-between gap-1.5">
-                    <span class="flex min-w-0 items-center gap-1.5 text-[13px] <%= have ? 'text-parchment-300' : 'text-parchment-600' %>"><span class="<%= have ? 'text-gold-400' : 'text-parchment-700' %>"><%- unitIcon(u.id, 'size-3.5') %></span><span class="truncate"><%= u.name %></span></span>
-                    <button type="button" class="cursor-pointer text-xs font-semibold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= u.id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
-                  </span>
-                  <input type="number" name="<%= u.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-full min-w-0 tabular-nums" <%= have ? '' : 'disabled' %>>
-                </label>
-              <% } %>
-            </div>
-            <div class="<%= ui.box %> flex flex-wrap items-center justify-between gap-3 px-3 py-2">
-              <span class="text-parchment-400">Butin <strong class="text-gold-200 tabular-nums" data-scavenge-haul>0</strong> · durée <strong class="text-gold-200 tabular-nums" data-scavenge-duration>—</strong></span>
+            <% for (const u of units) { %><input type="hidden" name="<%= u.id %>" value="0"><% } %>
+            <div class="mt-auto flex justify-end">
               <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
             </div>
           </form>
@@ -61,18 +88,6 @@
             </span>
             <span class="text-lg font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(unlocking.endsAt).getTime() %>"><%= duration((new Date(unlocking.endsAt) - now) / 1000) %></span>
           </div>
-        <% } else { %>
-          <form method="post" action="/village/<%= vid %>/scavenge/<%= option.id %>/unlock" class="<%= ui.box %> flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <span class="flex flex-wrap items-center gap-3">
-              <%- include('partials/cost', { cost: option.unlock.cost, have: ctx.state.resources }) %>
-              <span class="inline-flex items-center gap-1 text-parchment-400 tabular-nums"><%- icon('clock', 'size-3.5') %><%= duration(option.unlock.hours * 3600 / ctx.cfg.speed) %></span>
-            </span>
-            <% const why = resourcesWhen(ctx.state, option.unlock.cost, now); %>
-            <span class="ml-auto flex flex-col items-end gap-1">
-              <button class="<%= btn('dark') %>" <%= why ? 'disabled' : '' %>>Débloquer</button>
-              <% if (why) { %><span class="text-xs text-blood-300"><%= why %></span><% } %>
-            </span>
-          </form>
         <% } %>
       </div>
     </section>

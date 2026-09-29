@@ -7,9 +7,67 @@
     return clock ? Number(clock.dataset.clock) - Date.now() : 0;
   })();
   const serverNow = () => Date.now() + offset;
+  const isOverview = Boolean(document.querySelector('[data-overview-page]'));
   const pad = (n) => String(n).padStart(2, '0');
   const fmt = (s) => `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
   let reloading = false;
+  let refreshingOverview = false;
+  let nextOverviewRefresh = 0;
+
+  // Une échéance met à jour les panneaux concernés sans recréer le décor et ses images.
+  async function refreshOverview() {
+    if (refreshingOverview || Date.now() < nextOverviewRefresh) return;
+    refreshingOverview = true;
+    nextOverviewRefresh = Date.now() + 5000;
+    try {
+      const response = await fetch(window.location.href, { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) return;
+      // Un template garde les images du plan inertes tant qu'on ne les insère pas dans la page.
+      const template = document.createElement('template');
+      template.innerHTML = await response.text();
+      const fresh = template.content;
+      if (!fresh.querySelector('[data-overview-page]')) return;
+
+      for (const key of ['movements', 'buildings', 'recruitment', 'troops']) {
+        const current = document.querySelector(`[data-overview-live="${key}"]`);
+        const updated = fresh.querySelector(`[data-overview-live="${key}"]`);
+        if (current && updated) current.replaceWith(updated);
+      }
+      const currentMeta = document.querySelector('[data-overview-meta]');
+      const updatedMeta = fresh.querySelector('[data-overview-meta]');
+      if (currentMeta && updatedMeta) currentMeta.replaceWith(updatedMeta);
+
+      // Conserver les bâtiments en place : seules leurs valeurs et activités changent.
+      const freshPlots = new Map([...fresh.querySelectorAll('.village-scene-medieval [data-plot]')].map((plot) => [plot.dataset.plot, plot]));
+      document.querySelectorAll('.village-scene-medieval [data-plot]').forEach((plot) => {
+        const updated = freshPlots.get(plot.dataset.plot);
+        if (!updated) return;
+        plot.title = updated.title;
+        for (const selector of ['.village-building-level', '.village-building-activities']) {
+          const current = plot.querySelector(selector);
+          const next = updated.querySelector(selector);
+          if (current && next && current.innerHTML !== next.innerHTML) current.innerHTML = next.innerHTML;
+        }
+        const currentImage = plot.querySelector('.village-building-sprite');
+        const nextImage = updated.querySelector('.village-building-sprite');
+        if (currentImage && nextImage && currentImage.outerHTML !== nextImage.outerHTML) currentImage.replaceWith(nextImage);
+      });
+      const freshInfo = new Map([...fresh.querySelectorAll('[data-plot-info]')].map((info) => [info.dataset.plotInfo, info]));
+      document.querySelectorAll('[data-plot-info]').forEach((info) => {
+        const updated = freshInfo.get(info.dataset.plotInfo);
+        if (updated && info.innerHTML !== updated.innerHTML) info.innerHTML = updated.innerHTML;
+      });
+
+      // Repartir des ressources calculées par le serveur après la fin d'une activité.
+      const updatedResources = fresh.querySelectorAll('[data-res]');
+      document.querySelectorAll('[data-res]').forEach((el, i) => {
+        const next = updatedResources[i];
+        if (!next) return;
+        for (const key of ['res', 'cap', 'rate', 'at']) el.dataset[key] = next.dataset[key];
+      });
+    } catch { /* Le minuteur reste visible ; une prochaine échéance réessaiera. */ }
+    finally { refreshingOverview = false; }
+  }
 
   function tick() {
     const now = serverNow();
@@ -36,11 +94,20 @@
     document.querySelectorAll('[data-countdown]').forEach((el) => {
       const left = Math.ceil((Number(el.dataset.countdown) - now) / 1000);
       el.textContent = fmt(Math.max(0, left));
-      if (left <= 0 && !reloading) {
-        reloading = true;
-        setTimeout(() => window.location.reload(), 500);
+      if (left <= 0) {
+        if (isOverview) refreshOverview();
+        else if (!reloading) {
+          reloading = true;
+          setTimeout(() => window.location.reload(), 500);
+        }
       }
     });
+    // Le serveur peut traiter la prochaine unité quelques secondes après son échéance.
+    // Continuer à synchroniser le recrutement même si son minuteur a disparu du plan.
+    if (isOverview) {
+      const nextUnit = Number(document.querySelector('[data-overview-live="recruitment"]')?.dataset.recruitNext);
+      if (nextUnit > 0 && nextUnit <= now) refreshOverview();
+    }
 
     // Bouton « Terminer » (construction gratuite) : affiché dès qu'il reste au plus 3 minutes.
     document.querySelectorAll('[data-free-at]').forEach((el) => {
@@ -60,21 +127,33 @@
   });
 
   // Collecte : aperçu du butin et de la durée (même formule que le serveur).
-  function scavengePreview(form) {
-    const carry = JSON.parse(form.dataset.carry);
-    const loot = Number(form.dataset.loot);
+  const scavengeSelection = document.querySelector('[data-scavenge-selection]');
+  function scavengeCount(id) {
+    const input = scavengeSelection?.querySelector(`input[name="${id}"]`);
+    if (!input) return 0;
+    return Math.min(Number(input.max) || 0, Math.max(0, Math.floor(Number(input.value) || 0)));
+  }
+  function scavengePreview(preview) {
+    const carry = JSON.parse(preview.dataset.carry);
+    const loot = Number(preview.dataset.loot);
     let cap = 0;
     for (const [id, c] of Object.entries(carry)) {
-      const input = form.querySelector(`input[name="${id}"]`);
-      cap += (Number(input && input.value) || 0) * c;
+      cap += scavengeCount(id) * c;
     }
-    const seconds = Math.round((Math.pow(cap * cap * 100 * loot * loot, 0.45) + 1800) * Math.pow(Number(form.dataset.speed), -0.55));
-    form.querySelector('[data-scavenge-haul]').textContent = Math.floor(cap * loot).toLocaleString('fr-FR');
-    form.querySelector('[data-scavenge-duration]').textContent = cap ? fmt(seconds) : '—';
+    const total = Math.floor(cap * loot);
+    const third = Math.floor(total / 3);
+    const resources = { wood: total - 2 * third, stone: third, iron: third };
+    for (const [id, amount] of Object.entries(resources)) preview.querySelector(`[data-scavenge-resource="${id}"]`).textContent = amount.toLocaleString('fr-FR');
+    const seconds = Math.round((Math.pow(cap * cap * 100 * loot * loot, 0.45) + 1800) * Math.pow(Number(preview.dataset.speed), -0.55));
+    preview.querySelector('[data-scavenge-duration]').textContent = cap ? fmt(seconds) : '—';
   }
   document.addEventListener('input', (e) => {
+    if (e.target.closest('[data-scavenge-selection]')) document.querySelectorAll('[data-scavenge-preview]').forEach(scavengePreview);
+  });
+  document.addEventListener('submit', (e) => {
     const form = e.target.closest('form[data-scavenge]');
-    if (form) scavengePreview(form);
+    if (!form) return;
+    for (const id of Object.keys(JSON.parse(form.dataset.carry))) form.querySelector(`input[name="${id}"]`).value = scavengeCount(id);
   });
 
   // Recrutement : coût total (ressources, population, durée) de la saisie, en rouge ce qui manque ; le maximum de
@@ -203,11 +282,10 @@
     const link = e.target.closest('[data-fill]');
     if (!link) return;
     e.preventDefault();
-    const scope = link.closest('form') || document;
+    const scope = link.closest('[data-scavenge-selection]') || link.closest('form') || document;
     const input = scope.querySelector(`input[name="${link.dataset.fill}"]`);
     if (input) input.value = link.dataset.max;
-    const form = link.closest('form[data-scavenge]');
-    if (form) scavengePreview(form);
+    if (link.closest('[data-scavenge-selection]')) document.querySelectorAll('[data-scavenge-preview]').forEach(scavengePreview);
     const recruit = link.closest('form[data-recruit]');
     if (recruit) recruitTotal(recruit);
   });

@@ -23,6 +23,12 @@ const GAME_STYLES = {
     description: 'Encre, rouge sang et bronze : la grandeur de l’Empire.',
     fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Marcellus&display=swap',
   },
+  egypt: {
+    id: 'egypt',
+    name: 'Égypte antique',
+    description: 'Pierre ocre, or et fresques délavées : les temples du Nil.',
+    fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=El+Messiri:wght@500;600;700&display=swap',
+  },
   viking: {
     id: 'viking',
     name: 'Viking',

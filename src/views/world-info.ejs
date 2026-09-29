@@ -33,6 +33,8 @@
   );
   const groups = [
     ['Monde', [
+      ['Type', world.access === 'code' ? 'Serveur privé, sur code' : world.access ? 'Serveur privé, ouvert' : 'Monde officiel'],
+      ['Ouvert le', new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })],
       ['Vitesse du monde', `×${cfg.speed}`],
       ['Vitesse des unités', `×${cfg.unitSpeed}`],
       ['Taille de la carte', `${cfg.mapSize} × ${cfg.mapSize}`],
@@ -53,6 +55,7 @@
       ['Protection des débutants', `${cfg.newbieDays} jours`],
       ['Annulation d’un ordre', `${Math.round(cfg.commandCancelSeconds / 60)} min`],
       ['Villages barbares', `+${num(cfg.barbarian.growthPerDay)} pts / jour, ${num(cfg.barbarian.maxPoints)} max`],
+      ['Troupes des villages abandonnés', cfg.barbarian.troops ? 'Conservées' : 'Retirées'],
       ['Villages barbares par inscription', `${num(cfg.placement.emptyVillages)} %`],
     ]],
     ['Modules', [

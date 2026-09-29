@@ -16,6 +16,7 @@ const T0 = new Date('2026-09-24T12:00:00Z');
 let a;
 let a2;
 let knight;
+let dx; // distance entre les deux villages (3 cases, ou plus si le barbare de l'inscription occupe la case)
 const ctxAt = (id, now) => VillageService.withVillage(id, async (c) => c, { now });
 
 test.before(async () => {
@@ -26,7 +27,7 @@ test.before(async () => {
   ({ village: a, player } = await WorldService.join(u, 'w1', { now: T0 }));
   const world = await (require('../src/models').World).findOne();
   // Deuxième village sur une case libre près du premier (le barbare de l'inscription tombe à 2 à 6 cases).
-  let dx = 3;
+  dx = 3;
   while (await Village.count({ where: { worldId: world.id, x: a.x + dx, y: a.y } })) dx++;
   a2 = await WorldService.createVillage(world, { x: a.x + dx, y: a.y, player, name: 'Second', buildings: { main: 1, farm: 5, storage: 5, statue: 1 }, now: T0 });
   await Village.update({
@@ -60,7 +61,7 @@ test('déménagement : voyage à la vitesse du paladin, nouveau village d’atta
   await assert.rejects(CommandService.relocateKnight(a.id, a.id, { now }), /autre de vos villages/);
   const cmd = await CommandService.relocateKnight(a.id, a2.id, { now });
   assert.equal(cmd.type, 'relocate');
-  assert.equal(+cmd.arrivesAt - +now, 3 * 10 * 60 * 1000, '3 cases à 10 min/case');
+  assert.equal(+cmd.arrivesAt - +now, dx * 10 * 60 * 1000, `${dx} cases à 10 min/case`);
   assert.equal((await ctxAt(a.id, now)).state.units.knight, undefined);
 
   await CommandService.processDue(cmd.arrivesAt);

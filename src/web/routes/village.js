@@ -59,6 +59,14 @@ router.get('/', ah(async (req, res) => {
   });
 }));
 
+// Aperçus des villages, comme sur GT (menu « Aperçu ») : tous les villages du joueur et leurs données, par onglet.
+const OVERVIEW_MODES = ['combined', 'prod', 'units', 'buildings'];
+router.get('/villages', ah(async (req, res) => {
+  const mode = OVERVIEW_MODES.includes(req.query.mode) ? req.query.mode : 'combined';
+  const rows = await require('../../services/VillagesOverviewService').rows(me(req));
+  res.render('villages', { page: 'villages', mode, rows });
+}));
+
 router.post('/rename', ah(async (req, res) => {
   await VillageService.rename(req.ctx.village.id, req.body.name);
   flash(req, 'success', 'Village renommé.');
@@ -379,6 +387,10 @@ function simulate(query, cfg) {
 router.get('/place', ah(async (req, res) => {
   const tab = ['commands', 'troops', 'sim'].includes(req.query.tab) ? req.query.tab : 'commands';
   const lists = await CommandService.overview(req.ctx.village.id);
+  const [scavengeRuns, homeKnights] = tab === 'troops' ? await Promise.all([
+    ScavengeRun.findAll({ where: { villageId: req.ctx.village.id }, order: [['endsAt', 'ASC']] }),
+    Knight.findAll({ where: { homeVillageId: req.ctx.village.id }, attributes: ['trainingEndsAt'] }),
+  ]) : [[], []];
   const templates = await ArmyTemplateService.list(me(req));
   // ?tpl= (aperçu d'un village : « Envoyer des troupes » avec un modèle) : unités du modèle, sauf si l'URL en donne.
   const tpl = req.query.tpl ? templates.find((x) => String(x.id) === String(req.query.tpl)) : null;
@@ -387,6 +399,8 @@ router.get('/place', ah(async (req, res) => {
     page: 'place',
     tab,
     ...lists,
+    scavengeRuns,
+    knightTraining: homeKnights.some((knight) => knight.trainingEndsAt),
     // Cible et unités pré-remplies depuis l'URL (carte : Espionner ; modèles d'armée) : ?x=…&y=…&spy=5
     form: {
       x: req.query.x || '', y: req.query.y || '',
@@ -459,6 +473,12 @@ router.post('/support/:stackId/withdraw', ah(async (req, res) => {
   await CommandService.withdrawSupport(req.params.stackId, req.user.id);
   flash(req, 'success', 'Les troupes rentrent chez elles.');
   res.redirect(back(req, `${base(req)}/place`));
+}));
+
+router.post('/support/bulk-withdraw', ah(async (req, res) => {
+  const count = await CommandService.withdrawSupports(req.body.ids, req.user.id, req.ctx.village.id, req.body.direction);
+  flash(req, 'success', `${count} soutien${count > 1 ? 's' : ''} ${req.body.direction === 'here' ? 'renvoyé' : 'rappelé'}${count > 1 ? 's' : ''}.`);
+  res.redirect(back(req, `${base(req)}/place?tab=troops`));
 }));
 
 // ------------------------------------------------------------ Marché
@@ -1099,7 +1119,7 @@ router.get('/victory', (req, res) => res.redirect(`${base(req)}/ranking?type=vic
 // Tailles proposées (comme sur Guerre Tribale) et calques de la carte, mémorisés sur le joueur (mapSettings).
 const MAP_SIZES = [4, 5, 7, 9, 11, 13, 15, 20, 30];
 const MINI_SIZES = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120];
-const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true };
+const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true, moves: true };
 
 router.get('/map', ah(async (req, res) => {
   const { village, cfg } = req.ctx;

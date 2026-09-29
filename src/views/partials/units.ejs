@@ -6,7 +6,7 @@
   <span class="inline-flex flex-wrap gap-1.5">
     <% for (const [id, n] of entries) { const lost = typeof losses !== 'undefined' && losses ? losses[id] || 0 : 0; %>
       <span class="<%= ui.chip %> py-0.5" title="<%= unitName(id) %>">
-        <span class="text-gold-400"><%- unitIcon(id, 'size-3.5') %></span><%= unitName(id) %> <strong class="text-parchment-100 tabular-nums"><%= num(n) %></strong>
+        <span class="text-gold-400"><%- unitIcon(id, typeof iconSize !== 'undefined' ? iconSize : 'size-3.5') %></span><%= unitName(id) %> <strong class="text-parchment-100 tabular-nums"><%= num(n) %></strong>
         <% if (lost) { %><span class="text-blood-300 tabular-nums">−<%= num(lost) %></span><% } %>
       </span>
     <% } %>

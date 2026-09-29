@@ -7,23 +7,8 @@
   `view` : 'city' (plan, écrans moyens et plus) ou 'list' (liste, toujours utilisée sur mobile).
 %>
 <%
-  // [centre horizontal, pied du bâtiment, largeur], en % du décor.
-  // Ancrer au sol garde les trois paliers sur leur parcelle, quelle que soit leur hauteur.
-  // Le quartier général domine le fond ; les ateliers entourent le puits sans couper les chemins.
-  const SPOTS = {
-    wood: [11, 25, 14], iron: [90, 25, 14],
-    snob: [36, 23, 15], main: [60, 23, 17],
-    stable: [72, 61, 12], barracks: [76, 45, 15], hide: [43, 34, 7],
-    statue: [37, 47, 6.5], market: [30, 35, 13], smith: [40, 67, 13],
-    place: [60, 41, 9], storage: [25, 54, 14], garage: [59, 69, 13],
-    stone: [10, 79, 14], farm: [90, 77, 14],
-  };
-  const WALL_SPOT = [50, 78, 14];
-  // Décor uniquement : les mondes actuels ne proposent pas le bâtiment église.
-  const CHURCH_SPOT = [73, 29, 13];
-  // Image de chaque bâtiment selon son niveau : helpers.buildingSprite (commune aux pages de bâtiment).
-  const spriteOf = buildingSprite;
-  const spotStyle = ([x, y, width], ratio = 7 / 8) => `left:${x - width / 2}%;top:${y - width * ratio * 1.5}%;width:${width}%;--plot-depth:${Math.round(y)}`;
+  // Disposition commune du plan (src/web/villagePlan.js), partagée avec la vitrine de l'accueil.
+  const { SPOTS, WALL_SPOT, CHURCH_SPOT, spotStyle } = VILLAGE_PLAN;
   const vid = ctx.village.id;
   const favs = new Set(favoriteBuildings(player, ctx));
   // Étoile toujours visible, indépendamment du survol et de l’état du favori.
@@ -53,14 +38,11 @@
       <span class="village-building-name absolute z-[2] border-2 border-black px-1 py-px text-center text-[10px] font-bold">Église · Indisponible</span>
     </div>
     <% for (const p of plan) { %>
-      <div class="village-building-plot group/plot absolute" style="<%= spotStyle(SPOTS[p.b.id]) %>">
+      <div class="village-building-plot group/plot absolute" data-building="<%= p.b.id %>" style="<%= spotStyle(SPOTS[p.b.id]) %>">
       <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute inset-0 cursor-pointer no-underline"
          title="<%= titleOf(p) %>">
-        <% if (p.level) { %>
-          <img src="<%= spriteOf(p.b.id, p.level) %>" alt="" width="320" height="280" class="village-building-sprite pointer-events-none absolute inset-0 size-full object-contain">
-        <% } else { %>
-          <span class="village-building-empty absolute flex items-center justify-center border-2 border-dashed"><%- buildingIcon(p.b.id, 'size-6', 1.8) %></span>
-        <% } %>
+        <%# Visuel commun des bâtiments (helpers.buildingImg) ; non construit : silhouette grisée plus discrète. %>
+        <%- buildingImg(p.b.id, p.level, `village-building-sprite pointer-events-none absolute inset-0 size-full${p.level ? '' : ' opacity-40!'}`) %>
         <span class="village-building-level absolute z-[2] border-2 border-black px-1 text-[10px] font-bold"><%= p.level %></span>
         <span class="village-building-activities"><%- timer(p) %></span>
         <span class="village-building-name absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold tracking-[0.02em] transition group-hover:bg-head-dark group-hover:text-on-accent"><%= p.b.name %></span>
@@ -136,9 +118,7 @@
   <% for (const p of [...plan, ...(wall ? [wall] : [])]) { %>
     <div class="<%= ui.box %> flex items-center gap-1 pr-1.5 transition hover:bg-row-hover">
     <a href="<%= p.href %>" class="flex min-w-0 flex-1 items-center gap-2.5 p-1.5 no-underline" title="<%= titleOf(p) %>">
-      <span class="relative block h-12 w-16 shrink-0 overflow-hidden <%= p.level ? '' : 'border-2 border-dashed border-bronze-700 bg-black/45' %>">
-        <% if (p.level) { %><img src="<%= spriteOf(p.b.id, p.level) %>" alt="" width="320" height="280" class="absolute inset-0 size-full object-contain"><% } %>
-      </span>
+      <%- buildingImg(p.b.id, p.level, 'h-12 w-16') %>
       <span class="flex min-w-0 flex-1 flex-col">
         <span class="truncate font-semibold <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
         <span class="text-[13px] text-gold-400"><%= p.level ? `LV.${p.level}` : 'Non construit' %></span>

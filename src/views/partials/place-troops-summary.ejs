@@ -1,0 +1,70 @@
+<%
+  const campaign = [
+    ...stacksAway.map((s) => ({ kind: 'Soutien', village: s.village, units: s.units, supportId: s.id })),
+    ...outgoing.map((c) => ({ kind: typeName[c.type] || c.type, village: c.target, units: c.units, until: c.arrivesAt, href: `/village/${vid}/place?tab=commands` })),
+    ...scavengeRuns.map((run) => ({ kind: `Collecte · ${ctx.cfg.scavenging.options.find((option) => option.id === run.option)?.name || `option ${run.option}`}`, units: run.units, until: run.endsAt, href: `/village/${vid}/scavenge` })),
+    ...(knightTraining ? [{ kind: 'Formation du paladin', units: { knight: 1 }, href: `/village/${vid}/recruit/statue` }] : []),
+  ];
+  const unitIds = allUnits.map((u) => u.id);
+  const totals = (lists) => Object.fromEntries(unitIds.map((id) => [id, lists.reduce((sum, units) => sum + (units[id] || 0), 0)]));
+  const defenseTotal = totals([ctx.state.units, ...stacksHere.map((s) => s.units)]);
+  const campaignTotal = totals(campaign.map((row) => row.units));
+  const activeUnits = new Set(unitIds.filter((id) => defenseTotal[id] || campaignTotal[id]));
+  const tableClass = 'w-full table-fixed border-collapse bg-panel-top text-xs sm:text-sm min-w-[var(--troop-min-width)] sm:min-w-[760px] [&_th]:px-1 [&_th]:py-1 [&_td]:px-1 [&_td]:py-1 [&_tbody_tr:nth-child(even)]:bg-row-alt';
+  const tableMinWidth = Math.max(300, 160 + activeUnits.size * 42);
+  const unitHead = unitIds.map((id) => `<th scope="col" class="text-center ${activeUnits.has(id) ? '' : 'hidden sm:table-cell'}" title="${esc(unitName(id))}"><span class="flex justify-center">${unitIcon(id, 'size-7')}</span><span class="sr-only">${esc(unitName(id))}</span></th>`).join('');
+  const unitCells = (units, strong = false) => unitIds.map((id) => {
+    const count = units[id] || 0;
+    return `<td class="text-center tabular-nums ${activeUnits.has(id) ? '' : 'hidden sm:table-cell'} ${count ? (strong ? 'font-bold text-parchment-100' : 'font-semibold text-parchment-100') : 'text-parchment-600'}">${num(count)}</td>`;
+  }).join('');
+%>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Défenses', `<span class="text-xs text-parchment-300">${stacksHere.length} soutien${stacksHere.length > 1 ? 's' : ''} présent${stacksHere.length > 1 ? 's' : ''}</span>`) %>
+  <form id="troops-here-bulk" method="post" action="/village/<%= vid %>/support/bulk-withdraw"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="direction" value="here"></form>
+  <div class="overflow-x-auto">
+    <table class="<%= tableClass %>" style="--troop-min-width:<%= tableMinWidth %>px">
+      <thead class="bg-thead"><tr class="border-b border-bronze-700/50"><th scope="col" class="w-7"><span class="sr-only">Sélection</span></th><th scope="col" class="w-28 text-left text-gold-400 sm:w-56">Origine</th><%- unitHead %></tr></thead>
+      <tbody>
+        <tr class="border-b border-bronze-700/30"><td></td><th scope="row" class="text-left font-medium text-parchment-100">De ce village</th><%- unitCells(ctx.state.units) %></tr>
+        <% for (const s of stacksHere) { %>
+          <tr class="border-b border-bronze-700/30">
+            <td class="text-center"><input type="checkbox" name="ids" value="<%= s.id %>" form="troops-here-bulk" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner le soutien de <%= s.origin.name %>"></td>
+            <th scope="row" class="break-words text-left font-medium"><a href="<%= villageHref(s.origin) %>" class="<%= ui.linkPlain %>"><%= s.origin.name %> <span class="font-normal text-parchment-500">(<%= s.origin.x %>|<%= s.origin.y %>)</span></a><% if (s.origin.Player) { %><span class="block text-xs font-normal text-parchment-500"><%= s.origin.Player.name %></span><% } %></th>
+            <%- unitCells(s.units) %>
+          </tr>
+        <% } %>
+        <tr class="bg-thead"><td></td><th scope="row" class="text-left font-bold text-parchment-100">Total</th><%- unitCells(defenseTotal, true) %></tr>
+      </tbody>
+    </table>
+  </div>
+  <% if (stacksHere.length) { %><div class="flex flex-wrap items-center gap-3 px-2 py-2"><label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-parchment-400"><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="troops-here-bulk">Tout sélectionner</label><button class="<%= btn('dark', 'sm') %>" form="troops-here-bulk">Renvoyer la sélection</button></div><% } %>
+</section>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Troupes en campagne', `<span class="text-xs text-parchment-300 tabular-nums">${campaign.length} groupe${campaign.length > 1 ? 's' : ''}</span>`) %>
+  <% if (!campaign.length) { %>
+    <p class="px-3 py-3 text-sm text-parchment-500">Aucune troupe hors du village.</p>
+  <% } else { %>
+    <form id="troops-away-bulk" method="post" action="/village/<%= vid %>/support/bulk-withdraw"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="direction" value="away"></form>
+    <div class="overflow-x-auto">
+      <table class="<%= tableClass %>" style="--troop-min-width:<%= tableMinWidth %>px">
+        <thead class="bg-thead"><tr class="border-b border-bronze-700/50"><th scope="col" class="w-7"><span class="sr-only">Sélection</span></th><th scope="col" class="w-28 text-left text-gold-400 sm:w-56">Village</th><%- unitHead %></tr></thead>
+        <tbody>
+          <% for (const row of campaign) { %>
+            <tr class="border-b border-bronze-700/30">
+              <td class="text-center"><% if (row.supportId) { %><input type="checkbox" name="ids" value="<%= row.supportId %>" form="troops-away-bulk" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner le soutien à <%= row.village.name %>"><% } %></td>
+              <th scope="row" class="break-words text-left font-medium">
+                <% if (row.village) { %><a href="<%= villageHref(row.village) %>" class="<%= ui.linkPlain %>"><%= row.village.name %> <span class="font-normal text-parchment-500">(<%= row.village.x %>|<%= row.village.y %>)</span></a><% } else { %><%= row.kind %><% } %>
+                <span class="block text-xs font-normal text-parchment-500"><% if (row.href) { %><a href="<%= row.href %>" class="<%= ui.link %>"><%= row.kind %></a><% } else { %><%= row.kind %><% } %><% if (row.until) { %> · <%= whenShort(row.until, now) %><% } %></span>
+              </th>
+              <%- unitCells(row.units) %>
+            </tr>
+          <% } %>
+          <tr class="bg-thead"><td></td><th scope="row" class="text-left font-bold text-parchment-100">Total</th><%- unitCells(campaignTotal, true) %></tr>
+        </tbody>
+      </table>
+    </div>
+    <% if (stacksAway.length) { %><div class="flex flex-wrap items-center gap-3 px-2 py-2"><label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-parchment-400"><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="troops-away-bulk">Tout sélectionner</label><button class="<%= btn('dark', 'sm') %>" form="troops-away-bulk">Rappeler la sélection</button></div><% } %>
+  <% } %>
+</section>

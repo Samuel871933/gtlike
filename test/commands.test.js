@@ -5,7 +5,7 @@ delete process.env.DATABASE_URL;
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { sequelize, Village, Command, SupportStack, Report } = require('../src/models');
+const { sequelize, World, Player, Village, Command, SupportStack, Report } = require('../src/models');
 const AuthService = require('../src/services/AuthService');
 const WorldService = require('../src/services/WorldService');
 const VillageService = require('../src/services/VillageService');
@@ -123,6 +123,39 @@ test('soutien : stationné chez l’allié, défend, puis rappelé', async () =>
   assert.equal(await SupportStack.count(), 0);
   const back = await Command.findOne({ where: { type: 'return', originVillageId: a.id } });
   assert.equal(back.units.spear, stack.units.spear);
+});
+
+test('soutiens sélectionnés : renvoi groupé atomique et limité au village', async () => {
+  const user = await AuthService.register({ username: 'Carol', email: 'c@example.com', password: 'motdepasse' });
+  const { village: c } = await WorldService.join(user, 'w1', { now: T0 });
+  const first = await SupportStack.create({ villageId: b.id, originVillageId: a.id, units: { spear: 2 } });
+  const second = await SupportStack.create({ villageId: b.id, originVillageId: c.id, units: { axe: 3 } });
+  const hostId = (await Village.findByPk(b.id, { include: ['Player'] })).Player.userId;
+  const ownerId = (await Village.findByPk(a.id, { include: ['Player'] })).Player.userId;
+  const before = await Command.count();
+  await assert.rejects(CommandService.withdrawSupports([first.id, second.id], ownerId, b.id, 'here'), /introuvable/);
+  await assert.rejects(CommandService.withdrawSupports([first.id, second.id], hostId, b.id, 'away'), /introuvable/);
+  await assert.rejects(CommandService.withdrawSupports([first.id, 999999], hostId, b.id, 'here'), /introuvable/);
+  assert.equal(await SupportStack.count({ where: { villageId: b.id } }), 2);
+  assert.equal(await Command.count(), before);
+  assert.equal(await CommandService.withdrawSupports([first.id, second.id], hostId, b.id, 'here', { now: T0 }), 2);
+  assert.equal(await SupportStack.count({ where: { villageId: b.id } }), 0);
+  assert.equal(await Command.count(), before + 2);
+});
+
+test('attaque d’un autre village possédé depuis le village courant', async () => {
+  const world = await World.findByPk(a.worldId);
+  const player = await Player.findByPk(a.playerId);
+  const ownTarget = await WorldService.createVillage(world, { x: 900, y: 900, player, name: 'Second village', buildings: { main: 1, farm: 1, place: 1 }, now: T0 });
+  const now = new Date(T0.getTime() + 5 * 86400000);
+  await assert.rejects(CommandService.send(a.id, { x: a.x, y: a.y, type: 'attack', units: { axe: 1 } }, { now }), /propre village/);
+  const command = await CommandService.send(a.id, { x: ownTarget.x, y: ownTarget.y, type: 'attack', units: { axe: 1 } }, { now });
+  assert.equal(command.originVillageId, a.id);
+  assert.equal(command.targetVillageId, ownTarget.id);
+  const before = await Report.count({ where: { playerId: player.id, type: 'defense' } });
+  await CommandService.processDue(command.arrivesAt, noLuck);
+  assert.equal((await Village.findByPk(ownTarget.id)).playerId, player.id);
+  assert.equal(await Report.count({ where: { playerId: player.id, type: 'defense' } }), before);
 });
 
 test('gommette de la dernière attaque : sans perte, pertes partielles, totales, espionnage ; butin', () => {

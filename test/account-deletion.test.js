@@ -72,3 +72,14 @@ test('supprimer le compte : tous les mondes, puis le compte ; dernier membre = t
   await AccountService.deleteAccount(u.Alice.id, 'motdepasse');
   assert.equal(await Player.count(), 0, 'Alice a quitté ses deux mondes');
 });
+
+test('monde sans troupes barbares : le village abandonné perd ses troupes', async () => {
+  await WorldService.createWorld({ slug: 'w3', name: 'Monde 3', config: { barbarian: { troops: false } } });
+  const user = await AuthService.register({ username: 'Carl', email: 'carl@example.com', password: 'motdepasse' });
+  const { player, village } = await WorldService.join(user, 'w3', { now: T0 });
+  await Village.update({ units: { axe: 50 } }, { where: { id: village.id } });
+  await AccountService.leaveWorld(user.id, player.id, 'motdepasse');
+  const barb = await Village.findByPk(village.id);
+  assert.equal(barb.playerId, null);
+  assert.deepEqual(barb.units, {});
+});

@@ -17,8 +17,6 @@
   const mapHref = `/village/${vid}/map?x=${target.x}&y=${target.y}&sx=${target.x}&sy=${target.y}`;
   const markHref = `/village/${vid}/map?${new URLSearchParams({ x: target.x, y: target.y, mark: `village:${target.id}`, label: `${target.name} (${target.x}|${target.y})` })}#marquages`;
   const verbs = { attack: 'Attaque', support: 'Soutien', return: 'Retour' };
-  const moveBox = { attack: 'bg-blood-600', support: 'bg-steel-500', return: 'bg-gold-400' };
-  const moveIcon = { attack: 'attack', support: 'support', return: 'return' };
   const action = 'flex w-full cursor-pointer items-center gap-2.5 border-b border-bronze-800 px-3 py-2 text-left font-semibold text-parchment-200 no-underline transition hover:bg-row-hover hover:text-parchment-50';
   const actionIcon = (name, cls = 'text-gold-400') => `<span class="flex w-5 justify-center ${cls}">${icon(name, 'size-4', 2)}</span>`;
 %>
@@ -118,12 +116,11 @@
           <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
             <thead><tr><th>Ordre</th><th>Heure d'arrivée</th><th class="text-right">Arrive dans</th></tr></thead>
             <tbody>
-            <% for (const c of commands) { const pace = paceUnit(c.units, c.type); const left = (new Date(c.arrivesAt) - now) / 1000; %>
+            <% for (const c of commands) { const left = (new Date(c.arrivesAt) - now) / 1000; %>
               <tr>
                 <td>
                   <span class="flex min-w-0 items-center gap-2">
-                    <span class="flex size-5 shrink-0 items-center justify-center border-2 border-black text-night shadow-[1px_1px_0_#000] <%= moveBox[c.type] || moveBox.support %>" title="<%= verbs[c.type] %>"><%- icon(moveIcon[c.type] || 'support', 'size-[12px]', 3.2) %></span>
-                    <% if (pace) { %><span class="flex shrink-0 text-gold-400" title="Unité la plus lente : <%= pace.name %>"><%- unitIcon(pace.id, 'size-4', 2) %></span><% } %>
+                    <%- include('partials/order-badge', { type: c.type, units: c.units, size: 'sm' }) %>
                     <span class="truncate"><span class="text-parchment-400"><%= c.type === 'return' ? 'Retour vers' : `${verbs[c.type] || 'Ordre'} depuis` %></span> <a href="/village/<%= c.origin.id %>" class="<%= ui.linkPlain %> font-semibold"><%= c.origin.name %></a></span>
                   </span>
                 </td>

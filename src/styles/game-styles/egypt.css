@@ -1,0 +1,152 @@
+/*
+  Style de jeu « Égypte antique », accordé au fond (pierre ocre aux fresques délavées) : or ocré des ailes du disque
+  solaire pour les bandeaux, encre sépia des contours au lieu du noir pur (filets, bouton d'action, barre du haut),
+  terre cuite pour le rouge, vert-de-gris des lotus et papyrus pour les succès et les soutiens. Style clair et léger :
+  fonds calcaire pâle. Comme le style médiéval, c'est un style clair (variante `light:` d'app.css) : les jetons de texte
+  (parchment-*) sont foncés, les fonds clairs, et le texte posé sur les aplats foncés passe par --color-on-accent.
+  Les couleurs d'information (diplomatie sur la carte, mini-carte, terrain) restent celles du style par défaut.
+*/
+
+@custom-variant egypt (&:where([data-game-style="egypt"], [data-game-style="egypt"] *));
+
+@layer theme {
+  [data-game-style="egypt"] {
+    --font-display: "El Messiri", Georgia, serif;
+    --game-image-village: url("/img/game-styles/egypt/village.svg");
+    --game-bg-texture: url("/img/game-styles/egypt/background-texture.png");
+    /* Pierre aux fresques : voile léger pour laisser voir le décor des bords (voir html.game_style body dans app.css). */
+    --game-bg-blend: normal;
+    --game-bg-veil: 25%;
+
+    /* Fonds : calcaire pâle, pris dans la pierre du fond */
+    --color-night: #fbf3df;
+    --color-night-deep: #eedbb3;
+    --color-halo: #dcb77a;
+    --color-panel-hi: #fbf1da;
+    --color-panel-top: #f8ebcf;
+    --color-panel-mid: #f3e2c0;
+    --color-panel-lo: #ecd6ab;
+    --color-panel-edge: #d4b37a;
+    --color-knob-hi: #efdcb4;
+    --color-knob-lo: #e5cc98;
+    --color-knob-on-hi: #d4a95c;
+    --color-knob-on-lo: #bf9147;
+    --color-knob-hover: #fff7e6;
+    --color-well-hi: #fffaf0;
+    --color-well-lo: #ecd6ab;
+    --color-bar-hi: #e6cf9f;
+    --color-vbar-hi: rgb(230 207 159 / 0.96);
+    --color-vbar-lo: rgb(216 188 136 / 0.96);
+    --color-core-hi: #fff8e8;
+    --color-core-lo: #ecd6ab;
+    --color-tile-hi: rgb(255 248 232 / 0.7);
+    --color-plate: rgb(248 235 207 / 0.9);
+    --color-plate-strong: rgb(248 235 207 / 0.95);
+    --color-grain: rgb(59 40 22 / 0.035);
+
+    /* Bandeaux or ocré (ailes du disque solaire) au texte sépia, en-têtes de tableau sable, lignes alternées */
+    --color-head: #d8ab5e;
+    --color-head-dark: #c3924a;
+    --color-thead: #eed6a6;
+    --color-row-hover: #fff7e6;
+    --color-row-alt: #f4e4c3;
+
+    /* Bouton d'action, barre du haut : encre sépia, filet et texte or ocré (--color-on-accent) */
+    --color-action: #35271a;
+    --color-action-hi: #4a3826;
+    --color-action-line: #d8ab5e;
+    --color-action-deep: #1e150c;
+    --color-on-accent: #f3d9a0;
+
+    /* Sépia : bordures et filets ; les nuances sable pour les séparations discrètes */
+    --color-bronze-200: #1e150c;
+    --color-bronze-300: #2a1e12;
+    --color-bronze-400: #35271a;
+    --color-bronze-500: #4a3622;
+    --color-bronze-600: #7a5d3a;
+    --color-bronze-700: #b08c5a;
+    --color-bronze-800: #d7bc8a;
+    --color-bronze-900: #e8d3a8;
+    --color-bronze-950: #4a3622;
+
+    /* Liens, titres de colonnes, accents : ocre brun des hiéroglyphes */
+    --color-gold-50: #241708;
+    --color-gold-100: #2e1e0b;
+    --color-gold-200: #4f3312;
+    --color-gold-250: #5a3a14;
+    --color-gold-300: #684418;
+    --color-gold-400: #7c511c;
+    --color-gold-500: #915f24;
+    --color-gold-600: #ad7b3a;
+    --color-gold-700: #cfa15e;
+    --color-gold-ink: #f3d9a0;
+    --color-gold-shadow: #d7bc8a;
+
+    /* Textes : encre sépia, du plus foncé au plus pâle */
+    --color-parchment-50: #140d06;
+    --color-parchment-100: #1c1309;
+    --color-parchment-200: #281c0f;
+    --color-parchment-300: #3a2b19;
+    --color-parchment-350: #463524;
+    --color-parchment-400: #574430;
+    --color-parchment-500: #6e5a40;
+    --color-parchment-600: #8a7454;
+    --color-parchment-700: #a8916c;
+
+    /* Rouge terre cuite des fresques, foncé pour rester lisible */
+    --color-blood-100: #8a3818;
+    --color-blood-200: #94331a;
+    --color-blood-300: #a0391d;
+    --color-blood-350: #a74124;
+    --color-blood-400: #b04528;
+    --color-blood-450: #a8561f;
+    --color-blood-500: #ad3b22;
+    --color-blood-shadow: #d7bc8a;
+
+    /* Vert-de-gris des lotus (succès, retours) et bleu-vert délavé (soutiens), foncés pour le texte */
+    --color-olive-300: #4a6446;
+    --color-olive-500: #5b7856;
+    --color-olive-700: #a9bba0;
+    --color-steel-300: #3d5f60;
+    --color-steel-500: #4f7474;
+
+    /* Ressources, lisibles sur fond clair */
+    --color-wood: #8a5a1a;
+    --color-clay: #b0452a;
+    --color-iron: #5c6773;
+    --color-pop: #5b7856;
+
+    /* Reflets, halos et blasons */
+    --color-glint: rgb(255 255 255 / 0.35);
+    --color-glint-strong: rgb(255 255 255 / 0.5);
+    --color-glow: rgb(124 81 28 / 0.25);
+    --color-glow-soft: rgb(124 81 28 / 0.12);
+    --color-glow-select: rgb(124 81 28 / 0.35);
+    --color-crest: #4f7474;
+    --color-shield-edge: #1c1309;
+    --color-shield-mark: #d8ab5e;
+
+    /* Plan du village : grès, calcaire et brique crue sous le soleil */
+    --color-bld-marble: #e8dcbc;
+    --color-bld-marble-dk: #cfbf97;
+    --color-bld-stone: #c9b388;
+    --color-bld-stone-dk: #a8926a;
+    --color-bld-slate: #a89a7c;
+    --color-bld-timber: #8c6236;
+    --color-bld-timber-dk: #6e4a26;
+    --color-bld-grain: #c9a14f;
+    --color-bld-grain-dk: #a8823a;
+    --color-bld-soot: #5c4c40;
+    --color-bld-fire: #e0641f;
+    --color-bld-field: #a9953f;
+    --color-bld-field-lt: #cdb45a;
+    --color-bld-rock: #b3a88f;
+    --color-bld-pit: #7a6f5c;
+    --color-bld-clay: #c9794a;
+    --color-bld-clay-dk: #a35c33;
+
+    /* Grands titres : pas d'ombre portée sur le papyrus */
+    --color-title-shadow: transparent;
+    --color-title-shadow-2: transparent;
+  }
+}

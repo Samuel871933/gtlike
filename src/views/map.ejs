@@ -75,12 +75,14 @@
             <div class="grid gap-px bg-bronze-900 p-px" style="grid-template-columns: repeat(<%= paces.length <= 10 ? paces.length : Math.ceil(paces.length / 2) %>, minmax(50px, 1fr))" data-tip-travel>
               <% for (const u of paces) { %><span class="flex flex-col items-center gap-1 bg-panel-top px-1.5 pt-1.5 pb-1 whitespace-nowrap" title="<%= u.name %>"><span class="text-gold-400"><%- unitIcon(u.id, 'size-4', 2) %></span><span class="text-[11px] text-parchment-200 tabular-nums" data-tip-pace="<%= u.minutes %>"></span></span><% } %>
             </div>
+            <div class="hidden border-t border-bronze-700" data-tip-row="orders-own"><div class="bg-head px-2 py-1 font-semibold">Propres ordres (<span data-tip="orders-own-count"></span>)</div><div data-tip="orders-own"></div></div>
+            <div class="hidden border-t border-bronze-700" data-tip-row="orders-tribe"><div class="bg-head px-2 py-1 font-semibold">Ordres de la tribu (<span data-tip="orders-tribe-count"></span>)</div><div data-tip="orders-tribe"></div></div>
           </div>
           <div class="map-controls absolute z-[16] hidden w-[200px] border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]" data-map-menu>
             <div class="border-b-2 border-bronze-500 bg-head px-2 py-1 font-display text-xs font-semibold tracking-[0.02em]"><span data-menu-t="name"></span> <span class="font-sans text-parchment-300 tabular-nums" data-menu-t="coords"></span></div>
             <div data-menu-t="actions"></div>
           </div>
-          <%# Actions rapides autour d'un village d'un autre joueur, comme sur Guerre Tribale : icônes en cercle
+          <%# Actions rapides autour d'un village, comme sur Guerre Tribale : icônes en cercle
               autour de la case, libellé dessous (nom du village, puis l'action survolée). Rempli par map.js. %>
           <div class="map-controls pointer-events-none absolute z-[16] hidden size-0" data-map-radial>
             <div data-radial-items></div>
@@ -120,7 +122,7 @@
           <% } else { %>
             <ul class="max-h-72 overflow-y-auto">
               <% for (const m of markers) {
-                   const href = m.targetType === 'player' ? `/village/${vid}/players/${m.targetId}` : m.targetType === 'tribe' ? `/village/${vid}/tribes/${m.targetId}` : link(m.x, m.y) + `&sx=${m.x}&sy=${m.y}`; %>
+                   const href = m.targetType === 'player' ? `/village/${vid}/players/${m.targetId}` : m.targetType === 'tribe' ? `/village/${vid}/tribes/${m.targetId}` : `/village/${vid}/villages/${m.targetId}`; %>
                 <li class="flex items-center gap-2.5 border-b border-bronze-800 px-3 py-1.5 last:border-b-0 hover:bg-row-hover">
                   <span class="size-4 shrink-0 border-2 border-black shadow-[1px_1px_0_#000]" style="background:<%= m.color %>"></span>
                   <span class="w-14 shrink-0 text-[13px] text-parchment-500"><%= { player: 'Joueur', tribe: 'Tribu', village: 'Village' }[m.targetType] %></span>
@@ -138,7 +140,7 @@
         <section class="<%= ui.panel %>">
           <%- panelHead('Calques de carte') %>
           <div class="flex flex-col">
-            <% for (const [k, label] of [['markers', 'Marquages'], ['influence', 'Influence de ta tribu'], ['enemy', 'Zones ennemies'], ['nobarb', 'Masquer les barbares'], ['grid', 'Quadrillage (5 cases)'], ['borders', 'Frontières de continent']]) { %>
+            <% for (const [k, label] of [['markers', 'Marquages'], ['moves', 'Mouvements de troupes'], ['influence', 'Influence de ta tribu'], ['enemy', 'Zones ennemies'], ['nobarb', 'Masquer les barbares'], ['grid', 'Quadrillage (5 cases)'], ['borders', 'Frontières de continent']]) { %>
               <button type="button" class="group flex cursor-pointer items-center justify-between border-b border-bronze-900 px-3 py-1.5 text-left text-parchment-400 last:border-b-0 hover:bg-thead aria-pressed:text-parchment-100" data-map-layer="<%= k %>" aria-pressed="<%= layers[k] ? 'true' : 'false' %>">
                 <span><%= label %></span>
                 <span class="spacing-normal relative h-4 w-8 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700)] group-aria-pressed:bg-blood-800"><span class="absolute top-px left-px size-2.5 border border-black bg-parchment-300 transition-[left] group-aria-pressed:left-[17px]"></span></span>
@@ -205,7 +207,7 @@
               <% for (const r of search.results) { %>
                 <li class="flex items-center justify-between gap-2 border-b border-bronze-800 px-2 py-1 last:border-b-0 hover:bg-thead">
                   <span class="flex min-w-0 flex-col">
-                    <% if (r.x != null) { %><a href="<%= link(r.x, r.y) %>&sx=<%= r.x %>&sy=<%= r.y %>" class="<%= ui.linkPlain %> truncate font-semibold"><%= r.label %></a><% } else { %><span class="truncate font-semibold"><%= r.label %></span><% } %>
+                    <% if (r.x != null) { %><a href="<%= r.villageId ? `/village/${vid}/villages/${r.villageId}` : `${link(r.x, r.y)}&sx=${r.x}&sy=${r.y}` %>" class="<%= ui.linkPlain %> truncate font-semibold"><%= r.label %></a><% } else { %><span class="truncate font-semibold"><%= r.label %></span><% } %>
                     <span class="truncate text-[11px] text-parchment-500"><%= r.sub %></span>
                   </span>
                   <span class="shrink-0 text-xs text-gold-400 tabular-nums">
@@ -249,7 +251,7 @@
           <% for (const f of favorites) { const fv = f.Village; %>
             <li class="flex items-center justify-between gap-2 border-b border-bronze-800 px-2.5 py-1 last:border-b-0 hover:bg-thead">
               <span class="flex min-w-0 flex-col">
-                <a href="<%= link(fv.x, fv.y) %>&sx=<%= fv.x %>&sy=<%= fv.y %>" class="<%= ui.linkPlain %> truncate font-semibold"><span class="text-gold-200">★</span> <%= fv.name %></a>
+                <a href="/village/<%= vid %>/villages/<%= fv.id %>" class="<%= ui.linkPlain %> truncate font-semibold"><span class="text-gold-200">★</span> <%= fv.name %></a>
                 <span class="truncate text-[11px] text-parchment-500"><%- fv.Player ? playerLink(vid, fv.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) : 'Barbares' %> · <%= num(fv.points) %> pts</span>
               </span>
               <span class="flex shrink-0 items-center gap-2">
@@ -302,5 +304,5 @@
 </div>
 <script src="/js/terrain.js" defer></script>
 <script src="/js/minimap.js" defer></script>
-<script src="/js/map.js" defer></script>
+<script src="/js/map.js?v=7" defer></script>
 <%- include('partials/footer') %>

@@ -1,122 +1,225 @@
 <%- include('partials/header', { title: 'Mondes', hero: true, lobbyPage: 'worlds' }) %>
 <%
   const directionNames = { random: 'Aléatoire', nw: 'Nord-Ouest', ne: 'Nord-Est', sw: 'Sud-Ouest', se: 'Sud-Est' };
-  const victoryNames = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Runes', siege: 'Grand Siège', none: 'aucune' };
-  const featureNames = { knight: 'paladin', archer: 'archers' };
+  const victoryNames = VICTORY_NAMES;
   const playing = (w) => w.player && w.player.villageCount > 0;
-  const current = worlds.filter((w) => !w.world.endedAt && playing(w));
-  const available = worlds.filter((w) => !w.world.endedAt && !playing(w) && w.world.isOpen);
-  const ended = worlds.filter((w) => w.world.endedAt);
+  // Mondes officiels (encart 1) et serveurs privés (encart 2, voir PrivateServerService).
+  const official = worlds.filter((w) => !w.world.isPrivate());
+  const current = official.filter((w) => !w.world.endedAt && playing(w));
+  const available = official.filter((w) => !w.world.endedAt && !playing(w) && w.world.isOpen);
+  const ended = official.filter((w) => w.world.endedAt);
+  // Tes serveurs privés : ceux où tu joues et ceux que tu as créés.
+  const myServers = worlds.filter((w) => w.world.isPrivate() && (playing(w) || w.world.ownerUserId === user.id));
+  // Serveurs publics les plus peuplés : tous les serveurs ouverts, les tiens compris.
+  const publicServers = popularServers;
+  const accessName = (world) => (world.access === 'code' ? 'Sur code' : 'Ouvert');
   const sittings = worlds.flatMap((w) => w.sitting.map((s) => ({ world: w.world, s })));
-  const modulesOf = (cfg) => Object.entries(cfg.features).filter(([, on]) => on).map(([k]) => featureNames[k] || k);
-  const subtitle = (world) => { const cfg = world.getConfig(); const m = modulesOf(cfg); return `Vitesse ×${cfg.speed}${m.length ? ' · ' + m.join(', ') : ' · classique'}`; };
+  // Libellés communs d'un monde (src/web/worldLabels.js).
+  const modulesOf = worldModules;
+  const subtitle = worldSubtitle;
   const isNew = (world) => now - new Date(world.createdAt) < 7 * 86400000;
-  const worldRow = (world, href, extra = '', edge = 'border-l-blood-600') => `
-    <a href="${href}" class="flex items-center justify-between gap-3 border border-bronze-800 border-l-[3px] ${edge} bg-panel-lo px-2.5 py-[7px] text-parchment-100 no-underline transition hover:border-blood-800 hover:bg-thead">
-      <span class="flex min-w-0 flex-col">
-        <b class="truncate ">${esc(world.name)}</b>
-        <span class="truncate text-xs text-parchment-500">${esc(subtitle(world))}</span>
+  // Ancienneté d'un monde, affichée sur chaque tuile et dans la fiche.
+  const age = (world) => worldAge(world, now);
+  // Tuile d'un monde, commune aux parties en cours, aux mondes officiels et aux serveurs privés : compacte (nom, puis
+  // pastille et une ligne `primary`), le détail dans l'infobulle « i » au survol ou au focus (`details`, puis modules, vitesse et
+  // ancienneté). Toute la tuile est cliquable (partie en cours : on entre ; autre monde : sa fiche). HTML déjà échappé.
+  const worldTile = (world, href, { tag = '', primary = '', details = [], edge = 'border-t-blood-600' } = {}) => {
+    const cfg = world.getConfig(); const a = age(world); const dom = cfg.victory.dominance;
+    const rows = [
+      ...details,
+      esc(subtitle(world)) + ` · unités ×${cfg.unitSpeed}`,
+      `Carte ${cfg.mapSize} × ${cfg.mapSize} · protection ${cfg.newbieDays} j`,
+      cfg.night.active ? `Bonus de nuit ${cfg.night.startHour} h-${cfg.night.endHour} h (×${cfg.night.defFactor})` : 'Pas de bonus de nuit',
+      cfg.victory.type === 'dominance' ? `Victoire : ${dom.endgamePercent} % pendant ${dom.holdDays} j, après ${dom.minWorldAgeDays} j` : `Victoire : ${esc(victoryNames[cfg.victory.type])}`,
+      `<span class="text-parchment-500">${a.startsWith('créé') ? 'Créé à l’instant' : `Ouvert ${esc(a)}`}</span>`,
+    ];
+    return `
+    <a href="${href}" class="group flex min-w-0 flex-col gap-0.5 border border-bronze-800 border-t-[3px] ${edge} bg-night px-2 py-1 text-parchment-100 no-underline shadow-[2px_2px_0_#000] transition hover:-translate-y-px hover:border-gold-400 hover:bg-thead hover:shadow-[3px_4px_0_#000]">
+      <span class="flex min-w-0 items-center gap-1.5">
+        <span class="min-w-0 flex-1 truncate font-display text-[15px] leading-tight font-semibold group-hover:text-gold-200">${esc(world.name)}</span>
+        <span class="group/info relative flex shrink-0" tabindex="0" aria-label="Détails de ${esc(world.name)}">
+          <span class="flex size-4 items-center justify-center rounded-full border border-bronze-600 font-serif text-[10px] leading-none font-semibold text-gold-400 italic group-hover/info:border-gold-400 group-hover/info:bg-gold-400 group-hover/info:text-night">i</span>
+          <span class="pointer-events-none absolute right-0 bottom-full z-30 mb-1.5 hidden w-60 flex-col gap-0.5 border-2 border-black bg-panel-top px-2.5 py-2 text-left text-xs font-normal text-parchment-300 not-italic shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000] group-focus/info:flex group-hover/info:flex" role="tooltip">
+            <span class="font-display text-sm font-semibold text-parchment-100">${esc(world.name)}</span>
+            ${rows.map((r) => `<span>${r}</span>`).join('')}
+          </span>
+        </span>
       </span>
-      ${extra}
+      ${primary || tag ? `<span class="flex min-w-0 items-center gap-1.5 text-xs text-parchment-500">${tag}<span class="truncate">${primary}</span></span>` : ''}
     </a>`;
-  const joinHref = current.length ? `/worlds/${current[0].world.slug}/play` : available.length ? `/worlds?w=${available[0].world.slug}` : '#mondes';
+  };
+  const tileGrid = 'grid grid-cols-2 gap-1.5 sm:grid-cols-3';
+  const smallTag = (cls, label) => `<span class="${cls} shrink-0 px-1 py-0 text-[10px]">${label}</span>`;
 %>
-<%- include('partials/landing-hero-start', { cta: { href: joinHref, label: current.length ? 'Reprendre la partie' : 'Jouer gratuitement' } }) %>
-  <div class="border-b-2 border-bronze-500 bg-head px-3.5 py-2.5" id="mondes">
-    <div class="font-display text-[22px] font-bold tracking-[0.02em]">Salve, <%= user.username %></div>
+<%- include('partials/landing-hero-start', { cta: null }) %>
+<%# 1. Mondes officiels : tes parties en cours puis les autres mondes (ou la fiche du monde choisi). %>
+<section class="<%= ui.lobbyCard %>" id="mondes">
+  <div class="border-b-2 border-bronze-500 bg-head px-3 py-2">
+    <div class="font-display text-[17px] font-semibold tracking-[0.02em]">Salve, <%= user.username %></div>
     <form method="post" action="/logout" class="text-xs text-parchment-300"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
       Pas <%= user.username %> ? <button class="<%= ui.link %> cursor-pointer">Se déconnecter</button>
     </form>
   </div>
-  <div class="flex flex-1 flex-col gap-2.5 px-3.5 py-3">
+  <div class="flex flex-1 flex-col gap-2 px-3 py-2.5">
     <% if (selected) { const { world, player } = selected; const cfg = world.getConfig(); const modules = modulesOf(cfg); %>
       <%# Fiche du monde choisi %>
       <a href="/worlds" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %>Retour</a>
-      <div class="<%= ui.kicker %>"><%= world.endedAt ? 'Monde terminé' : world.isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' %></div>
-      <div class="flex items-center justify-between border-2 border-black bg-night p-2.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700)]">
-        <div><div class="font-display text-xl font-bold tracking-[0.02em]"><%= world.name %></div><div class="text-xs text-parchment-500"><%= world.slug %></div></div>
+      <div class="<%= ui.kicker %>"><%= world.isPrivate() ? `Serveur privé · ${accessName(world).toLowerCase()} · ` : '' %><%= world.endedAt ? 'Monde terminé' : world.isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' %></div>
+      <div class="flex items-center justify-between border-2 border-black bg-night px-2.5 py-1.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700)]">
+        <div><div class="font-display text-base font-semibold tracking-[0.02em]"><%= world.name %></div><div class="text-xs text-parchment-500"><%= world.slug %></div></div>
         <div class="text-right text-xs text-parchment-500"><%= player ? `${num(player.villageCount)} village(s)` : 'Pas encore inscrit' %><br><b class="text-parchment-100"><%= player ? `${num(player.points)} pts` : '—' %></b></div>
       </div>
-      <div class="grid grid-cols-2 gap-1">
-        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Vitesse</div><div class="<%= ui.tileValue %>">×<%= cfg.speed %></div></div>
-        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Unités</div><div class="<%= ui.tileValue %>">×<%= cfg.unitSpeed %></div></div>
-        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Modules</div><div class="<%= ui.tileValue %> first-letter:uppercase"><%= modules.join(', ') || 'classique' %></div></div>
-        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Victoire</div><a href="/worlds/<%= world.slug %>/ranking?type=victory" class="<%= ui.link %> text-base"><%= victoryNames[cfg.victory.type] %></a></div>
-      </div>
+      <%# Caractéristiques du monde, en liste compacte. %>
+      <%# Résumé des réglages qui comptent pour choisir ; la liste complète est sur la page Infos monde. %>
+      <% const dom = cfg.victory.dominance;
+         const facts = [
+           ['Ouvert', `${age(world)} (le ${new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })})`],
+           ['Vitesse', `×${cfg.speed} · unités ×${cfg.unitSpeed}`],
+           ['Modules', modules.length ? modules.join(', ') : 'classique'],
+           ['Carte', `${cfg.mapSize} × ${cfg.mapSize} · protection ${cfg.newbieDays} j`],
+           ['Combat', [cfg.moral ? 'morale' : 'sans morale', `chance ±${Math.round(cfg.luck * 100)} %`, cfg.night.active ? `nuit ${cfg.night.startHour} h-${cfg.night.endHour} h (×${cfg.night.defFactor})` : 'pas de bonus de nuit'].join(' · ')],
+           ['Tribus', `${cfg.tribe.memberLimit} membres max`],
+         ]; %>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 border border-bronze-800 bg-night px-2.5 py-1.5 text-[13px]">
+        <% for (const [k, v] of facts) { %><dt class="text-parchment-500"><%= k %></dt><dd class="font-semibold first-letter:uppercase"><%= v %></dd><% } %>
+        <dt class="text-parchment-500">Victoire</dt><dd><a href="/worlds/<%= world.slug %>/ranking?type=victory" class="<%= ui.link %>"><%= victoryNames[cfg.victory.type] %></a><% if (cfg.victory.type === 'dominance') { %> <span class="text-parchment-500">· <%= dom.endgamePercent %> % pendant <%= dom.holdDays %> j, après <%= dom.minWorldAgeDays %> j</span><% } %></dd>
+      </dl>
+      <a href="/worlds/<%= world.slug %>/info" class="<%= btn('dark', 'sm', 'w-full') %>"><%- icon('search', 'size-3.5', 2.2) %>Voir tous les paramètres du monde</a>
+      <%# Code d'accès d'un serveur sur code : montré à son créateur et à ses joueurs, pour qu'ils le partagent. %>
+      <% if (world.access === 'code' && (world.ownerUserId === user.id || player)) { %>
+        <div class="flex items-center justify-between gap-2 border border-dashed border-gold-400 bg-night px-2.5 py-1.5 text-[13px]">
+          <span class="text-parchment-500">Code d’accès à partager</span>
+          <span class="font-semibold tracking-[0.12em] text-gold-200 tabular-nums select-all"><%= world.joinCode %></span>
+        </div>
+      <% } %>
       <% if (playing(selected)) { %>
-        <a class="<%= btn('gold', 'lg', 'w-full border-[3px]') %>" href="/worlds/<%= world.slug %>/play">Entrer dans le monde</a>
+        <a class="<%= btn('gold', 'md', 'w-full') %>" href="/worlds/<%= world.slug %>/play">Entrer dans le monde</a>
       <% } else if (world.isOpen && !world.endedAt) { %>
         <form method="post" action="/worlds/<%= world.slug %>/join" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <% if (code) { %><input type="hidden" name="code" value="<%= code %>"><% } %>
           <label class="<%= ui.label %>">Où commencer sur la carte ?
             <select name="direction" class="<%= ui.input %> w-full">
               <% for (const d of directions) { %><option value="<%= d %>"><%= directionNames[d] %></option><% } %>
             </select>
           </label>
-          <button class="<%= btn('gold', 'lg', 'w-full border-[3px]') %>"><%= player ? 'Recommencer sur ce monde' : 'Rejoindre ce monde' %></button>
+          <button class="<%= btn('gold', 'md', 'w-full') %>"><%= player ? 'Recommencer sur ce monde' : 'Rejoindre ce monde' %></button>
         </form>
       <% } else { %>
         <p class="text-parchment-500">Inscriptions fermées.</p>
       <% } %>
     <% } else { %>
-      <%# Parties en cours %>
+      <div class="<%= ui.kicker %>">Mondes officiels · partie<%= current.length > 1 ? 's' : '' %> en cours</div>
+      <%# Parties en cours : un clic sur la tuile fait entrer dans le monde. %>
       <% if (current.length) { %>
-        <div class="<%= ui.kicker %>">Partie<%= current.length > 1 ? 's' : '' %> en cours</div>
-        <% for (const w of current) { const c = w.campaign || {}; %>
-          <div class="flex items-center justify-between gap-3 border-2 border-black bg-night p-2.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700)]">
-            <div class="min-w-0">
-              <div class="truncate font-display text-xl font-bold tracking-[0.02em]"><%= w.world.name %></div>
-              <% if (c.nextAttackAt) { %>
-                <div class="flex items-center gap-1.5 text-xs text-blood-450"><span class="size-1.5 shrink-0 rotate-45 bg-blood-600"></span>Attaque dans <b class="tabular-nums" data-countdown="<%= new Date(c.nextAttackAt).getTime() %>"><%= duration((new Date(c.nextAttackAt) - now) / 1000) %></b></div>
-              <% } else { %>
-                <div class="text-xs text-olive-300">● <%= subtitle(w.world) %></div>
-              <% } %>
-            </div>
-            <div class="shrink-0 text-right text-xs text-parchment-500"><%= c.village ? c.village.name : '' %><br><b class="text-parchment-100">#<%= c.rank ? num(c.rank) : '—' %> · <%= num(w.player.points) %> pts</b></div>
-          </div>
-          <a href="/worlds/<%= w.world.slug %>/play" class="<%= btn('gold', 'lg', 'w-full border-[3px]') %>">Entrer dans le monde</a>
-        <% } %>
+        <div class="<%= tileGrid %>">
+          <% for (const w of current) { const c = w.campaign || {};
+               const rank = `<b class="font-semibold text-parchment-100 tabular-nums">#${c.rank ? num(c.rank) : '—'} · ${num(w.player.points)} pts</b>`;
+               const attack = c.nextAttackAt ? `<span class="text-blood-450">Attaque dans <b class="tabular-nums" data-countdown="${new Date(c.nextAttackAt).getTime()}">${duration((new Date(c.nextAttackAt) - now) / 1000)}</b></span>` : ''; %>
+            <%- worldTile(w.world, `/worlds/${w.world.slug}/play`, { edge: 'border-t-gold-400',
+              primary: attack || rank,
+              details: [c.village ? `Village : ${esc(c.village.name)}` : '', `Rang ${c.rank ? num(c.rank) : '—'} · ${num(w.player.points)} points`].filter(Boolean) }) %>
+          <% } %>
+        </div>
+      <% } else { %>
+        <p class="text-sm text-parchment-500">Aucune partie en cours : rejoins un monde officiel ci-dessous.</p>
       <% } %>
 
       <% if (sittings.length) { %>
         <div class="<%= ui.kicker %> mt-1">Vous remplacez</div>
         <% for (const { world, s } of sittings) { %>
-          <a href="/worlds/<%= world.slug %>/sit/<%= s.id %>" class="flex items-center justify-between gap-2 border border-bronze-800 border-l-[3px] border-l-gold-400 bg-panel-lo px-2.5 py-[7px] text-parchment-100 no-underline hover:bg-thead">
-            <b class=""><%= s.name %></b><span class="text-xs text-parchment-500"><%= world.name %> · jouer</span>
+          <a href="/worlds/<%= world.slug %>/sit/<%= s.id %>" class="flex items-center justify-between gap-2 border border-bronze-800 border-l-[3px] border-l-gold-400 bg-panel-lo px-2.5 py-1 text-sm text-parchment-100 no-underline hover:bg-thead">
+            <span class="font-semibold"><%= s.name %></span><span class="text-xs text-parchment-500"><%= world.name %> · jouer</span>
           </a>
         <% } %>
       <% } %>
 
-      <%# Mondes ouverts, puis terminés %>
-      <div class="<%= ui.kicker %> mt-1"><%= current.length ? 'Autres mondes' : 'Rejoindre un monde' %></div>
-      <% for (const { world } of available) { %>
-        <%- worldRow(world, `/worlds?w=${world.slug}`, isNew(world) ? `<span class="${ui.tagRed}">Nouveau</span>` : '') %>
-      <% } %>
-      <% for (const { world } of ended) { %>
-        <%- worldRow(world, `/worlds?w=${world.slug}`, `<span class="${ui.tagMuted}">Terminé</span>`, 'border-l-rel-barb') %>
-      <% } %>
-      <% if (!available.length && !ended.length) { %><p class="text-sm text-parchment-500">Aucun autre monde ouvert.</p><% } %>
+      <div class="<%= ui.kicker %> mt-1"><%= current.length ? 'Autres mondes officiels' : 'Rejoindre un monde officiel' %></div>
+      <%# Mondes ouverts, puis terminés : un clic ouvre la fiche du monde. %>
+      <% if (available.length || ended.length) { %>
+        <div class="<%= tileGrid %>">
+          <% for (const { world } of available) { %>
+            <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: isNew(world) ? smallTag(ui.tagRed, 'Nouveau') : '', primary: esc(subtitle(world)) }) %>
+          <% } %>
+          <% for (const { world } of ended) { %>
+            <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: smallTag(ui.tagMuted, 'Terminé'), primary: esc(subtitle(world)), edge: 'border-t-rel-barb' }) %>
+          <% } %>
+        </div>
+      <% } else { %><p class="text-sm text-parchment-500">Aucun autre monde officiel ouvert.</p><% } %>
+      <a href="/servers?type=official" class="<%= ui.link %> self-end text-[13px]">» Tous les mondes officiels</a>
     <% } %>
   </div>
+</section>
+
+<%# 2. Serveurs privés : les tiens, les serveurs ouverts les plus peuplés, puis rejoindre avec un code ou créer le sien. %>
+<% if (!selected) { %>
+<section class="<%= ui.lobbyCard %>">
+  <h2 class="<%= ui.lobbyCardHead %>">Serveurs privés</h2>
+  <div class="flex flex-col gap-2 px-3 py-2.5">
+    <% if (myServers.length) { %>
+      <div class="<%= ui.kicker %>">Tes serveurs</div>
+      <div class="<%= tileGrid %>">
+        <% for (const w of myServers) { %>
+          <%- worldTile(w.world, playing(w) ? `/worlds/${w.world.slug}/play` : `/worlds?w=${w.world.slug}`, {
+            edge: playing(w) ? 'border-t-gold-400' : 'border-t-steel-500',
+            tag: smallTag(w.world.access === 'code' ? ui.tagMuted : ui.tagGold, accessName(w.world)),
+            primary: playing(w) ? `<b class="font-semibold text-parchment-100 tabular-nums">${num(w.player.points)} pts</b>` : 'Pas encore inscrit',
+            details: [w.world.ownerUserId === user.id ? 'Ton serveur' : '', `Accès : ${accessName(w.world).toLowerCase()}`].filter(Boolean),
+          }) %>
+        <% } %>
+      </div>
+    <% } %>
+
+    <div class="<%= ui.kicker %><%= myServers.length ? ' mt-1' : '' %>">Serveurs publics les plus peuplés</div>
+    <% if (publicServers.length) { %>
+      <div class="<%= tileGrid %>">
+        <% for (const { world, players } of publicServers) { %>
+          <%- worldTile(world, `/worlds?w=${world.slug}`, { edge: 'border-t-steel-500',
+            primary: `<b class="font-semibold text-parchment-100 tabular-nums">${num(players)} joueur${players > 1 ? 's' : ''}</b>` }) %>
+        <% } %>
+      </div>
+    <% } else { %>
+      <p class="border border-dashed border-bronze-700 bg-night/60 px-2.5 py-2 text-sm text-parchment-500">Aucun serveur privé ouvert pour l’instant : crée le premier !</p>
+    <% } %>
+    <a href="/servers?type=private" class="<%= ui.link %> self-end text-[13px]">» Tous les serveurs privés</a>
+
+    <div class="<%= ui.kicker %> mt-1">Rejoindre ou créer</div>
+    <div class="grid gap-2 sm:grid-cols-2">
+      <form method="post" action="/servers/join" class="flex min-w-0 items-center gap-2 border border-bronze-800 bg-night px-2 py-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <span class="<%= ui.medallion %> size-7"><%- icon('lock', 'size-3.5', 2.2) %></span>
+        <input name="code" required maxlength="12" autocomplete="off" placeholder="Code d’accès" aria-label="Code d’accès d’un serveur privé" class="<%= ui.input %> h-8 min-w-0 flex-1 uppercase tracking-[0.08em] placeholder:tracking-normal placeholder:normal-case">
+        <button class="<%= btn('dark', 'sm') %>">Rejoindre</button>
+      </form>
+      <a href="/servers/new" class="group flex min-w-0 items-center gap-2 border border-bronze-800 bg-night px-2 py-1.5 text-parchment-100 no-underline shadow-[2px_2px_0_#000] transition hover:-translate-y-px hover:border-gold-400 hover:bg-thead">
+        <span class="<%= ui.medallion %> size-7"><%- icon('plus', 'size-3.5', 2.2) %></span>
+        <span class="flex min-w-0 flex-col">
+          <span class="truncate font-display text-[15px] leading-tight font-semibold group-hover:text-gold-200">Créer un serveur</span>
+          <span class="truncate text-xs text-parchment-500">Vitesse, unités, nuit, durée… (<%= maxOwned %> max)</span>
+        </span>
+      </a>
+    </div>
+  </div>
+</section>
+<% } %>
 <%- include('partials/landing-hero-end') %>
 
-<%# Pages publiques de chaque monde, en cartes parchemin (maquette : « Chroniques de l'empire »). %>
-<% if (worlds.length) { %>
-  <section class="mx-auto w-full max-w-[1200px] px-3.5 py-6.5">
+<%# Pages publiques de chaque monde officiel, en cartes parchemin (maquette : « Chroniques de l'empire »). %>
+<% if (official.length) { %>
+  <section class="mx-auto w-full max-w-[1100px] px-3.5 py-5">
     <div class="mb-3 flex items-center gap-3">
       <span class="size-[9px] rotate-45 border border-black bg-gold-400"></span>
-      <h2 class="m-0 font-display text-xl font-bold tracking-[0.02em]">Chroniques des mondes</h2>
+      <h2 class="m-0 font-display text-lg font-semibold tracking-[0.02em]">Chroniques des mondes</h2>
       <span class="h-0.5 flex-1 bg-linear-to-r from-bronze-500 to-transparent"></span>
     </div>
-    <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3">
-      <% for (const { world } of worlds) { %>
-        <article class="flex flex-col gap-1.5 border-[3px] border-black bg-parchment-300 px-3.5 py-3 text-panel-hi shadow-[inset_0_0_0_3px_var(--color-bld-marble),5px_5px_0_#000]">
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+      <% for (const { world } of official) { %>
+        <article class="flex flex-col gap-1 border-2 border-black bg-parchment-300 px-3 py-2 text-panel-hi shadow-[inset_0_0_0_2px_var(--color-bld-marble),4px_4px_0_#000]">
           <div class="flex items-center justify-between border-b-2 border-panel-hi pb-[5px]">
             <span class="text-xs font-semibold tracking-[0.02em] text-blood-800"><%= new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
             <span class="bg-panel-hi px-1.5 py-px text-[11px] font-semibold tracking-[0.02em] text-parchment-300"><%= world.endedAt ? 'Terminé' : 'Monde' %></span>
           </div>
-          <b class="font-display text-base leading-tight "><%= world.name %></b>
-          <span class="text-sm leading-snug text-bld-soot"><%= subtitle(world) %> · victoire : <%= victoryNames[world.getConfig().victory.type] %></span>
-          <span class="mt-auto flex gap-4 text-[13px] font-semibold">
+          <span class="font-display text-[15px] leading-tight font-semibold"><%= world.name %></span>
+          <span class="text-[13px] leading-snug text-bld-soot"><%= subtitle(world) %> · victoire : <%= victoryNames[world.getConfig().victory.type] %></span>
+          <span class="mt-auto flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-semibold whitespace-nowrap">
             <a href="/worlds/<%= world.slug %>/info" class="text-blood-800 no-underline hover:text-panel-hi">» Infos monde</a>
             <a href="/worlds/<%= world.slug %>/ranking" class="text-blood-800 no-underline hover:text-panel-hi">» Classement</a>
             <a href="/worlds/<%= world.slug %>/ranking?type=victory" class="text-blood-800 no-underline hover:text-panel-hi">» Fin du monde</a>

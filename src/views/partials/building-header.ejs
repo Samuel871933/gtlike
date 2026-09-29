@@ -5,10 +5,21 @@
   <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
   <div class="flex flex-col gap-3 py-2.5 pr-3.5 pl-5 sm:flex-row sm:items-center sm:gap-5">
     <div class="flex min-w-0 flex-1 items-center gap-3.5">
-      <span class="relative flex size-14 shrink-0 items-center justify-center border-[3px] border-black shadow-[4px_4px_0_rgba(0,0,0,0.6)] <%= bLevel ? 'bg-panel-hi text-gold-400' : 'border-dashed bg-night text-parchment-600' %>">
-        <%- buildingIcon(buildingId, 'size-7', 1.8) %>
-        <span class="absolute top-0.5 left-0.5 <%= ui.levelBadge %> min-w-0">LV.<%= bLevel %></span>
-      </span>
+      <%# Illustration du bâtiment (image du plan du village) ; `illustration: false` quand la page l'affiche en grand,
+          'wide' quand la page ne l'affiche en grand qu'à partir des écrans larges (vignette en dessous, icône au-dessus). %>
+      <% const ill = typeof illustration === 'undefined' ? true : illustration; %>
+      <% if (ill) { %>
+        <span class="relative shrink-0 <%= ill === 'wide' ? 'xl:hidden' : '' %>">
+          <%- include('building-illustration', { buildingId, level: bLevel, cls: 'h-24 w-28 sm:h-28 sm:w-32' }) %>
+          <span class="absolute top-1 left-1 <%= ui.levelBadge %> min-w-0">LV.<%= bLevel %></span>
+        </span>
+      <% } %>
+      <% if (ill !== true) { %>
+        <span class="relative size-14 shrink-0 items-center justify-center border-[3px] border-black shadow-[4px_4px_0_rgba(0,0,0,0.6)] <%= ill === 'wide' ? 'hidden xl:flex' : 'flex' %> <%= bLevel ? 'bg-panel-hi text-gold-400' : 'border-dashed bg-night text-parchment-600' %>">
+          <%- buildingImg(buildingId, bLevel, 'h-10 w-[46px] drop-shadow-[2px_3px_0_rgba(0,0,0,0.4)]') %>
+          <span class="absolute top-0.5 left-0.5 <%= ui.levelBadge %> min-w-0">LV.<%= bLevel %></span>
+        </span>
+      <% } %>
       <div class="flex min-w-0 flex-col gap-0.5">
         <div class="flex items-center gap-1.5">
           <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[28px]"><%= bType.name %> <span class="font-sans text-sm font-semibold text-gold-400 [text-shadow:none]">· <%= bLevel ? `niveau ${bLevel}` : 'non construit' %></span></h1>

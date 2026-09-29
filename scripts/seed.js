@@ -30,6 +30,8 @@ const WORLDS = [
       features: { knight: true, archer: true, militia: true },
       // Milice de GT (20 par niveau de ferme jusqu'au niv. 15, production × 0,5, 2 villages max), 15 min pour tester.
       militia: { hours: 0.25 },
+      // Villages barbares sans troupes (ni au peuplement, ni après l'abandon d'un joueur).
+      barbarian: { troops: false },
       // Monde de test : fin de partie plus proche pour pouvoir l'essayer.
       victory: { type: 'dominance', dominance: { endgamePercent: 50, minWorldAgeDays: 10, holdDays: 2, warningPercent: 15, warningWorldAgeDays: 3 } },
     },

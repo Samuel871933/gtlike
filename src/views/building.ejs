@@ -1,15 +1,15 @@
 <%- include('partials/header', { title: registry.building(buildingId).name }) %>
 <% const t = registry.building(buildingId); const lvl = ctx.state.level(buildingId); const statHead = buildingStat(buildingId, 1, ctx.cfg); %>
 <div class="flex flex-col gap-5">
-  <%- include('partials/building-header', { buildingId }) %>
+  <%- include('partials/building-header', { buildingId, illustration: false }) %>
 
+  <%# Comme sur GT : grande illustration du bâtiment à gauche (image du plan du village), encadrés à droite. %>
+  <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+    <div class="max-lg:hidden"><%- include('partials/building-illustration', { buildingId, level: lvl }) %></div>
+
+    <div class="flex min-w-0 flex-col gap-3">
   <% if (farm) { const free = farm.max - farm.total; %>
-    <%# Ferme, comme sur GT : illustration à gauche ; à droite population maximale, population actuelle et milice. %>
-    <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
-      <div class="<%= ui.panel %> flex aspect-[8/7] items-center justify-center overflow-hidden bg-[url(/img/village/medieval/background-v2.png)] bg-cover bg-center max-lg:hidden">
-        <img src="<%= buildingSprite('farm', farm.level) %>" alt="Ferme niveau <%= farm.level %>" width="320" height="280" class="w-4/5 drop-shadow-[4px_6px_0_rgba(0,0,0,0.45)]">
-      </div>
-
+    <%# Ferme : population maximale, population actuelle et milice. %>
       <div class="flex min-w-0 flex-col gap-3">
         <section class="<%= ui.panel %>">
           <%- panelHead('Population maximum') %>
@@ -61,7 +61,6 @@
           </section>
         <% } %>
       </div>
-    </div>
   <% } %>
 
   <section class="<%= ui.panel %>">
@@ -97,5 +96,7 @@
     </div>
     <p class="border-t border-bronze-900 px-4.5 py-3 text-sm text-parchment-500">Niveau maximal : <span class="font-semibold text-parchment-300 tabular-nums"><%= t.maxLevel %></span>. Les constructions se lancent aussi depuis le <a href="/village/<%= ctx.village.id %>/main" class="<%= ui.link %>">quartier général</a>.</p>
   </section>
+    </div>
+  </div>
 </div>
 <%- include('partials/footer') %>

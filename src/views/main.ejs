@@ -5,14 +5,13 @@
   // Pas de colonne « Accélération » : aucune option premium (voir README, Hors périmètre).
   const vid = ctx.village.id;
   const favs = new Set(favoriteBuildings(player, ctx));
-  const unbuilt = 'flex shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.55)]';
   const tabHref = (t) => `/village/${vid}/main${t === 'demolition' ? '?tab=demolition' : ''}`;
   const clock = (s) => `<span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600">${icon('clock', 'size-3.5', 2)}</span>${duration(s)}</span>`;
   const rows = [...available, ...maxed];
   const nameCell = (o, level) => `
     <div class="flex items-center gap-3">
       <span class="relative shrink-0">
-        <span class="${level > 0 ? ui.medallion : unbuilt} size-[38px] minimal:size-[28px]">${buildingIcon(o.type.id, 'size-[19px]')}</span>
+        ${buildingImg(o.type.id, level, 'h-[35px] w-10 minimal:h-7 minimal:w-8')}
       </span>
       <span class="flex min-w-0 flex-col">
         <span class="flex items-center gap-1">
@@ -24,7 +23,12 @@
     </div>`;
 %>
 <div class="flex flex-col gap-5">
-  <%- include('partials/building-header', { buildingId: 'main' }) %>
+  <%- include('partials/building-header', { buildingId: 'main' , illustration: 'wide' }) %>
+
+  <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
+  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+    <div class="max-xl:hidden xl:sticky xl:top-24"><%- include('partials/building-illustration', { buildingId: 'main' }) %></div>
+    <div class="flex min-w-0 flex-col gap-5">
 
   <%- segTabs([[tabHref('build'), 'Construction', tab === 'build'], [tabHref('demolition'), 'Démolition', tab === 'demolition']]) %>
 
@@ -43,7 +47,7 @@
             <tr class="<%= running ? '[&>td]:border-b-0' : '' %>">
               <td>
                 <div class="flex items-center gap-2.5">
-                  <span class="<%= running ? ui.medallionGold : ui.medallion %> size-8"><%- buildingIcon(o.building, 'size-4') %></span>
+                  <%- buildingImg(o.building, o.level, 'h-7 w-8') %>
                   <span class="flex flex-col">
                     <span class="font-semibold"><%= buildingName(o.building) %></span>
                     <span class="text-[13px] <%= o.demolish ? 'text-blood-300' : 'text-parchment-500' %>"><%= o.demolish ? `Démolition → niveau ${o.level}` : `Niveau ${o.level}` %></span>
@@ -134,7 +138,7 @@
         <ul class="grid sm:grid-cols-2 xl:grid-cols-3">
           <% for (const o of locked) { %>
             <li class="flex items-center gap-3 border-b border-bronze-800 px-3 py-2">
-              <span class="<%= unbuilt %> size-8"><%- buildingIcon(o.type.id, 'size-4') %></span>
+              <%- buildingImg(o.type.id, 0, 'h-7 w-8') %>
               <span class="flex min-w-0 flex-col">
                 <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
                 <span class="text-[13px] text-parchment-500"><%= o.missing.map((m) => `${buildingName(m.building)} niveau ${m.level}`).join(' · ') %></span>
@@ -177,5 +181,7 @@
       </div>
     </section>
   <% } %>
+    </div>
+  </div>
 </div>
 <%- include('partials/footer') %>

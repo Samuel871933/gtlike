@@ -7,6 +7,7 @@
 const { Op, fn, col } = require('sequelize');
 const { Player, Village, Tribe, User, LastAttack } = require('../models');
 const VillageNoteService = require('../services/VillageNoteService');
+const MapOrderService = require('../services/MapOrderService');
 const { whenShort } = require('./helpers');
 const { villageDesignFor, DEFAULT_VILLAGE_DESIGN } = require('./villageDesigns');
 const TribeService = require('../services/TribeService');
@@ -48,7 +49,7 @@ function kindOf(vc, v) {
 const markOf = (vc, v) => MarkerService.colorOf(vc.colors, v);
 
 /** Un village tel que l'affichent la case, l'infobulle et le menu d'actions. */
-function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map()) {
+function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), orders = new Map()) {
   const kind = kindOf(vc, v);
   const p = v.Player;
   const t = p && p.Tribe;
@@ -70,6 +71,7 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map()) 
     // Notes visibles sur ce village (la tienne, celles que ta tribu partage) : icône sur la case, texte dans l'infobulle.
     note: notes.has(v.id),
     notes: (notes.get(v.id) || []).map((n) => ({ author: n.mine ? '' : n.author, text: n.text.length > 280 ? `${n.text.slice(0, 279)}…` : n.text })),
+    orders: orders.get(v.id) || { own: [], tribe: [] },
   };
 }
 
@@ -103,7 +105,8 @@ async function sector(vc, sx, sy) {
     : [];
   const lastAttacks = new Map(attacks.map((a) => [a.villageId, a]));
   const notes = await VillageNoteService.visible(vc.player, villages.map((v) => v.id));
-  return { sx, sy, cells: villages.map((v) => cellOf(vc, v, tribePoints, lastAttacks, notes)) };
+  const orders = await MapOrderService.visible(vc.player, villages.map((v) => v.id));
+  return { sx, sy, cells: villages.map((v) => cellOf(vc, v, tribePoints, lastAttacks, notes, orders)) };
 }
 
 /** Secteurs couvrant un rectangle de cases (bornes incluses). */

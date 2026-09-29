@@ -1,0 +1,77 @@
+<%- include('partials/header', { title: 'Serveurs' }) %>
+<%
+  // Liste de tous les serveurs visibles : mondes officiels et serveurs privés (ouverts, ou sur code pour leur créateur
+  // et leurs joueurs). Libellés communs avec l'accueil : src/web/worldLabels.js.
+  const qs = (o) => '/servers?' + new URLSearchParams({ type, tri: sort, ...(q ? { q } : {}), ...o }).toString();
+  const typeTabs = segTabs([['all', 'Tous'], ['official', 'Officiels'], ['private', 'Privés']]
+    .map(([t, label]) => [qs({ type: t }), `${label} (${totals[t]})`, type === t]));
+  const sortTabs = segTabs([['players', 'Plus peuplés'], ['recent', 'Plus récents']].map(([t, label]) => [qs({ tri: t }), label, sort === t]));
+  const playing = (r) => r.player && r.player.villageCount > 0;
+  const state = (r) => {
+    if (r.world.endedAt) return `<span class="${ui.tagMuted}">Terminé</span>`;
+    if (playing(r)) return `<span class="${ui.tagGold}">Tu y joues</span>`;
+    if (!r.world.isOpen) return `<span class="${ui.tagMuted}">Fermé</span>`;
+    return '<span class="text-olive-300">Inscriptions ouvertes</span>';
+  };
+  const victory = (cfg) => cfg.victory.type === 'dominance'
+    ? `${cfg.victory.dominance.endgamePercent} % pendant ${cfg.victory.dominance.holdDays} j, après ${cfg.victory.dominance.minWorldAgeDays} j`
+    : VICTORY_NAMES[cfg.victory.type];
+%>
+<div class="flex flex-col gap-3.5 pb-6">
+  <%- include('partials/page-title', { kicker: 'Serveurs', title: 'Tous les serveurs', sub: 'Mondes officiels et serveurs privés ouverts : compare leurs réglages avant de rejoindre. Les serveurs sur code ne sont visibles qu’avec leur code.' }) %>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead(`Serveurs (${rows.length})`, typeTabs) %>
+    <div class="flex flex-wrap items-center gap-2 border-b border-bronze-800 px-3 py-2">
+      <%- sortTabs %>
+      <form method="get" action="/servers" class="flex items-center gap-1.5">
+        <input type="hidden" name="type" value="<%= type %>"><input type="hidden" name="tri" value="<%= sort %>">
+        <input name="q" value="<%= q %>" placeholder="Chercher un serveur" aria-label="Chercher un serveur par son nom" class="<%= ui.input %> h-7 w-48 text-sm">
+        <button class="<%= btn('dark', 'sm') %>"><%- icon('search', 'size-3.5', 2.2) %>Chercher</button>
+      </form>
+      <span class="flex-1"></span>
+      <form method="post" action="/servers/join" class="flex items-center gap-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input name="code" required maxlength="12" autocomplete="off" placeholder="Code d’accès" aria-label="Code d’accès d’un serveur privé" class="<%= ui.input %> h-7 w-32 text-sm uppercase placeholder:normal-case">
+        <button class="<%= btn('dark', 'sm') %>"><%- icon('lock', 'size-3.5', 2.2) %>Rejoindre</button>
+      </form>
+      <a href="/servers/new" class="<%= btn('gold', 'sm') %>"><%- icon('plus', 'size-3.5', 2.4) %>Créer un serveur</a>
+    </div>
+
+    <% if (!rows.length) { %>
+      <p class="px-3.5 py-4 text-parchment-500"><%= q ? `Aucun serveur ne correspond à « ${q} ».` : 'Aucun serveur dans cette catégorie.' %></p>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %> text-sm [&_td]:px-3 [&_td]:py-1.5 [&_th]:px-3">
+          <thead><tr>
+            <th>Serveur</th><th class="text-right">Joueurs</th><th>Ouvert</th><th>Vitesse</th><th>Modules</th><th>Fin du monde</th><th>État</th><th></th>
+          </tr></thead>
+          <tbody>
+          <% for (const r of rows) { const w = r.world; const cfg = w.getConfig(); const mods = worldModules(cfg); %>
+            <tr class="<%= w.endedAt ? 'opacity-70' : '' %>">
+              <td class="max-w-64">
+                <a href="/worlds?w=<%= w.slug %>" class="<%= ui.linkPlain %> block truncate font-semibold" title="<%= w.name %>"><%= w.name %></a>
+                <span class="text-xs <%= w.isPrivate() ? 'text-steel-300' : 'text-gold-400' %>"><%= worldType(w) %><%= w.ownerUserId === user.id ? ' · ton serveur' : '' %></span>
+              </td>
+              <td class="text-right font-semibold tabular-nums"><%= num(r.players) %></td>
+              <td class="whitespace-nowrap text-parchment-400" title="<%= new Date(w.createdAt).toLocaleDateString('fr-FR') %>"><%= worldAge(w, now) %></td>
+              <td class="whitespace-nowrap tabular-nums">×<%= cfg.speed %> <span class="text-parchment-500">· unités ×<%= cfg.unitSpeed %></span></td>
+              <td class="first-letter:uppercase"><%= mods.length ? mods.join(', ') : 'classique' %></td>
+              <td class="text-parchment-400"><%= victory(cfg) %></td>
+              <td class="whitespace-nowrap"><%- state(r) %></td>
+              <td class="whitespace-nowrap text-right">
+                <a href="/worlds/<%= w.slug %>/info" class="<%= ui.link %> mr-3 text-[13px]">Paramètres</a>
+                <% if (playing(r) && !w.endedAt) { %>
+                  <a href="/worlds/<%= w.slug %>/play" class="<%= btn('gold', 'sm') %>">Jouer</a>
+                <% } else { %>
+                  <a href="/worlds?w=<%= w.slug %>" class="<%= btn('dark', 'sm') %>">Voir</a>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+</div>
+<%- include('partials/footer') %>

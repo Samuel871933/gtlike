@@ -318,7 +318,7 @@ function villageData(cfg, maturity, rng, now, { barbarian = false } = {}) {
   const mix = offensive
     ? { axe: 0.55, light: 0.3, marcher: 0.05, ram: 0.05, catapult: 0.02, spy: 0.03 }
     : { spear: 0.45, sword: 0.35, archer: 0.1, heavy: 0.07, spy: 0.03 };
-  const budget = free * (barbarian ? 0.1 + rng() * 0.2 : 0.3 + rng() * 0.6);
+  const budget = barbarian && !cfg.barbarian.troops ? 0 : free * (barbarian ? 0.1 + rng() * 0.2 : 0.3 + rng() * 0.6);
   const usable = Object.entries(mix)
     .map(([id, share]) => [registry.UNITS.get(id), share])
     .filter(([u]) => u && u.isAvailableIn(cfg) && !u.missingRequirements(levels, cfg).length);

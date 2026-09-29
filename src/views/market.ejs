@@ -15,7 +15,7 @@
   const flowLine = (list) => (RESOURCES.some((r) => list[r.id] > 0)
     ? RESOURCES.filter((r) => list[r.id] > 0).map((r) => amount(r.id, list[r.id])).join(' ')
     : '<span class="text-parchment-500">—</span>');
-  const mapHref = (v) => `/village/${vid}/map?x=${v.x}&y=${v.y}`;
+  const villageHref = (v) => `/village/${vid}/villages/${v.id}`;
   const count = (n) => `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${n}</span>`;
   const infoTile = 'flex items-center gap-2 border border-bronze-800 bg-night px-2.5 py-1.5 text-sm';
   // Rangée de boutons radio de ressources (formulaires Je veux / J'offre) ; `off` : ressource désactivée.
@@ -256,7 +256,7 @@
                     <span class="flex min-w-0 items-center gap-2">
                       <span class="shrink-0 font-semibold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
                       <span class="shrink-0 text-parchment-600"><%= delivery ? 'vers' : 'depuis' %></span>
-                      <a href="<%= mapHref(tr.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.target.name %></a>
+                      <a href="<%= villageHref(tr.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.target.name %></a>
                       <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.target.x %>|<%= tr.target.y %>)</span>
                     </span>
                     <span class="text-[13px] text-parchment-500"><%= tr.merchants %> marchand(s) · <%= whenShort(tr.arrivesAt, now) %></span>
@@ -275,11 +275,11 @@
             <% for (const tr of incoming) { %>
               <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-3 py-2.5 last:border-b-0">
                 <div class="flex items-center gap-3">
-                  <span class="<%= ui.medallionGold %> size-7.5 minimal:size-6"><%- buildingIcon('market', 'size-[15px]', 2.2) %></span>
+                  <%- buildingImg('market', ctx.state.level('market'), 'h-7 w-8 minimal:h-6 minimal:w-7') %>
                   <span class="flex min-w-0 flex-1 flex-col">
                     <span class="flex min-w-0 items-center gap-2">
                       <span class="shrink-0 text-parchment-600">de</span>
-                      <a href="<%= mapHref(tr.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.origin.name %></a>
+                      <a href="<%= villageHref(tr.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.origin.name %></a>
                       <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.origin.x %>|<%= tr.origin.y %>)</span>
                     </span>
                     <span class="text-[13px] text-parchment-500"><% if (tr.origin.Player) { %><%- playerLink(vid, tr.origin.Player, { cls: ui.link }) %> · <% } %><%= whenShort(tr.arrivesAt, now) %></span>

@@ -4,6 +4,8 @@ const express = require('express');
 const { Op } = require('sequelize');
 const { World, Village, Player, Command } = require('../../models');
 const WorldService = require('../../services/WorldService');
+const PrivateServerService = require('../../services/PrivateServerService');
+const serverSettings = require('../../game/serverSettings');
 const MapService = require('../../services/MapService');
 const TribeService = require('../../services/TribeService');
 const AchievementService = require('../../services/AchievementService');
@@ -120,7 +122,11 @@ router.get('/worlds/:slug/config.json', ah(async (req, res) => {
 }));
 
 router.get('/worlds', requireAuth, ah(async (req, res) => {
-  const worlds = await WorldService.listForUser(req.user.id);
+  // Serveurs privés sur code : visibles de leur créateur, de leurs joueurs, ou avec le code (?code=, lien partagé).
+  const code = req.query.code || null;
+  const worlds = (await WorldService.listForUser(req.user.id)).filter((w) => PrivateServerService.canAccess(w.world, {
+    userId: req.user.id, isPlayer: Boolean(w.player), code: w.world.slug === req.query.w ? code : null,
+  }));
   const selected = worlds.find((w) => w.world.slug === req.query.w) || null;
   // Parties en cours : rang, premier village et prochaine attaque (encart « Campagne en cours »).
   for (const w of worlds) {
@@ -133,13 +139,75 @@ router.get('/worlds', requireAuth, ah(async (req, res) => {
     ]);
     w.campaign = { rank: better + 1, village: villages[0] || null, nextAttackAt: nextAttack ? nextAttack.arrivesAt : null };
   }
-  res.render('worlds', { worlds, selected, directions: MapPlacer.DIRECTIONS });
+  const popularServers = await PrivateServerService.popular(6);
+  res.render('worlds', { worlds, selected, code, popularServers, maxOwned: PrivateServerService.MAX_OWNED, directions: MapPlacer.DIRECTIONS });
 }));
 
 router.post('/worlds/:slug/join', requireAuth, ah(async (req, res) => {
+  const world = await findWorld(req.params.slug);
+  const isPlayer = Boolean(await WorldService.getPlayer(req.user.id, world.id));
+  if (!PrivateServerService.canAccess(world, { userId: req.user.id, isPlayer, code: req.body.code })) {
+    throw new GameError('Ce serveur privé demande son code d’accès.', 403);
+  }
   const direction = MapPlacer.DIRECTIONS.includes(req.body.direction) ? req.body.direction : 'random';
   const { village } = await WorldService.join(req.user, req.params.slug, { direction });
   res.redirect(`/village/${village.id}`);
+}));
+
+// ------------------------------------------------------------ Serveurs privés
+
+/**
+ * Tous les serveurs : mondes officiels et serveurs privés ouverts (plus les serveurs sur code du créateur et de leurs
+ * joueurs). Filtre ?type= (all | official | private), tri ?tri= (players | recent), recherche ?q= sur le nom.
+ */
+const SERVER_TYPES = ['all', 'official', 'private'];
+const SERVER_SORTS = ['players', 'recent'];
+router.get('/servers', requireAuth, ah(async (req, res) => {
+  const type = SERVER_TYPES.includes(req.query.type) ? req.query.type : 'all';
+  const sort = SERVER_SORTS.includes(req.query.tri) ? req.query.tri : 'players';
+  const q = String(req.query.q || '').trim();
+  const visible = (await WorldService.listForUser(req.user.id))
+    .filter((w) => PrivateServerService.canAccess(w.world, { userId: req.user.id, isPlayer: Boolean(w.player) }));
+  const counts = await WorldService.playerCounts(visible.map((w) => w.world.id));
+  const rows = visible
+    .map((w) => ({ ...w, players: counts.get(w.world.id) || 0 }))
+    .filter((r) => type === 'all' || (type === 'private') === r.world.isPrivate())
+    .filter((r) => !q || r.world.name.toLowerCase().includes(q.toLowerCase()))
+    // Mondes en cours d'abord, puis le tri choisi.
+    .sort((a, b) => Boolean(a.world.endedAt) - Boolean(b.world.endedAt)
+      || (sort === 'players' ? b.players - a.players : 0)
+      || new Date(b.world.createdAt) - new Date(a.world.createdAt));
+  const totals = { all: visible.length, official: visible.filter((w) => !w.world.isPrivate()).length, private: visible.filter((w) => w.world.isPrivate()).length };
+  res.render('servers', { rows, type, sort, q, totals, lobbyPage: 'servers' });
+}));
+
+/** Création d'un serveur privé : nom, accès (ouvert ou sur code) et tous les réglages du monde. */
+router.get('/servers/new', requireAuth, (req, res) => {
+  res.render('server-new', { groups: serverSettings.GROUPS, formValue: serverSettings.formValue, input: {}, error: null, lobbyPage: 'worlds' });
+});
+
+router.post('/servers', requireAuth, ah(async (req, res) => {
+  try {
+    const world = await PrivateServerService.create(req.user, req.body);
+    flash(req, 'success', world.access === 'code'
+      ? `Serveur créé. Code d’accès à partager : ${world.joinCode}.`
+      : 'Serveur créé : il apparaît dans les serveurs publics.');
+    res.redirect(`/worlds?w=${encodeURIComponent(world.slug)}`);
+  } catch (err) {
+    if (!(err instanceof GameError)) throw err;
+    // Formulaire réaffiché avec la saisie et l'erreur (un retour en arrière la perdrait).
+    res.status(400).render('server-new', { groups: serverSettings.GROUPS, formValue: serverSettings.formValue, input: req.body, error: err.message, lobbyPage: 'worlds' });
+  }
+}));
+
+/** Rejoindre un serveur privé avec son code : ouvre sa fiche (le code suit jusqu'à l'inscription). */
+router.post('/servers/join', requireAuth, ah(async (req, res) => {
+  const world = await PrivateServerService.findByCode(req.body.code);
+  if (!world) {
+    flash(req, 'error', 'Aucun serveur privé en cours avec ce code.');
+    return res.redirect('/worlds');
+  }
+  res.redirect(`/worlds?${new URLSearchParams({ w: world.slug, code: world.joinCode })}`);
 }));
 
 /** Entrée dans un monde : premier village du joueur. */

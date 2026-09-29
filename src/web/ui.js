@@ -43,7 +43,7 @@ function btn(variant = 'dark', size = 'md', extra = '') {
   return `${BTN_BASE} ${BTN_VARIANTS[variant] || BTN_VARIANTS.dark} ${BTN_SIZES[size] || BTN_SIZES.md} ${extra}`.trim();
 }
 
-const FIELD = 'border-2 border-black bg-night text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-700)] scheme-dark medieval:scheme-light placeholder:text-parchment-700 focus:shadow-[inset_0_0_0_1px_var(--color-gold-400)] focus:outline-none disabled:opacity-40';
+const FIELD = 'border-2 border-black bg-night text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-700)] scheme-dark light:scheme-light placeholder:text-parchment-700 focus:shadow-[inset_0_0_0_1px_var(--color-gold-400)] focus:outline-none disabled:opacity-40';
 
 const ui = {
   // Panneau : aplat sombre, trait d'encre, filet intérieur, ombre portée.
@@ -59,6 +59,9 @@ const ui = {
   h1: 'font-display text-xl font-semibold tracking-[0.02em] text-parchment-100 minimal:text-lg',
   heading: 'font-display text-base font-semibold tracking-[0.02em] text-parchment-100',
   kicker: 'text-[13px] font-medium text-gold-400',
+  // Encart de la colonne de droite de l'accueil (connexion, parties en cours, mondes, serveurs privés).
+  lobbyCard: 'flex min-w-0 flex-col border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]',
+  lobbyCardHead: 'border-b-2 border-bronze-500 bg-head px-3 py-2 font-display text-[17px] font-semibold tracking-[0.02em]',
   muted: 'text-parchment-500',
   faint: 'text-parchment-600',
   num: 'font-semibold tabular-nums',

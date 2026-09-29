@@ -50,6 +50,10 @@ const TRIBE_SHARING = [
     id: 'villageNotes', label: 'Notes de village', share: 'shareVillageNotes', show: 'showTribeNotes',
     text: "Sur la carte (icône et infobulle) et dans l'aperçu du village.",
   },
+  {
+    id: 'tribeOrders', label: 'Ordres de troupes', share: 'shareTribeOrders', show: 'showTribeOrders',
+    text: 'Afficher sur la carte les ordres envoyés vers chaque village et leurs heures d’arrivée.',
+  },
 ];
 
 VillageNoteService.TRIBE_SHARING = TRIBE_SHARING;

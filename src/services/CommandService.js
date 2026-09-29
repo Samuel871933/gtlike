@@ -74,8 +74,7 @@ class CommandService {
     if (type === 'attack' && ctx.world.endedAt) throw new GameError('Le monde est terminé : il est en paix, plus aucune attaque possible.');
     let moraleValue = 1;
     if (type === 'attack') {
-      if (target.playerId === village.playerId) throw new GameError('Vous ne pouvez pas attaquer vos propres villages.');
-      if (target.Player && cfg.newbieDays > 0) {
+      if (target.Player && target.playerId !== village.playerId && cfg.newbieDays > 0) {
         const protectedUntil = new Date(new Date(target.Player.createdAt).getTime() + cfg.newbieDays * 86400000);
         if (protectedUntil > now) {
           throw new GameError(`Ce joueur est sous protection débutant jusqu'au ${protectedUntil.toLocaleString('fr-FR')}.`);
@@ -85,7 +84,7 @@ class CommandService {
     }
 
     // Règles de tribu du monde.
-    const sameTribe = attackerPlayer.tribeId && target.Player && target.Player.tribeId === attackerPlayer.tribeId;
+    const sameTribe = target.playerId !== village.playerId && attackerPlayer.tribeId && target.Player && target.Player.tribeId === attackerPlayer.tribeId;
     if (type === 'attack' && sameTribe && cfg.tribe.noHarm) {
       throw new GameError("Vous ne pouvez pas attaquer un membre de votre tribu.");
     }
@@ -221,19 +220,48 @@ class CommandService {
       });
       const allowed = stack && [stack.village.Player?.userId, stack.origin.Player?.userId].includes(userId);
       if (!allowed) throw new GameError('Soutien introuvable.', 404);
+      await CommandService.returnSupportStack(stack, now, t);
+    });
+  }
 
-      const cfg = stack.village.World.getConfig();
-      const seconds = travelSeconds(stack.units, stack.village, stack.origin, cfg, { withKnightSpeed: true });
-      await Command.create({
-        worldId: stack.village.worldId,
-        type: 'return',
-        originVillageId: stack.originVillageId,
-        targetVillageId: stack.villageId,
-        units: stack.units,
-        startsAt: now,
-        arrivesAt: new Date(now.getTime() + seconds * 1000),
-      }, { transaction: t });
-      await stack.destroy({ transaction: t });
+  static async returnSupportStack(stack, now, transaction) {
+    const cfg = stack.village.World.getConfig();
+    const seconds = travelSeconds(stack.units, stack.village, stack.origin, cfg, { withKnightSpeed: true });
+    await Command.create({
+      worldId: stack.village.worldId,
+      type: 'return',
+      originVillageId: stack.originVillageId,
+      targetVillageId: stack.villageId,
+      units: stack.units,
+      startsAt: now,
+      arrivesAt: new Date(now.getTime() + seconds * 1000),
+    }, { transaction });
+    await stack.destroy({ transaction });
+  }
+
+  /** Renvoie ou rappelle les soutiens cochés sur un seul tableau du point de ralliement. */
+  static async withdrawSupports(ids, userId, villageId, direction, { now = new Date() } = {}) {
+    const selected = [...new Set((Array.isArray(ids) ? ids : [ids]).map(Number))];
+    if (!selected.length || selected.some((id) => !Number.isSafeInteger(id) || id <= 0) || selected.length > 1000) {
+      throw new GameError('Sélectionnez des soutiens valides.');
+    }
+    if (!['here', 'away'].includes(direction)) throw new GameError('Type de soutien inconnu.');
+    return sequelize.transaction(async (transaction) => {
+      const stacks = await SupportStack.findAll({
+        where: { id: { [Op.in]: selected } },
+        include: [
+          { association: 'village', include: [Player, Village.associations.World] },
+          { association: 'origin', include: [Player] },
+        ],
+        transaction,
+      });
+      if (stacks.length !== selected.length || stacks.some((stack) =>
+        (direction === 'here' ? stack.villageId : stack.originVillageId) !== Number(villageId)
+        || ![stack.village.Player?.userId, stack.origin.Player?.userId].includes(userId))) {
+        throw new GameError('Soutien introuvable.', 404);
+      }
+      for (const stack of stacks) await CommandService.returnSupportStack(stack, now, transaction);
+      return stacks.length;
     });
   }
 
@@ -464,7 +492,7 @@ class CommandService {
         await DailyService.add(cmd.worldId, part.playerId, part.own ? { unitsKilledDefender: share } : { unitsKilledSupporter: share }, at, t);
       }
     }
-    if (defenderPlayer) {
+    if (defenderPlayer && defenderPlayer.id !== origin.playerId) {
       await AchievementService.addStats(defenderPlayer.id, {
         unitsKilled: count(result.attackerLosses),
         noblesKilled: result.attackerLosses.snob || 0,
@@ -508,7 +536,7 @@ class CommandService {
     const last = { ...require('../game/lastAttack').outcome(data), happenedAt: at, reportId: attackReport.id };
     const [mark, created] = await LastAttack.findOrCreate({ where: { playerId: origin.playerId, villageId: target.id }, defaults: last, transaction: t });
     if (!created && new Date(mark.happenedAt) <= at) await mark.update(last, { transaction: t });
-    if (defenderPlayer) {
+    if (defenderPlayer && defenderPlayer.id !== origin.playerId) {
       await Report.create({
         playerId: defenderPlayer.id, type: 'defense', title, happenedAt: at,
         data: { ...data, perspective: 'defender' },

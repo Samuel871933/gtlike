@@ -46,8 +46,9 @@ const DEFAULTS = {
   night: { active: false, startHour: 0, endHour: 8, defFactor: 2 },
   newbieDays: 5,
   commandCancelSeconds: 600,
-  // Villages barbares : points gagnés par jour (× vitesse du monde) et plafond
-  barbarian: { growthPerDay: 40, maxPoints: 1500 },
+  // Villages barbares : points gagnés par jour (× vitesse du monde) et plafond. Ils ne recrutent jamais ;
+  // troops : un village abandonné garde ses troupes (comme sur GT), sinon il redevient barbare sans défense.
+  barbarian: { growthPerDay: 40, maxPoints: 1500, troops: true },
   // Collecte : 4 options (taux de butin), la première est ouverte d'office. Coûts et durées de
   // déblocage estimés (non publiés), durées divisées par la vitesse du monde.
   scavenging: {

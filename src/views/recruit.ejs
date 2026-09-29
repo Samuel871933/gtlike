@@ -6,7 +6,12 @@
      : '';
    const maxBtn = `${ui.link} cursor-pointer text-xs tabular-nums`; %>
 <div class="flex flex-col gap-5">
-  <%- include('partials/building-header', { buildingId: building }) %>
+  <%- include('partials/building-header', { buildingId: building , illustration: 'wide' }) %>
+
+  <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
+  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+    <div class="max-xl:hidden xl:sticky xl:top-24"><%- include('partials/building-illustration', { buildingId: building }) %></div>
+    <div class="flex min-w-0 flex-col gap-5">
 
 <% if (rtab === 'dismiss' && level > 0) { %>
   <%# Désaffectation %>
@@ -136,14 +141,14 @@
               <td>
                 <span class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                   <% for (const m of o.missing) { %>
-                    <span class="inline-flex items-center gap-2 text-parchment-300"><span class="text-parchment-500"><%- buildingIcon(m.building, 'size-5') %></span><%= buildingName(m.building) %> (niveau <%= m.level %>)</span>
+                    <span class="inline-flex items-center gap-2 text-parchment-300"><%- buildingImg(m.building, ctx.state.level(m.building), 'h-6 w-7') %><%= buildingName(m.building) %> (niveau <%= m.level %>)</span>
                   <% } %>
                   <% if (research && !o.missing.length) { %><span class="text-parchment-400">Recherche à la forge</span><% } %>
                 </span>
               </td>
               <td class="text-right whitespace-nowrap">
                 <% if (research && ctx.state.level('smith') > 0) { %>
-                  <a href="/village/<%= vid %>/smith" class="<%= ui.link %> inline-flex items-center gap-1.5 text-sm"><%- buildingIcon('smith', 'size-4') %>Recherche</a>
+                  <a href="/village/<%= vid %>/smith" class="<%= ui.link %> inline-flex items-center gap-1.5 text-sm"><%- buildingImg('smith', ctx.state.level('smith'), 'h-5 w-6') %>Recherche</a>
                 <% } else if (research) { %>
                   <span class="text-sm text-parchment-500">Recherche</span>
                 <% } %>
@@ -317,5 +322,7 @@
     </div>
   </section>
 <% } %>
+    </div>
+  </div>
 </div>
 <%- include('partials/footer') %>

@@ -4,10 +4,17 @@
 @source "../web";
 @source "../../public/js";
 
+/*
+  Styles clairs (médiéval, Égypte) : ajustements communs aux fonds clairs, avec la variante `light:`. Déclarée avant les
+  styles pour que leurs variantes propres (`egypt:`…) passent après elle dans le CSS et l'emportent à égalité.
+*/
+@custom-variant light (&:where([data-game-style="medieval"], [data-game-style="medieval"] *, [data-game-style="egypt"], [data-game-style="egypt"] *));
+
 /* Styles de jeu (peaux de l'interface en partie) : un fichier par style, voir game-styles/README.md. */
 @import "./game-styles/roman.css";
 @import "./game-styles/viking.css";
 @import "./game-styles/medieval.css";
+@import "./game-styles/egypt.css";
 
 /*
   Style de jeu « Minimaliste » (src/web/gameLayouts.js) : interface serrée à la Guerre Tribale, quel que soit le thème.
@@ -427,10 +434,10 @@ html.game_style body {
 .village-special { position: absolute; z-index: 3; top: 0; right: 1px; color: var(--color-gold-200); font-size: 13px; text-shadow: 0 1px 2px #000; }
 [data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }
 
-/* Bannière narrative des rapports de combat : le dégradé maintient le texte lisible sur les trois illustrations. */
+/* Bannières narratives des rapports : le dégradé maintient le texte lisible sur les illustrations. */
 .report-hero {
   position: relative;
-  min-height: 190px;
+  min-height: 240px;
   overflow: hidden;
   border: 1px solid var(--color-bronze-500);
   background-position: center;
@@ -445,34 +452,54 @@ html.game_style body {
   content: "";
   background: linear-gradient(90deg, var(--color-plate-strong) 0%, var(--color-plate) 42%, transparent 82%), linear-gradient(0deg, var(--color-plate), transparent 55%);
 }
+.report-hero--conquest { background-position: 65% center; }
+.report-hero--conquest::before { background: linear-gradient(90deg, var(--color-plate-strong) 0%, var(--color-plate) 30%, transparent 62%), linear-gradient(0deg, var(--color-plate), transparent 40%); }
 .report-hero--victory { background-image: url('/img/reports/victory.png'); }
 .report-hero--espionage { background-image: url('/img/reports/espionage.png'); }
 .report-hero--defeat { background-image: url('/img/reports/defeat.png'); }
-.report-hero__content { display: flex; min-height: 190px; max-width: 62%; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: .35rem; padding: 1.25rem; }
+.report-hero--conquest { background-image: url('/img/reports/conquest.png'); }
+.report-hero--scavenge { background-image: url('/img/reports/scavenge.png'); }
+.report-hero--trade { background-image: url('/img/reports/trade.png'); }
+.report-hero--award { background-image: url('/img/reports/award.png'); }
+.report-hero--support { background-image: url('/img/reports/support.png'); }
+.report-hero--visit { background-image: url('/img/reports/visit.png'); }
+.report-hero--world { background-image: url('/img/reports/world.png'); }
+.report-hero__content { display: flex; min-height: 240px; max-width: 62%; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: .35rem; padding: 1.25rem; }
 .report-hero__eyebrow { display: inline-flex; align-items: center; gap: .45rem; border-left: 3px solid var(--color-gold-300); background: var(--color-plate-strong); padding: .28rem .65rem; color: var(--color-gold-100); font-size: .7rem; font-weight: 800; letter-spacing: .14em; line-height: 1; text-transform: uppercase; }
 .report-hero--defeat .report-hero__eyebrow { border-left-color: var(--color-blood-300); color: var(--color-blood-200); }
 .report-hero--espionage .report-hero__eyebrow { border-left-color: var(--color-steel-300); color: var(--color-steel-300); }
+.report-hero--visit .report-hero__eyebrow { border-left-color: var(--color-steel-300); color: var(--color-steel-300); }
 .report-hero__title { max-width: 34rem; color: var(--color-parchment-50); font-family: var(--font-display); font-size: clamp(1.25rem, 3vw, 1.85rem); font-weight: 600; line-height: 1.12; text-wrap: balance; text-shadow: 0 2px 4px var(--color-title-shadow); }
 .report-hero__time { display: flex; align-items: center; gap: .4rem; color: var(--color-parchment-300); font-size: .78rem; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px var(--color-title-shadow); }
 .report-hero__conquest { margin-top: .25rem; border: 1px solid var(--color-gold-400); background: var(--color-plate-strong); padding: .25rem .55rem; color: var(--color-gold-100); font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 @media (max-width: 640px) {
-  .report-hero { min-height: 170px; background-position: 62% center; }
+  .report-hero { min-height: 185px; background-position: 62% center; }
   .report-hero::before { background: linear-gradient(90deg, var(--color-plate-strong), var(--color-plate) 72%, transparent); }
-  .report-hero__content { min-height: 170px; max-width: 84%; padding: 1rem; }
+  .report-hero--conquest { background-position: 70% center; }
+  .report-hero--conquest::before { background: linear-gradient(90deg, var(--color-plate-strong), var(--color-plate) 35%, transparent 75%); }
+  .report-hero__content { min-height: 185px; max-width: 84%; padding: 1rem; }
 }
 
-/* Rapport militaire : structure dédiée, couleurs exclusivement issues du thème actif. */
-.battle-report-page { --report-paper: var(--color-panel-top); --report-paper-light: var(--color-well-hi); --report-paper-dark: var(--color-head); --report-ink: var(--color-parchment-100); --report-muted: var(--color-parchment-500); --report-rule: var(--color-bronze-500); color: var(--report-ink); }
-.battle-report-page > section,
-.battle-report-page .report-army-card { border: 1px solid var(--color-bronze-500); background: linear-gradient(100deg, var(--color-glint), transparent 42%), var(--report-paper); box-shadow: inset 0 0 0 1px var(--color-glint-strong), 3px 4px 0 color-mix(in srgb, var(--color-night) 55%, transparent); color: var(--report-ink); }
-.battle-report-page > section > :first-child:not(.report-hero) { border-color: var(--color-bronze-500); background: linear-gradient(var(--color-head), var(--color-head-dark)); color: var(--color-on-accent); }
-.battle-report-page > section > :first-child:not(.report-hero) h1,
-.battle-report-page > section > :first-child:not(.report-hero) h2 { color: var(--color-on-accent); text-shadow: 0 1px var(--color-title-shadow); }
-.battle-report-page > section > div:last-child { background: transparent; }
-.battle-report-page .report-hero { margin: calc(var(--spacing) * -3) calc(var(--spacing) * -3) 0; border-width: 0 0 2px; border-color: var(--color-bronze-500); }
-.battle-report-page dl > div { border: 1px solid var(--report-rule); background: var(--color-tile-hi); box-shadow: inset 0 1px var(--color-glint-strong); }
-.battle-report-page dl dt { color: var(--report-muted); }
-.battle-report-page dl dd { color: var(--report-ink); }
+/* Structure des rapports, couleurs issues du thème actif. */
+.report-detail-page { --report-paper: var(--color-panel-top); --report-paper-light: var(--color-well-hi); --report-paper-dark: var(--color-head); --report-ink: var(--color-parchment-100); --report-muted: var(--color-parchment-500); --report-rule: var(--color-bronze-500); color: var(--report-ink); }
+.report-detail-page > section,
+.report-detail-page .report-army-card { border: 1px solid var(--color-bronze-500); background: linear-gradient(100deg, var(--color-glint), transparent 42%), var(--report-paper); box-shadow: inset 0 0 0 1px var(--color-glint-strong), 3px 4px 0 color-mix(in srgb, var(--color-night) 55%, transparent); color: var(--report-ink); }
+.report-detail-page > section > :first-child:not(.report-hero) { border-color: var(--color-bronze-500); background: linear-gradient(var(--color-head), var(--color-head-dark)); color: var(--color-on-accent); }
+.report-detail-page > section > :first-child:not(.report-hero) h1,
+.report-detail-page > section > :first-child:not(.report-hero) h2 { color: var(--color-on-accent); text-shadow: 0 1px var(--color-title-shadow); }
+.report-detail-page > section > div:last-child { background: transparent; }
+.report-detail-page .report-hero { margin: calc(var(--spacing) * -3) calc(var(--spacing) * -3) 0; border-width: 0 0 2px; border-color: var(--color-bronze-500); }
+.report-detail-page dl > div { border: 1px solid var(--report-rule); background: var(--color-tile-hi); box-shadow: inset 0 1px var(--color-glint-strong); }
+.report-detail-page dl dt { color: var(--report-muted); }
+.report-detail-page dl dd { color: var(--report-ink); }
+.report-detail-page dl dd.report-stat--positive { color: var(--color-olive-300); }
+.report-detail-page dl dd.report-stat--neutral { color: var(--color-gold-400); }
+.report-detail-page dl dd.report-stat--negative { color: var(--color-blood-300); }
+.report-meter { position: relative; height: 7px; margin-top: .35rem; overflow: hidden; border: 1px solid var(--color-bronze-700); background: var(--color-well-hi); }
+.report-meter > span { position: absolute; top: 0; bottom: 0; background: var(--color-gold-400); }
+.report-meter--positive > span { background: var(--color-olive-500); }
+.report-meter--negative > span { background: var(--color-blood-500); }
+.report-meter--luck::after { position: absolute; top: -1px; bottom: -1px; left: 50%; width: 1px; background: var(--color-bronze-500); content: ""; }
 .report-army-card { overflow: hidden; }
 .report-section-title { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--color-bronze-500); background: linear-gradient(var(--color-head), var(--color-head-dark)); padding: .4rem .65rem; color: var(--color-on-accent); font-family: var(--font-display); font-size: .86rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; text-shadow: 0 1px var(--color-title-shadow); }
 .report-army-card__body { display: flex; flex-direction: column; gap: .65rem; padding: .55rem; }
@@ -489,7 +516,7 @@ html.game_style body {
 .report-army-table thead { background: var(--color-thead); }
 .report-army-table__corner,
 .report-army-table__label { position: sticky; left: 0; z-index: 2; width: 82px; background: var(--color-thead); color: var(--color-gold-200); text-align: left!important; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
-.report-army-table__unit { height: 48px; color: var(--color-gold-300); }
+.report-army-table__unit { height: 54px; color: var(--color-gold-300); }
 .report-army-table__unit span { display: flex; justify-content: center; color: var(--color-gold-400); }
 .report-army-table__unit small { display: block; max-width: 54px; margin: .1rem auto 0; overflow: hidden; font-size: .55rem; font-weight: 700; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .report-army-table td { background: var(--color-panel-mid); font-weight: 700; }
@@ -497,13 +524,18 @@ html.game_style body {
 .report-army-table td.is-zero { color: var(--color-parchment-600); font-weight: 500; }
 .report-army-table td.is-loss { color: var(--color-blood-300); }
 .report-hidden-intel { border: 1px dashed var(--report-rule); background: var(--color-tile-hi); padding: .75rem; color: var(--report-muted); font-size: .8rem; }
-.battle-report-page > section:not(:first-child) .text-parchment-100,
-.battle-report-page > section:not(:first-child) .text-parchment-400,
-.battle-report-page > section:not(:first-child) .text-parchment-500,
-.battle-report-page > section:not(:first-child) .text-parchment-600 { color: var(--report-ink); }
+.report-intel__group { min-width: 0; }
+.report-intel__buildings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.report-intel__building-name { display: inline-flex; align-items: center; gap: .45rem; }
+.report-intel__building-name img { width: 40px; height: 35px; flex: none; object-fit: contain; }
+.report-detail-page > section:not(:first-child) .text-parchment-100,
+.report-detail-page > section:not(:first-child) .text-parchment-400,
+.report-detail-page > section:not(:first-child) .text-parchment-500,
+.report-detail-page > section:not(:first-child) .text-parchment-600 { color: var(--report-ink); }
 @media (max-width: 640px) {
   .report-army-card__body { padding: .4rem; }
   .report-army-table { min-width: 700px; }
+  .report-intel__buildings { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Vue illustrée du village médiéval : décor et sprites restent utilisables sans classes Tailwind générées. */
@@ -524,13 +556,6 @@ html.game_style body {
 .village-building-plot:not(.village-building-plot--decorative):hover .village-building-sprite {
   filter: brightness(1.08) drop-shadow(3px 5px 2px rgb(0 0 0 / .55));
 }
-.village-building-empty {
-  inset: 18%;
-  border-color: color-mix(in srgb, var(--color-parchment-300) 80%, transparent);
-  border-radius: 50%;
-  background: rgb(0 0 0 / .25);
-  color: color-mix(in srgb, var(--color-parchment-100) 80%, transparent);
-}
 .village-building-level {
   bottom: 24px;
   left: 4%;
@@ -539,7 +564,7 @@ html.game_style body {
   box-shadow: 1px 2px 0 rgb(0 0 0 / .5);
 }
 .village-building-name {
-  bottom: 2%;
+  top: 0;
   left: 50%;
   width: max-content;
   max-width: 160px;
@@ -556,9 +581,23 @@ html.game_style body {
 .village-building-timer { display: flex; align-items: center; justify-content: space-between; gap: 5px; border: 1px solid #000; background: var(--color-night); color: var(--color-gold-200); padding: 1px 3px; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; box-shadow: 1px 1px 0 #000; }
 
 /* Les illustrations suivent la profondeur ; les informations restent devant tous les bâtiments. */
-.village-building-sprite, .village-building-empty { z-index: var(--plot-depth); }
+.village-building-sprite { z-index: var(--plot-depth); }
 .village-building-level, .village-building-name, .village-building-favorite, .village-building-activities { z-index: calc(100 + var(--plot-depth)); }
 .village-building-favorite { top: auto; bottom: 24px; right: 4%; }
 .village-building-plot a:focus-visible { outline: none; }
 .village-building-plot a:focus-visible .village-building-name { outline: 2px solid var(--color-gold-200); outline-offset: 2px; }
 .village-building-plot a[data-selected] .village-building-sprite { filter: drop-shadow(0 0 6px var(--color-gold-200)); }
+
+/* Ajustements aux silhouettes basses, sans déplacer les bâtiments eux-mêmes. */
+.village-building-plot:is([data-building="hide"], [data-building="place"], [data-building="statue"]) .village-building-level,
+.village-building-plot:is([data-building="hide"], [data-building="place"], [data-building="statue"]) .village-building-favorite { bottom: 4px; }
+.village-building-plot[data-building="barracks"] .village-building-name { top: 12%; }
+.village-building-plot[data-building="barracks"] .village-building-activities { top: 84%; }
+/* Réserver deux lignes d’activité sous la caserne avant le cartouche de l’écurie. */
+.village-building-plot[data-building="stable"] .village-building-name { top: 35%; }
+.village-building-plot[data-building="statue"] .village-building-name { top: -4px; }
+.village-building-plot[data-building="stable"] .village-building-level,
+.village-building-plot[data-building="stable"] .village-building-favorite { bottom: 4px; }
+/* Décaler les files de recrutement hors des badges de l’atelier et de la muraille. */
+.village-building-plot[data-building="stable"] .village-building-activities { left: 70%; }
+.village-building-plot[data-building="garage"] .village-building-activities { left: 90%; }

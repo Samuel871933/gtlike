@@ -1,0 +1,15 @@
+<%#
+  Vitrine du village pour la page d'accueil : le décor du plan en jeu et tous ses bâtiments au dernier palier, aux
+  mêmes emplacements (src/web/villagePlan.js), sans interaction. `cls` : cadre et taille.
+%>
+<% const { SPOTS, CHURCH_SPOT, spotStyle } = VILLAGE_PLAN; %>
+<div class="village-scene-medieval relative overflow-hidden <%= typeof cls !== 'undefined' ? cls : '' %>" role="img" aria-label="Un village développé : quartier général, caserne, forge, marché et muraille">
+  <div class="village-building-plot absolute" style="<%= spotStyle(CHURCH_SPOT) %>">
+    <img src="/img/village/medieval/church.png" alt="" width="320" height="280" class="village-building-sprite pointer-events-none absolute inset-0 size-full object-contain">
+  </div>
+  <% for (const id of Object.keys(SPOTS)) { %>
+    <div class="village-building-plot absolute" style="<%= spotStyle(SPOTS[id]) %>">
+      <%- buildingImg(id, 30, 'village-building-sprite pointer-events-none absolute inset-0 size-full', { lazy: true }) %>
+    </div>
+  <% } %>
+</div>

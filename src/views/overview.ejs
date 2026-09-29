@@ -5,13 +5,6 @@
   const vid = ctx.village.id;
   const { outgoing, incoming } = movements;
   const verbs = { attack: 'Attaque', support: 'Soutien', return: 'Retour', relocate: 'Déménagement' };
-  // Pictogramme de chaque ordre : carré coloré, trait d'encre (maquette : rouge sortant, bronze retour, acier soutien).
-  const moveStyle = {
-    attack: { box: 'bg-blood-600', icon: 'attack' },
-    return: { box: 'bg-gold-400', icon: 'return' },
-    support: { box: 'bg-steel-500', icon: 'support' },
-    relocate: { box: 'bg-olive-500', icon: 'relocate' },
-  };
   // Onglets Tous / Entrants / Sortants ; par défaut Entrants si une attaque arrive, sinon Tous.
   const tab = moveTab || (incoming.some((c) => c.type === 'attack') ? 'in' : 'all');
   const tagged = [...incoming.map((c) => ({ c, dir: 'in' })), ...outgoing.map((c) => ({ c, dir: 'out' }))];
@@ -29,9 +22,6 @@
     return parts.join(' · ');
   };
   const shown = allMoves ? moves : moves.slice(0, 9);
-  // Nos ordres, comme sur GT : icône de l'unité qui donne la vitesse du convoi (la plus lente, ou le paladin
-  // qu'un soutien accompagne), en plus du pictogramme du type d'ordre.
-  const paceOf = (c) => paceUnit(c.units, c.type);
   const qs = (o) => '?' + new URLSearchParams({ ...(view === 'list' ? { vue: 'liste' } : {}), ...o }).toString();
   const units = Object.entries(ctx.state.units).filter(([, n]) => n > 0);
   const unitCount = units.reduce((s, [, n]) => s + n, 0);
@@ -62,15 +52,16 @@
     ['En soutien ici', byOrder(supportUnits)],
     ['Hors du village', byOrder(ctx.awayUnits)],
   ].filter(([label, list]) => !label || list.length);
+  const nextUnitAt = Math.min(...ctx.recruitOrders.filter((o) => o.done < o.count).map((o) => new Date(o.nextAt).getTime()));
 %>
-<div class="flex flex-wrap items-start gap-3.5">
+<div class="flex flex-wrap items-start gap-3.5" data-overview-page>
   <div class="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5">
     <%# Titre de la cité : changement de village et repères %>
     <div class="<%= ui.panel %> flex flex-wrap items-center justify-between gap-2.5 py-2.5 pr-3.5 pl-5">
       <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
       <%# Le bloc du titre prend la place libre et rétrécit (titre tronqué, champ réduit) plutôt que de renvoyer les repères à la ligne. %>
       <div class="flex min-w-0 flex-[1_1_16rem] items-center gap-3">
-        <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent">‹</a><% } %>
+        <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
         <%# Renommer sur place : le crayon change le titre en champ (game.js, data-rename) ; Échap ou Annuler rétablit le titre. %>
         <h1 class="m-0 min-w-0 truncate font-display text-xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:1px_1px_0_var(--color-title-shadow),2px_2px_0_var(--color-title-shadow-2)] sm:text-[22px]" title="<%= ctx.village.name %>" data-rename-title><%= ctx.village.name %></h1>
         <form method="post" action="/village/<%= vid %>/rename" class="flex min-w-0 items-center gap-2" data-rename-form hidden><input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -79,11 +70,11 @@
           <button class="<%= btn('gold', 'sm') %>">OK</button>
           <button type="button" class="<%= btn('dark', 'sm') %>" data-rename-cancel>Annuler</button>
         </form>
-        <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant">›</a><% } %>
+        <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.6) %></a><% } %>
         <button type="button" class="<%= ui.iconBtn %> size-[26px]" title="Renommer le village" aria-label="Renommer le village" data-rename-open><%- icon('edit', 'size-3.5', 2.2) %></button>
         <span class="shrink-0 text-xs whitespace-nowrap text-parchment-500 tabular-nums"><%= idx + 1 %> / <%= myVillages.length %> village<%= myVillages.length > 1 ? 's' : '' %></span>
       </div>
-      <div class="flex flex-wrap gap-1">
+      <div class="flex flex-wrap gap-1" data-overview-meta>
         <% for (const [k, val, c] of meta) { %>
           <div class="flex min-w-16 flex-col border border-bronze-800 border-t-2 bg-night px-2.5 py-[3px] <%= c %>">
             <span class="text-[10px] tracking-[0.02em] text-parchment-500"><%= k %></span>
@@ -104,7 +95,7 @@
     </section>
 
     <%# Mouvements de troupes %>
-    <section class="<%= ui.panel %>">
+    <section class="<%= ui.panel %>" data-overview-live="movements">
       <%- panelHead('Mouvements de troupes', segTabs([[qs({ mv: 'all' }), `Tous (${outgoing.length + incoming.length})`, tab === 'all'], [qs({ mv: 'in' }), `Entrants (${incoming.length})`, tab === 'in'], [qs({ mv: 'out' }), `Sortants (${outgoing.length})`, tab === 'out']])) %>
       <div class="overflow-x-auto">
         <div class="min-w-[600px]">
@@ -116,22 +107,19 @@
           <% } %>
           <% shown.forEach((m, i) => { const { c, dir } = m;
                const other = dir === 'in' ? c.origin : c.target;
-               const st = moveStyle[c.type] || moveStyle.support;
                const left = (new Date(c.arrivesAt) - now) / 1000;
                const sub = subOf(m);
                const canCancel = dir === 'out' && c.type !== 'return' && now - new Date(c.startsAt) < ctx.cfg.commandCancelSeconds * 1000; %>
             <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] items-center border-b border-bronze-800 <%= i % 2 ? 'bg-row-alt' : '' %> hover:bg-row-hover">
               <div class="flex min-w-0 items-center gap-2 border-r border-bronze-900 px-2.5 py-[5px]">
-                <span class="flex size-[22px] shrink-0 items-center justify-center border-2 border-black text-night shadow-[2px_2px_0_#000] <%= st.box %>"><%- icon(st.icon, 'size-[13px]', 3.2) %></span>
-                <% const pace = dir === 'out' ? paceOf(c) : null; %>
-                <% if (pace) { %><span class="flex shrink-0 text-gold-400" title="Unité la plus lente : <%= pace.name %>"><%- unitIcon(pace.id, 'size-[18px]', 2) %></span><% } %>
+                <%- include('partials/order-badge', { type: c.type, units: dir === 'in' && c.type === 'attack' ? null : c.units }) %>
                 <div class="min-w-0">
                   <div class="truncate font-semibold <%= dir === 'in' && c.type === 'attack' ? 'text-blood-500' : '' %>"><%= dir === 'in' ? (c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant') : verbs[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></div>
                   <% if (sub) { %><div class="truncate text-[11px] text-parchment-500" title="<%= sub %>"><%- subOf(m, true) %></div><% } %>
                 </div>
               </div>
               <div class="min-w-0 truncate border-r border-bronze-900 px-2.5 py-[5px]">
-                <a href="/village/<%= vid %>/map?x=<%= other.x %>&y=<%= other.y %>" class="<%= ui.linkPlain %>"><%= other.name %></a>
+                <a href="/village/<%= vid %>/villages/<%= other.id %>" class="<%= ui.linkPlain %>"><%= other.name %></a>
                 <span class="font-semibold text-gold-400 tabular-nums">(<%= other.x %>|<%= other.y %>) <%= continent(other.x, other.y) %></span>
               </div>
               <span class="border-r border-bronze-900 px-2.5 py-[5px] text-parchment-500 tabular-nums"><%= whenShort(c.arrivesAt, now) %></span>
@@ -184,7 +172,7 @@
     </section>
 
     <%# Constructions %>
-    <section class="<%= ui.panel %>">
+    <section class="<%= ui.panel %>" data-overview-live="buildings">
       <%- panelHead('Constructions', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${ctx.buildOrders.length} / ${ctx.cfg.buildQueueSlots}</span>`) %>
       <div class="flex flex-col">
         <% if (!ctx.buildOrders.length) { %><p class="p-2.5 text-[13px] text-parchment-500">Aucun chantier. Les ouvriers attendent tes ordres.</p><% } %>
@@ -219,6 +207,7 @@
     </section>
 
     <%# Recrutements en cours %>
+    <div data-overview-live="recruitment" data-recruit-next="<%= Number.isFinite(nextUnitAt) ? nextUnitAt : '' %>">
     <% if (ctx.recruitOrders.length) { %>
       <section class="<%= ui.panel %>">
         <%- panelHead('Recrutement') %>
@@ -236,9 +225,10 @@
         </div>
       </section>
     <% } %>
+    </div>
 
     <%# Troupes %>
-    <section class="<%= ui.panel %>">
+    <section class="<%= ui.panel %>" data-overview-live="troops">
       <%- panelHead('Troupes', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${num(unitCount)} au village</span>`) %>
       <div class="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 px-2.5 py-1.5">
         <% if (!units.length) { %><p class="col-span-3 py-0.5 text-[13px] text-parchment-500">Aucune unité au village.</p><% } %>

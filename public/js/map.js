@@ -103,7 +103,7 @@
   const HAUL = { full: 'butin plein', partial: 'butin partiel' };
   const lastDot = (last) => LAST[last.result].html;
   // Note du carnet sur ce village : petite feuille en haut à gauche de la case.
-  const NOTE_ICON = '<svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8 12h8M8 16h6"/></svg>';
+  const NOTE_ICON = '<svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8 12h8M8 16h6"/></svg>';
 
   function villageHtml(c) {
     const relationHasDot = ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind);
@@ -112,10 +112,15 @@
     const dot = c.mark
       ? `<span class="village-relation-dot hidden group-data-[layer-markers]/map:block" style="background:${esc(c.mark)}"></span>`
       : relationHasDot ? '<span class="village-relation-dot"></span>' : '';
-    const fav = c.fav ? '<span class="pointer-events-none absolute bottom-0 left-0.5 z-[6] text-xs leading-none text-map-label-me [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
+    const fav = c.fav ? '<span class="pointer-events-none absolute right-0.5 bottom-0 z-[6] text-xs leading-none text-map-label-me [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
     const barb = c.kind === 'barb' ? ' group-data-[layer-nobarb]/map:hidden' : '';
-    const note = c.note ? `<span class="pointer-events-none absolute top-0.5 left-0.5 z-[6] flex border border-black bg-[#f4e8c8] p-px text-[#3a2812] shadow-[1px_1px_0_#000]" title="Note">${NOTE_ICON}</span>` : '';
-    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span>${note}</span>${fav}`;
+    const note = c.note ? `<span class="pointer-events-none absolute bottom-0.5 left-0.5 z-[6] flex border border-black bg-[#f4e8c8] p-px text-[#3a2812] shadow-[1px_1px_0_#000]" title="Note">${NOTE_ICON}</span>` : '';
+    const orders = [...((c.orders && c.orders.own) || []), ...((c.orders && c.orders.tribe) || [])];
+    const active = orders.find((o) => o.type !== 'return');
+    const returning = orders.find((o) => o.type === 'return');
+    const orderMarks = [active, returning].filter(Boolean).map((o) => `<span title="${o.type === 'return' ? 'Troupes en retour' : 'Ordre en cours'}">${o.mapBadge}</span>`).join('');
+    const orderCorner = orderMarks ? `<span class="pointer-events-none absolute top-px -right-5 z-[7] flex flex-col items-end" aria-hidden="true">${orderMarks}</span>` : '';
+    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span>${note}</span>${fav}${orderCorner}`;
   }
 
   function render() {
@@ -201,7 +206,7 @@
     place();
   }
 
-  // Flèches des attaques en cours depuis ce village.
+  // Flèches des attaques en cours depuis ce village (calque « Mouvements de troupes »).
   function arrows(x0, y0) {
     if (!boot.attacks.length) return '';
     const px = (x) => (x - x0 + 0.5) * tw;
@@ -215,7 +220,7 @@
       line += `M${(sx0 + ux * 18).toFixed(1)} ${(sy0 + uy * 18).toFixed(1)}L${ex.toFixed(1)} ${ey.toFixed(1)}`;
       heads += `M${ex.toFixed(1)} ${ey.toFixed(1)}L${(bx - uy * 5).toFixed(1)} ${(by + ux * 5).toFixed(1)}L${(bx + uy * 5).toFixed(1)} ${(by - ux * 5).toFixed(1)}Z`;
     }
-    return `<svg class="pointer-events-none absolute inset-0 z-[7] overflow-visible" width="100%" height="100%" aria-hidden="true"><path d="${line}" class="stroke-blood-450" stroke-width="2" stroke-dasharray="6 5" fill="none"/><path d="${heads}" class="fill-blood-450"/></svg>`;
+    return `<svg class="pointer-events-none absolute inset-0 z-[7] hidden overflow-visible group-data-[layer-moves]/map:block" width="100%" height="100%" aria-hidden="true"><path d="${line}" class="stroke-blood-450" stroke-width="2" stroke-dasharray="6 5" fill="none"/><path d="${heads}" class="fill-blood-450"/></svg>`;
   }
 
   function rulers() {
@@ -458,6 +463,22 @@
       notesCell.innerHTML = (d.notes || []).map((n) => `<span class="block whitespace-pre-line wrap-break-word text-parchment-200">${n.author ? `<b class="font-semibold text-gold-200">${esc(n.author)} :</b> ` : ''}${esc(n.text)}</span>`).join('');
     }
     show('notes', Boolean(d.notes && d.notes.length));
+    const orderLabels = { attack: 'Attaque', support: 'Soutien', relocate: 'Déplacement', return: 'Retour' };
+    for (const group of ['own', 'tribe']) {
+      const orders = (d.orders && d.orders[group]) || [];
+      set(`orders-${group}-count`, orders.length);
+      show(`orders-${group}`, orders.length > 0);
+      const container = tip.querySelector(`[data-tip="orders-${group}"]`);
+      if (container) container.innerHTML = orders.map((order) => {
+        const arrival = new Date(order.arrivesAt);
+        const remaining = Math.max(0, Math.ceil((arrival.getTime() - Date.now()) / 1000));
+        const origin = `${order.origin} (${order.x}|${order.y})`;
+        return `<div class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-bronze-900 px-2 py-1 text-[11px]">`
+          + `<span class="flex min-w-0 items-center gap-1.5">${order.badge}<span class="min-w-0 truncate" title="${esc(origin)}">${esc(orderLabels[order.type] || order.type)} · ${esc(origin)}${group === 'tribe' ? ` · ${esc(order.player)}` : ''}</span></span>`
+          + `<span class="text-parchment-400 tabular-nums">${arrival.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>`
+          + `<span class="font-semibold text-gold-200 tabular-nums" data-order-arrival="${arrival.getTime()}">${fmt(remaining)}</span></div>`;
+      }).join('');
+    }
     tip.classList.remove('hidden');
     placeBeside(tip, el);
   }
@@ -467,6 +488,12 @@
     showTip(el);
   });
   viewport.addEventListener('pointerleave', hideTip);
+  setInterval(() => {
+    if (!tip || tip.classList.contains('hidden')) return;
+    tip.querySelectorAll('[data-order-arrival]').forEach((el) => {
+      el.textContent = fmt(Math.max(0, Math.ceil((Number(el.dataset.orderArrival) - Date.now()) / 1000)));
+    });
+  }, 1000);
 
   function selectTile(el) {
     sel = [Number(el.dataset.x), Number(el.dataset.y)];
@@ -487,6 +514,7 @@
     message: '<rect x="3" y="5" width="18" height="14"/><path d="M3 6l9 7 9-7"/>',
     // Deux épées croisées (envoyer des troupes).
     troops: '<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
+    recruit: '<path d="M5 20V8l7-4 7 4v12zM9 20v-7h6v7M8 9h8"/>',
     // Longue-vue (espionnage).
     spy: '<circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L21 21"/>',
   };
@@ -495,12 +523,18 @@
   const closeMenu = () => { if (menu) menu.classList.add('hidden'); if (radial) radial.classList.add('hidden'); };
   const menuOpen = () => (menu && !menu.classList.contains('hidden')) || (radial && !radial.classList.contains('hidden'));
 
-  // Actions rapides d'un village d'un autre joueur (ou barbare), comme sur Guerre Tribale : une icône sur chaque
+  // Actions rapides d'un village, comme sur Guerre Tribale : une icône sur chaque
   // pointe d'une étoile à 5 branches autour de la case (en haut les ressources, puis dans le sens des aiguilles
   // d'une montre profil, message, favoris, et les troupes à gauche). Chaque action garde sa pointe : un barbare
   // (sans profil ni message) laisse ces deux pointes vides.
-  function openRadial(el, d, { tplOption, target }) {
-    const actions = [
+  function openRadial(el, d, { tplOption, target, mine }) {
+    const actions = mine ? [
+      ['troops', d.kind === 'current' ? 'Point de ralliement' : 'Envoyer des troupes vers ce village', d.kind === 'current' ? `${base}/place` : `${base}/place?${target}`],
+      ['recruit', 'Recruter', `/village/${d.id}/recruit/barracks`],
+      ['center', 'Centrer ici', null, 'center'],
+      ['star', d.fav ? 'Retirer des favoris' : 'Ajouter aux favoris', `${base}/favorites/${d.id}`, 'post'],
+      ['market', 'Marché', `/village/${d.id}/market`],
+    ] : [
       ['troops', tplOption && tplOption.value ? `Envoyer des troupes · ${tplOption.textContent}` : 'Envoyer des troupes', `${base}/place?${target}`],
       ...(d.playerId ? [['profile', `Profil de ${d.owner}`, `${base}/players/${d.playerId}`]] : []),
       ...(d.playerId ? [['message', `Écrire à ${d.owner}`, `${base}/messages/new?${new URLSearchParams({ to: d.owner })}`]] : []),
@@ -511,15 +545,16 @@
     const rx = tw * 0.95 + 8; const ry = th * 0.95 + 12;
     const btn = 'pointer-events-auto absolute flex size-[30px] -translate-1/2 cursor-pointer items-center justify-center border-2 border-black bg-panel-top no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000] transition hover:scale-110 hover:bg-head-dark hover:text-parchment-100';
     const svg = (ic) => `<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MENU_ICONS[ic]}</svg>`;
-    const POINT = { market: 0, profile: 1, message: 2, star: 3, troops: 4 };
+    const POINT = { market: 0, profile: 1, recruit: 1, message: 2, center: 2, star: 3, troops: 4 };
     // Au centre, sur le village, comme « Informations » sur GT : aperçu du village (fiche, trajets, derniers rapports).
-    actions.push(['eye', 'Aperçu du village', `${base}/villages/${d.id}`, 'middle']);
+    actions.push(mine ? ['open', 'Ouvrir le village', `/village/${d.id}`, 'middle'] : ['eye', 'Aperçu du village', `${base}/villages/${d.id}`, 'middle']);
     radial.querySelector('[data-radial-items]').innerHTML = actions.map(([ic, label, href, kind]) => {
       const a = (-90 + POINT[ic] * 72) * (Math.PI / 180);
       const at = kind === 'middle' ? 'left:0;top:0' : `left:${Math.round(Math.cos(a) * rx)}px;top:${Math.round(Math.sin(a) * ry)}px`;
       const cls = `${btn} ${MENU_COLORS[ic] || 'text-parchment-300'}`;
       const attrs = `style="${at}" title="${esc(label)}" aria-label="${esc(label)}" data-radial-action="${esc(label)}"`;
       if (kind === 'post') return `<form method="post" action="${esc(href)}" class="contents"><input type="hidden" name="_csrf" value="${esc(frame.dataset.csrf)}"><button class="${cls}" ${attrs}>${svg(ic)}</button></form>`;
+      if (kind === 'center') return `<button type="button" class="${cls}" ${attrs} data-map-center="${d.x}|${d.y}">${svg(ic)}</button>`;
       return `<a href="${esc(href)}" class="${cls}" ${attrs}>${svg(ic)}</a>`;
     }).join('');
     const label = radial.querySelector('[data-radial-label]');
@@ -538,6 +573,10 @@
       const b = e.target.closest('[data-radial-action]');
       radial.querySelector('[data-radial-label]').textContent = b ? b.dataset.radialAction : radial.dataset.caption;
     });
+    radial.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-map-center]');
+      if (b) moveTo(...b.dataset.mapCenter.split('|').map(Number));
+    });
   }
   function openMenu(el) {
     const d = cellOf(el);
@@ -552,8 +591,7 @@
     const allowed = (k) => quick[k] !== false;
     const markUrl = (type, id, label) => `${base}/map?${new URLSearchParams({ x: Math.round(cx), y: Math.round(cy), mark: `${type}:${id}`, label })}#marquages`;
     closeMenu();
-    // Village d'un autre joueur ou barbare : actions rapides en cercle ; ses propres villages : menu.
-    if (!mine && radial) { openRadial(el, d, { tplOption, target }); return; }
+    if (radial) { openRadial(el, d, { tplOption, target, mine }); return; }
     const actions = mine
       ? [['open', 'Ouvrir le village', `/village/${d.id}`], ['attack', 'Recruter', `/village/${d.id}/recruit/barracks`], ['center', 'Centrer ici', null, 'center']]
       : [
@@ -616,7 +654,7 @@
 
   // ------------------------------------------------------------------ Calques (mémorisés sur le joueur)
   // Aussi appliqués à la mini-carte et à la carte du monde (public/js/minimap.js).
-  const LAYER_KEYS = ['markers', 'influence', 'enemy', 'nobarb', 'grid', 'borders'];
+  const LAYER_KEYS = ['markers', 'moves', 'influence', 'enemy', 'nobarb', 'grid', 'borders'];
   const layersOn = () => Object.fromEntries(LAYER_KEYS.map((k) => [k, frame.hasAttribute(`data-layer-${k}`)]));
   document.querySelectorAll('[data-map-layer]').forEach((b) => {
     b.addEventListener('click', () => {

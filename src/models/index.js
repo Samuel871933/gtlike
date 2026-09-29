@@ -28,6 +28,30 @@ const World = sequelize.define('World', {
   endedAt: { type: DataTypes.DATE, allowNull: true },
   winnerTribeId: { type: DataTypes.INTEGER, allowNull: true },
   winnerPlayerId: { type: DataTypes.INTEGER, allowNull: true },
+  // Serveur privé (voir PrivateServerService) : créé par un compte, accès 'open' (listé, ouvert à tous) ou 'code'
+  // (réservé aux détenteurs du code). Nuls pour les mondes officiels.
+  ownerUserId: { type: DataTypes.INTEGER, allowNull: true },
+  access: { type: DataTypes.STRING(8), allowNull: true },
+  joinCode: { type: DataTypes.STRING(12), allowNull: true },
+}, { indexes: [{ unique: true, fields: ['joinCode'] }] });
+
+/** Monde officiel (créé par le jeu) ou serveur privé (créé par un joueur) ? */
+World.prototype.isPrivate = function isPrivate() {
+  return Boolean(this.access);
+};
+
+// Un serveur privé est immuable une fois créé : ni son nom, ni ses réglages, ni son accès ne peuvent changer (seul
+// l'état de la partie évolue : fin du monde, vainqueur). Les mondes officiels restent réglés par scripts/seed.js.
+const WORLD_LOCKED = ['slug', 'name', 'config', 'ownerUserId', 'access', 'joinCode'];
+World.addHook('beforeUpdate', (world) => {
+  const changed = WORLD_LOCKED.filter((k) => world.changed(k));
+  if (changed.length && (world.previous('access') || world.access)) {
+    throw new Error(`Serveur privé immuable : ${changed.join(', ')} ne peut pas être modifié après sa création.`);
+  }
+});
+// Les mises à jour groupées (World.update) passent aussi par la vérification ci-dessus, monde par monde.
+World.addHook('beforeBulkUpdate', (options) => {
+  if (WORLD_LOCKED.some((k) => k in (options.attributes || {}))) options.individualHooks = true;
 });
 
 World.prototype.getConfig = function getConfig() {
@@ -175,6 +199,8 @@ const Player = sequelize.define(
     // Offres par page de la recherche du marché (nulle : valeur par défaut).
     marketPerPage: { type: DataTypes.INTEGER, allowNull: true },
     showTribeNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    shareTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    showTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // Mode sommeil : les attaques qui arrivent dans cet intervalle deviennent des visites.
     sleepStartsAt: { type: DataTypes.DATE, allowNull: true },
     sleepEndsAt: { type: DataTypes.DATE, allowNull: true },

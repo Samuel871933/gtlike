@@ -1,0 +1,73 @@
+<%- include('partials/header', { title: 'Créer un serveur privé' }) %>
+<%
+  // Création d'un serveur privé : nom et accès, puis tous les réglages du monde, générés depuis
+  // src/game/serverSettings.js (libellés, bornes et valeurs par défaut au même endroit que la validation).
+  const access = input.access || 'open';
+  const accessOptions = [
+    ['open', 'Ouvert', 'Listé dans les serveurs publics : tout le monde peut le rejoindre.', 'flag'],
+    ['code', 'Sur code', 'Caché : seuls ceux qui ont le code d’accès peuvent le rejoindre.', 'lock'],
+  ];
+  const field = (s) => {
+    const v = formValue(s, input);
+    const id = `f-${s.key.replace(/\./g, '-')}`;
+    if (s.type === 'bool') {
+      return `<label class="flex cursor-pointer items-center justify-between gap-3 py-1.5" for="${id}"><span class="flex min-w-0 flex-col"><span>${esc(s.label)}</span>`
+        + `${s.hint ? `<span class="text-xs text-parchment-500">${esc(s.hint)}</span>` : ''}</span>`
+        + `<input type="checkbox" id="${id}" name="${s.key}" value="1" class="${ui.checkbox} shrink-0"${v ? ' checked' : ''}></label>`;
+    }
+    const control = s.type === 'select'
+      ? `<select id="${id}" name="${s.key}" class="${ui.input} w-48 shrink-0">${s.options.map(([o, l]) => `<option value="${esc(o)}"${String(o) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`
+      : `<input type="number" id="${id}" name="${s.key}" value="${esc(v)}" min="${s.min}" max="${s.max}" step="${s.step}" class="${ui.input} w-28 shrink-0 text-right tabular-nums">`;
+    return `<label class="flex items-center justify-between gap-3 py-1" for="${id}"><span class="flex min-w-0 flex-col"><span>${esc(s.label)}</span>`
+      + `${s.hint ? `<span class="text-xs text-parchment-500">${esc(s.hint)}</span>` : ''}</span>${control}</label>`;
+  };
+%>
+<form method="post" action="/servers" class="flex flex-col gap-3.5 pb-6"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <%- include('partials/page-title', { kicker: 'Serveur privé', title: 'Créer un serveur', sub: 'Tes réglages, tes règles : un monde complet, gratuit, que tu partages avec qui tu veux.' }) %>
+  <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
+  <%# Un serveur créé est immuable (voir le hook beforeUpdate de World) : on le dit avant la création. %>
+  <div class="<%= ui.alertInfo %> flex items-start gap-2">
+    <span class="mt-0.5 text-gold-400"><%- icon('lock', 'size-4', 2.2) %></span>
+    <span><b class="font-semibold">Un serveur créé ne peut plus être modifié.</b> Nom, accès et réglages sont définitifs : tous les joueurs rejoignent le même monde, avec les mêmes règles, du début à la fin. Prends le temps de tout vérifier.</span>
+  </div>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Serveur') %>
+    <div class="flex flex-col gap-3 p-3.5">
+      <label class="<%= ui.label %> max-w-md">Nom du serveur
+        <input name="name" value="<%= input.name || '' %>" minlength="3" maxlength="32" required class="<%= ui.input %> h-9 w-full" placeholder="Les terres de la Horde">
+      </label>
+      <fieldset class="flex flex-col gap-1.5">
+        <legend class="<%= ui.label %> mb-1.5">Accès</legend>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <% for (const [value, title, sub, ic] of accessOptions) { %>
+            <label class="flex cursor-pointer items-center gap-2.5 border border-bronze-800 bg-night px-2.5 py-2 transition hover:border-gold-400 has-checked:border-gold-400 has-checked:bg-thead">
+              <input type="radio" name="access" value="<%= value %>" class="accent-(--color-gold-400)" <%= access === value ? 'checked' : '' %>>
+              <span class="<%= ui.medallion %> size-7"><%- icon(ic, 'size-3.5', 2.2) %></span>
+              <span class="flex min-w-0 flex-col"><span class="font-semibold"><%= title %></span><span class="text-xs text-parchment-500"><%= sub %></span></span>
+            </label>
+          <% } %>
+        </div>
+      </fieldset>
+    </div>
+  </section>
+
+  <div class="grid items-start gap-3.5 md:grid-cols-2">
+    <% for (const g of groups) { %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead(g.title) %>
+        <% if (g.intro) { %><p class="border-b border-bronze-800 px-3.5 py-2 text-[13px] leading-snug text-parchment-400"><%= g.intro %></p><% } %>
+        <div class="flex flex-col divide-y divide-bronze-900 px-3.5 py-1.5 text-sm">
+          <% for (const s of g.settings) { %><%- field(s) %><% } %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-end gap-3">
+    <a href="/worlds" class="<%= ui.link %> text-sm">Annuler</a>
+    <span class="text-[13px] text-parchment-500">Réglages définitifs après la création.</span>
+    <button class="<%= btn('gold', 'md') %>"><%- icon('plus', 'size-3.5', 2.4) %>Créer le serveur</button>
+  </div>
+</form>
+<%- include('partials/footer') %>

@@ -170,3 +170,39 @@ test('notes de village : partagées avec la tribu seulement si l’auteur partag
   assert.deepEqual(await seen('Alice'), ['moi:Actif le soir', 'Carol:Muraille 20']);
   assert.deepEqual(await seen('Carol'), ['moi:Muraille 20'], "Alice ne partage pas, et Carol n'affiche pas");
 });
+
+test('ordres sur la carte : ses ordres et ceux des membres qui autorisent leur partage', async () => {
+  const { Command } = require('../src/models');
+  const MapOrderService = require('../src/services/MapOrderService');
+  const target = villages.Bob.id;
+  const worldId = villages.Bob.worldId;
+  const startsAt = new Date();
+  const arrivesAt = new Date(Date.now() + 3600000);
+  for (const name of ['Alice', 'Carol', 'Dave']) {
+    await Command.create({ worldId, type: 'attack', originVillageId: villages[name].id, targetVillageId: target, units: { axe: 1 }, startsAt, arrivesAt });
+  }
+  const seen = async () => (await MapOrderService.visible(await reload('Alice'), [target])).get(target);
+  assert.ok((await seen()).own.length >= 1);
+  assert.ok((await seen()).own.every((o) => o.player === 'Alice'));
+  assert.equal((await seen()).tribe.length, 0);
+  await Player.update({ showTribeOrders: true }, { where: { id: players.Alice.id } });
+  assert.equal((await seen()).tribe.length, 0);
+  await Player.update({ shareTribeOrders: true }, { where: { id: players.Carol.id } });
+  assert.deepEqual((await seen()).tribe.map((o) => o.player), ['Carol']);
+  await Player.update({ showTribeOrders: false }, { where: { id: players.Alice.id } });
+  assert.equal((await seen()).tribe.length, 0);
+  await Command.create({ worldId, type: 'return', originVillageId: villages.Alice.id, targetVillageId: target,
+    units: { axe: 1, spear: 1 }, startsAt, arrivesAt });
+  const targetOrders = (await MapOrderService.visible(await reload('Alice'), [target])).get(target);
+  const returning = targetOrders.own.find((o) => o.type === 'return');
+  assert.equal(returning.origin, villages.Alice.name);
+  assert.match(returning.badge, /Unité la plus lente/);
+  assert.match(returning.badge, /title="Retour"/);
+  assert.match(returning.mapBadge, /title="Retour"/);
+  assert.match(returning.mapBadge, /size-3\.5/);
+  assert.doesNotMatch(returning.mapBadge, /flex-row-reverse/);
+  assert.equal((returning.mapBadge.match(/size-\[18px\]/g) || []).length, 2);
+  assert.match(returning.mapBadge, /bg-panel-top/);
+  const homeOrders = (await MapOrderService.visible(await reload('Alice'), [villages.Alice.id])).get(villages.Alice.id);
+  assert.ok(!homeOrders || !homeOrders.own.some((o) => o.type === 'return'));
+});

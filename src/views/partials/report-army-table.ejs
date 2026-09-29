@@ -1,0 +1,11 @@
+<div class="report-army-table-wrap">
+  <table class="report-army-table">
+    <thead><tr><th class="report-army-table__corner" scope="col">Unités</th>
+      <% for (const id of ids) { %><th class="report-army-table__unit" scope="col" title="<%= unitName(id) %>"><span><%- unitIcon(id, 'size-8') %></span><small><%= unitName(id) %></small></th><% } %>
+    </tr></thead>
+    <tbody>
+      <tr><th class="report-army-table__label" scope="row">Quantité</th><% for (const id of ids) { const n = units?.[id] || 0; %><td class="<%= n ? 'is-amount' : 'is-zero' %>"><%= num(n) %></td><% } %></tr>
+      <% if (losses) { %><tr><th class="report-army-table__label" scope="row">Pertes</th><% for (const id of ids) { const n = losses[id] || 0; %><td class="<%= n ? 'is-loss' : 'is-zero' %>"><%= num(n) %></td><% } %></tr><% } %>
+    </tbody>
+  </table>
+</div>

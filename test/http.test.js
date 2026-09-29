@@ -84,7 +84,7 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   assert.match(after.html, /data-game-style="medieval"/);
   const styled = await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
   assert.equal(styled.status, 302);
-  assert.match((await http(joined.location)).html, /class="h-full scheme-dark medieval:scheme-light game_style" data-game-style="viking"/);
+  assert.match((await http(joined.location)).html, /class="h-full scheme-dark light:scheme-light game_style" data-game-style="viking"/);
   assert.doesNotMatch((await http('/worlds')).html, /data-game-style/);
   const unknown = await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'inconnu', _csrf: tokenOf(after.html) } });
   assert.equal(unknown.status, 302);
@@ -112,10 +112,14 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   await http(`${joined.location}/account/village-design`, { method: 'POST', form: { design: 'inconnu', _csrf: tokenOf(after.html) } });
   assert.match((await http(`${joined.location}/map`)).html, /"design":"blanc-bleu"/);
 
-  for (const page of ['', '/place', '/map', '/reports', '/messages', '/tribe', '/market', '/ranking', '/ranking?type=continent', '/ranking?type=victory']) {
+  for (const page of ['', '/villages', '/villages?mode=prod', '/villages?mode=units', '/villages?mode=buildings', '/place', '/place?tab=troops', '/place?tab=troops&view=units', '/scavenge', '/map', '/reports', '/messages', '/tribe', '/market', '/ranking', '/ranking?type=continent', '/ranking?type=victory']) {
     const r = await http(joined.location + page);
     assert.ok([200, 302].includes(r.status), `${page} → ${r.status}`);
   }
+  const simulation = await http(`${joined.location}/place?tab=sim&att_spear=10&def_spear=5&wall=2&luck=10`);
+  assert.equal(simulation.status, 200);
+  assert.match(simulation.html, /id="simulation-result"/);
+  assert.match(simulation.html, /report-army-table/);
 });
 
 test('pages de la maquette GTLike : outils de la carte, contenus publics, mot de passe oublié', async () => {
@@ -405,6 +409,10 @@ test('aperçu d’un village : fiche, carnet de notes, propres ordres, rapports 
   const tpl = await ArmyTemplateService.create(player.id, { name: 'Nettoyage', axe: 7 }, (await require('../src/models').World.findOne({ where: { slug: 'w1' } })).getConfig());
   const place = await http(`${joined.location}/place?x=${target.x}&y=${target.y}&tpl=${tpl.id}`);
   assert.match(place.html, /name="axe"[^>]*value="7"/);
+  const troops = await http(`${joined.location}/place?tab=troops`);
+  assert.equal(troops.status, 200);
+  assert.ok(troops.html.includes(`href="${joined.location}/villages/${target.id}"`), 'le village en campagne ouvre son aperçu');
+  assert.ok(!troops.html.includes(`href="${joined.location}/map?x=${target.x}&amp;y=${target.y}"`), 'son nom ne centre plus la carte');
 });
 
 test('réglages tribu du compte : colonnes Partager avec la tribu / Afficher la tribu', async () => {
@@ -417,10 +425,13 @@ test('réglages tribu du compte : colonnes Partager avec la tribu / Afficher la 
   const account = await http(`${joined.location}/account`);
   assert.match(account.html, /Partager avec la tribu/);
   assert.match(account.html, /Notes de village/);
-  await http(`${joined.location}/account/tribe-settings`, { method: 'POST', form: { shareVillageNotes: '1', _csrf: tokenOf(account.html) } });
+  assert.match(account.html, /Ordres de troupes/);
+  await http(`${joined.location}/account/tribe-settings`, { method: 'POST', form: { shareVillageNotes: '1', shareTribeOrders: '1', showTribeOrders: '1', _csrf: tokenOf(account.html) } });
   const lola = await Player.findOne({ where: { name: 'Lola' } });
   assert.equal(lola.shareVillageNotes, true);
   assert.equal(lola.showTribeNotes, false);
+  assert.equal(lola.shareTribeOrders, true);
+  assert.equal(lola.showTribeOrders, true);
 });
 
 test('marché comme sur GT : pages du menu, préremplissage, offres en masse, demande', async () => {

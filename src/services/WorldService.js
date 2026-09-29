@@ -26,6 +26,16 @@ class WorldService {
     }));
   }
 
+  /** Nombre de joueurs actifs (au moins un village) de chaque monde : Map(worldId → nombre). */
+  static async playerCounts(worldIds) {
+    if (!worldIds.length) return new Map();
+    const rows = await Player.findAll({
+      where: { worldId: worldIds, villageCount: { [Op.gt]: 0 } },
+      attributes: ['worldId', [sequelize.fn('COUNT', sequelize.col('id')), 'n']], group: ['worldId'], raw: true,
+    });
+    return new Map(rows.map((r) => [r.worldId, Number(r.n)]));
+  }
+
   static async getPlayer(userId, worldId, options = {}) {
     return Player.findOne({ where: { userId, worldId }, ...options });
   }
