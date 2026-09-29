@@ -45,6 +45,7 @@
             <button type="button" class="<%= maxBtn %>" data-fill="count" data-max="<%= maxCoins %>">max <%= maxCoins %></button>
             <button class="<%= btn('gold', 'md') %>" <%= maxCoins < 1 ? 'disabled' : '' %>><%- icon('coin', 'size-3.5', 2) %>Frapper</button>
           </span>
+          <% if (maxCoins < 1) { %><span class="w-full text-right text-xs text-blood-300"><%= resourcesWhen(ctx.state, coin, now) %></span><% } %>
         </form>
         <p class="text-xs text-parchment-600">Encore <span class="font-semibold text-parchment-400 tabular-nums"><%= num(slots.coinsForNextSlot) %></span> pièce(s) pour l'emplacement suivant.</p>
       </div>
@@ -52,8 +53,8 @@
 
     <section class="<%= ui.panel %>">
       <%- panelHead('Former un noble') %>
+      <%- include('partials/recruit-queue', { orders: queue, showEmpty: false }) %>
       <div class="<%= ui.panelBody %>">
-        <%- include('partials/recruit-queue', { orders: queue }) %>
         <% for (const o of available) { %>
           <form method="post" action="/village/<%= vid %>/recruit/snob" class="<%= ui.box %> flex flex-wrap items-center gap-x-4 gap-y-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <span class="flex min-w-0 items-center gap-3">
@@ -71,6 +72,11 @@
               <button type="button" class="<%= maxBtn %>" data-fill="snob" data-max="<%= o.max %>">max <%= o.max %></button>
               <button class="<%= btn('gold', 'md') %>" <%= o.max < 1 ? 'disabled' : '' %>>Former</button>
             </span>
+            <% if (o.max < 1) { const why = resourcesWhen(ctx.state, o.type.cost, now)
+                 || (ctx.state.farmCapacity() - ctx.popUsed() < o.type.pop ? 'La ferme est trop petite' : null)
+                 || (slots.free < 1 ? "Aucun emplacement libre : frappez des pièces d'or" : null); %>
+              <% if (why) { %><span class="w-full text-right text-xs text-blood-300"><%= why %></span><% } %>
+            <% } %>
           </form>
         <% } %>
         <p class="text-xs text-parchment-600">

@@ -3,8 +3,21 @@
 const { Op } = require('sequelize');
 const { sequelize, Player, Conversation, ConversationParticipant, ConversationMessage } = require('../models');
 const GameError = require('./GameError');
+const tribeRights = require('../game/tribeRights');
 
 const MAX_RECIPIENTS = 10;
+const PER_PAGE = { default: 12, min: 5, max: 100 };
+
+/**
+ * Destinataires groupés de la tribu (menu « Tribu » du champ À, comme sur GT). « Tribu entière » est le courrier
+ * circulaire et demande ce droit ; les autres groupes permettent à tout membre d'écrire aux ducs, barons ou diplomates.
+ */
+const GROUPS = {
+  tribe: { name: 'Tribu entière', right: 'massMail', match: () => true },
+  duke: { name: 'Duc', match: (p) => p.tribeRole === 'duke' },
+  baron: { name: 'Baron', match: (p) => p.tribeRole === 'baron' },
+  diplomacy: { name: 'Diplomatie', match: (p) => p.tribeRole === 'member' && tribeRights.has(p, 'diplomacy') },
+};
 
 function cleanBody(body) {
   const text = String(body || '').trim();
@@ -14,24 +27,51 @@ function cleanBody(body) {
 }
 
 class MessageService {
-  /** Nouvelle conversation. `to` : pseudos séparés par des virgules. */
-  static async start(playerId, { to, subject, body }, { now = new Date() } = {}) {
+  /** Groupes de la tribu du menu « Tribu », avec `blocker` quand le joueur ne peut pas y écrire (sans tribu, sans droit). */
+  static groupsFor(player) {
+    return Object.entries(GROUPS).map(([id, g]) => ({
+      id,
+      name: g.name,
+      blocker: !player.tribeId ? "Vous n'êtes dans aucune tribu."
+        : g.right && !tribeRights.has(player, g.right) ? 'Il faut le droit de courrier circulaire.' : null,
+    }));
+  }
+
+  /**
+   * Nouvelle conversation. `to` : pseudos séparés par des virgules ; ou `group` (tribe | duke | baron | diplomacy) :
+   * tous les membres de la tribu de ce groupe, sans limite de nombre (courrier circulaire).
+   */
+  static async start(playerId, { to, group, subject, body }, { now = new Date() } = {}) {
     const text = cleanBody(body);
     const title = String(subject || '').trim();
     if (!title || title.length > 100) throw new GameError("L'objet doit faire 1 à 100 caractères.");
+    const groupId = String(group || '').trim() || null;
+    if (groupId && !GROUPS[groupId]) throw new GameError('Groupe de destinataires inconnu.');
     const names = [...new Set(String(to || '').split(',').map((n) => n.trim()).filter(Boolean))];
-    if (!names.length) throw new GameError('Indiquez au moins un destinataire.');
-    if (names.length > MAX_RECIPIENTS) throw new GameError(`${MAX_RECIPIENTS} destinataires maximum.`);
+    if (!groupId && !names.length) throw new GameError('Indiquez au moins un destinataire.');
+    if (!groupId && names.length > MAX_RECIPIENTS) throw new GameError(`${MAX_RECIPIENTS} destinataires maximum.`);
 
     return sequelize.transaction(async (t) => {
       const author = await Player.findByPk(playerId, { transaction: t });
-      const recipients = await Player.findAll({ where: { worldId: author.worldId, name: { [Op.in]: names } }, transaction: t });
-      const missing = names.filter((n) => !recipients.some((r) => r.name === n));
-      if (missing.length) throw new GameError(`Joueur introuvable : ${missing.join(', ')}.`);
-      const others = recipients.filter((r) => r.id !== author.id);
-      if (!others.length) throw new GameError('Vous ne pouvez pas vous écrire à vous-même.');
+      let others;
+      if (groupId) {
+        if (!author.tribeId) throw new GameError("Vous n'êtes dans aucune tribu.");
+        const g = GROUPS[groupId];
+        if (g.right && !tribeRights.has(author, g.right)) throw new GameError('Il faut le droit de courrier circulaire.', 403);
+        const members = await Player.findAll({ where: { tribeId: author.tribeId, id: { [Op.ne]: author.id } }, transaction: t });
+        others = members.filter(g.match);
+        if (!others.length) throw new GameError(`Aucun autre membre de la tribu dans le groupe « ${g.name} ».`);
+      } else {
+        const recipients = await Player.findAll({ where: { worldId: author.worldId, name: { [Op.in]: names } }, transaction: t });
+        const missing = names.filter((n) => !recipients.some((r) => r.name === n));
+        if (missing.length) throw new GameError(`Joueur introuvable : ${missing.join(', ')}.`);
+        others = recipients.filter((r) => r.id !== author.id);
+        if (!others.length) throw new GameError('Vous ne pouvez pas vous écrire à vous-même.');
+      }
 
-      const conv = await Conversation.create({ worldId: author.worldId, subject: title, lastMessageAt: now }, { transaction: t });
+      const conv = await Conversation.create({
+        worldId: author.worldId, subject: title, lastMessageAt: now, authorId: author.id, recipientGroup: groupId,
+      }, { transaction: t });
       await ConversationParticipant.bulkCreate([
         { conversationId: conv.id, playerId: author.id, lastReadAt: now },
         ...others.map((r) => ({ conversationId: conv.id, playerId: r.id, lastReadAt: null })),
@@ -59,19 +99,94 @@ class MessageService {
     });
   }
 
-  /** Conversations du joueur, les plus récentes d'abord, avec l'indicateur « non lu ». */
-  static async inbox(playerId) {
+  /** Messages par page choisis par le joueur (bornés). */
+  static perPage(player) {
+    const n = Math.floor(Number(player && player.messagesPerPage));
+    return Number.isFinite(n) && n > 0 ? Math.min(PER_PAGE.max, Math.max(PER_PAGE.min, n)) : PER_PAGE.default;
+  }
+
+  static async setPerPage(playerId, value) {
+    const n = Math.floor(Number(value));
+    if (!Number.isFinite(n) || n < PER_PAGE.min || n > PER_PAGE.max) {
+      throw new GameError(`Entre ${PER_PAGE.min} et ${PER_PAGE.max} messages par page.`);
+    }
+    await Player.update({ messagesPerPage: n }, { where: { id: playerId } });
+  }
+
+  /**
+   * Boîte de réception paginée, les plus récentes d'abord : non-lu, autres participants, auteur, nombre de messages.
+   * `search` filtre sur l'objet et le texte des messages.
+   */
+  static async inbox(playerId, { page = 1, perPage = PER_PAGE.default, search = '' } = {}) {
+    const where = { playerId };
+    const q = String(search || '').trim().toLowerCase().slice(0, 100);
+    if (q) {
+      const like = `%${q}%`;
+      const inBody = await ConversationMessage.findAll({
+        attributes: ['conversationId'],
+        where: sequelize.where(sequelize.fn('lower', sequelize.col('body')), { [Op.like]: like }),
+        raw: true,
+      });
+      const bySubject = await Conversation.findAll({
+        attributes: ['id'],
+        where: sequelize.where(sequelize.fn('lower', sequelize.col('subject')), { [Op.like]: like }),
+        raw: true,
+      });
+      where.conversationId = { [Op.in]: [...new Set([...inBody.map((r) => r.conversationId), ...bySubject.map((r) => r.id)])] };
+    }
+    const total = await ConversationParticipant.count({ where });
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    const current = Math.min(pages, Math.max(1, Math.floor(Number(page)) || 1));
     const rows = await ConversationParticipant.findAll({
-      where: { playerId },
+      where,
       include: [{ model: Conversation, include: [{ association: 'participants', include: [Player] }] }],
-      order: [[Conversation, 'lastMessageAt', 'DESC']],
-      limit: 100,
+      order: [[Conversation, 'lastMessageAt', 'DESC'], [Conversation, 'id', 'DESC']],
+      limit: perPage,
+      offset: (current - 1) * perPage,
     });
-    return rows.map((p) => ({
-      conversation: p.Conversation,
-      unread: !p.lastReadAt || new Date(p.Conversation.lastMessageAt) > new Date(p.lastReadAt),
-      others: p.Conversation.participants.filter((x) => x.playerId !== playerId).map((x) => x.Player.name),
-    }));
+    const counts = await MessageService.messageCounts(rows.map((p) => p.conversationId));
+    return {
+      page: current, pages, total, search: q,
+      rows: rows.map((p) => MessageService.summary(p.Conversation, playerId, {
+        unread: !p.lastReadAt || new Date(p.Conversation.lastMessageAt) > new Date(p.lastReadAt),
+        count: counts.get(p.conversationId) || 0,
+      })),
+    };
+  }
+
+  /** Courriers circulaires (envois à un groupe de la tribu) lancés par le joueur, les plus récents d'abord. */
+  static async circulars(playerId) {
+    const conversations = await Conversation.findAll({
+      where: { authorId: playerId, recipientGroup: { [Op.ne]: null } },
+      include: [{ association: 'participants', include: [Player] }],
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
+      limit: 200,
+    });
+    const counts = await MessageService.messageCounts(conversations.map((c) => c.id));
+    return conversations.map((c) => MessageService.summary(c, playerId, { count: counts.get(c.id) || 0 }));
+  }
+
+  static async messageCounts(ids) {
+    if (!ids.length) return new Map();
+    const rows = await ConversationMessage.findAll({
+      attributes: ['conversationId', [sequelize.fn('COUNT', sequelize.col('id')), 'n']],
+      where: { conversationId: { [Op.in]: ids } },
+      group: ['conversationId'],
+      raw: true,
+    });
+    return new Map(rows.map((r) => [r.conversationId, Number(r.n)]));
+  }
+
+  static summary(conversation, playerId, extra) {
+    const others = conversation.participants.filter((x) => x.playerId !== playerId).map((x) => x.Player);
+    const author = conversation.participants.find((x) => x.playerId === conversation.authorId);
+    return {
+      conversation,
+      others,
+      author: author ? author.Player : null,
+      group: conversation.recipientGroup ? GROUPS[conversation.recipientGroup]?.name || null : null,
+      ...extra,
+    };
   }
 
   /** Lecture d'une conversation : la marque comme lue. */
@@ -90,11 +205,22 @@ class MessageService {
 
   /** Quitter une conversation ; elle disparaît quand plus personne n'y participe. */
   static async leave(playerId, conversationId) {
+    return MessageService.leaveMany(playerId, [conversationId]);
+  }
+
+  /** Quitter plusieurs conversations d'un coup (bouton « Effacer » de la boîte de réception). */
+  static async leaveMany(playerId, conversationIds) {
+    const ids = [...new Set([].concat(conversationIds || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+    if (!ids.length) throw new GameError('Aucun message sélectionné.');
     return sequelize.transaction(async (t) => {
-      const me = await MessageService.participant(playerId, conversationId, t);
-      await me.destroy({ transaction: t });
-      const left = await ConversationParticipant.count({ where: { conversationId: me.conversationId }, transaction: t });
-      if (!left) await Conversation.destroy({ where: { id: me.conversationId }, transaction: t });
+      const mine = await ConversationParticipant.findAll({ where: { playerId, conversationId: { [Op.in]: ids } }, transaction: t });
+      if (!mine.length) throw new GameError('Conversation introuvable.', 404);
+      for (const me of mine) {
+        await me.destroy({ transaction: t });
+        const left = await ConversationParticipant.count({ where: { conversationId: me.conversationId }, transaction: t });
+        if (!left) await Conversation.destroy({ where: { id: me.conversationId }, transaction: t });
+      }
+      return mine.length;
     });
   }
 
@@ -110,5 +236,7 @@ class MessageService {
 }
 
 MessageService.MAX_RECIPIENTS = MAX_RECIPIENTS;
+MessageService.PER_PAGE = PER_PAGE;
+MessageService.GROUPS = GROUPS;
 
 module.exports = MessageService;

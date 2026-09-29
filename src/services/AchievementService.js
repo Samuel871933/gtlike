@@ -126,7 +126,10 @@ class AchievementService {
       const label = def.tiers.length > 1 ? ` (${TIER_NAMES[tier - 1]})` : '';
       await Report.create({
         playerId, type: 'award', happenedAt: now, title: `Succès débloqué : ${def.name}${label}`,
-        data: { perspective: 'award', key: def.key, tier, name: def.name, description: def.description },
+        data: {
+          perspective: 'award', key: def.key, tier, tiers: def.tiers.length, name: def.name, description: def.description,
+          goal: def.tiers[tier - 1], next: def.tiers[tier] ?? null,
+        },
       }, { transaction: t });
     }
     return unlocked;

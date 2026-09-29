@@ -3,10 +3,71 @@
 <div class="flex flex-col gap-5">
   <%- include('partials/building-header', { buildingId }) %>
 
+  <% if (farm) { const free = farm.max - farm.total; %>
+    <%# Ferme, comme sur GT : illustration à gauche ; à droite population maximale, population actuelle et milice. %>
+    <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+      <div class="<%= ui.panel %> flex aspect-[8/7] items-center justify-center overflow-hidden bg-[url(/img/village/medieval/background-v2.png)] bg-cover bg-center max-lg:hidden">
+        <img src="<%= buildingSprite('farm', farm.level) %>" alt="Ferme niveau <%= farm.level %>" width="320" height="280" class="w-4/5 drop-shadow-[4px_6px_0_rgba(0,0,0,0.45)]">
+      </div>
+
+      <div class="flex min-w-0 flex-col gap-3">
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Population maximum') %>
+          <table class="<%= ui.table %> [&_td]:py-1.5">
+            <tbody>
+              <tr><td><span class="inline-flex items-center gap-2"><%- resourceIcon('pop') %>Population maximum</span></td><td class="w-24 text-right font-semibold tabular-nums"><%= num(farm.max) %></td></tr>
+              <% if (farm.next) { %><tr><td><span class="inline-flex items-center gap-2"><%- resourceIcon('pop') %>Population maximale au niveau <%= farm.level + 1 %></span></td><td class="text-right font-semibold tabular-nums"><%= num(farm.next) %></td></tr><% } %>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Population actuelle', `<span class="text-[13px] tabular-nums ${free < 0 ? 'text-blood-450' : 'text-parchment-300'}">${num(Math.max(0, free))} libre${free > 1 ? 's' : ''}</span>`) %>
+          <table class="<%= ui.table %> [&_td]:py-1.5">
+            <tbody>
+              <tr><td>Bâtiments (constructions en attente incluses)</td><td class="w-24 text-right tabular-nums"><%= num(farm.buildings) %></td></tr>
+              <tr><td>Troupes</td><td class="text-right tabular-nums"><%= num(farm.troops) %></td></tr>
+              <tr><td>Troupes en cours de production</td><td class="text-right tabular-nums"><%= num(farm.recruiting) %></td></tr>
+              <tr><td class="font-semibold">Tout</td><td class="text-right font-semibold tabular-nums <%= free <= 0 ? 'text-blood-450' : '' %>"><%= num(farm.total) %></td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <% if (farm.militia) { const mil = farm.militia; const b = (x) => `<b class="font-semibold text-parchment-100">${x}</b>`; %>
+          <%# Milice, comme sur GT : règles du monde, puis stationnement en cours ou bouton « Appeler la milice ». %>
+          <section class="<%= ui.panel %>">
+            <%- panelHead('Milice dans le village', `<span class="text-gold-400">${unitIcon('militia', 'size-4')}</span>`) %>
+            <div class="flex flex-col gap-2 px-3 py-2.5 text-[15px]">
+              <p class="text-parchment-300">Si tu t'attends à une attaque, tu peux créer des milices pour te défendre. Cela aura les effets suivants :</p>
+              <ul class="flex list-disc flex-col gap-0.5 pl-6 text-parchment-300">
+                <li>Dès que tu possèdes plus de <%- b(mil.cfg.maxVillages) %> villages, tu ne peux plus créer de milice</li>
+                <li>Ta milice restera stationnée pendant <%- b(mil.cfg.hours >= 1 ? `${mil.cfg.hours.toLocaleString('fr-FR')} heure${mil.cfg.hours > 1 ? 's' : ''}` : `${Math.round(mil.cfg.hours * 60)} minutes`) %></li>
+                <li>Tu recevras <%- b(mil.cfg.perFarmLevel) %> milices pour chaque niveau de ferme (jusqu'à un niveau maximum de <%- b(mil.cfg.maxFarmLevel) %>)</li>
+                <li class="font-semibold text-blood-450">La production de toutes les ressources sera réduite de <%= Math.round((1 - mil.cfg.productionFactor) * 100) %> % chacune pendant la durée du stationnement</li>
+              </ul>
+            </div>
+            <% if (mil.active) { %>
+              <p class="flex flex-wrap items-center justify-center gap-x-2 border-t border-bronze-900 px-3 py-2.5 text-parchment-200">
+                <span class="text-gold-400"><%- unitIcon('militia', 'size-4') %></span>
+                <b class="tabular-nums"><%= num(mil.active.count) %></b> miliciens stationnés jusqu'à <%= when(mil.active.until, now) %> ·
+                <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(mil.active.until).getTime() %>"><%= duration((new Date(mil.active.until) - now) / 1000) %></span>
+              </p>
+            <% } else { %>
+              <form method="post" action="/village/<%= ctx.village.id %>/farm/militia" class="flex flex-col items-center gap-1.5 border-t border-bronze-900 px-3 py-3" data-confirm="Appeler la milice ? La production sera réduite pendant son stationnement."><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="<%= btn('gold') %>" <%= mil.blocker ? 'disabled' : '' %>>Appeler la milice (<%= num(mil.size) %>)</button>
+                <% if (mil.blocker) { %><span class="text-sm text-blood-300"><%= mil.blocker %></span><% } %>
+              </form>
+            <% } %>
+          </section>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+
   <section class="<%= ui.panel %>">
     <% let right = '';
        if (option && !option.maxed) {
-         const reason = option.blockers[0] || (option.lacksResources ? 'Ressources insuffisantes' : null);
+         const reason = option.blockers[0] || (option.lacksResources ? resourcesWhen(ctx.state, option.cost, now) : null);
          right = `<form method="post" action="/village/${ctx.village.id}/build" class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1"><input type="hidden" name="_csrf" value="${csrfToken}">
            <input type="hidden" name="building" value="${buildingId}">
            ${reason ? `<span class="text-xs text-blood-300">${esc(reason)}</span>` : ''}

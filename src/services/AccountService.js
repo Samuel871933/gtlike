@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const {
   sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack,
-  Transport, MarketOffer, Report, TribeInvite, ConversationParticipant, Conversation, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
+  Transport, MarketOffer, Report, TribeInvite, ConversationParticipant, Conversation, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, LastAttack, VillageNote, PasswordReset, ForumThread, ForumPost,
   TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumVote,
 } = require('../models');
 const GameError = require('./GameError');
@@ -92,9 +92,13 @@ AccountService.removePlayer = async function removePlayer(playerId, t) {
     });
     if (!others.length) {
       await require('./TribeService').dissolve(player.tribeId, t);
-    } else if (player.tribeRole === 'founder') {
-      const heir = others.find((o) => o.tribeRole === 'leader') || others[0];
-      await heir.update({ tribeRole: 'founder' }, { transaction: t });
+    } else {
+      await require('./TribeEventService').log(player.tribeId, 'quitWorld', { actor: { id: null, name: player.name } }, { t });
+      if (player.tribeRole === 'duke' && !others.some((o) => o.tribeRole === 'duke')) {
+        // Dernier duc : le titre passe au premier baron, sinon au meilleur membre.
+        const heir = others.find((o) => o.tribeRole === 'baron') || others[0];
+        await heir.update({ tribeRole: 'duke', tribeRights: null }, { transaction: t });
+      }
     }
   }
 
@@ -103,6 +107,8 @@ AccountService.removePlayer = async function removePlayer(playerId, t) {
   await Report.destroy({ where: { playerId }, transaction: t });
   await ArmyTemplate.destroy({ where: { playerId }, transaction: t });
   await MapFavorite.destroy({ where: { playerId }, transaction: t });
+  await LastAttack.destroy({ where: { playerId }, transaction: t });
+  await VillageNote.destroy({ where: { playerId }, transaction: t });
   await MapMarker.destroy({ where: { playerId }, transaction: t });
   // Forum de tribu : les messages restent, sans auteur.
   await TribeForumRead.destroy({ where: { playerId }, transaction: t });

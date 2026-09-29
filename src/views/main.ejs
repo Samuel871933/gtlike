@@ -103,10 +103,10 @@
                 <td colspan="6" class="text-center text-sm text-parchment-500">Bâtiment complètement terminé</td>
               <% } else { const reason = o.blockers[0] || null; %>
                 <% for (const r of RESOURCES) { const short = o.cost[r.id] > ctx.state.resources[r.id]; %>
-                  <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= short ? 'text-blood-400' : '' %>"><span class="<%= r.text %>"><%- icon(r.icon, 'size-3.5', 2) %></span><%= num(o.cost[r.id]) %></span></td>
+                  <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= short ? 'text-blood-400' : '' %>"><span><%- resourceIcon(r.id) %></span><%= num(o.cost[r.id]) %></span></td>
                 <% } %>
                 <td class="whitespace-nowrap max-md:hidden"><%- clock(o.duration) %></td>
-                <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= reason === 'La ferme est trop petite' ? 'text-blood-400' : 'text-parchment-300' %>"><span class="text-pop"><%- icon('pop', 'size-3.5', 2) %></span><%= num(o.pop) %></span></td>
+                <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= reason === 'La ferme est trop petite' ? 'text-blood-400' : 'text-parchment-300' %>"><span><%- resourceIcon('pop') %></span><%= num(o.pop) %></span></td>
                 <td class="text-right">
                   <% if (reason) { %>
                     <span class="text-[13px] text-parchment-500"><%= reason %></span>

@@ -44,7 +44,7 @@ class DailyService {
       await Report.create({
         playerId: first.playerId, type: 'award', happenedAt: new Date(),
         title: `Succès du jour : ${def.name} (${day})`,
-        data: { perspective: 'award', key: def.key, tier: 4, name: def.name, description: `Vous avez obtenu ${def.text} le ${day} (${first[def.field]}).` },
+        data: { perspective: 'award', daily: true, key: def.key, tier: 4, tiers: 1, name: def.name, description: `Vous avez obtenu ${def.text} le ${day} (${first[def.field]}).` },
       }, { transaction: t });
       awarded.push({ def, playerId: first.playerId });
     }

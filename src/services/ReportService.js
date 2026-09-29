@@ -56,6 +56,22 @@ class ReportService {
     return report;
   }
 
+  /** Rapports voisins dans la boîte (flèches ↑ ↓ de GT) : `newer` le plus proche plus récent, `older` le plus ancien suivant. */
+  static async neighbours(playerId, report) {
+    const at = report.happenedAt;
+    const [newer, older] = await Promise.all([
+      Report.findOne({
+        where: { playerId, [Op.or]: [{ happenedAt: { [Op.gt]: at } }, { happenedAt: at, id: { [Op.gt]: report.id } }] },
+        order: [['happenedAt', 'ASC'], ['id', 'ASC']], attributes: ['id'],
+      }),
+      Report.findOne({
+        where: { playerId, [Op.or]: [{ happenedAt: { [Op.lt]: at } }, { happenedAt: at, id: { [Op.lt]: report.id } }] },
+        order: [['happenedAt', 'DESC'], ['id', 'DESC']], attributes: ['id'],
+      }),
+    ]);
+    return { newer: newer ? newer.id : null, older: older ? older.id : null };
+  }
+
   /** Action groupée sur des rapports du joueur : read | unread | delete. Renvoie le nombre traité. */
   static async bulk(playerId, action, ids) {
     const list = parseIds(ids);

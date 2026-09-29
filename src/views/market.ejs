@@ -1,218 +1,389 @@
 <%- include('partials/header', { title: 'Marché' }) %>
 <%
+  // Marché, agencé comme sur GT (sans le centre d'échange premium) : menu à gauche, en-tête des marchands et des
+  // ressources arrivantes / sortantes, puis la page choisie.
   const vid = ctx.village.id;
-  const cap = ctx.cfg.market.merchantCapacity;
+  const m = `/village/${vid}/market`;
   const res = Object.fromEntries(RESOURCES.map((r) => [r.id, r]));
-  const tabs = [['send', 'Envoyer'], ['offers', 'Offres du marché'], ['mine', 'Mes offres'], ['transports', 'Transports']];
-  const amount = (id, n) => `<span class="inline-flex items-center gap-1.5 whitespace-nowrap tabular-nums"><span class="${res[id].text}">${icon(res[id].icon, 'size-4')}</span><strong class="text-parchment-100">${num(n)}</strong> <span class="text-parchment-500">${res[id].label.toLowerCase()}</span></span>`;
+  const menu = [
+    ['offers', 'Échange'], ['create', 'Créer des offres'], ['mass', 'Créer des offres en masse'], ['send', 'Envoyer des ressources'],
+    ['transports', 'Transports'], ['merchants', 'Statut des marchands'], ['own', 'Toutes tes propres offres'], ['request', 'Demande'],
+  ];
+  // Icône de ressource : composant commun (images des ressources, helpers.resourceIcon), avec le nom au survol.
+  const resIcon = (id) => `<span class="inline-flex" title="${esc(res[id].label)}">${resourceIcon(id)}</span>`;
+  const amount = (id, n) => `<span class="inline-flex items-center gap-1.5 whitespace-nowrap font-semibold tabular-nums">${resIcon(id)}${num(n)}</span>`;
+  const flowLine = (list) => (RESOURCES.some((r) => list[r.id] > 0)
+    ? RESOURCES.filter((r) => list[r.id] > 0).map((r) => amount(r.id, list[r.id])).join(' ')
+    : '<span class="text-parchment-500">—</span>');
   const mapHref = (v) => `/village/${vid}/map?x=${v.x}&y=${v.y}`;
   const count = (n) => `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${n}</span>`;
+  const infoTile = 'flex items-center gap-2 border border-bronze-800 bg-night px-2.5 py-1.5 text-sm';
+  // Rangée de boutons radio de ressources (formulaires Je veux / J'offre) ; `off` : ressource désactivée.
+  const radios = (name, current, { all = false, off = null } = {}) => [
+    ...(all ? [`<label class="inline-flex cursor-pointer items-center gap-1.5"><input type="radio" name="${name}" value="" ${!current ? 'checked' : ''} class="accent-gold-400">tout</label>`] : []),
+    ...RESOURCES.map((r) => `<label class="inline-flex items-center gap-1.5 ${r.id === off ? 'opacity-40' : 'cursor-pointer'}"><input type="radio" name="${name}" value="${r.id}" ${current === r.id ? 'checked' : ''} ${r.id === off ? 'disabled' : ''} class="accent-gold-400">${resIcon(r.id)}<span class="sr-only">${r.label}</span></label>`),
+  ].join('');
+  // Limites d'une offre, en texte (les capitales des tags sont réservées au tag de tribu).
+  const limitTags = (o) => [o.maxHours ? `≤ ${o.maxHours} h` : '', o.tribeOnly ? 'tribu uniquement' : ''].filter(Boolean).map((t) => `<span class="border border-bronze-700 px-1 text-[12px] whitespace-nowrap text-parchment-400">${t}</span>`).join(' ');
 %>
-<div class="flex flex-col gap-5">
-<section class="<%= ui.panel %>">
-  <%- panelHead('Marché', segTabs(tabs.map(([id, name]) => [`/village/${vid}/market?tab=${id}`, name, tab === id])), { tag: 'h1' }) %>
-  <div class="<%= ui.panelBody %> sm:flex-row sm:items-center sm:justify-between">
-    <div class="flex min-w-0 items-center gap-4">
-      <span class="<%= ui.medallionGold %> size-[52px]"><%- buildingIcon('market', 'size-[26px]') %></span>
-      <div class="flex min-w-0 flex-col gap-0.5">
-        <span class="<%= ui.heading %>">Niveau <%= ctx.state.level('market') %></span>
-        <p class="text-parchment-400">Chaque marchand transporte <strong class="text-gold-200 tabular-nums"><%= num(cap) %></strong> ressources, aller puis retour.</p>
+<div class="flex flex-col gap-4">
+  <%- include('partials/building-header', { buildingId: 'market' }) %>
+
+  <div class="grid grid-cols-1 items-start gap-4 md:grid-cols-[210px_minmax(0,1fr)]">
+    <nav class="<%= ui.panel %>" aria-label="Marché">
+      <ul class="flex flex-col py-1">
+        <% for (const [id, label] of menu) { const on = id === tab; %>
+          <li><a href="<%= m %>?tab=<%= id %>" class="block border-l-2 py-1.5 pr-3 pl-3 no-underline transition <%= on ? 'border-gold-400 bg-row-hover font-semibold text-gold-200' : 'border-transparent text-parchment-300 hover:bg-row-hover hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>><%= label %></a></li>
+        <% } %>
+      </ul>
+    </nav>
+
+    <div class="flex min-w-0 flex-col gap-4">
+      <%# En-tête : marchands, quantité transportable, ressources arrivantes et sortantes. %>
+      <div class="flex flex-wrap gap-2">
+        <span class="<%= infoTile %>"><span class="text-parchment-500">Marchands :</span><b class="tabular-nums"><%= merchants.free %>/<%= merchants.total %></b></span>
+        <span class="<%= infoTile %>"><span class="text-parchment-500">Quantité de transport maximale :</span><b class="tabular-nums"><%= num(merchants.free * cap) %></b></span>
+        <span class="<%= infoTile %>"><span class="text-parchment-500">Arrivant :</span><%- flowLine(flows.incoming) %></span>
+        <span class="<%= infoTile %>"><span class="text-parchment-500">Sortant :</span><%- flowLine(flows.outgoing) %></span>
       </div>
-    </div>
-    <div class="<%= ui.tile %> flex shrink-0 items-center gap-3 px-3.5">
-      <%- icon('horse', 'size-5 text-gold-400') %>
-      <span class="flex flex-col">
-        <span class="<%= ui.tileLabel %>">Marchands disponibles</span>
-        <span class="<%= ui.tileValue %> text-lg"><%= merchants.free %> <span class="text-sm font-medium text-parchment-500">/ <%= merchants.total %></span></span>
-      </span>
-    </div>
-  </div>
-</section>
+
+<% if (tab === 'offers') { const q = (o) => `${m}?${new URLSearchParams({ tab: 'offers', ...(filters.sell ? { sell: filters.sell } : {}), ...(filters.buy ? { buy: filters.buy } : {}), ...(filters.maxHours ? { hours: filters.maxHours } : {}), ...(filters.filter !== 'all' ? { filter: filters.filter } : {}), ...o })}`; %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Trouver des offres', count(total)) %>
+        <form method="get" action="<%= m %>" class="flex flex-col gap-3 p-3"><input type="hidden" name="tab" value="offers">
+          <div class="flex flex-wrap items-stretch gap-2">
+            <table class="<%= ui.table %> w-auto! self-start">
+              <tbody>
+                <tr><th scope="row" class="w-24 text-left">Je veux :</th><td><span class="flex flex-wrap items-center gap-4"><%- radios('sell', filters.sell, { all: true, off: filters.buy }) %></span></td></tr>
+                <tr><th scope="row" class="text-left">J'offre :</th><td><span class="flex flex-wrap items-center gap-4"><%- radios('buy', filters.buy, { all: true, off: filters.sell }) %></span></td></tr>
+              </tbody>
+            </table>
+            <button class="<%= btn('gold', 'md', 'self-center') %>"><%- icon('search', 'size-3.5', 2.2) %>Chercher</button>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <span class="font-semibold text-parchment-200">Limitations</span>
+            <label class="inline-flex items-center gap-2">Durée :
+              <select name="hours" class="<%= ui.inputSm %>" onchange="this.form.submit()">
+                <option value="">toutes</option>
+                <% for (const h of [1, 2, 3, 5, 10, 24, 48, 72]) { %><option value="<%= h %>" <%= filters.maxHours === h ? 'selected' : '' %>><%= h %> heure<%= h > 1 ? 's' : '' %></option><% } %>
+              </select>
+            </label>
+            <label class="inline-flex items-center gap-2">Filtre :
+              <select name="filter" class="<%= ui.inputSm %>" onchange="this.form.submit()">
+                <% for (const [id, label] of [['all', 'Tout afficher'], ['possible', 'Offres acceptables maintenant'], ['tribe', 'Offres de ma tribu']]) { %><option value="<%= id %>" <%= filters.filter === id ? 'selected' : '' %>><%= label %></option><% } %>
+              </select>
+            </label>
+          </div>
+        </form>
+        <% if (!offers.length) { %>
+          <p class="border-t border-bronze-900 px-3 py-3 text-parchment-500">Aucune offre ne correspond.</p>
+        <% } else { %>
+          <div class="overflow-x-auto border-t border-bronze-900">
+            <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+              <thead><tr><th>Recevoir</th><th>Pour</th><th>Joueur</th><th>Durée</th><th class="text-center">Ratio</th><th>Disponibilité</th><th class="text-right">Accepter</th></tr></thead>
+              <tbody>
+              <% for (const { offer: o, seconds, max, ratio } of offers) { %>
+                <tr>
+                  <td><%- amount(o.sellResource, o.sellAmount) %></td>
+                  <td><%- amount(o.buyResource, o.buyAmount) %></td>
+                  <td>
+                    <span class="block font-semibold whitespace-nowrap"><%- playerLink(vid, o.village.Player) %></span>
+                    <a href="/village/<%= vid %>/villages/<%= o.village.id %>" class="<%= ui.linkPlain %> block text-[12px] whitespace-nowrap text-parchment-500"><%= o.village.name %> (<%= o.village.x %>|<%= o.village.y %>)</a>
+                  </td>
+                  <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= duration(seconds) %></td>
+                  <td class="text-center"><span class="inline-flex items-center gap-1 px-1.5 py-0.5 font-semibold tabular-nums <%= ratio >= 1 ? 'bg-gold-400/35 text-parchment-50' : 'text-parchment-300' %>" title="Ce que tu reçois pour 1 donné"><%- icon('market', 'size-3.5', 2) %><%= (Math.round(ratio * 100) / 100).toLocaleString('fr-FR') %></span></td>
+                  <td class="whitespace-nowrap"><span class="tabular-nums"><%= o.count %> offre<%= o.count > 1 ? 's' : '' %></span> <%- limitTags(o) %></td>
+                  <td class="text-right">
+                    <form method="post" action="<%= m %>/offers/<%= o.id %>/accept" class="inline-flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="number" name="count" min="1" max="<%= Math.max(1, max) %>" value="1" class="<%= ui.inputSm %> w-16 text-right tabular-nums" aria-label="Nombre d'offres" <%= max < 1 ? 'disabled' : '' %>>
+                      <button type="button" class="<%= ui.link %> cursor-pointer text-xs tabular-nums" data-fill="count" data-max="<%= max %>">(<%= max %>)</button>
+                      <button class="<%= btn('gold', 'sm') %>" <%= max < 1 ? 'disabled title="Ressources ou marchands insuffisants"' : '' %>>Accepter</button>
+                    </form>
+                  </td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-900 px-3 py-2.5 text-sm">
+          <form method="post" action="<%= m %>/settings" class="flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label for="market-per-page" class="text-parchment-400">Offres par page :</label>
+            <input id="market-per-page" type="number" name="perPage" min="<%= perPageRange.min %>" max="<%= perPageRange.max %>" value="<%= perPage %>" class="<%= ui.inputSm %> w-20 text-right tabular-nums">
+            <button class="<%= btn('dark', 'sm') %>">Sauvegarder</button>
+          </form>
+          <%- include('partials/pager', { page: pageNumber, pages, href: (n) => q({ page: n }) }) %>
+        </div>
+      </section>
+<% } %>
+
+<% if (tab === 'create') { const perOffer = Math.ceil((Number(offerForm.sellAmount) || cap) / cap); %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Créer une offre') %>
+        <form method="post" action="<%= m %>/offers" class="flex flex-col gap-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <p class="text-sm text-parchment-400">Les offres de ressources sont possibles avec un ratio entre 1:<%= ctx.cfg.market.maxRatio %> et <%= ctx.cfg.market.maxRatio %>:1. Les ressources et les marchands sont réservés tant que l'offre est en ligne.</p>
+          <table class="<%= ui.table %> w-auto! self-start">
+            <tbody>
+              <tr>
+                <th scope="row" class="w-24 text-left">J'offre :</th>
+                <td><input type="number" name="sellAmount" min="1" required value="<%= offerForm.sellAmount %>" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Quantité offerte"></td>
+                <td><span class="flex items-center gap-5"><%- radios('sellResource', offerForm.sellResource) %></span></td>
+              </tr>
+              <tr>
+                <th scope="row" class="text-left">Je veux :</th>
+                <td><input type="number" name="buyAmount" min="1" required value="<%= offerForm.buyAmount %>" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Quantité voulue"></td>
+                <td><span class="flex items-center gap-5"><%- radios('buyResource', offerForm.buyResource) %></span></td>
+              </tr>
+            </tbody>
+          </table>
+          <table class="<%= ui.table %> w-auto! self-start">
+            <thead><tr><th colspan="3">Limitations</th></tr></thead>
+            <tbody>
+              <tr><td>Nombre d'offres :</td><td><input type="number" name="count" min="1" value="<%= offerForm.count %>" class="<%= ui.inputSm %> w-20 text-right tabular-nums"></td><td class="text-parchment-500">fois</td></tr>
+              <tr><td>Durée maximale du voyage :</td><td><input type="number" name="maxHours" min="1" value="<%= offerForm.maxHours %>" placeholder="—" class="<%= ui.inputSm %> w-20 text-right tabular-nums"></td><td class="text-parchment-500">heures (vide : sans limite)</td></tr>
+              <tr><td><label for="tribe-only" class="cursor-pointer">Commerce de tribu uniquement ?</label></td><td class="text-center"><input id="tribe-only" type="checkbox" name="tribeOnly" value="1" class="<%= ui.checkbox %>" <%= offerForm.tribeOnly ? 'checked' : '' %>></td><td></td></tr>
+            </tbody>
+          </table>
+          <div class="flex flex-wrap items-center gap-3">
+            <button class="<%= btn('gold') %>"><%- icon('plus', 'size-3.5', 2.2) %>Créer</button>
+            <span class="text-sm text-parchment-500">Une offre de <%= num(Number(offerForm.sellAmount) || cap) %> demande <%= perOffer %> marchand<%= perOffer > 1 ? 's' : '' %> ; <%= merchants.free %> disponible<%= merchants.free > 1 ? 's' : '' %>.</span>
+          </div>
+        </form>
+      </section>
+
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Tes offres dans ce village', count(ownOffers.length)) %>
+        <% if (!ownOffers.length) { %>
+          <p class="px-3 py-3 text-parchment-500">Aucune offre en ligne depuis ce village.</p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+              <thead><tr><th>J'offre</th><th>Je veux</th><th class="text-right">Offres</th><th>Limites</th><th class="text-right">Marchands</th><th></th></tr></thead>
+              <tbody>
+              <% for (const o of ownOffers) { %>
+                <tr>
+                  <td><%- amount(o.sellResource, o.sellAmount) %></td>
+                  <td><%- amount(o.buyResource, o.buyAmount) %></td>
+                  <td class="text-right font-semibold tabular-nums"><%= o.count %></td>
+                  <td><%- limitTags(o) || '<span class="text-parchment-500">—</span>' %></td>
+                  <td class="text-right text-parchment-300 tabular-nums"><%= o.count * o.merchantsPerOffer %></td>
+                  <td class="text-right"><form method="post" action="<%= m %>/offers/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>"><%- icon('close', 'size-3', 2.6) %>Retirer</button></form></td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </section>
+<% } %>
+
+<% if (tab === 'mass') { const withMarket = villages.filter((v) => v.market > 0); %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Créer des offres en masse') %>
+        <form method="post" action="<%= m %>/mass" class="flex flex-col gap-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <p class="text-sm text-parchment-400">La même offre est publiée depuis chaque village où tu indiques un nombre d'offres.</p>
+          <table class="<%= ui.table %> w-auto! self-start">
+            <tbody>
+              <tr><th scope="row" class="w-24 text-left">J'offre :</th><td><input type="number" name="sellAmount" min="1" required value="<%= cap %>" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Quantité offerte"></td><td><span class="flex items-center gap-5"><%- radios('sellResource', 'wood') %></span></td></tr>
+              <tr><th scope="row" class="text-left">Je veux :</th><td><input type="number" name="buyAmount" min="1" required value="<%= cap %>" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Quantité voulue"></td><td><span class="flex items-center gap-5"><%- radios('buyResource', 'iron') %></span></td></tr>
+            </tbody>
+          </table>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <label class="inline-flex items-center gap-2">Durée maximale du voyage : <input type="number" name="maxHours" min="1" placeholder="—" class="<%= ui.inputSm %> w-20 text-right tabular-nums"> heures</label>
+            <label class="inline-flex cursor-pointer items-center gap-2"><input type="checkbox" name="tribeOnly" value="1" class="<%= ui.checkbox %>">Commerce de tribu uniquement</label>
+          </div>
+          <div class="overflow-x-auto border border-bronze-800">
+            <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+              <thead><tr><th>Village</th><% for (const r of RESOURCES) { %><th class="text-right"><%- resIcon(r.id) %></th><% } %><th class="text-right">Marchands</th><th class="text-right">Nombre d'offres</th></tr></thead>
+              <tbody>
+              <% for (const v of villages) { %>
+                <tr>
+                  <td><a href="/village/<%= v.village.id %>/market?tab=mass" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                  <% for (const r of RESOURCES) { %><td class="text-right tabular-nums <%= v.resources[r.id] >= v.storage ? 'text-blood-450' : '' %>"><%= num(v.resources[r.id]) %></td><% } %>
+                  <td class="text-right tabular-nums"><%= v.market ? `${v.merchants.free}/${v.merchants.total}` : '—' %></td>
+                  <td class="text-right"><% if (v.market) { %><input type="number" name="count_<%= v.village.id %>" min="0" placeholder="0" class="<%= ui.inputSm %> w-20 text-right tabular-nums" aria-label="Offres depuis <%= v.village.name %>"><% } else { %><span class="text-[12px] text-parchment-500">Pas de marché</span><% } %></td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+          <div><button class="<%= btn('gold') %>" <%= withMarket.length ? '' : 'disabled' %>><%- icon('plus', 'size-3.5', 2.2) %>Créer les offres</button></div>
+        </form>
+      </section>
+<% } %>
 
 <% if (tab === 'send') { %>
-<section class="<%= ui.panel %>">
-  <%- panelHead('Envoyer des ressources') %>
-  <form method="post" action="/village/<%= vid %>/market/send"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <div class="grid gap-3 px-4.5 py-4 sm:grid-cols-3">
-      <% for (const r of RESOURCES) { const have = Math.floor(ctx.state.resources[r.id]); %>
-        <label class="<%= ui.box %> flex flex-col gap-2.5 p-3">
-          <span class="flex items-center justify-between gap-2">
-            <span class="flex items-center gap-2.5 font-semibold text-parchment-200"><span class="<%= ui.medallion %> size-8 <%= r.text %>"><%- icon(r.icon, 'size-4') %></span><%= r.label %></span>
-            <button type="button" class="cursor-pointer text-[13px] font-semibold text-gold-400 tabular-nums hover:text-gold-200" data-fill="<%= r.id %>" data-max="<%= Math.min(have, merchants.free * cap) %>">(<%= num(have) %>)</button>
-          </span>
-          <input type="number" name="<%= r.id %>" min="0" placeholder="0" class="<%= ui.input %> w-full tabular-nums">
-        </label>
-      <% } %>
-    </div>
-    <div class="flex flex-wrap items-end gap-4 border-t border-bronze-900 bg-black/20 px-4.5 py-4">
-      <label class="<%= ui.label %>">Destination
-        <span class="flex items-center gap-1.5">
-          <input type="number" name="x" value="<%= form.x %>" placeholder="x" required class="<%= ui.input %> w-24 tabular-nums">
-          <span class="text-parchment-600">|</span>
-          <input type="number" name="y" value="<%= form.y %>" placeholder="y" required class="<%= ui.input %> w-24 tabular-nums">
-        </span>
-      </label>
-      <button class="<%= btn('gold') %>" <%= merchants.free < 1 ? 'disabled' : '' %>><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
-      <span class="self-center text-sm text-parchment-500">Jusqu'à <strong class="text-parchment-300 tabular-nums"><%= num(merchants.free * cap) %></strong> ressources avec les marchands libres.</span>
-    </div>
-  </form>
-</section>
-<% } %>
-
-<% if (tab === 'offers') { %>
-<section class="<%= ui.panel %>">
-  <%- panelHead('Offres du marché', count(offers.length)) %>
-  <div class="<%= ui.panelBody %>">
-    <form method="get" class="flex flex-wrap items-center gap-2">
-      <input type="hidden" name="tab" value="offers">
-      <span class="text-parchment-400">Je cherche</span>
-      <select name="sell" class="<%= ui.input %>">
-        <option value="">tout</option>
-        <% for (const r of RESOURCES) { %><option value="<%= r.id %>" <%= filters.sell === r.id ? 'selected' : '' %>><%= r.label %></option><% } %>
-      </select>
-      <span class="text-parchment-400">contre</span>
-      <select name="buy" class="<%= ui.input %>">
-        <option value="">tout</option>
-        <% for (const r of RESOURCES) { %><option value="<%= r.id %>" <%= filters.buy === r.id ? 'selected' : '' %>><%= r.label %></option><% } %>
-      </select>
-      <button class="<%= btn('dark') %>"><%- icon('search', 'size-3.5', 2.2) %>Filtrer</button>
-    </form>
-    <% if (!offers.length) { %><p class="text-parchment-500">Aucune offre pour le moment.</p><% } %>
-  </div>
-  <% if (offers.length) { %>
-    <div class="overflow-x-auto border-t border-bronze-900">
-      <table class="<%= ui.table %>">
-        <thead><tr><th>Vendeur</th><th>Il donne</th><th>Il veut</th><th>Trajet</th><th class="text-right">Lots</th><th class="text-right">Accepter</th></tr></thead>
-        <tbody>
-        <% for (const { offer: o, distance, seconds } of offers) { %>
-          <tr>
-            <td>
-              <span class="block font-semibold whitespace-nowrap text-parchment-100"><%- playerLink(ctx.village.id, o.village.Player) %></span>
-              <a href="<%= mapHref(o.village) %>" class="<%= ui.linkPlain %> block text-[13px] whitespace-nowrap text-parchment-500"><%= o.village.name %> <span class="tabular-nums">(<%= o.village.x %>|<%= o.village.y %>)</span></a>
-            </td>
-            <td><%- amount(o.sellResource, o.sellAmount) %></td>
-            <td><%- amount(o.buyResource, o.buyAmount) %></td>
-            <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= duration(seconds) %> <span class="text-[13px] text-parchment-600">(<%= distance.toFixed(1) %> c.)</span></td>
-            <td class="text-right font-semibold tabular-nums"><%= o.count %></td>
-            <td class="text-right">
-              <form method="post" action="/village/<%= vid %>/market/offers/<%= o.id %>/accept" class="inline-flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <input type="number" name="count" min="1" max="<%= o.count %>" value="1" class="<%= ui.inputSm %> w-16 text-right tabular-nums" aria-label="Nombre de lots">
-                <button class="<%= btn('gold', 'sm') %>">Accepter</button>
-              </form>
-            </td>
-          </tr>
-        <% } %>
-        </tbody>
-      </table>
-    </div>
-  <% } %>
-</section>
-<% } %>
-
-<% if (tab === 'mine') { %>
-<section class="<%= ui.panel %>">
-  <%- panelHead('Nouvelle offre') %>
-  <div class="<%= ui.panelBody %>">
-    <form method="post" action="/village/<%= vid %>/market/offers" class="flex flex-wrap items-end gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <label class="<%= ui.label %>">Je donne
-        <span class="flex gap-1.5">
-          <input type="number" name="sellAmount" min="1" required placeholder="1000" class="<%= ui.input %> w-28 tabular-nums">
-          <select name="sellResource" class="<%= ui.input %>"><% for (const r of RESOURCES) { %><option value="<%= r.id %>"><%= r.label %></option><% } %></select>
-        </span>
-      </label>
-      <label class="<%= ui.label %>">contre
-        <span class="flex gap-1.5">
-          <input type="number" name="buyAmount" min="1" required placeholder="1000" class="<%= ui.input %> w-28 tabular-nums">
-          <select name="buyResource" class="<%= ui.input %>"><% for (const r of RESOURCES) { %><option value="<%= r.id %>" <%= r.id === 'iron' ? 'selected' : '' %>><%= r.label %></option><% } %></select>
-        </span>
-      </label>
-      <label class="<%= ui.label %>">Lots
-        <input type="number" name="count" min="1" value="1" class="<%= ui.input %> w-20 tabular-nums">
-      </label>
-      <button class="<%= btn('gold') %>"><%- icon('plus', 'size-3.5', 2.2) %>Publier</button>
-    </form>
-    <p class="text-sm text-parchment-500">Les ressources et les marchands sont réservés tant que l'offre est en ligne. Rapport maximal 1:<%= ctx.cfg.market.maxRatio %>.</p>
-  </div>
-</section>
-
-<section class="<%= ui.panel %>">
-  <%- panelHead('Mes offres', count(ownOffers.length)) %>
-  <% if (!ownOffers.length) { %>
-    <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Vous n'avez aucune offre en ligne.</p></div>
-  <% } else { %>
-    <div class="overflow-x-auto">
-      <table class="<%= ui.table %>">
-        <thead><tr><th>Je donne</th><th>Contre</th><th class="text-right">Lots</th><th class="text-right">Marchands</th><th></th></tr></thead>
-        <tbody>
-        <% for (const o of ownOffers) { %>
-          <tr>
-            <td><%- amount(o.sellResource, o.sellAmount) %></td>
-            <td><%- amount(o.buyResource, o.buyAmount) %></td>
-            <td class="text-right font-semibold tabular-nums"><%= o.count %></td>
-            <td class="text-right tabular-nums text-parchment-300"><%= o.count * o.merchantsPerOffer %></td>
-            <td class="text-right">
-              <form method="post" action="/village/<%= vid %>/market/offers/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>"><%- icon('close', 'size-3', 2.6) %>Retirer</button></form>
-            </td>
-          </tr>
-        <% } %>
-        </tbody>
-      </table>
-    </div>
-  <% } %>
-</section>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Envoyer des ressources') %>
+        <form method="post" action="<%= m %>/send"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="grid gap-3 p-3 sm:grid-cols-3">
+            <% for (const r of RESOURCES) { const have = Math.floor(ctx.state.resources[r.id]); %>
+              <label class="<%= ui.box %> flex flex-col gap-2.5 p-3">
+                <span class="flex items-center justify-between gap-2">
+                  <span class="flex items-center gap-2.5 font-semibold text-parchment-200"><span class="<%= ui.medallion %> size-8"><%- resourceIcon(r.id) %></span><%= r.label %></span>
+                  <button type="button" class="cursor-pointer text-[13px] font-semibold text-gold-400 tabular-nums hover:text-gold-200" data-fill="<%= r.id %>" data-max="<%= Math.min(have, merchants.free * cap) %>">(<%= num(have) %>)</button>
+                </span>
+                <input type="number" name="<%= r.id %>" min="0" placeholder="0" class="<%= ui.input %> w-full tabular-nums">
+              </label>
+            <% } %>
+          </div>
+          <div class="flex flex-wrap items-end gap-4 border-t border-bronze-900 px-3 py-3">
+            <label class="<%= ui.label %>">Destination
+              <span class="flex items-center gap-1.5">
+                <input type="number" name="x" value="<%= form.x %>" placeholder="x" required class="<%= ui.input %> w-24 tabular-nums">
+                <span class="text-parchment-600">|</span>
+                <input type="number" name="y" value="<%= form.y %>" placeholder="y" required class="<%= ui.input %> w-24 tabular-nums">
+              </span>
+            </label>
+            <button class="<%= btn('gold') %>" <%= merchants.free < 1 ? 'disabled' : '' %>><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
+            <span class="self-center text-sm text-parchment-500">Jusqu'à <strong class="text-parchment-300 tabular-nums"><%= num(merchants.free * cap) %></strong> ressources avec les marchands libres.</span>
+          </div>
+        </form>
+      </section>
 <% } %>
 
 <% if (tab === 'transports') { %>
-<div class="grid items-start gap-5 lg:grid-cols-2 [&>*]:min-w-0">
-  <section class="<%= ui.panel %>">
-    <%- panelHead('Vos marchands', count(outgoing.length)) %>
-    <div>
-      <% if (!outgoing.length) { %><p class="px-4.5 py-4 text-parchment-500">Aucun marchand en route.</p><% } %>
-      <% for (const tr of outgoing) { const delivery = tr.type === 'delivery'; %>
-        <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-4.5 py-3 last:border-b-0">
-          <div class="flex items-center gap-3">
-            <span class="<%= delivery ? ui.medallionGold : ui.medallionOlive %> size-[30px] minimal:size-[24px]"><%- icon(delivery ? 'send' : 'return', 'size-[15px]', 2.2) %></span>
-            <span class="flex min-w-0 flex-1 flex-col">
-              <span class="flex min-w-0 items-center gap-2">
-                <span class="shrink-0 font-semibold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
-                <span class="shrink-0 text-parchment-600"><%= delivery ? 'vers' : 'depuis' %></span>
-                <a href="<%= mapHref(tr.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.target.name %></a>
-                <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.target.x %>|<%= tr.target.y %>)</span>
-              </span>
-              <span class="text-[13px] text-parchment-500"><%= tr.merchants %> marchand(s) · <%= whenShort(tr.arrivesAt, now) %></span>
-            </span>
-            <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+      <div class="grid items-start gap-4 xl:grid-cols-2 *:min-w-0">
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Tes marchands', count(outgoing.length)) %>
+          <div>
+            <% if (!outgoing.length) { %><p class="px-3 py-3 text-parchment-500">Aucun marchand en route.</p><% } %>
+            <% for (const tr of outgoing) { const delivery = tr.type === 'delivery'; %>
+              <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-3 py-2.5 last:border-b-0">
+                <div class="flex items-center gap-3">
+                  <span class="<%= delivery ? ui.medallionGold : ui.medallionOlive %> size-7.5 minimal:size-6"><%- icon(delivery ? 'send' : 'return', 'size-[15px]', 2.2) %></span>
+                  <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="flex min-w-0 items-center gap-2">
+                      <span class="shrink-0 font-semibold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
+                      <span class="shrink-0 text-parchment-600"><%= delivery ? 'vers' : 'depuis' %></span>
+                      <a href="<%= mapHref(tr.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.target.name %></a>
+                      <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.target.x %>|<%= tr.target.y %>)</span>
+                    </span>
+                    <span class="text-[13px] text-parchment-500"><%= tr.merchants %> marchand(s) · <%= whenShort(tr.arrivesAt, now) %></span>
+                  </span>
+                  <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+                </div>
+                <% if (delivery) { %><div class="pl-10.5"><%- include('partials/cost', { cost: tr.resources, have: null }) %></div><% } %>
+              </div>
+            <% } %>
           </div>
-          <% if (delivery) { %><div class="pl-[42px]"><%- include('partials/cost', { cost: tr.resources, have: null }) %></div><% } %>
-        </div>
-      <% } %>
-    </div>
-  </section>
-
-  <section class="<%= ui.panel %>">
-    <%- panelHead('Livraisons attendues', count(incoming.length)) %>
-    <div>
-      <% if (!incoming.length) { %><p class="px-4.5 py-4 text-parchment-500">Rien en approche.</p><% } %>
-      <% for (const tr of incoming) { %>
-        <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-4.5 py-3 last:border-b-0">
-          <div class="flex items-center gap-3">
-            <span class="<%= ui.medallionGold %> size-[30px] minimal:size-[24px]"><%- buildingIcon('market', 'size-[15px]', 2.2) %></span>
-            <span class="flex min-w-0 flex-1 flex-col">
-              <span class="flex min-w-0 items-center gap-2">
-                <span class="shrink-0 text-parchment-600">de</span>
-                <a href="<%= mapHref(tr.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.origin.name %></a>
-                <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.origin.x %>|<%= tr.origin.y %>)</span>
-              </span>
-              <span class="text-[13px] text-parchment-500"><% if (tr.origin.Player) { %><%- playerLink(ctx.village.id, tr.origin.Player, { cls: ui.link }) %> · <% } %><%= whenShort(tr.arrivesAt, now) %></span>
-            </span>
-            <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+        </section>
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Livraisons attendues', count(incoming.length)) %>
+          <div>
+            <% if (!incoming.length) { %><p class="px-3 py-3 text-parchment-500">Rien en approche.</p><% } %>
+            <% for (const tr of incoming) { %>
+              <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-3 py-2.5 last:border-b-0">
+                <div class="flex items-center gap-3">
+                  <span class="<%= ui.medallionGold %> size-7.5 minimal:size-6"><%- buildingIcon('market', 'size-[15px]', 2.2) %></span>
+                  <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="flex min-w-0 items-center gap-2">
+                      <span class="shrink-0 text-parchment-600">de</span>
+                      <a href="<%= mapHref(tr.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.origin.name %></a>
+                      <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.origin.x %>|<%= tr.origin.y %>)</span>
+                    </span>
+                    <span class="text-[13px] text-parchment-500"><% if (tr.origin.Player) { %><%- playerLink(vid, tr.origin.Player, { cls: ui.link }) %> · <% } %><%= whenShort(tr.arrivesAt, now) %></span>
+                  </span>
+                  <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+                </div>
+                <div class="pl-10.5"><%- include('partials/cost', { cost: tr.resources, have: null }) %></div>
+              </div>
+            <% } %>
           </div>
-          <div class="pl-[42px]"><%- include('partials/cost', { cost: tr.resources, have: null }) %></div>
-        </div>
-      <% } %>
-    </div>
-  </section>
-</div>
+        </section>
+      </div>
 <% } %>
+
+<% if (tab === 'merchants') { %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Statut des marchands', count(villages.length)) %>
+        <div class="overflow-x-auto">
+          <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+            <thead><tr><th>Village</th><th class="text-right">Au village</th><th class="text-right">En livraison</th><th class="text-right">En retour</th><th class="text-right">Réservés (offres)</th><th class="text-right">Total</th></tr></thead>
+            <tbody>
+            <% for (const v of villages) { const mv = moving.get(v.village.id); %>
+              <tr class="<%= v.village.id === vid ? ui.rowActive : '' %>">
+                <td><a href="/village/<%= v.village.id %>/market?tab=merchants" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                <% if (!v.market) { %>
+                  <td colspan="5" class="text-right text-parchment-500">Pas de marché</td>
+                <% } else { %>
+                  <td class="text-right font-semibold tabular-nums"><%= v.merchants.free %></td>
+                  <td class="text-right tabular-nums"><%= mv.delivery %></td>
+                  <td class="text-right tabular-nums"><%= mv.return %></td>
+                  <td class="text-right tabular-nums"><%= mv.offers %></td>
+                  <td class="text-right tabular-nums"><%= v.merchants.total %></td>
+                <% } %>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+<% } %>
+
+<% if (tab === 'own') { %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Toutes tes propres offres', count(playerOffers.length)) %>
+        <% if (!playerOffers.length) { %>
+          <p class="px-3 py-3 text-parchment-500">Aucune offre en ligne dans tes villages.</p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+              <thead><tr><th>Village</th><th>J'offre</th><th>Je veux</th><th class="text-right">Offres</th><th>Limites</th><th></th></tr></thead>
+              <tbody>
+              <% for (const o of playerOffers) { %>
+                <tr>
+                  <td><a href="/village/<%= o.village.id %>/market?tab=create" class="<%= ui.linkPlain %> font-semibold"><%= o.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= o.village.x %>|<%= o.village.y %>)</span></td>
+                  <td><%- amount(o.sellResource, o.sellAmount) %></td>
+                  <td><%- amount(o.buyResource, o.buyAmount) %></td>
+                  <td class="text-right font-semibold tabular-nums"><%= o.count %></td>
+                  <td><%- limitTags(o) || '<span class="text-parchment-500">—</span>' %></td>
+                  <td class="text-right"><form method="post" action="/village/<%= o.village.id %>/market/offers/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>"><%- icon('close', 'size-3', 2.6) %>Retirer</button></form></td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </section>
+<% } %>
+
+<% if (tab === 'request') { const others = villages.filter((v) => v.village.id !== vid); %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead(`Demande vers ${ctx.village.name}`) %>
+        <% if (!others.length) { %>
+          <p class="px-3 py-3 text-parchment-500">Il faut au moins un autre village pour demander des ressources.</p>
+        <% } else { %>
+          <form method="post" action="<%= m %>/request"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <p class="px-3 pt-3 text-sm text-parchment-400">Tes autres villages envoient ces ressources à <b><%= ctx.village.name %></b> avec leurs marchands libres.</p>
+            <div class="overflow-x-auto">
+              <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+                <thead><tr><th>Village</th><% for (const r of RESOURCES) { %><th><%- resIcon(r.id) %></th><% } %><th class="text-right">Marchands</th><th class="text-right">Durée</th></tr></thead>
+                <tbody>
+                <% for (const v of others) { const secs = travelTo(v.village); const canSend = v.market > 0 && v.merchants.free > 0; %>
+                  <tr>
+                    <td><a href="/village/<%= v.village.id %>" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                    <% for (const r of RESOURCES) { const have = Math.floor(v.resources[r.id]); %>
+                      <td>
+                        <span class="flex items-center gap-1.5">
+                          <input type="number" name="<%= r.id %>_<%= v.village.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="<%= r.label %> depuis <%= v.village.name %>" <%= canSend ? '' : 'disabled' %>>
+                          <button type="button" class="<%= ui.link %> cursor-pointer text-xs tabular-nums" data-fill="<%= r.id %>_<%= v.village.id %>" data-max="<%= Math.min(have, v.merchants.free * cap) %>">(<%= num(have) %>)</button>
+                        </span>
+                      </td>
+                    <% } %>
+                    <td class="text-right tabular-nums"><%= v.market ? `${v.merchants.free}/${v.merchants.total}` : 'Pas de marché' %></td>
+                    <td class="text-right whitespace-nowrap tabular-nums text-parchment-300"><%= duration(secs) %></td>
+                  </tr>
+                <% } %>
+                </tbody>
+              </table>
+            </div>
+            <div class="border-t border-bronze-900 px-3 py-2.5"><button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Demander</button></div>
+          </form>
+        <% } %>
+      </section>
+<% } %>
+    </div>
+  </div>
 </div>
 <%- include('partials/footer') %>

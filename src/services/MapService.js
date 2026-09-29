@@ -100,13 +100,36 @@ class MapService {
    * Classement des adversaires vaincus : att (ODA), def (ODD), sup (ODS) ou all (total).
    * @returns {{ player, score }[]}
    */
-  static async killRanking(worldId, kind = 'all', limit = 100) {
-    const expr = {
+  static killExpr(kind) {
+    return {
       att: '"killsAttacker"',
       def: '"killsDefender"',
       sup: '"killsSupporter"',
       all: '("killsAttacker" + "killsDefender" + "killsSupporter")',
     }[kind] || '("killsAttacker" + "killsDefender" + "killsSupporter")';
+  }
+
+  /** Adversaires vaincus par tribu (« Adversaires battus (tribu) » de GT) : somme des points de ses membres. */
+  static async tribeKillRanking(worldId, kind = 'all', limit = 100) {
+    const expr = MapService.killExpr(kind);
+    const rows = await Player.findAll({
+      where: { worldId, tribeId: { [Op.ne]: null } },
+      attributes: ['tribeId', [sequelize.fn('SUM', sequelize.literal(expr)), 'score'], [sequelize.fn('COUNT', sequelize.col('id')), 'members']],
+      group: ['tribeId'],
+      raw: true,
+    });
+    const scored = rows.map((r) => ({ tribeId: r.tribeId, score: Number(r.score) || 0, members: Number(r.members) })).filter((r) => r.score > 0);
+    const tribes = await Tribe.findAll({ where: { id: { [Op.in]: scored.map((r) => r.tribeId) } }, attributes: ['id', 'tag', 'name'] });
+    const byId = new Map(tribes.map((t) => [t.id, t]));
+    return scored
+      .filter((r) => byId.has(r.tribeId))
+      .sort((a, b) => b.score - a.score || a.tribeId - b.tribeId)
+      .slice(0, limit)
+      .map((r) => ({ tribe: byId.get(r.tribeId), score: r.score, members: r.members }));
+  }
+
+  static async killRanking(worldId, kind = 'all', limit = 100) {
+    const expr = MapService.killExpr(kind);
     const players = await Player.findAll({
       where: { worldId, [Op.and]: [sequelize.literal(`${expr} > 0`)] },
       include: [{ model: Tribe, attributes: ['id', 'tag'] }],

@@ -1,17 +1,16 @@
 <%- include('partials/header', { title: conversation.subject }) %>
 <% const myId = ctx.village.playerId; const others = conversation.participants.filter((p) => p.playerId !== myId); %>
-<div class="mx-auto flex w-full max-w-3xl flex-col gap-5">
-  <section class="<%= ui.panel %>">
-    <%- panelHead('Conversation', `
-      <div class="flex items-center gap-2">
-        <a href="/village/${ctx.village.id}/messages" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Messages</a>
-        <form method="post" action="/village/${ctx.village.id}/messages/${conversation.id}/leave"><input type="hidden" name="_csrf" value="${csrfToken}">
-          <button class="${btn('danger', 'sm')}">${icon('trash', 'size-3.5', 2)}Supprimer</button>
-        </form>
-      </div>`) %>
+<%- include('partials/messages-start', { tab: 'conversation' }) %>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-bronze-900 px-3 py-2">
+      <a href="/village/<%= ctx.village.id %>/messages" class="<%= ui.link %> inline-flex items-center gap-1.5 text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boîte de réception</a>
+      <form method="post" action="/village/<%= ctx.village.id %>/messages/<%= conversation.id %>/leave" data-confirm="Effacer cette conversation ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="<%= btn('danger', 'sm') %>"><%- icon('trash', 'size-3.5', 2) %>Effacer</button>
+      </form>
+    </div>
     <div class="<%= ui.panelBody %> gap-4">
       <div class="flex flex-col gap-1">
-        <h1 class="font-display text-lg font-semibold wrap-break-word text-parchment-100"><%= conversation.subject %></h1>
+        <h2 class="font-display text-lg font-semibold wrap-break-word text-parchment-100"><%= conversation.subject %></h2>
+        <% if (conversation.recipientGroup) { %><p class="text-sm text-parchment-400">Mail circulaire · <%= (MessageGroups[conversation.recipientGroup] || {}).name %></p><% } %>
         <p class="text-sm text-parchment-500">Avec
           <% others.forEach((p, i) => { %><a href="/village/<%= ctx.village.id %>/players/<%= p.playerId %>" class="<%= ui.linkPlain %> font-semibold"><%= p.Player.name %></a><%= i < others.length - 1 ? ', ' : '' %><% }) %>
           <%= others.length ? '' : 'personne (les autres ont quitté la conversation)' %>
@@ -29,11 +28,10 @@
         <% } %>
       </ul>
     </div>
-  </section>
 
   <% if (others.length) { %>
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Répondre') %>
+    <section class="border-t border-bronze-900">
+      <p class="px-4.5 pt-3 font-semibold text-parchment-200">Répondre</p>
       <form id="bas" method="post" action="/village/<%= ctx.village.id %>/messages/<%= conversation.id %>/reply" class="<%= ui.panelBody %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <textarea name="body" rows="4" maxlength="5000" required placeholder="Votre réponse…" aria-label="Votre réponse" class="<%= ui.textarea %> w-full"></textarea>
         <div class="flex justify-end">
@@ -42,5 +40,5 @@
       </form>
     </section>
   <% } %>
-</div>
+<%- include('partials/messages-end') %>
 <%- include('partials/footer') %>

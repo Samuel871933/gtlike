@@ -17,6 +17,7 @@ const VILLAGE_DESIGNS = {
   noir: { id: 'noir', name: 'Noir', description: 'Pierre sombre et toits rouge sang.' },
   viking: { id: 'viking', name: 'Camp viking', description: 'Longues maisons, palissades et forteresses des terres du Nord.' },
   'rome-antique': { id: 'rome-antique', name: 'Rome antique', description: 'Camps légionnaires, villas de pierre, temples et capitale impériale.' },
+  egyptien: { id: 'egyptien', name: 'Égypte antique', description: 'Hameaux de terre crue, temples monumentaux et capitale pharaonique.' },
 };
 
 const DEFAULT_VILLAGE_DESIGN = 'beige';

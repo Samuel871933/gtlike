@@ -2,7 +2,7 @@
 
 const { Op } = require('sequelize');
 const {
-  sequelize, Player, Village, Command, SupportStack, Report, BuildOrder, RecruitOrder, ResearchOrder, Transport, MarketOffer, TribeRelation,
+  sequelize, Player, Village, Command, SupportStack, Report, LastAttack, BuildOrder, RecruitOrder, ResearchOrder, Transport, MarketOffer, TribeRelation,
   Knight, ScavengeRun,
 } = require('../models');
 const registry = require('../game/registry');
@@ -40,7 +40,8 @@ class CommandService {
   static parseUnits(input, world) {
     const units = {};
     for (const u of registry.UNITS.values()) {
-      if (!u.isAvailableIn(world)) continue;
+      // La milice ne quitte jamais son village.
+      if (!u.isAvailableIn(world) || u.stationary) continue;
       const n = Math.floor(Number(input?.[u.id]));
       if (Number.isFinite(n) && n > 0) units[u.id] = n;
     }
@@ -395,6 +396,12 @@ class CommandService {
     if (conquered) {
       await VillageService.updatePlayerStats(origin.playerId, t);
       if (previousOwnerId) await VillageService.updatePlayerStats(previousOwnerId, t);
+      // Fil des tribus (« Anoblissements ») : conquête pour la tribu du noble, perte pour celle de l'ancien propriétaire.
+      const [winner, loser] = await Promise.all([
+        Player.findByPk(origin.playerId, { attributes: ['id', 'name', 'tribeId'], transaction: t }),
+        previousOwnerId ? Player.findByPk(previousOwnerId, { attributes: ['id', 'name', 'tribeId'], transaction: t }) : null,
+      ]);
+      await require('./TribeEventService').conquest({ village: target, winner, loser, at, t });
     } else if (target.playerId && target.points !== oldPoints) {
       await VillageService.updatePlayerStats(target.playerId, t);
     }
@@ -493,10 +500,14 @@ class CommandService {
       ? `${origin.Player.name} a conquis ${villageLabel(target)}`
       : `${origin.Player.name} attaque ${villageLabel(target)}`;
 
-    await Report.create({
+    const attackReport = await Report.create({
       playerId: origin.playerId, type: 'attack', title, happenedAt: at,
       data: { ...data, perspective: 'attacker', hideDefender: !attackerSeesDefense, intel },
     }, { transaction: t });
+    // Gommette de la carte : dernière attaque de ce joueur sur ce village.
+    const last = { ...require('../game/lastAttack').outcome(data), happenedAt: at, reportId: attackReport.id };
+    const [mark, created] = await LastAttack.findOrCreate({ where: { playerId: origin.playerId, villageId: target.id }, defaults: last, transaction: t });
+    if (!created && new Date(mark.happenedAt) <= at) await mark.update(last, { transaction: t });
     if (defenderPlayer) {
       await Report.create({
         playerId: defenderPlayer.id, type: 'defense', title, happenedAt: at,
@@ -576,7 +587,10 @@ class CommandService {
     await MarketOffer.destroy({ where: { villageId: village.id }, transaction: t });
     await Knight.destroy({ where: { homeVillageId: village.id }, transaction: t });
     await ScavengeRun.destroy({ where: { villageId: village.id }, transaction: t });
-    await village.update({ scavenging: {} }, { transaction: t });
+    // Village conquis : la milice de l'ancien propriétaire disparaît.
+    const units = { ...village.units };
+    delete units.militia;
+    await village.update({ scavenging: {}, units, militiaUntil: null }, { transaction: t });
   }
 
   /** Mode sommeil : pas de combat, les troupes font demi-tour ; les deux joueurs sont prévenus. */

@@ -25,6 +25,19 @@ class VillageState {
     this.research = { ...(data.research || {}) };
     // Bonus des compétences « village » du paladin présent (production, construction, recrutement).
     this.villageBonus = data.villageBonus || null;
+    // Milice stationnée jusqu'à cette date : production réduite (world.militia.productionFactor) jusque-là.
+    this.militiaUntil = data.militiaUntil ? new Date(data.militiaUntil) : null;
+  }
+
+  /** La milice est-elle stationnée à l'instant `at` (par défaut : l'heure des ressources) ? */
+  militiaActive(at = this.resourcesAt) {
+    return Boolean(this.militiaUntil) && new Date(at) < this.militiaUntil;
+  }
+
+  /** Renvoie la milice : les miliciens disparaissent et la production redevient normale. */
+  dismissMilitia() {
+    delete this.units.militia;
+    this.militiaUntil = null;
   }
 
   /** L'unité est-elle disponible au recrutement (recherche faite ou inutile) ? */
@@ -45,7 +58,8 @@ class VillageState {
 
   productionPerHour() {
     const p = {};
-    const bonus = 1 + (this.villageBonus?.production || 0);
+    const militia = this.militiaActive() ? this.world.militia.productionFactor : 1;
+    const bonus = (1 + (this.villageBonus?.production || 0)) * militia;
     for (const r of RESOURCES) p[r] = formulas.production(this.level(r), this.world) * bonus;
     return p;
   }
@@ -64,6 +78,11 @@ class VillageState {
 
   /** Fait avancer les ressources (bornées par l'entrepôt) et la loyauté (+1/h × vitesse) jusqu'à `to`. */
   accrue(to) {
+    // Fin de la milice pendant l'intervalle : production réduite jusqu'à cette date, normale ensuite.
+    if (this.militiaActive() && new Date(to) > this.militiaUntil) {
+      this.accrue(this.militiaUntil);
+      this.dismissMilitia();
+    }
     const dt = (to - this.resourcesAt) / 3600000;
     if (dt <= 0) return;
     const cap = this.storageCapacity();
@@ -84,6 +103,23 @@ class VillageState {
 
   canAfford(cost) {
     return RESOURCES.every((r) => this.resources[r] >= cost[r]);
+  }
+
+  /**
+   * Heure à laquelle la production couvrira `cost` (`now` si c'est déjà le cas), comme « Ressources disponibles … »
+   * sur GT ; null si ça n'arrivera jamais (coût au-delà de l'entrepôt, production nulle).
+   */
+  affordableAt(cost, now) {
+    const cap = this.storageCapacity();
+    const prod = this.productionPerHour();
+    let wait = 0;
+    for (const r of RESOURCES) {
+      const missing = cost[r] - this.resources[r];
+      if (missing <= 0) continue;
+      if (cost[r] > cap || !(prod[r] > 0)) return null;
+      wait = Math.max(wait, (missing / prod[r]) * 3600);
+    }
+    return new Date(new Date(now).getTime() + Math.ceil(wait) * 1000);
   }
 
   pay(cost) {
@@ -159,6 +195,7 @@ class VillageState {
       resourcesAt: this.resourcesAt,
       loyalty: this.loyalty,
       research: { ...this.research },
+      militiaUntil: this.militiaUntil,
     };
   }
 }

@@ -3,6 +3,34 @@
   const victoryNames = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège', none: 'Aucune' };
   const yes = (b) => (b ? 'Oui' : 'Non');
   const h = (m) => (m >= 60 ? `${Math.round(m / 6) / 10} h` : `${m} min`);
+  // Paramètres de la condition de fin du monde (config.victory), selon son type.
+  const v = cfg.victory;
+  const victoryRows = [['Condition', victoryNames[v.type]]];
+  if (v.type === 'dominance') victoryRows.push(
+    ['Dominance à atteindre', `${v.dominance.endgamePercent} % des villages de joueurs`],
+    ['Âge minimal du monde', `${v.dominance.minWorldAgeDays} jours`],
+    ['Dominance à tenir', `${v.dominance.holdDays} jours`],
+    ['Avertissement', `dès ${v.dominance.warningPercent} % (monde de ${v.dominance.warningWorldAgeDays} jours)`],
+  );
+  if (v.type === 'pointsVillages') victoryRows.push(
+    ['Gagnant', v.pointsVillages.scope === 'player' ? 'Un joueur' : 'Une tribu'],
+    ['Points à atteindre', num(v.pointsVillages.points)],
+    ['Villages à atteindre', num(v.pointsVillages.villages)],
+    ['Seuils à tenir', `${v.pointsVillages.holdHours} heures`],
+  );
+  if (v.type === 'runes') victoryRows.push(
+    ['Apparition des runes', `après ${v.runes.spawnAfterDays} jours`],
+    ['Villages de rune par continent', String(v.runes.villagesPerContinent)],
+    ['Part à détenir', `${v.runes.winPercent} %`],
+    ['Part à tenir', `${v.runes.holdDays} jours`],
+  );
+  if (v.type === 'siege') victoryRows.push(
+    ['Apparition de la cité', `après ${v.siege.startAfterDays} jours`],
+    ['Quartiers', String(v.siege.villages)],
+    ['Influence par quartier', `${num(v.siege.influencePerVillagePerDay)} / jour`],
+    ['Objectif d’influence', num(v.siege.requiredInfluence)],
+    ['Baisse de l’objectif', `${v.siege.reductionPercent} % tous les ${v.siege.reductionEveryDays} jours (${v.siege.maxReductionPercent} % max)`],
+  );
   const groups = [
     ['Monde', [
       ['Vitesse du monde', `×${cfg.speed}`],
@@ -33,7 +61,9 @@
       ['Collecte', yes(cfg.scavenging.active)],
       ['Mode sommeil', cfg.sleep.active ? `${cfg.sleep.minHours} à ${cfg.sleep.maxHours} h, activé après ${h(cfg.sleep.delayMinutes)}` : 'Non'],
       ['Remplaçant (mode vacances)', cfg.sitter.allow ? `Oui, ${cfg.sitter.maxAccounts} comptes max` : 'Non'],
+      ['Milice', cfg.features.militia ? `Oui, ${cfg.militia.perFarmLevel} par niveau de ferme (niv. ${cfg.militia.maxFarmLevel} max), ${cfg.militia.hours} h, production × ${cfg.militia.productionFactor}, ${cfg.militia.maxVillages} villages max` : 'Non'],
     ]],
+    ['Fin du monde', victoryRows],
     ['Tribus, marché et nobles', [
       ['Membres par tribu', String(cfg.tribe.memberLimit)],
       ['Attaque entre membres', cfg.tribe.noHarm ? 'Interdite' : 'Autorisée'],
@@ -58,7 +88,7 @@
   <div class="flex flex-wrap gap-4 text-sm">
     <% if (user) { %>
       <a href="/worlds/<%= world.slug %>/ranking" class="<%= ui.link %>">» Classement</a>
-      <a href="/worlds/<%= world.slug %>/victory" class="<%= ui.link %>">» Fin du monde</a>
+      <a href="/worlds/<%= world.slug %>/ranking?type=victory" class="<%= ui.link %>">» Fin du monde</a>
     <% } %>
     <a href="/worlds/<%= world.slug %>/config.json" class="<%= ui.link %>">» Configuration complète (JSON)</a>
   </div>

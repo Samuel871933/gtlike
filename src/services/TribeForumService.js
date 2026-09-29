@@ -43,17 +43,17 @@ const pageOf = (page, count) => {
   return { page: Math.min(pages, Math.max(1, Math.floor(Number(page)) || 1)), pages };
 };
 
-/** Joueur membre d'une tribu (sinon erreur), avec ses droits de chef. */
+/** Joueur membre d'une tribu (sinon erreur), avec son droit de modérateur du forum. */
 async function memberOf(playerId) {
   const player = await Player.findByPk(playerId);
   if (!player || !player.tribeId) throw new GameError("Vous n'êtes dans aucune tribu.", 403);
-  return { player, manager: TribeService.canManage(player) };
+  return { player, manager: TribeService.can(player, 'forumMod') };
 }
 
-/** Chef de tribu (fondateur ou chef), sinon erreur. */
+/** Modérateur du forum (droit forumMod, ou duc ou baron), sinon erreur. */
 async function managerOf(playerId) {
   const { player, manager } = await memberOf(playerId);
-  if (!manager) throw new GameError('Réservé aux chefs de la tribu.', 403);
+  if (!manager) throw new GameError('Il faut le droit de modérateur du forum.', 403);
   return player;
 }
 

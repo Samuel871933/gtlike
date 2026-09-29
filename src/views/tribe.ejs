@@ -2,8 +2,7 @@
 <%
   const vid = ctx.village.id;
   const t = `/village/${vid}/tribe`;
-  const tabs = [['overview', 'Aperçu'], ['members', `Membres (${members.length})`], ['diplomacy', 'Diplomatie'], ['wall', 'Mur'], ['forum', forumUnread ? `Forum (${forumUnread})` : 'Forum']];
-  const roleName = { founder: 'Fondateur', leader: 'Chef', member: 'Membre' };
+  const tabs = [['overview', 'Aperçu'], ['properties', 'Propriétés'], ['members', `Membres (${members.length})`], ['diplomacy', 'Diplomatie'], ['forum', forumUnread ? `Forum (${forumUnread})` : 'Forum']];
   const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
   const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-semibold tracking-[0.02em]';
   const relBadge = {
@@ -11,9 +10,10 @@
     nap: 'border-rel-nap/60 bg-rel-nap/15 text-rel-nap',
     enemy: 'border-rel-enemy/60 bg-rel-enemy/15 text-rel-enemy',
   };
-  const roleTag = { founder: ui.tagGold, leader: ui.tagGold, member: ui.tagMuted };
-  const isFounder = player.tribeRole === 'founder';
-  const authorOf = (m) => playerLink(vid, m.Player, { none: 'Joueur supprimé' });
+  // Titres en texte (les capitales des tags sont réservées au tag de la tribu).
+  const roleTag = { duke: 'font-semibold text-gold-200', baron: 'font-semibold text-gold-200', member: 'text-parchment-300' };
+  const isDuke = player.tribeRole === 'duke';
+  const dukes = members.filter((m) => m.tribeRole === 'duke').length;
 %>
 <%# En-tête de la tribu : identité, chiffres clés, onglets. %>
 <section class="<%= ui.panel %>">
@@ -24,9 +24,9 @@
       <span class="flex min-w-0 flex-col gap-1">
         <span class="flex flex-wrap items-center gap-2">
           <span class="<%= ui.tagGold %>"><%= tribe.tag %></span>
-          <span class="<%= roleTag[player.tribeRole] %>"><%= roleName[player.tribeRole] %></span>
+          <span class="<%= roleTag[player.tribeRole] %>"><%= tribeRights.TITLES[player.tribeRole] %></span>
         </span>
-        <span class="text-sm text-parchment-500">Vous êtes <%= roleName[player.tribeRole].toLowerCase() %>.</span>
+        <span class="text-sm text-parchment-500">Vos pouvoirs : <%= tribeRights.label(player).toLowerCase() %>.</span>
       </span>
     </div>
     <dl class="grid grid-cols-3 gap-2 sm:w-[420px]">
@@ -37,42 +37,108 @@
   </div>
 </section>
 
-<% if (tab === 'overview') { %>
+<% if (tab === 'overview') {
+     // Fil de la tribu comme sur GT : une phrase par événement, avec liens vers les joueurs, villages et tribus.
+     const pl = (p) => (p && p.id ? playerLink(vid, p, { cls: `${ui.linkPlain} font-semibold` }) : `<span class="font-semibold">${esc(p ? p.name : 'Joueur supprimé')}</span>`);
+     const vl = (v) => `<a href="/village/${vid}/villages/${v.id}" class="${ui.linkPlain} font-semibold">${esc(v.name)} (${v.x}|${v.y}) ${v.k}</a>`
+       + ` <a href="/village/${vid}/map?x=${v.x}&amp;y=${v.y}" class="inline-flex align-[-2px] text-parchment-500 hover:text-gold-200" title="Centrer la carte" aria-label="Centrer la carte sur ce village">${icon('map', 'size-3.5', 2)}</a>`;
+     const tl = (tr) => tribeLink(vid, tr, { name: true });
+     const relWord = { ally: 'alliée', nap: 'en PNA', enemy: 'ennemie' };
+     const sentence = (e) => {
+       const d = e.data;
+       switch (e.type) {
+         case 'conquered': return `${pl(d.actor)} a conquis ${vl(d.village)}${d.target ? ` de ${pl(d.target)}` : ' (village barbare)'}.`;
+         case 'lost': return `${pl(d.target)} a perdu ${vl(d.village)} au profit de ${pl(d.actor)}.`;
+         case 'relation': return `${pl(d.actor)} a marqué ${tl(d.tribe)} comme ${relWord[d.relation] || d.relation}.`;
+         case 'relationRemoved': return `${pl(d.actor)} a supprimé la relation avec ${tl(d.tribe)}.`;
+         case 'joined': return `${pl(d.actor)} a rejoint la tribu.`;
+         case 'invited': return `${pl(d.target)} a été invité par ${pl(d.actor)}.`;
+         case 'inviteCancelled': return `L'invitation de ${pl(d.target)} a été retirée par ${pl(d.actor)}.`;
+         case 'inviteDeclined': return `${pl(d.actor)} a refusé l'invitation.`;
+         case 'left': return `${pl(d.actor)} a quitté la tribu.`;
+         case 'quitWorld': return `${esc(d.actor.name)} (supprimé) a quitté le monde.`;
+         case 'kicked': return `${pl(d.target)} a été renvoyé par ${pl(d.actor)}.`;
+         case 'rights': return `${pl(d.actor)} a changé les droits et le titre de ${pl(d.target)}${d.title ? ` <span class="text-parchment-500">(${esc(d.title)})</span>` : ''}.`;
+         case 'founded': return `${pl(d.actor)} a fondé la tribu.`;
+         case 'profile': return `${pl(d.actor)} a modifié le profil de la tribu.`;
+         case 'announcement': return `${pl(d.actor)} a modifié les annonces internes.`;
+         default: return esc(e.type);
+       }
+     };
+     const feedUrl = (params) => `${t}?${new URLSearchParams({ tab: 'overview', ...params })}`;
+     const cat = feed.category; %>
   <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Description') %>
-      <div class="<%= ui.panelBody %>">
-        <% if (canManage) { %>
-          <form method="post" action="<%= t %>/description" class="flex flex-col gap-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <textarea name="description" rows="6" maxlength="5000" class="<%= ui.textarea %> w-full" aria-label="Description"><%= tribe.description %></textarea>
-            <div><button class="<%= btn('dark') %>">Enregistrer</button></div>
-          </form>
-        <% } else if (tribe.description) { %>
-          <p class="whitespace-pre-line text-parchment-300"><%= tribe.description %></p>
-        <% } else { %>
-          <p class="text-parchment-500">Pas encore de description.</p>
-        <% } %>
-        <form method="post" action="<%= t %>/leave" class="mt-2 flex flex-wrap items-center gap-3 border-t border-bronze-900 pt-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="<%= btn('danger', 'sm') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter la tribu</button>
-          <% if (isFounder && members.length > 1) { %><span class="text-xs text-parchment-600">Nommez d'abord un autre fondateur.</span><% } %>
-          <% if (members.length === 1) { %><span class="text-xs text-parchment-600">Vous êtes seul : la tribu sera dissoute.</span><% } %>
-        </form>
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead('Événements', `<span class="text-[13px] text-parchment-500 tabular-nums">${num(feed.total)}</span>`) %>
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-bronze-800 px-3 py-2">
+        <%- segTabs([[feedUrl({}), 'Tout', cat === 'all'], ...Object.entries(TribeCategories).map(([id, name]) => [feedUrl({ cat: id }), name, cat === id])]) %>
+        <%- include('partials/pager', { page: feed.page, pages: feed.pages, href: (n) => feedUrl({ ...(cat !== 'all' ? { cat } : {}), page: n }) }) %>
       </div>
+      <% if (!feed.events.length) { %>
+        <p class="px-4.5 py-4 text-parchment-500">Aucun événement<%= cat !== 'all' ? ' dans cette catégorie' : '' %>.</p>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="<%= ui.table %>">
+            <thead><tr><th class="w-28">Date</th><th>Événement</th><th class="w-10"></th></tr></thead>
+            <tbody>
+            <% for (const e of feed.events) { %>
+              <tr>
+                <td class="text-[13px] whitespace-nowrap text-parchment-400 tabular-nums"><%= whenShort(e.happenedAt, now) %></td>
+                <td class="text-parchment-300"><%- sentence(e) %></td>
+                <td class="text-right"><% if (e.category === 'noble') { %><span class="inline-flex <%= e.type === 'lost' ? 'text-blood-400' : 'text-gold-400' %>" title="<%= e.type === 'lost' ? 'Village perdu' : 'Village conquis' %>"><%- unitIcon('snob', 'size-5') %></span><% } %></td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+      <form method="post" action="<%= t %>/leave" class="flex flex-wrap items-center gap-3 border-t border-bronze-900 px-3 py-3" data-confirm="Quitter la tribu ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="<%= btn('danger', 'sm') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter la tribu</button>
+        <% if (isDuke && dukes === 1 && members.length > 1) { %><span class="text-xs text-parchment-600">Nommez d'abord un autre duc.</span><% } %>
+        <% if (members.length === 1) { %><span class="text-xs text-parchment-600">Vous êtes seul : la tribu sera dissoute.</span><% } %>
+      </form>
     </section>
 
     <section class="<%= ui.panel %>">
-      <%- panelHead('Derniers messages', `<a href="${t}?tab=wall" class="${ui.link} text-[13px]">Voir le mur</a>`) %>
+      <%- panelHead('Annonces internes') %>
       <div class="<%= ui.panelBody %>">
-        <% if (!messages.length) { %><p class="text-parchment-500">Le mur est vide.</p><% } %>
-        <% for (const m of messages.slice(0, 3)) { %>
-          <div class="<%= ui.box %> flex flex-col gap-1.5 p-3">
-            <p class="text-xs text-parchment-500"><strong class="font-semibold text-parchment-200"><%- authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
-            <p class="line-clamp-3 text-sm whitespace-pre-line text-parchment-300"><%= m.body %></p>
-          </div>
+        <% if (tribe.announcement) { %>
+          <p class="text-center whitespace-pre-line wrap-break-word text-parchment-200"><%= tribe.announcement %></p>
+        <% } else { %>
+          <p class="text-center text-parchment-500">Pas encore d'annonce.</p>
+        <% } %>
+        <p class="text-center text-[13px] text-parchment-600 italic">Ce texte peut être modifié par un duc ou un baron de la tribu.</p>
+        <% if (can('baron')) { %>
+          <details class="border-t border-bronze-900 pt-3">
+            <summary class="<%= ui.link %> cursor-pointer text-sm">Modifier les annonces</summary>
+            <form method="post" action="<%= t %>/announcement" class="mt-2 flex flex-col gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <textarea name="announcement" rows="5" maxlength="2000" class="<%= ui.textarea %> w-full" aria-label="Annonces internes"><%= tribe.announcement || '' %></textarea>
+              <div><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></div>
+            </form>
+          </details>
         <% } %>
       </div>
     </section>
   </div>
+<% } %>
+
+<% if (tab === 'properties') { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Profil de la tribu', `<a href="/village/${vid}/tribes/${tribe.id}" class="${ui.link} text-[13px]">Voir le profil public</a>`) %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-sm text-parchment-500">Description affichée sur le profil public de la tribu. Les ducs, barons et diplomates peuvent la modifier.</p>
+      <% if (can('diplomacy')) { %>
+        <form method="post" action="<%= t %>/description" class="flex flex-col gap-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <textarea name="description" rows="8" maxlength="5000" class="<%= ui.textarea %> w-full" aria-label="Description"><%= tribe.description %></textarea>
+          <div><button class="<%= btn('dark') %>">Enregistrer</button></div>
+        </form>
+      <% } else if (tribe.description) { %>
+        <p class="whitespace-pre-line text-parchment-300"><%= tribe.description %></p>
+      <% } else { %>
+        <p class="text-parchment-500">Pas encore de description.</p>
+      <% } %>
+    </div>
+  </section>
 <% } %>
 
 <% if (tab === 'members') { %>
@@ -80,28 +146,18 @@
     <%- panelHead('Membres', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${members.length} / ${ctx.cfg.tribe.memberLimit}</span>`) %>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %>">
-        <thead><tr><th>Joueur</th><th>Rôle</th><th class="text-right">Points</th><th class="text-right">Villages</th><th></th></tr></thead>
+        <thead><tr><th>Joueur</th><th>Pouvoirs</th><th class="text-right">Points</th><th class="text-right">Villages</th><th></th></tr></thead>
         <tbody>
         <% for (const m of members) { const self = m.id === player.id; %>
           <tr class="<%= self ? ui.rowActive : '' %>">
             <td class="font-semibold"><a href="/village/<%= vid %>/players/<%= m.id %>" class="<%= ui.linkPlain %>"><%= m.name %></a></td>
-            <td><span class="<%= roleTag[m.tribeRole] %>"><%= roleName[m.tribeRole] %></span></td>
+            <td><span class="<%= roleTag[m.tribeRole] %>"><%= tribeRights.label(m) %></span></td>
             <td class="text-right font-semibold tabular-nums"><%= num(m.points) %></td>
             <td class="text-right tabular-nums"><%= m.villageCount %></td>
             <td class="text-right whitespace-nowrap">
-              <div class="flex items-center justify-end gap-2">
-                <% if (!self && isFounder) { %>
-                  <form method="post" action="<%= t %>/members/<%= m.id %>/role" class="inline-flex items-center gap-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <select name="role" class="<%= ui.inputSm %>" aria-label="Rôle de <%= m.name %>">
-                      <% for (const r of ['member', 'leader', 'founder']) { %><option value="<%= r %>" <%= m.tribeRole === r ? 'selected' : '' %>><%= roleName[r] %></option><% } %>
-                    </select>
-                    <button class="<%= btn('dark', 'sm') %>">OK</button>
-                  </form>
-                <% } %>
-                <% if (!self && canManage && TribeRoles[m.tribeRole] < TribeRoles[player.tribeRole]) { %>
-                  <form method="post" action="<%= t %>/members/<%= m.id %>/kick"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>">Exclure</button></form>
-                <% } %>
-              </div>
+              <% if (canEdit(m)) { %>
+                <form method="post" action="<%= t %>/members/<%= m.id %>/kick" class="inline" data-confirm="Renvoyer <%= m.name %> de la tribu ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>">Renvoyer</button></form>
+              <% } %>
             </td>
           </tr>
         <% } %>
@@ -110,7 +166,58 @@
     </div>
   </section>
 
-  <% if (canManage) { %>
+  <% if (can('baron')) { %>
+    <%# Droits : un formulaire par ligne (attribut form), comme l'onglet « Droits » des propriétés de tribu sur GT. %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Droits') %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead>
+            <tr>
+              <th>Joueur</th><th>Titre</th>
+              <% for (const r of tribeRights.RIGHTS) { %><th class="text-center" title="<%= r.text %>"><%= r.name %></th><% } %>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          <% for (const m of members) { const editable = canEdit(m); const fid = `droits-${m.id}`; const titled = m.tribeRole !== 'member'; %>
+            <tr>
+              <td class="font-semibold"><%= m.name %></td>
+              <td>
+                <% if (editable && isDuke) { %>
+                  <select name="title" form="<%= fid %>" class="<%= ui.inputSm %>" aria-label="Titre de <%= m.name %>">
+                    <% for (const id of ['member', 'baron', 'duke']) { %><option value="<%= id %>" <%= m.tribeRole === id ? 'selected' : '' %>><%= tribeRights.TITLES[id] %></option><% } %>
+                  </select>
+                <% } else { %>
+                  <span class="<%= roleTag[m.tribeRole] %>"><%= tribeRights.TITLES[m.tribeRole] %></span>
+                  <% if (editable) { %><input type="hidden" name="title" value="<%= m.tribeRole %>" form="<%= fid %>"><% } %>
+                <% } %>
+              </td>
+              <% for (const r of tribeRights.RIGHTS) { %>
+                <td class="text-center">
+                  <input type="checkbox" name="rights" value="<%= r.id %>" form="<%= fid %>" class="<%= ui.checkbox %>" aria-label="<%= r.name %> : <%= m.name %>"
+                    <%= tribeRights.has(m, r.id) ? 'checked' : '' %> <%= editable && !titled ? '' : 'disabled' %>>
+                </td>
+              <% } %>
+              <td class="text-right">
+                <% if (editable) { %>
+                  <form id="<%= fid %>" method="post" action="<%= t %>/members/<%= m.id %>/rights" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></form>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+      <ul class="flex flex-col gap-1 border-t border-bronze-900 px-4.5 py-3 text-[13px] text-parchment-500">
+        <li><span class="font-semibold text-parchment-300">Duc</span> : tous les droits ; seul un duc nomme des ducs et des barons.</li>
+        <li><span class="font-semibold text-parchment-300">Baron</span> : définit les droits des membres, les renvoie et a tous les autres droits.</li>
+        <% for (const r of tribeRights.RIGHTS) { %><li><span class="font-semibold text-parchment-300"><%= r.name %></span> : <%= r.text %></li><% } %>
+      </ul>
+    </section>
+  <% } %>
+
+  <% if (can('invite')) { %>
     <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
       <section class="<%= ui.panel %>">
         <%- panelHead('Nouvelle invitation') %>
@@ -149,7 +256,7 @@
     <%- panelHead('Diplomatie', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${relations.length}</span>`) %>
     <div class="<%= ui.panelBody %>">
       <p class="text-sm text-parchment-500">La diplomatie est à sens unique : elle indique comment votre tribu considère les autres. Elle colore la carte de vos membres.</p>
-      <% if (canManage) { %>
+      <% if (can('diplomacy')) { %>
         <form method="post" action="<%= t %>/relations" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <label class="<%= ui.label %>">Tag de la tribu
             <input name="tag" required maxlength="6" class="<%= ui.input %> w-32 uppercase">
@@ -167,13 +274,13 @@
     <% if (relations.length) { %>
       <div class="overflow-x-auto border-t border-bronze-900">
         <table class="<%= ui.table %>">
-          <thead><tr><th>Relation</th><th>Tribu</th><% if (canManage) { %><th></th><% } %></tr></thead>
+          <thead><tr><th>Relation</th><th>Tribu</th><% if (can('diplomacy')) { %><th></th><% } %></tr></thead>
           <tbody>
           <% for (const r of relations) { %>
             <tr>
               <td class="w-28"><span class="<%= relTag %> <%= relBadge[r.type] %>"><span class="size-1.5 rotate-45 bg-current" aria-hidden="true"></span><%= relName[r.type] %></span></td>
               <td><a href="/village/<%= vid %>/tribes/<%= r.other.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-semibold"><span class="<%= ui.tagMuted %>"><%= r.other.tag %></span><%= r.other.name %></a></td>
-              <% if (canManage) { %>
+              <% if (can('diplomacy')) { %>
                 <td class="w-12 text-right">
                   <form method="post" action="<%= t %>/relations/<%= r.id %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <button class="<%= ui.iconBtnSm %>" title="Supprimer" aria-label="Supprimer la relation"><%- icon('close', 'size-3', 2.6) %></button>
@@ -193,32 +300,4 @@
   <%- include('partials/tribe-forum', { forum, t }) %>
 <% } %>
 
-<% if (tab === 'wall') { %>
-  <section class="<%= ui.panel %>">
-    <%- panelHead('Mur de la tribu', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${messages.length}</span>`) %>
-    <div class="<%= ui.panelBody %> gap-4">
-      <form method="post" action="<%= t %>/messages" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <textarea name="body" rows="3" maxlength="2000" required placeholder="Écrire aux membres de la tribu…" class="<%= ui.textarea %> w-full" aria-label="Message"></textarea>
-        <div><button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Publier</button></div>
-      </form>
-      <% if (!messages.length) { %><p class="text-parchment-500">Aucun message.</p><% } %>
-      <% for (const m of messages) { %>
-        <article class="<%= ui.box %> flex gap-3 p-3.5">
-          <span class="<%= ui.medallion %> size-9"><%- icon('profile', 'size-4') %></span>
-          <div class="flex min-w-0 flex-1 flex-col gap-1.5">
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-xs text-parchment-500"><strong class="text-sm font-semibold text-parchment-100"><%- authorOf(m) %></strong> · <%= when(m.createdAt, now) %></p>
-              <% if (m.playerId === player.id || canManage) { %>
-                <form method="post" action="<%= t %>/messages/<%= m.id %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                  <button class="<%= ui.iconBtnSm %>" title="Supprimer" aria-label="Supprimer le message"><%- icon('trash', 'size-3.5', 2.2) %></button>
-                </form>
-              <% } %>
-            </div>
-            <p class="wrap-break-word whitespace-pre-line text-parchment-300"><%= m.body %></p>
-          </div>
-        </article>
-      <% } %>
-    </div>
-  </section>
-<% } %>
 <%- include('partials/footer') %>

@@ -55,6 +55,16 @@ test('ODA pour l’attaquant, ODD pour le défenseur, ODS pour le soutien au pro
   assert.equal(ranking[0].player.name, 'Alice');
   const sup = await MapService.killRanking(v.Alice.worldId, 'sup');
   assert.deepEqual(sup.map((r) => r.player.name), ['Carol']);
+
+  // Par tribu : somme des membres (Bob et Carol dans la même tribu).
+  const TribeService = require('../src/services/TribeService');
+  const tribe = await TribeService.create(p.Bob.id, { name: 'Les Remparts', tag: 'REMP' });
+  await Player.update({ tribeId: tribe.id, tribeRole: 'member' }, { where: { id: p.Carol.id } });
+  const [row] = await MapService.tribeKillRanking(v.Alice.worldId, 'all');
+  assert.equal(row.tribe.tag, 'REMP');
+  assert.equal(row.members, 2);
+  assert.equal(row.score, bob.killsDefender + carol.killsSupporter);
+  assert.deepEqual((await MapService.tribeKillRanking(v.Alice.worldId, 'att')), [], 'aucune attaque de la tribu');
 });
 
 test('classement par continent : points des villages situés dans le continent', async () => {

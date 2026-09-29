@@ -4,7 +4,6 @@
    const tabsHtml = level > 0 && building !== 'snob'
      ? segTabs([[`/village/${vid}/recruit/${building}`, 'Recrutement', rtab === 'recruit'], [`/village/${vid}/recruit/${building}?tab=dismiss`, 'Désaffectation', rtab === 'dismiss']])
      : '';
-   const hasRecruit = rtab === 'recruit' && level > 0 && available.length;
    const maxBtn = `${ui.link} cursor-pointer text-xs tabular-nums`; %>
 <div class="flex flex-col gap-5">
   <%- include('partials/building-header', { buildingId: building }) %>
@@ -38,41 +37,65 @@
     </form>
   </section>
 <% } else { %>
-  <div class="<%= hasRecruit ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]' : 'grid items-start gap-5 lg:grid-cols-2' %>">
-    <% if (hasRecruit) { %>
-      <%# Recruter %>
-      <section class="<%= ui.panel %> min-w-0">
-        <%- panelHead('Recruter', tabsHtml) %>
+  <%# Recrutement, agencé comme sur GT : file en cours, tableau des unités, puis ce qui n'est pas encore disponible. %>
+  <section class="<%= ui.panel %> min-w-0">
+    <%- panelHead(building === 'statue' && level > 0 ? 'Paladin' : 'Recrutement', tabsHtml) %>
+    <% if (level === 0) { %>
+      <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Ce bâtiment n'est pas encore construit.</p></div>
+    <% } else { %>
+      <% if (building === 'statue' && typeof skilled !== 'undefined') { %>
+        <div class="<%= ui.panelBody %> border-b border-bronze-900">
+          <p class="text-[15px] text-parchment-400">
+            Un paladin par village, <%= skilled.max %> au total avec vos villages actuels (1 village : 1, 3 : 2, 5 : 3, 10 : 4… jusqu'à 10).
+            Chaque niveau donne un livre de compétence (30 au maximum). S'il tombe au combat, recrutez-le à nouveau ici pour le ressusciter.
+          </p>
+          <% if (skilled.blocker) { %><p class="<%= ui.alertInfo %>"><%= skilled.blocker %></p><% } %>
+        </div>
+      <% } else if (building === 'statue') { %>
+        <div class="<%= ui.panelBody %> border-b border-bronze-900">
+          <p class="text-[15px] text-parchment-400">
+            Un seul paladin par joueur. S'il tombe au combat, vous pouvez en recruter un nouveau ici.
+            Les soutiens qu'il accompagne avancent à sa vitesse (<%= registry.unit('knight').speed %> min/case à vitesse 1).
+          </p>
+          <p class="<%= knightCount ? ui.alertSuccess : ui.alertInfo %>"><%= knightCount ? 'Vous avez déjà votre paladin.' : "Vous n'avez pas de paladin." %></p>
+        </div>
+      <% } %>
+
+      <%- include('partials/recruit-queue', { orders: queue, showEmpty: false }) %>
+
+      <% if (available.length) { %>
         <%# data-recruit : coût et durée unitaires, ressources et population disponibles (total calculé par game.js). %>
-        <form method="post" action="/village/<%= vid %>/recruit/<%= building %>"
+        <form method="post" action="/village/<%= vid %>/recruit/<%= building %>" class="<%= queue.length ? 'border-t-2 border-bronze-800' : '' %>"
               data-recruit="<%= JSON.stringify(Object.fromEntries(available.map((o) => [o.type.id, { ...o.type.cost, pop: o.type.pop, time: o.duration }]))) %>"
               data-have="<%= JSON.stringify({ ...ctx.state.resources, pop: ctx.state.farmCapacity() - ctx.popUsed() }) %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="overflow-x-auto">
             <table class="<%= ui.table %>">
-              <thead><tr><th>Unité</th><th class="max-md:hidden">Coût</th><th class="max-md:hidden">Durée</th><th class="text-right max-md:hidden">Dans le village / total</th><th class="text-right">Recruter</th></tr></thead>
+              <thead><tr><th>Unité</th><th colspan="5" class="max-md:hidden">Besoins</th><th class="text-center max-md:hidden">Dans le village / total</th><th class="text-right">Recruter</th></tr></thead>
               <tbody>
-              <% for (const o of available) { %>
+              <% for (const o of available) { const why = o.max < 1 && resourcesWhen(ctx.state, o.type.cost, now); %>
                 <tr>
-                  <td>
+                  <td class="min-w-44">
                     <span class="flex items-center gap-3">
-                      <span class="<%= ui.medallion %> size-[42px] minimal:size-[32px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
+                      <span class="<%= ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
                       <span class="flex min-w-0 flex-col gap-1">
                         <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
-                        <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: null }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span><span class="text-parchment-500 tabular-nums">Au village <span class="font-semibold text-parchment-200"><%= num(o.count) %></span> / <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></span>
+                        <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: ctx.state.resources }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span><span class="text-parchment-500 tabular-nums">Au village <span class="font-semibold text-parchment-200"><%= num(o.count) %></span> / <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></span>
                       </span>
                     </span>
                   </td>
-                  <td class="max-md:hidden"><%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: null }) %></td>
-                  <td class="whitespace-nowrap text-parchment-300 tabular-nums max-md:hidden">
-                    <span class="inline-flex items-center gap-1.5"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span>
-                  </td>
-                  <td class="text-right whitespace-nowrap tabular-nums max-md:hidden"><span class="font-semibold text-parchment-100"><%= num(o.count) %></span> <span class="text-parchment-500">/ <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></td>
-                  <td class="text-right whitespace-nowrap">
-                    <span class="inline-flex flex-col items-end gap-1">
+                  <% for (const r of RESOURCES) { const short = ctx.state.resources[r.id] < o.type.cost[r.id]; %>
+                    <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= short ? 'text-blood-400' : '' %>"><span><%- resourceIcon(r.id) %></span><%= num(o.type.cost[r.id]) %></span></td>
+                  <% } %>
+                  <td class="whitespace-nowrap tabular-nums text-parchment-300 max-md:hidden"><span class="inline-flex items-center gap-1.5"><span><%- resourceIcon('pop') %></span><%= num(o.type.pop) %></span></td>
+                  <td class="whitespace-nowrap tabular-nums text-parchment-300 max-md:hidden"><span class="inline-flex items-center gap-1.5"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span></td>
+                  <td class="text-center whitespace-nowrap tabular-nums max-md:hidden"><span class="font-semibold text-parchment-100"><%= num(o.count) %></span><span class="text-parchment-500">/<%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></td>
+                  <td class="text-right">
+                    <span class="inline-flex items-center justify-end gap-2 whitespace-nowrap">
                       <input type="number" name="<%= o.type.id %>" min="0" max="<%= o.max %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Recruter : <%= o.type.name %>">
                       <%# data-cap : maximum du serveur (ressources, population, plafonds) ; data-max suit la saisie des autres lignes (game.js). %>
-                      <button type="button" class="<%= maxBtn %>" data-fill="<%= o.type.id %>" data-max="<%= o.max %>" data-cap="<%= o.max %>" data-recruit-max>max <%= o.max %></button>
+                      <button type="button" class="<%= maxBtn %> w-12 text-left" data-fill="<%= o.type.id %>" data-max="<%= o.max %>" data-cap="<%= o.max %>" data-recruit-max>(<%= o.max %>)</button>
                     </span>
+                    <% if (why) { %><span class="mt-1 block text-xs text-blood-300"><%= why %></span><% } %>
                   </td>
                 </tr>
               <% } %>
@@ -83,64 +106,55 @@
             <%# Coût total de la saisie, mis à jour en direct ; en rouge ce qui manque. %>
             <span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold whitespace-nowrap tabular-nums" data-recruit-total aria-live="polite">
               <span class="text-parchment-500">Total</span>
-              <% for (const r of RESOURCES) { %><span class="inline-flex items-center gap-1 text-parchment-200" data-total="<%= r.id %>" title="<%= r.label %>"><span class="<%= r.text %>"><%- icon(r.icon, 'size-3.5', 2) %></span><span>0</span></span><% } %>
-              <span class="inline-flex items-center gap-1 text-parchment-400" data-total="pop" title="Population"><%- icon('pop', 'size-3.5', 2) %><span>0</span></span>
+              <% for (const r of RESOURCES) { %><span class="inline-flex items-center gap-1 text-parchment-200" data-total="<%= r.id %>" title="<%= r.label %>"><span><%- resourceIcon(r.id) %></span><span>0</span></span><% } %>
+              <span class="inline-flex items-center gap-1 text-parchment-400" data-total="pop" title="Population"><%- resourceIcon('pop') %><span>0</span></span>
               <span class="inline-flex items-center gap-1 text-parchment-300" data-total="time" title="Durée totale"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><span>0:00:00</span></span>
             </span>
             <button class="<%= btn('gold', 'md') %>"><%- icon('plus', 'size-3.5', 2.4) %>Recruter</button>
           </div>
         </form>
-      </section>
-    <% } %>
-
-    <div class="flex flex-col gap-4">
-      <%# Formation en cours (ou présentation du paladin) %>
-      <section class="<%= ui.panel %>">
-        <%- panelHead(building === 'statue' && level > 0 ? 'Paladin' : 'Formation en cours', hasRecruit ? '' : tabsHtml) %>
-        <div class="<%= ui.panelBody %>">
-          <% if (level === 0) { %>
-            <p class="text-parchment-500">Ce bâtiment n'est pas encore construit.</p>
-          <% } else { %>
-            <% if (building === 'statue' && typeof skilled !== 'undefined') { %>
-              <p class="text-[15px] text-parchment-400">
-                Un paladin par village, <%= skilled.max %> au total avec vos villages actuels (1 village : 1, 3 : 2, 5 : 3, 10 : 4… jusqu'à 10).
-                Chaque niveau donne un livre de compétence (30 au maximum). S'il tombe au combat, recrutez-le à nouveau ici pour le ressusciter.
-              </p>
-              <% if (skilled.blocker) { %><p class="<%= ui.alertInfo %>"><%= skilled.blocker %></p><% } %>
-            <% } else if (building === 'statue') { %>
-              <p class="text-[15px] text-parchment-400">
-                Un seul paladin par joueur. S'il tombe au combat, vous pouvez en recruter un nouveau ici.
-                Les soutiens qu'il accompagne avancent à sa vitesse (<%= registry.unit('knight').speed %> min/case à vitesse 1).
-              </p>
-              <p class="<%= knightCount ? ui.alertSuccess : ui.alertInfo %>"><%= knightCount ? 'Vous avez déjà votre paladin.' : "Vous n'avez pas de paladin." %></p>
-            <% } %>
-            <% if (building === 'statue') { %><p class="<%= ui.subLabel %> mt-1">Formation en cours</p><% } %>
-            <%- include('partials/recruit-queue', { orders: queue }) %>
-          <% } %>
-        </div>
-      </section>
-
-      <% if (rtab === 'recruit' && locked.length) { %>
-        <section class="<%= ui.panel %>">
-          <%- panelHead('Pas encore disponible') %>
-          <ul class="flex flex-col">
-            <% for (const o of locked) { %>
-              <li class="flex items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0">
-                <span class="flex size-8 shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600"><%- unitIcon(o.type.id, 'size-4') %></span>
-                <span class="flex min-w-0 flex-col">
-                  <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
-                  <span class="text-[13px] text-parchment-500"><%= o.reasons.join(' · ') %></span>
-                  <% if (o.reasons.includes('Recherche à la forge') && ctx.state.level('smith') > 0) { %>
-                    <a href="/village/<%= vid %>/smith" class="<%= ui.link %> self-start text-xs">Aller à la forge →</a>
-                  <% } %>
-                </span>
-              </li>
-            <% } %>
-          </ul>
-        </section>
+      <% } else if (!queue.length && building !== 'statue') { %>
+        <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Aucune unité ne peut encore être recrutée ici.</p></div>
       <% } %>
-    </div>
-  </div>
+    <% } %>
+  </section>
+
+  <% if (locked.length) { %>
+    <section class="<%= ui.panel %>">
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Pas encore disponible</th><th>Besoins</th><th></th></tr></thead>
+          <tbody>
+          <% for (const o of locked) { const research = o.reasons.includes('Recherche à la forge'); %>
+            <tr>
+              <td class="min-w-44">
+                <span class="flex items-center gap-3">
+                  <span class="flex size-8 shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600"><%- unitIcon(o.type.id, 'size-4') %></span>
+                  <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
+                </span>
+              </td>
+              <td>
+                <span class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                  <% for (const m of o.missing) { %>
+                    <span class="inline-flex items-center gap-2 text-parchment-300"><span class="text-parchment-500"><%- buildingIcon(m.building, 'size-5') %></span><%= buildingName(m.building) %> (niveau <%= m.level %>)</span>
+                  <% } %>
+                  <% if (research && !o.missing.length) { %><span class="text-parchment-400">Recherche à la forge</span><% } %>
+                </span>
+              </td>
+              <td class="text-right whitespace-nowrap">
+                <% if (research && ctx.state.level('smith') > 0) { %>
+                  <a href="/village/<%= vid %>/smith" class="<%= ui.link %> inline-flex items-center gap-1.5 text-sm"><%- buildingIcon('smith', 'size-4') %>Recherche</a>
+                <% } else if (research) { %>
+                  <span class="text-sm text-parchment-500">Recherche</span>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
 <% } %>
 
 <% if (building === 'statue' && typeof skilled !== 'undefined') { const ks = skilled.skills; %>

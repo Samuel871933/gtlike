@@ -52,9 +52,9 @@ test('quitter un monde : villages barbares, tribu transmise, ordres supprimés',
   assert.equal(await Player.count({ where: { id: p.Alice.id } }), 0);
 
   const bob = await Player.findByPk(p.Bob.id);
-  assert.equal(bob.tribeRole, 'founder', 'la tribu passe à Bob');
+  assert.equal(bob.tribeRole, 'duke', 'la tribu passe à Bob');
   assert.equal(await Tribe.count(), 1);
-  assert.equal((await MessageService.inbox(p.Bob.id)).length, 1, 'Bob garde la conversation');
+  assert.equal((await MessageService.inbox(p.Bob.id)).total, 1, 'Bob garde la conversation');
 
   // Alice peut revenir sur ce monde avec un nouveau départ.
   const { village: fresh } = await WorldService.join(u.Alice, 'w1');

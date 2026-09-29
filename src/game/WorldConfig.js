@@ -25,6 +25,9 @@ const DEFAULTS = {
   sleep: { active: false, delayMinutes: 60, minHours: 6, maxHours: 10, minAwakeHours: 12 },
   // Mode vacances : remplaçants autorisés, nombre maximal de comptes remplacés par un joueur
   sitter: { allow: true, maxAccounts: 3 },
+  // Milice (module `features.militia`, comme sur GT) : 20 miliciens par niveau de ferme jusqu'au niveau 15, pendant
+  // 6 heures, production des ressources × 0,5 pendant ce temps ; impossible au-delà de 2 villages.
+  militia: { perFarmLevel: 20, maxFarmLevel: 15, hours: 6, productionFactor: 0.5, maxVillages: 2 },
   // Paladin (module features.knight) : 'items' (un paladin, armes) ou 'skills' (jusqu'à 10 paladins à compétences)
   knightSystem: 'items',
   // Formation des paladins à compétences (valeurs estimées, non publiées)
@@ -106,6 +109,7 @@ class WorldConfig {
       barbarian: { ...DEFAULTS.barbarian, ...(raw.barbarian || {}) },
       sleep: { ...DEFAULTS.sleep, ...(raw.sleep || {}) },
       sitter: { ...DEFAULTS.sitter, ...(raw.sitter || {}) },
+      militia: { ...DEFAULTS.militia, ...(raw.militia || {}) },
       knightItems: { ...DEFAULTS.knightItems, ...(raw.knightItems || {}) },
       startBuildings: raw.startBuildings || DEFAULTS.startBuildings,
     };

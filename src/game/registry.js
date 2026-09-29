@@ -32,9 +32,13 @@ function buildingsFor(world) {
   return [...BUILDINGS.values()].filter((b) => b.isAvailableIn(world));
 }
 
-function unitsFor(world, recruitBuilding) {
+/**
+ * Unités du monde (celles d'un bâtiment de recrutement si `recruitBuilding`). Sans `stationary`, les unités qui ne
+ * quittent pas le village (la milice) sont écartées : envoi de troupes, modèles, durées de trajet…
+ */
+function unitsFor(world, recruitBuilding, { stationary = false } = {}) {
   return [...UNITS.values()].filter(
-    (u) => u.isAvailableIn(world) && (!recruitBuilding || u.building === recruitBuilding),
+    (u) => u.isAvailableIn(world) && (!recruitBuilding || u.building === recruitBuilding) && (stationary || !u.stationary),
   );
 }
 

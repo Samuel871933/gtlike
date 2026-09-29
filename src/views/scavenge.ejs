@@ -67,7 +67,11 @@
               <%- include('partials/cost', { cost: option.unlock.cost, have: ctx.state.resources }) %>
               <span class="inline-flex items-center gap-1 text-parchment-400 tabular-nums"><%- icon('clock', 'size-3.5') %><%= duration(option.unlock.hours * 3600 / ctx.cfg.speed) %></span>
             </span>
-            <button class="<%= btn('dark') %>">Débloquer</button>
+            <% const why = resourcesWhen(ctx.state, option.unlock.cost, now); %>
+            <span class="ml-auto flex flex-col items-end gap-1">
+              <button class="<%= btn('dark') %>" <%= why ? 'disabled' : '' %>>Débloquer</button>
+              <% if (why) { %><span class="text-xs text-blood-300"><%= why %></span><% } %>
+            </span>
           </form>
         <% } %>
       </div>

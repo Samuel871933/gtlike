@@ -41,7 +41,7 @@
         <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Vitesse</div><div class="<%= ui.tileValue %>">×<%= cfg.speed %></div></div>
         <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Unités</div><div class="<%= ui.tileValue %>">×<%= cfg.unitSpeed %></div></div>
         <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Modules</div><div class="<%= ui.tileValue %> first-letter:uppercase"><%= modules.join(', ') || 'classique' %></div></div>
-        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Victoire</div><a href="/worlds/<%= world.slug %>/victory" class="<%= ui.link %> text-base"><%= victoryNames[cfg.victory.type] %></a></div>
+        <div class="<%= ui.tile %>"><div class="<%= ui.tileLabel %>">Victoire</div><a href="/worlds/<%= world.slug %>/ranking?type=victory" class="<%= ui.link %> text-base"><%= victoryNames[cfg.victory.type] %></a></div>
       </div>
       <% if (playing(selected)) { %>
         <a class="<%= btn('gold', 'lg', 'w-full border-[3px]') %>" href="/worlds/<%= world.slug %>/play">Entrer dans le monde</a>
@@ -119,7 +119,7 @@
           <span class="mt-auto flex gap-4 text-[13px] font-semibold">
             <a href="/worlds/<%= world.slug %>/info" class="text-blood-800 no-underline hover:text-panel-hi">» Infos monde</a>
             <a href="/worlds/<%= world.slug %>/ranking" class="text-blood-800 no-underline hover:text-panel-hi">» Classement</a>
-            <a href="/worlds/<%= world.slug %>/victory" class="text-blood-800 no-underline hover:text-panel-hi">» Fin du monde</a>
+            <a href="/worlds/<%= world.slug %>/ranking?type=victory" class="text-blood-800 no-underline hover:text-panel-hi">» Fin du monde</a>
           </span>
         </article>
       <% } %>

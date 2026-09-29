@@ -1,42 +1,33 @@
 <%#
-  Plan du village (maquette « GTLike », vue de la cité) : bâtiments en blocs vus de dessus sur le fond du style de jeu
-  (--game-image-village, voir src/styles/game-styles/). Emplacements en % d'une scène 966 × 580 : QG et bâtiments
-  militaires dans l'enceinte, mines et ferme aux abords, muraille en étiquette sur la porte sud.
+  Plan du village : décor médiéval illustré et sprites en trois paliers visuels. Comme dans Guerre Tribale,
+  l'apparence change par tranche de niveaux et non à chaque niveau. Les ressources restent hors de l'enceinte.
   Chaque bloc porte son niveau (LV.x), son nom et, s'il est en chantier, le compte à rebours. Le survol d'un
   bâtiment affiche son encart sous le plan (coût et durée du niveau suivant, Améliorer) ; un clic ouvre sa page.
   Local requis : buildOptions (VillageService.buildOption par bâtiment).
   `view` : 'city' (plan, écrans moyens et plus) ou 'list' (liste, toujours utilisée sur mobile).
 %>
 <%
+  // [centre horizontal, pied du bâtiment, largeur], en % du décor.
+  // Ancrer au sol garde les trois paliers sur leur parcelle, quelle que soit leur hauteur.
+  // Le quartier général domine le fond ; les ateliers entourent le puits sans couper les chemins.
   const SPOTS = {
-    statue: 'left-[31.06%] top-[23.28%]', main: 'left-[50%] top-[23.28%]', barracks: 'left-[68.94%] top-[23.28%]',
-    snob: 'left-[31.06%] top-[44.83%]', place: 'left-[50%] top-[44.83%]', market: 'left-[68.94%] top-[44.83%]',
-    smith: 'left-[31.06%] top-[66.38%]', storage: 'left-[50%] top-[66.38%]', garage: 'left-[68.94%] top-[66.38%]',
-    wood: 'left-[10.35%] top-[18.97%]', stable: 'left-[10.35%] top-[44.83%]', stone: 'left-[10.35%] top-[72.41%]',
-    farm: 'left-[89.65%] top-[18.97%]', hide: 'left-[89.65%] top-[44.83%]', iron: 'left-[89.65%] top-[72.41%]',
+    wood: [11, 25, 14], iron: [90, 25, 14],
+    snob: [36, 23, 15], main: [60, 23, 17],
+    stable: [72, 61, 12], barracks: [76, 45, 15], hide: [43, 34, 7],
+    statue: [37, 47, 6.5], market: [30, 35, 13], smith: [40, 67, 13],
+    place: [60, 41, 9], storage: [25, 54, 14], garage: [59, 69, 13],
+    stone: [10, 79, 14], farm: [90, 77, 14],
   };
-  // Matériau de chaque bloc (jetons --color-bld-*).
-  const LOOK = {
-    main: 'bg-[repeating-linear-gradient(90deg,var(--color-bld-marble)_0_8px,var(--color-bld-marble-dk)_8px_10px)]',
-    statue: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-stone)_0_6px,var(--color-bld-stone-dk)_6px_8px)]',
-    barracks: 'bg-[repeating-linear-gradient(135deg,var(--color-bld-timber)_0_6px,var(--color-bld-timber-dk)_6px_9px)]',
-    snob: 'bg-bld-slate',
-    place: 'bg-[repeating-linear-gradient(45deg,var(--color-bld-timber-dk)_0_6px,var(--color-blood-800)_6px_8px)]',
-    market: 'bg-[repeating-linear-gradient(90deg,var(--color-bronze-500)_0_6px,var(--color-parchment-300)_6px_12px)]',
-    smith: 'bg-bld-soot bg-[radial-gradient(circle_at_70%_60%,var(--color-bld-fire)_10%,transparent_26%)]',
-    storage: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-grain)_0_4px,var(--color-bld-grain-dk)_4px_6px)]',
-    garage: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-timber)_0_5px,var(--color-bld-soot)_5px_7px)]',
-    wood: 'bg-forest-deep bg-[radial-gradient(circle_at_30%_35%,var(--color-forest-leaf)_18%,transparent_20%),radial-gradient(circle_at_70%_60%,var(--color-forest-leaf)_18%,transparent_20%)]',
-    stable: 'bg-[repeating-linear-gradient(90deg,var(--color-bld-timber)_0_7px,var(--color-bld-grain-dk)_7px_9px)]',
-    stone: 'bg-[radial-gradient(ellipse_at_50%_55%,var(--color-bld-clay-dk)_30%,var(--color-bld-clay)_32%)]',
-    farm: 'bg-[repeating-linear-gradient(0deg,var(--color-bld-field)_0_5px,var(--color-bld-field-lt)_5px_10px)]',
-    hide: 'bg-bld-soot bg-[repeating-linear-gradient(90deg,transparent_0_10px,var(--color-bld-pit)_10px_12px)]',
-    iron: 'bg-[radial-gradient(ellipse_at_50%_55%,var(--color-bld-pit)_30%,var(--color-bld-rock)_32%)]',
-  };
+  const WALL_SPOT = [50, 78, 14];
+  // Décor uniquement : les mondes actuels ne proposent pas le bâtiment église.
+  const CHURCH_SPOT = [73, 29, 13];
+  // Image de chaque bâtiment selon son niveau : helpers.buildingSprite (commune aux pages de bâtiment).
+  const spriteOf = buildingSprite;
+  const spotStyle = ([x, y, width], ratio = 7 / 8) => `left:${x - width / 2}%;top:${y - width * ratio * 1.5}%;width:${width}%;--plot-depth:${Math.round(y)}`;
   const vid = ctx.village.id;
   const favs = new Set(favoriteBuildings(player, ctx));
-  // Étoile d'un bloc : visible au survol, toujours visible si le bâtiment est en favori.
-  const plotStar = (id) => `<span class="absolute right-[3px] bottom-[21px] z-[2] opacity-0 transition group-hover/plot:opacity-100 focus-within:opacity-100 has-[[aria-pressed=true]]:opacity-100">${favStar(vid, id, favs.has(id), csrfToken, 'size-6 border border-black bg-night/85')}</span>`;
+  // Étoile toujours visible, indépendamment du survol et de l’état du favori.
+  const plotStar = (id) => `<span class="village-building-favorite absolute right-[3px] top-0 z-[2]">${favStar(vid, id, favs.has(id), csrfToken, 'size-5 border border-black bg-night/85')}</span>`;
   const plotOf = (id) => {
     const b = registry.BUILDINGS.get(id);
     if (!b || !b.isAvailableIn(ctx.cfg)) return null;
@@ -50,30 +41,43 @@
   const works = ctx.buildOrders.length;
   const head = ctx.buildOrders[0] || null;
   const titleOf = (p) => `${p.b.name} · ${p.level ? `niveau ${p.level}` : 'non construit'}${p.last ? ` · niveau ${p.last.level} en file` : ''}`;
-  // Pastille de chantier : compte à rebours si en cours, « EN FILE » sinon.
-  const timer = (p) => p.running
-    ? `<span class="flex items-center gap-[3px] border-2 border-black bg-blood-700 px-1 text-[10px] font-semibold text-on-accent tabular-nums shadow-[2px_2px_0_#000]">${icon('smith', 'size-2.5', 3)}<span data-countdown="${new Date(p.running.endsAt).getTime()}">${duration((new Date(p.running.endsAt) - now) / 1000)}</span></span>`
-    : `<span class="border-2 border-black bg-blood-900 px-1 text-[10px] font-semibold text-on-accent shadow-[2px_2px_0_#000]">En file</span>`;
+  const activityMap = typeof activities === 'undefined' ? {} : activities;
+  const timer = (p) => (activityMap[p.b.id] || []).map((a) =>
+    `<span class="village-building-timer" title="${a.label}" aria-label="${a.label}"><span>${a.label}</span><span data-countdown="${a.end}">${duration((a.end - now) / 1000)}</span></span>`
+  ).join('');
 %>
 <div class="<%= view === 'list' ? 'hidden' : 'hidden md:block' %> bg-night p-2">
-  <div class="spacing-normal relative aspect-[966/580] overflow-hidden border-[3px] border-black bg-(image:--game-image-village) bg-cover bg-center">
+  <div class="village-scene-medieval spacing-normal relative overflow-hidden border-[3px] border-black">
+    <div class="village-building-plot village-building-plot--decorative absolute" style="<%= spotStyle(CHURCH_SPOT) %>" title="Église · Indisponible dans ce monde">
+      <img src="/img/village/medieval/church.png" alt="Église — indisponible dans ce monde" width="320" height="280" class="village-building-sprite pointer-events-none absolute inset-0 size-full object-contain">
+      <span class="village-building-name absolute z-[2] border-2 border-black px-1 py-px text-center text-[10px] font-bold">Église · Indisponible</span>
+    </div>
     <% for (const p of plan) { %>
-      <div class="group/plot absolute <%= SPOTS[p.b.id] %> h-[16%] w-[14.5%] -translate-1/2">
-      <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute inset-0 data-selected:outline-[3px] data-selected:outline-gold-200 data-selected:shadow-[0_0_0_6px_rgba(0,0,0,0.6),6px_6px_0_rgba(0,0,0,0.6)] border-[3px] border-black no-underline transition-transform hover:-translate-y-0.5 <%= p.level ? `${LOOK[p.b.id]} shadow-[5px_5px_0_rgba(0,0,0,0.55)]` : 'border-dashed bg-black/45' %> <%= p.running ? 'outline-[3px] outline-offset-0 outline-gold-200' : '' %>"
+      <div class="village-building-plot group/plot absolute" style="<%= spotStyle(SPOTS[p.b.id]) %>">
+      <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute inset-0 cursor-pointer no-underline"
          title="<%= titleOf(p) %>">
-        <% if (!p.level) { %><span class="absolute inset-0 flex items-center justify-center text-parchment-500/70"><%- buildingIcon(p.b.id, 'size-6', 1.8) %></span><% } %>
-        <span class="absolute top-[3px] left-[3px] border px-1 text-[10px] font-semibold <%= p.level ? 'border-gold-400 bg-night text-gold-400' : 'border-bronze-700 bg-night text-parchment-500' %>">LV.<%= p.level %></span>
-        <% if (p.last) { %><span class="absolute -top-2.5 -right-[3px]"><%- timer(p) %></span><% } %>
-        <span class="absolute inset-x-0 bottom-0 truncate border-t-2 border-black bg-plate px-1 py-px text-[10px] font-semibold tracking-[0.02em] transition group-hover:bg-head-dark <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
+        <% if (p.level) { %>
+          <img src="<%= spriteOf(p.b.id, p.level) %>" alt="" width="320" height="280" class="village-building-sprite pointer-events-none absolute inset-0 size-full object-contain">
+        <% } else { %>
+          <span class="village-building-empty absolute flex items-center justify-center border-2 border-dashed"><%- buildingIcon(p.b.id, 'size-6', 1.8) %></span>
+        <% } %>
+        <span class="village-building-level absolute z-[2] border-2 border-black px-1 text-[10px] font-bold"><%= p.level %></span>
+        <span class="village-building-activities"><%- timer(p) %></span>
+        <span class="village-building-name absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold tracking-[0.02em] transition group-hover:bg-head-dark group-hover:text-on-accent"><%= p.b.name %></span>
       </a>
       <%- plotStar(p.b.id) %>
       </div>
     <% } %>
     <% if (wall) { %>
-      <a href="<%= wall.href %>" data-plot="wall" class="absolute top-[85.5%] left-[50%] flex -translate-x-1/2 gap-[3px] no-underline data-selected:outline-2 data-selected:outline-offset-2 data-selected:outline-gold-200" title="<%= titleOf(wall) %>">
-        <span class="border border-gold-400 bg-night px-1 text-[10px] font-semibold whitespace-nowrap text-gold-400 hover:text-parchment-100"><%= wall.b.name %> LV.<%= wall.level %></span>
-        <% if (wall.last) { %><%- timer(wall) %><% } %>
+      <%# La porte appartient déjà au décor : sa zone cliquable suit exactement son emplacement. %>
+      <div class="village-building-plot village-building-plot--wall absolute" style="<%= spotStyle(WALL_SPOT, 4 / 7) %>">
+      <a href="<%= wall.href %>" data-plot="wall" class="group absolute inset-0 cursor-pointer no-underline" title="<%= titleOf(wall) %>">
+        <span class="village-building-level absolute z-[2] border-2 border-black px-1 text-[10px] font-bold"><%= wall.level %></span>
+        <span class="village-building-name village-building-name--wall absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold"><%= wall.b.name %></span>
+        <span class="village-building-activities"><%- timer(wall) %></span>
       </a>
+      <%- plotStar(wall.b.id) %>
+      </div>
     <% } %>
     <div class="pointer-events-none absolute right-2 bottom-2 flex gap-[3px]">
       <span class="border border-bronze-700 bg-night px-1.5 py-0.5 text-[11px] tracking-[0.02em] text-parchment-500">Loyauté <%= Math.floor(ctx.state.loyalty) %></span>
@@ -93,7 +97,7 @@
     <a href="/village/<%= vid %>/main" class="<%= btn('gold', 'md') %>"><%- icon('overview', 'size-3.5', 2.2) %>Quartier général</a>
   </div>
   <% for (const p of [...plan, ...(wall ? [wall] : [])]) { const o = buildOptions[p.b.id]; if (!o) continue;
-       const reason = o.blockers[0] || (o.lacksResources ? 'Ressources insuffisantes' : null); %>
+       const reason = o.blockers[0] || (o.lacksResources ? resourcesWhen(ctx.state, o.cost, now) : null); %>
     <div class="mt-2 hidden flex-wrap items-center justify-between gap-3 border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top px-2.5 py-2" data-plot-info="<%= p.b.id %>">
       <div class="min-w-0 flex-[1_1_260px]">
         <div class="font-display text-base font-semibold tracking-[0.02em]"><%= p.b.name %> <span class="font-sans text-sm text-gold-400">· <%= p.level ? `niveau ${p.level}` : 'non construit' %></span></div>
@@ -122,15 +126,24 @@
 
 <%# Vue liste (et rendu mobile de la vue cité). %>
 <div class="<%= view === 'list' ? '' : 'md:hidden' %> grid gap-1.5 p-2.5 sm:grid-cols-2 xl:grid-cols-3">
+  <div class="<%= ui.box %> flex items-center gap-2.5 p-1.5" title="Église · Indisponible dans ce monde">
+    <img src="/img/village/medieval/church.png" alt="" width="320" height="280" class="h-12 w-16 shrink-0 object-contain">
+    <span class="flex min-w-0 flex-col">
+      <span class="font-semibold text-parchment-100">Église</span>
+      <span class="text-[13px] text-parchment-500">Indisponible dans ce monde</span>
+    </span>
+  </div>
   <% for (const p of [...plan, ...(wall ? [wall] : [])]) { %>
     <div class="<%= ui.box %> flex items-center gap-1 pr-1.5 transition hover:bg-row-hover">
     <a href="<%= p.href %>" class="flex min-w-0 flex-1 items-center gap-2.5 p-1.5 no-underline" title="<%= titleOf(p) %>">
-      <span class="block h-10 w-14 shrink-0 border-2 border-black <%= p.level ? (LOOK[p.b.id] || 'bg-bld-stone') : 'border-dashed bg-black/45' %>"></span>
+      <span class="relative block h-12 w-16 shrink-0 overflow-hidden <%= p.level ? '' : 'border-2 border-dashed border-bronze-700 bg-black/45' %>">
+        <% if (p.level) { %><img src="<%= spriteOf(p.b.id, p.level) %>" alt="" width="320" height="280" class="absolute inset-0 size-full object-contain"><% } %>
+      </span>
       <span class="flex min-w-0 flex-1 flex-col">
         <span class="truncate font-semibold <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
         <span class="text-[13px] text-gold-400"><%= p.level ? `LV.${p.level}` : 'Non construit' %></span>
       </span>
-      <% if (p.last) { %><span class="shrink-0"><%- timer(p) %></span><% } %>
+      <span class="village-building-activities-list"><%- timer(p) %></span>
     </a>
     <%- favStar(vid, p.b.id, favs.has(p.b.id), csrfToken) %>
     </div>

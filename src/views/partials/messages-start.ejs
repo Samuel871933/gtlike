@@ -1,0 +1,19 @@
+<%# Cadre de la messagerie comme sur GT : titre et recherche, menu à gauche (Messages, Mail circulaire, Écrire un message).
+    À fermer avec partials/messages-end. `tab` : inbox | circular | new | conversation ; `q` optionnel. %>
+<% const m = `/village/${ctx.village.id}/messages`;
+   const menu = [['inbox', 'Messages', m], ['circular', 'Mail circulaire', `${m}/circular`], ['new', 'Écrire un message', `${m}/new`]];
+   const active = tab === 'conversation' ? 'inbox' : tab; %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Messages', `<form method="get" action="${m}" class="flex items-center" role="search">
+      <input type="search" name="q" value="${esc(typeof q !== 'undefined' ? q : '')}" placeholder="Rechercher" aria-label="Rechercher dans les messages" class="${ui.inputSm} w-40 sm:w-52">
+      <button class="-ml-px inline-flex h-8 w-9 shrink-0 cursor-pointer items-center justify-center border border-black bg-head-dark text-parchment-100 transition hover:bg-night hover:text-gold-200" title="Rechercher" aria-label="Rechercher">${icon('search', 'size-4', 2.2)}</button>
+    </form>`, { tag: 'h1' }) %>
+  <div class="grid grid-cols-1 md:grid-cols-[180px_minmax(0,1fr)]">
+    <nav class="border-b border-bronze-900 py-1 md:border-r md:border-b-0" aria-label="Messagerie">
+      <ul class="flex flex-wrap md:flex-col">
+        <% for (const [id, label, href] of menu) { const on = id === active; %>
+          <li><a href="<%= href %>" class="block border-l-2 py-1.5 pr-3 pl-3 no-underline transition <%= on ? 'border-gold-400 bg-row-hover font-semibold text-gold-200' : 'border-transparent text-parchment-300 hover:bg-row-hover hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>><%= label %></a></li>
+        <% } %>
+      </ul>
+    </nav>
+    <div class="min-w-0">

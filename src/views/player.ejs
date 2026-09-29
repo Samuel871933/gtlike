@@ -7,17 +7,12 @@
   const fmt = (a) => a.value == null ? '—' : a.def.rank ? `${num(a.value)}ᵉ` : num(a.value);
   const tierName = (t) => TIER_NAMES[t - 1].charAt(0).toUpperCase() + TIER_NAMES[t - 1].slice(1);
   // Icône de chaque succès et de chaque succès quotidien.
-  const achIcon = {
-    points: 'ranking', topscorer: 'crown', continent: 'map', robber: 'coin', plunderer: 'attack', conqueror: 'flag', leader: 'sword',
-    hero: 'support', vandal: 'catapult', wallbreaker: 'wall', butcher: 'axe', kingslayer: 'crown', reinforcement: 'support',
-    counterspy: 'eye', warlord: 'attack', lucky: 'victory', unlucky: 'victory', merchant: 'market', croesus: 'coin',
-    brothers: 'tribe', paladin: 'helm', worldWinner: 'victory', phoenix: 'bolt',
-  };
-  const dailyIcon = { dailyPlunderer: 'attack', dailyAttacker: 'sword', dailyDefender: 'wall', dailyConqueror: 'crown', dailyRobber: 'coin', dailySupporter: 'support' };
-  // Palier atteint : rien, bois, bronze, argent, or.
-  const medal = 'flex shrink-0 items-center justify-center border-2 bg-night shadow-[2px_2px_0_#000]';
-  const tierMedal = ['border-bronze-800 text-parchment-700', 'border-wood text-wood', 'border-bronze-300 text-bronze-200', 'border-iron text-iron', 'border-gold-400 text-gold-200'];
-  const tierText = ['text-parchment-600', 'text-wood', 'text-bronze-200', 'text-iron', 'text-gold-200'];
+  // Icônes et paliers (rien, bois, bronze, argent, or) : communs avec les rapports de succès (helpers.js).
+  const achIcon = ACHIEVEMENT_ICONS;
+  const dailyIcon = ACHIEVEMENT_ICONS;
+  const medal = TIER_STYLES.medal;
+  const tierMedal = TIER_STYLES.border;
+  const tierText = TIER_STYLES.text;
   const score = achievements.reduce((n, a) => n + a.tier, 0);
   const GROUPS = [['progress', 'Étapes'], ['battle', 'Combat'], ['misc', 'Divers']];
   const actionItem = 'flex items-center gap-2.5 border-b border-bronze-800 px-3 py-2 font-semibold text-parchment-200 no-underline transition last:border-b-0 hover:bg-row-hover hover:text-gold-200';
@@ -136,12 +131,15 @@
     </section>
 
     <%# Succès obtenus, par catégorie ; les autres dans un volet repliable %>
-    <% for (const [group, title] of GROUPS) {
+    <% let anchored = false;
+       for (const [group, title] of GROUPS) {
          const list = achievements.filter((a) => a.def.group === group);
          if (!list.length) continue;
          const won = list.filter((a) => a.tier).sort((a, b) => b.tier - a.tier);
-         const rest = list.filter((a) => !a.tier || a.tier < a.def.tiers.length); %>
-      <section class="<%= ui.panel %>">
+         const rest = list.filter((a) => !a.tier || a.tier < a.def.tiers.length);
+         // Ancre #succes (lien « Voir vos succès » des rapports) sur la première catégorie.
+         const anchor = anchored ? '' : ' id="succes"'; anchored = true; %>
+      <section class="<%= ui.panel %> scroll-mt-28"<%- anchor %>>
         <%- panelHead(`Succès · ${title}`, `<span class="text-[13px] text-parchment-500 tabular-nums">${won.length} / ${list.length}</span>`) %>
         <% if (!won.length) { %><p class="px-4.5 py-3 text-parchment-500">Aucun succès obtenu dans cette catégorie.</p><% } %>
         <ul>

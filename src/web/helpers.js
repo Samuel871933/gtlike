@@ -1,6 +1,7 @@
 'use strict';
 
 const registry = require('../game/registry');
+const tribeRights = require('../game/tribeRights');
 const { ui, esc } = require('./ui');
 const { continent } = require('../game/MapPlacer');
 
@@ -28,12 +29,77 @@ function whenShort(date, now = new Date()) {
   return when(date, now).replace("aujourd'hui à ", 'Auj. ').replace('demain à ', 'Dem. ').replace(/^le (\S+) à /, '$1 ');
 }
 
+/**
+ * Pourquoi `cost` n'est pas payable par le village : « Ressources disponibles aujourd'hui à 14:55:19 »,
+ * « L'entrepôt est trop petit » ou « Ressources insuffisantes » (production nulle) ; null s'il l'est.
+ */
+function resourcesWhen(state, cost, now = new Date()) {
+  if (state.canAfford(cost)) return null;
+  const at = state.affordableAt(cost, now);
+  if (at) return `Ressources disponibles ${when(at, now)}`;
+  const cap = state.storageCapacity();
+  return Object.values(cost).some((c) => c > cap) ? "L'entrepôt est trop petit" : 'Ressources insuffisantes';
+}
+
+// Succès : icône de chaque succès (et succès quotidien), styles des paliers (rien, bois, bronze, argent, or).
+const ACHIEVEMENT_ICONS = {
+  points: 'ranking', topscorer: 'crown', continent: 'map', robber: 'coin', plunderer: 'attack', conqueror: 'flag', leader: 'sword',
+  hero: 'support', vandal: 'catapult', wallbreaker: 'wall', butcher: 'axe', kingslayer: 'crown', reinforcement: 'support',
+  counterspy: 'eye', warlord: 'attack', lucky: 'victory', unlucky: 'victory', merchant: 'market', croesus: 'coin',
+  brothers: 'tribe', paladin: 'helm', worldWinner: 'victory', phoenix: 'bolt',
+  dailyPlunderer: 'attack', dailyAttacker: 'sword', dailyDefender: 'wall', dailyConqueror: 'crown', dailyRobber: 'coin', dailySupporter: 'support',
+};
+const TIER_STYLES = {
+  medal: 'flex shrink-0 items-center justify-center border-2 bg-night shadow-[2px_2px_0_#000]',
+  border: ['border-bronze-800 text-parchment-700', 'border-wood text-wood', 'border-bronze-300 text-bronze-200', 'border-iron text-iron', 'border-gold-400 text-gold-200'],
+  text: ['text-parchment-600', 'text-wood', 'text-bronze-200', 'text-iron', 'text-gold-200'],
+  names: ['Bois', 'Bronze', 'Argent', 'Or'],
+};
+
+// Image d'un bâtiment du plan du village (3 paliers visuels selon le niveau) : plan et pages de bâtiment.
+const BUILDING_SPRITE_TIERS = {
+  main: [5, 15], barracks: [5, 20], stable: [5, 10], garage: [5, 10], smith: [10, 15],
+  market: [5, 20], wood: [10, 20], stone: [10, 20], iron: [10, 20], farm: [10, 20],
+  storage: [10, 20], wall: [5, 15],
+};
+function buildingSpriteTier(id, level) {
+  const thresholds = BUILDING_SPRITE_TIERS[id];
+  if (!thresholds) return 1;
+  return level >= thresholds[1] ? 3 : level >= thresholds[0] ? 2 : 1;
+}
+const buildingSprite = (id, level) => `/img/village/medieval/tier-${buildingSpriteTier(id, level)}/${id === 'storage' ? 'storage-clean' : id}.png`;
+
+/** Unité qui donne la vitesse d'un ordre : la plus lente, ou le paladin qu'un soutien accompagne (icône des ordres). */
+function paceUnit(units, type) {
+  const list = units || {};
+  if (type === 'support' && list.knight > 0) return registry.unit('knight');
+  return Object.entries(list).filter(([, n]) => n > 0).map(([id]) => registry.unit(id)).reduce((a, u) => (!a || u.speed > a.speed ? u : a), null);
+}
+
+// Gommette de la dernière attaque, composant unique : aperçu du village, rapports et infobulle de la carte
+// (le HTML est transmis à public/js/map.js par mapBoot.attackDots).
+const ATTACK_RESULTS = {
+  win: ['#4fa33a', 'Aucune perte'],
+  partial: ['#e3b23c', 'Pertes partielles'],
+  loss: ['#c9372c', 'Pertes totales'],
+  spy: ['#3f7fd1', 'Espionnage'],
+};
+const attackDot = (result) => {
+  const [color, label] = ATTACK_RESULTS[result] || ATTACK_RESULTS.win;
+  return `<span class="inline-block size-3.5 shrink-0 rounded-full border border-black shadow-[1px_1px_0_#000]" style="background:${color}" title="${label}"></span>`;
+};
+/** Gommettes et libellés de chaque résultat, pour la carte : { win: { html, label }, … }. */
+const attackDots = () => Object.fromEntries(Object.entries(ATTACK_RESULTS).map(([id, [, label]]) => [id, { html: attackDot(id), label }]));
+
 // Ressources : libellé, couleur (classes Tailwind de la charte) et icône.
 const RESOURCES = [
   { id: 'wood', label: 'Bois', dot: 'bg-wood', text: 'text-wood', bar: 'from-wood', icon: 'wood' },
   { id: 'stone', label: 'Argile', dot: 'bg-clay', text: 'text-clay', bar: 'from-clay', icon: 'stone' },
   { id: 'iron', label: 'Fer', dot: 'bg-iron', text: 'text-iron', bar: 'from-iron', icon: 'iron' },
 ];
+const RESOURCE_ICONS = Object.fromEntries(
+  ['wood', 'stone', 'iron', 'storage', 'pop'].map((id) => [id, `/img/resources/${id}.png?v=1`])
+);
 
 // Icônes au trait (grille 24 × 24) de la maquette, en ligne pour éviter toute dépendance.
 const ICONS = {
@@ -110,8 +176,18 @@ const BUILDING_ICONS = {
   statue: 'statue', market: 'market', wood: 'wood', stone: 'stone', iron: 'iron', farm: 'farm', storage: 'storage', hide: 'hide', wall: 'wall',
 };
 const UNIT_ICONS = {
-  spear: 'spear', sword: 'sword', axe: 'axe', archer: 'bow', spy: 'eye', light: 'horse', marcher: 'bow', heavy: 'heavy',
-  ram: 'ram', catapult: 'catapult', knight: 'helm', snob: 'crown', militia: 'pop',
+  spear: '/img/units/spear.png?v=1',
+  sword: '/img/units/sword.png?v=1',
+  axe: '/img/units/axe.png?v=1',
+  archer: '/img/units/archer.png?v=1',
+  spy: '/img/units/spy.png?v=1',
+  light: '/img/units/light.png?v=1',
+  marcher: '/img/units/marcher.png?v=1',
+  heavy: '/img/units/heavy.png?v=1',
+  ram: '/img/units/ram.png?v=1',
+  catapult: '/img/units/catapult.png?v=1',
+  knight: '/img/units/knight.png?v=1',
+  snob: '/img/units/snob.png?v=1',
 };
 
 // Ordre de la barre d'accès rapide (comme sur Guerre Tribale).
@@ -181,7 +257,10 @@ function icon(name, cls = 'size-4', strokeWidth = 1.8) {
 }
 
 const buildingIcon = (id, cls, strokeWidth) => icon(BUILDING_ICONS[id] || 'flag', cls, strokeWidth);
-const unitIcon = (id, cls, strokeWidth) => icon(UNIT_ICONS[id] || 'spear', cls, strokeWidth);
+/** Icône raster commune à toutes les représentations d'unités dans l'interface. */
+const unitIcon = (id, cls = 'size-7') => `<img src="${UNIT_ICONS[id] || UNIT_ICONS.spear}" class="${cls} min-h-7 min-w-7 shrink-0 object-contain" alt="" aria-hidden="true">`;
+/** Icône raster commune aux ressources, au stockage et à la population. */
+const resourceIcon = (id, cls = 'size-8') => `<img src="${RESOURCE_ICONS[id] || RESOURCE_ICONS.storage}" class="${cls} min-h-8 min-w-8 shrink-0 object-contain" alt="" aria-hidden="true">`;
 
 /** Lauriers du logo. */
 function laurel(cls = 'size-[30px]') {
@@ -224,10 +303,12 @@ module.exports = {
   VILLAGE_DESIGNS: require('./villageDesigns').VILLAGE_DESIGNS,
   GAME_LAYOUTS: require('./gameLayouts').GAME_LAYOUTS,
   RESOURCES,
+  RESOURCE_ICONS,
   BUILDING_ICONS,
   UNIT_ICONS,
   buildingIcon,
   unitIcon,
+  resourceIcon,
   laurel,
   shield,
   QUICKBAR,
@@ -240,6 +321,7 @@ module.exports = {
   duration,
   when,
   whenShort,
+  resourcesWhen,
   num,
   playerLink,
   tribeLink,
@@ -247,4 +329,12 @@ module.exports = {
   buildingName: (id) => registry.building(id).name,
   unitName: (id) => registry.unit(id).name,
   registry,
+  tribeRights,
+  ACHIEVEMENT_ICONS,
+  paceUnit,
+  buildingSprite,
+  ATTACK_RESULTS,
+  attackDot,
+  attackDots,
+  TIER_STYLES,
 };

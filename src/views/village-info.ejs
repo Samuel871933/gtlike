@@ -1,8 +1,10 @@
 <%- include('partials/header', { title: target.name }) %>
 <%
+  // Aperçu d'un village, comme sur GT : à gauche la fiche (mini-carte, informations) et les actions ; à droite le
+  // carnet de notes, tes ordres en cours vers ce village et les durées de trajet ; en bas tes rapports le concernant.
   const vid = ctx.village.id;
   const REL = {
-    own: ['Ton village', 'border-rel-own text-rel-own'], tribe: ['Ta tribu', 'border-rel-tribe text-rel-tribe'], own_tribe: ['Ta tribu', 'border-rel-tribe text-rel-tribe'],
+    own: ['Ton village', 'border-rel-own text-rel-own'], tribe: ['Ta tribu', 'border-rel-tribe text-rel-tribe'],
     ally: ['Allié', 'border-rel-ally text-rel-ally'], nap: ['PNA', 'border-rel-nap text-rel-nap'], enemy: ['Ennemi', 'border-rel-enemy text-rel-enemy'],
     other: ['Joueur', 'border-rel-other text-rel-other'], barb: ['Barbare', 'border-rel-barb text-rel-barb'],
   };
@@ -11,78 +13,171 @@
   const owner = target.Player;
   const tribe = owner && owner.Tribe;
   const mine = target.playerId === ctx.village.playerId;
-  const meta = [
-    ['Coordonnées', `${target.x} | ${target.y}`, 'border-t-gold-400'],
-    ['Continent', continent(target.x, target.y), 'border-t-bronze-500'],
-    ['Points', num(target.points), 'border-t-blood-700'],
-    ['Distance', dist ? `${(Math.round(dist * 10) / 10).toLocaleString('fr-FR')} cases` : '—', 'border-t-bronze-500'],
-    ...(morale != null ? [['Morale', `${Math.round(morale * 100)} %`, morale < 1 ? 'border-t-blood-450' : 'border-t-olive-500']] : []),
-  ];
+  const k = continent(target.x, target.y);
+  const mapHref = `/village/${vid}/map?x=${target.x}&y=${target.y}&sx=${target.x}&sy=${target.y}`;
+  const markHref = `/village/${vid}/map?${new URLSearchParams({ x: target.x, y: target.y, mark: `village:${target.id}`, label: `${target.name} (${target.x}|${target.y})` })}#marquages`;
+  const verbs = { attack: 'Attaque', support: 'Soutien', return: 'Retour' };
+  const moveBox = { attack: 'bg-blood-600', support: 'bg-steel-500', return: 'bg-gold-400' };
+  const moveIcon = { attack: 'attack', support: 'support', return: 'return' };
+  const action = 'flex w-full cursor-pointer items-center gap-2.5 border-b border-bronze-800 px-3 py-2 text-left font-semibold text-parchment-200 no-underline transition hover:bg-row-hover hover:text-parchment-50';
+  const actionIcon = (name, cls = 'text-gold-400') => `<span class="flex w-5 justify-center ${cls}">${icon(name, 'size-4', 2)}</span>`;
 %>
-<div class="flex flex-wrap items-start gap-3.5">
-  <div class="flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
-    <%# Titre du village %>
-    <div class="<%= ui.panel %> flex flex-wrap items-center justify-between gap-2.5 py-2.5 pr-3.5 pl-5">
-      <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
-      <div class="flex min-w-0 flex-col gap-1">
-        <h1 class="m-0 truncate font-display text-[26px] font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)]"><%= target.name %></h1>
-        <span class="self-start border px-1.5 py-px text-[11px] font-semibold tracking-[0.02em] <%= rel[1] %>"><%= rel[0] %></span>
-      </div>
-      <div class="flex flex-wrap gap-1">
-        <% for (const [k, val, c] of meta) { %>
-          <div class="flex min-w-16 flex-col border border-bronze-800 border-t-2 bg-night px-2.5 py-[3px] <%= c %>">
-            <span class="text-[10px] tracking-[0.02em] text-parchment-500"><%= k %></span>
-            <span class="text-base font-semibold text-parchment-100 tabular-nums"><%= val %></span>
-          </div>
-        <% } %>
-      </div>
-    </div>
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <h1 class="<%= ui.h1 %> flex flex-wrap items-center gap-3"><%= target.name %> <span class="border px-1.5 py-px font-sans text-[11px] font-semibold tracking-[0.02em] <%= rel[1] %>"><%= rel[0] %></span></h1>
+</div>
 
+<div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+  <div class="flex min-w-0 flex-col gap-4">
+    <%# Fiche : mini-carte centrée sur le village et informations %>
     <section class="<%= ui.panel %>">
-      <%- panelHead('Informations') %>
-      <table class="<%= ui.table %>">
+      <%- panelHead(target.name, `<a href="${mapHref}" class="${ui.iconBtn}" title="Voir sur la carte" aria-label="Voir sur la carte">${icon('map', 'size-3.5', 2.2)}</a>`) %>
+      <a href="<%= mapHref %>" class="block border-b-2 border-black bg-mini-bg" title="Voir sur la carte">
+        <canvas class="block w-full" style="aspect-ratio:1/1" data-minimap="<%= JSON.stringify(mini) %>" role="img" aria-label="Environs de <%= target.name %> sur la carte"></canvas>
+      </a>
+      <table class="<%= ui.table %> text-sm [&_td]:py-1.5 [&_td:first-child]:whitespace-nowrap">
         <tbody>
-          <tr><td class="w-40 text-parchment-500">Joueur</td><td><% if (owner) { %><a href="/village/<%= vid %>/players/<%= owner.id %>" class="<%= ui.link %>"><%= owner.name %></a><% } else { %>Barbares<% } %></td></tr>
-          <tr><td class="text-parchment-500">Tribu</td><td><% if (tribe) { %><a href="/village/<%= vid %>/tribes/<%= tribe.id %>" class="<%= ui.link %>">[<%= tribe.tag %>] <%= tribe.name %></a><% } else { %>—<% } %></td></tr>
+          <tr><td class="w-28 text-parchment-500">Coordonnées</td><td class="font-semibold tabular-nums"><%= target.x %>|<%= target.y %> <span class="text-parchment-400"><%= k %></span></td></tr>
           <tr><td class="text-parchment-500">Points</td><td class="font-semibold tabular-nums"><%= num(target.points) %></td></tr>
-          <% if (morale != null) { %><tr><td class="text-parchment-500">Morale de tes attaques</td><td><b class="tabular-nums <%= morale < 1 ? 'text-blood-450' : '' %>"><%= Math.round(morale * 100) %> %</b> <span class="text-[13px] text-parchment-500">· plus le joueur est petit face à toi, plus tes troupes perdent en force</span></td></tr><% } %>
+          <tr><td class="text-parchment-500">Joueur</td><td><% if (owner) { %><a href="/village/<%= vid %>/players/<%= owner.id %>" class="<%= ui.link %>"><%= owner.name %></a><% } else { %><span class="text-parchment-400">Barbares · abandonné</span><% } %></td></tr>
+          <% if (tribe) { %><tr><td class="text-parchment-500">Tribu</td><td><a href="/village/<%= vid %>/tribes/<%= tribe.id %>" class="<%= ui.link %>">[<%= tribe.tag %>] <%= tribe.name %></a></td></tr><% } %>
+          <% if (morale != null) { %><tr><td class="text-parchment-500">Morale</td><td><b class="tabular-nums <%= morale < 1 ? 'text-blood-450' : '' %>"><%= Math.round(morale * 100) %> %</b></td></tr><% } %>
           <% if (target.special) { %><tr><td class="text-parchment-500">Particularité</td><td class="font-semibold text-gold-400"><%= target.special === 'rune' ? 'Village de rune' : 'Quartier du Grand Siège' %></td></tr><% } %>
         </tbody>
       </table>
     </section>
 
+    <%# Actions, en liste comme sur GT %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Actions') %>
+      <div class="flex flex-col [&>*:last-child]:border-b-0 [&>form:last-child>button]:border-b-0">
+        <% if (mine) { %>
+          <a href="/village/<%= target.id %>" class="<%= action %>"><%- actionIcon('overview') %>Ouvrir le village</a>
+        <% } %>
+        <a href="<%= mapHref %>" class="<%= action %>"><%- actionIcon('center') %>Centrer sur la carte</a>
+        <% if (!mine) { %>
+          <%# Envoyer des troupes, avec un modèle d'armée au choix (unités préremplies au point de ralliement). %>
+          <form method="get" action="/village/<%= vid %>/place" class="flex flex-col gap-1.5 border-b border-bronze-800 px-3 py-2">
+            <input type="hidden" name="x" value="<%= target.x %>"><input type="hidden" name="y" value="<%= target.y %>">
+            <button class="flex cursor-pointer items-center gap-2.5 text-left font-semibold text-parchment-200 hover:text-parchment-50"><%- actionIcon('attack', 'text-blood-500') %>Envoyer des troupes</button>
+            <% if (templates.length) { %>
+              <select name="tpl" class="<%= ui.inputSm %> ml-7.5" aria-label="Modèle d'armée" onchange="this.form.submit()">
+                <option value="">choisir un modèle…</option>
+                <% for (const t of templates) { %><option value="<%= t.id %>"><%= t.name %></option><% } %>
+              </select>
+            <% } %>
+          </form>
+          <a href="/village/<%= vid %>/market?tab=send&x=<%= target.x %>&y=<%= target.y %>" class="<%= action %>"><%- actionIcon('market') %>Envoyer des ressources</a>
+          <% if (owner) { %><a href="/village/<%= vid %>/messages/new?to=<%= encodeURIComponent(owner.name) %>" class="<%= action %>"><%- actionIcon('messages') %>Écrire au joueur</a><% } %>
+        <% } %>
+        <form method="post" action="/village/<%= vid %>/favorites/<%= target.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="<%= action %>"><span class="flex w-5 justify-center text-gold-200">★</span><%= favorite ? 'Retirer des favoris' : 'Ajouter aux favoris' %></button>
+        </form>
+        <a href="<%= markHref %>" class="<%= action %>"><%- actionIcon('flag') %>Modifier les marquages sur la carte</a>
+      </div>
+    </section>
+  </div>
+
+  <div class="flex min-w-0 flex-col gap-4">
+    <%# Carnet de notes (visible de toi seul) %>
+    <section class="<%= ui.panel %>">
+      <details class="group">
+        <summary class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <span class="<%= ui.panelTitle %>"><span class="<%= ui.diamond %>" aria-hidden="true"></span>Carnet de notes</span>
+          <span class="text-[13px] font-semibold text-gold-400 group-open:hidden">Modifier</span><span class="hidden text-[13px] font-semibold text-gold-400 group-open:inline">Fermer</span>
+        </summary>
+        <form method="post" action="/village/<%= vid %>/villages/<%= target.id %>/note" class="flex flex-col gap-2 border-b border-bronze-800 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <textarea name="text" rows="4" maxlength="2000" class="<%= ui.textarea %> w-full" aria-label="Note sur ce village" placeholder="Troupes vues, horaires du joueur, cible à nobler…"><%= note %></textarea>
+          <div><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></div>
+        </form>
+      </details>
+      <% if (note) { %>
+        <p class="px-3 py-2.5 whitespace-pre-line wrap-break-word text-parchment-200"><%= note %></p>
+      <% } else { %>
+        <p class="px-3 py-2.5 text-sm text-parchment-500">Aucune note sur ce village. Tu peux la partager avec ta tribu dans les <a href="/village/<%= vid %>/account#reglages-tribu" class="<%= ui.link %>">réglages tribu</a>.</p>
+      <% } %>
+      <% if (tribeNotes.length) { %>
+        <div class="border-t border-bronze-800">
+          <p class="<%= ui.subLabel %> px-3 pt-2">Notes de la tribu</p>
+          <% for (const n of tribeNotes) { %>
+            <div class="border-b border-bronze-900 px-3 py-2 last:border-b-0">
+              <p class="text-xs text-parchment-500"><a href="/village/<%= vid %>/players/<%= n.authorId %>" class="<%= ui.linkPlain %> font-semibold"><%= n.author %></a> · <span class="tabular-nums"><%= whenShort(n.updatedAt, now) %></span></p>
+              <p class="whitespace-pre-line wrap-break-word text-parchment-200"><%= n.text %></p>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+    </section>
+
+    <%# Tes ordres vers ce village %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead(`Propres ordres (${commands.length})`) %>
+      <% if (!commands.length) { %>
+        <p class="px-3 py-2.5 text-sm text-parchment-500">Aucun de tes ordres en cours vers ce village.</p>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+            <thead><tr><th>Ordre</th><th>Heure d'arrivée</th><th class="text-right">Arrive dans</th></tr></thead>
+            <tbody>
+            <% for (const c of commands) { const pace = paceUnit(c.units, c.type); const left = (new Date(c.arrivesAt) - now) / 1000; %>
+              <tr>
+                <td>
+                  <span class="flex min-w-0 items-center gap-2">
+                    <span class="flex size-5 shrink-0 items-center justify-center border-2 border-black text-night shadow-[1px_1px_0_#000] <%= moveBox[c.type] || moveBox.support %>" title="<%= verbs[c.type] %>"><%- icon(moveIcon[c.type] || 'support', 'size-[12px]', 3.2) %></span>
+                    <% if (pace) { %><span class="flex shrink-0 text-gold-400" title="Unité la plus lente : <%= pace.name %>"><%- unitIcon(pace.id, 'size-4', 2) %></span><% } %>
+                    <span class="truncate"><span class="text-parchment-400"><%= c.type === 'return' ? 'Retour vers' : `${verbs[c.type] || 'Ordre'} depuis` %></span> <a href="/village/<%= c.origin.id %>" class="<%= ui.linkPlain %> font-semibold"><%= c.origin.name %></a></span>
+                  </span>
+                </td>
+                <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= whenShort(c.arrivesAt, now) %></td>
+                <td class="text-right font-semibold whitespace-nowrap tabular-nums <%= left < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration(left) %></td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+
     <% if (!mine && dist) { %>
       <section class="<%= ui.panel %>">
         <%- panelHead('Durées de trajet', `<span class="font-sans text-[11px] text-parchment-300">Depuis ${esc(ctx.village.name)}</span>`) %>
-        <table class="<%= ui.table %>">
-          <thead><tr><th>Unité la plus lente</th><th class="text-right">Durée</th></tr></thead>
-          <tbody>
-            <% for (const t of travel) { %>
-              <tr><td><span class="inline-flex items-center gap-2"><span class="text-gold-400"><%- unitIcon(t.id, 'size-4', 2) %></span><%= unitName(t.id) %></span></td><td class="text-right font-semibold tabular-nums"><%= duration(t.seconds) %></td></tr>
-            <% } %>
-          </tbody>
-        </table>
+        <%# Une rangée jusqu'à 10 unités, sinon deux rangées égales (comme l'infobulle de la carte). %>
+        <div class="grid gap-px bg-bronze-900 p-px" style="grid-template-columns: repeat(<%= travel.length <= 10 ? travel.length : Math.ceil(travel.length / 2) %>, minmax(50px, 1fr))">
+          <% for (const t of travel) { %>
+            <span class="flex flex-col items-center gap-1 bg-panel-top px-1.5 pt-1.5 pb-1 whitespace-nowrap" title="<%= unitName(t.id) %>"><span class="text-gold-400"><%- unitIcon(t.id, 'size-4', 2) %></span><span class="text-xs font-semibold text-parchment-200 tabular-nums"><%= duration(t.seconds) %></span></span>
+          <% } %>
+        </div>
       </section>
     <% } %>
   </div>
-
-  <aside class="flex max-w-full flex-[1_1_280px] flex-col gap-3">
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Actions') %>
-      <div class="<%= ui.panelBody %> gap-2">
-        <% if (mine) { %>
-          <a href="/village/<%= target.id %>" class="<%= btn('gold', 'md', 'w-full') %>">Ouvrir le village</a>
-        <% } else { %>
-          <a href="/village/<%= vid %>/place?x=<%= target.x %>&y=<%= target.y %>" class="<%= btn('red', 'md', 'w-full') %>"><%- icon('attack', 'size-3.5', 2.2) %>Envoyer des troupes</a>
-          <a href="/village/<%= vid %>/market?tab=send&x=<%= target.x %>&y=<%= target.y %>" class="<%= btn('dark', 'md', 'w-full') %>">Envoyer des ressources</a>
-          <% if (owner) { %><a href="/village/<%= vid %>/messages/new?to=<%= encodeURIComponent(owner.name) %>" class="<%= btn('dark', 'md', 'w-full') %>">Écrire au joueur</a><% } %>
-        <% } %>
-        <form method="post" action="/village/<%= vid %>/favorites/<%= target.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="<%= btn('dark', 'md', 'w-full') %>"><span class="text-gold-200">★</span><%= favorite ? 'Retirer des favoris' : 'Ajouter aux favoris' %></button>
-        </form>
-        <a href="/village/<%= vid %>/map?x=<%= target.x %>&y=<%= target.y %>&sx=<%= target.x %>&sy=<%= target.y %>" class="<%= ui.link %> self-center text-[13px]">» Centrer la carte sur ce village</a>
-      </div>
-    </section>
-  </aside>
 </div>
+
+<%# Tes rapports sur ce village %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Rapports sur ce village', `<span class="text-[13px] text-parchment-500 tabular-nums">${reports.length}</span>`) %>
+  <% if (!reports.length) { %>
+    <p class="px-3 py-2.5 text-sm text-parchment-500">Aucun rapport sur ce village.</p>
+  <% } else { %>
+    <form method="post" action="/village/<%= vid %>/reports/bulk" id="village-reports" data-confirm="Supprimer les rapports sélectionnés ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="delete"></form>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+        <thead><tr><th class="w-8"></th><th>Objet</th><th class="text-right">Reçu</th></tr></thead>
+        <tbody>
+        <% for (const r of reports) { const dot = r.type === 'attack' ? attackDot(outcomeOf(r.data).result) : ''; %>
+          <tr class="<%= r.isRead ? '' : 'font-semibold' %>">
+            <td><input type="checkbox" name="ids" value="<%= r.id %>" form="village-reports" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner « <%= r.title %> »"></td>
+            <td><span class="inline-flex items-center gap-2"><%- dot %><a href="/village/<%= vid %>/reports/<%= r.id %>" class="<%= ui.linkPlain %>"><%= r.title %></a><% if (!r.isRead) { %> <span class="text-[11px] font-normal text-gold-400">(nouveau)</span><% } %></span></td>
+            <td class="text-right whitespace-nowrap text-parchment-400 tabular-nums"><%= whenShort(r.happenedAt, now) %></td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-900 px-3 py-2.5">
+      <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-parchment-300"><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="village-reports">Sélectionner tout</label>
+      <button class="<%= btn('danger', 'sm') %>" form="village-reports"><%- icon('trash', 'size-3.5', 2) %>Effacer</button>
+    </div>
+  <% } %>
+</section>
+<script src="/js/terrain.js" defer></script>
+<script src="/js/minimap.js" defer></script>
 <%- include('partials/footer') %>

@@ -89,4 +89,13 @@ module.exports = [
     attack: 30, defense: 100, defenseCavalry: 50, defenseArcher: 100, type: 'infantry', kills: { att: 200, def: 200 },
     requires: { snob: 1 },
   },
+  {
+    // Milice (valeurs de get_unit_info des mondes FR) : appelée gratuitement depuis la ferme, défend seulement,
+    // ne quitte jamais le village (`stationary`), sans population ni butin. Points de lancier pour qui la tue
+    // (aucune source officielle pour la milice). Voir MilitiaService et le module `militia` du monde.
+    id: 'militia', name: 'Milice', building: 'farm', feature: 'militia', stationary: true,
+    cost: { wood: 0, stone: 0, iron: 0 }, pop: 0, buildTime: 0, speed: 0, carry: 0,
+    attack: 0, defense: 15, defenseCavalry: 45, defenseArcher: 25, type: 'infantry', kills: { att: 4, def: 0 },
+    requires: { farm: 1 },
+  },
 ];

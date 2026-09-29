@@ -1,0 +1,136 @@
+<%#
+  Fin du monde, dans le cadre des classements, comme « Dominance du monde » sur GT : explication chiffrée,
+  top des tribus (ou joueurs) à gauche, « Liste des conditions de fin de monde » en barres à droite.
+  `victory` : voir victoryLocals (routes/worlds.js) ; `vid` : village du joueur (liens), nul hors partie.
+%>
+<% const { cfg, standings: s, state, mine, hasMine, contribution, heldMs } = victory;
+   const v = cfg.victory;
+   const DAY = 86400000;
+   const pct = (x) => `${(Math.round(x * 100) / 100).toLocaleString('fr-FR')} %`;
+   const b = (x) => `<strong class="font-semibold text-gold-200">${x}</strong>`;
+   const byPlayer = s.type === 'pointsVillages' && v.pointsVillages.scope === 'player';
+   const days = (ms) => Math.floor(ms / DAY);
+   // Barre de condition : remplissage `value / goal`, texte « valeur / objectif » au centre.
+   const bar = (value, goal, label) => {
+     const width = goal > 0 ? Math.max(0, Math.min(100, (100 * value) / goal)) : 0;
+     const done = goal > 0 && value >= goal;
+     return `<span class="relative flex h-6 min-w-44 items-center justify-center overflow-hidden border border-black bg-night shadow-[inset_0_1px_2px_#0006]">
+       <span class="absolute inset-y-0 left-0 ${done ? 'bg-olive-500' : 'bg-blood-700'}" style="width: ${width.toFixed(1)}%"></span>
+       <span class="relative text-[13px] font-semibold text-parchment-100 tabular-nums">${label}</span>
+     </span>`;
+   };
+   const who = (r) => (r.tag
+     ? (vid ? `<a href="/village/${vid}/tribes/${r.id}" class="${ui.linkPlain} font-semibold" title="${esc(r.label)}">${esc(r.tag)}</a>` : `<span class="font-semibold" title="${esc(r.label)}">${esc(r.tag)}</span>`)
+     : playerLink(vid, { id: r.id, name: r.label || r.name }, { cls: `${ui.linkPlain} font-semibold` }));
+   const names = { dominance: 'Dominance du monde', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège', none: 'Fin du monde' };
+   const leader = s.leader;
+   // Colonnes du top et lignes des conditions, selon le type de fin du monde.
+   let top = { title: '', cols: [], cells: () => [] };
+   let rows = [];
+   if (s.type === 'dominance') {
+     const d = v.dominance;
+     top = { title: 'Top des tribus par dominance', cols: ['Tribu', 'Dominance'], cells: (r) => [who(r), pct(r.percent)] };
+     rows = [
+       ['Âge du monde', bar(s.age, d.minWorldAgeDays, `${num(Math.floor(s.age))} / ${num(d.minWorldAgeDays)} jours`)],
+       ['Top dominance', bar(leader ? leader.percent : 0, d.endgamePercent, `${pct(leader ? leader.percent : 0)} / ${d.endgamePercent} %`)],
+       ['Compte à rebours de dominance', bar(heldMs, d.holdDays * DAY, `${days(heldMs)} / ${d.holdDays} jours`)],
+       ...(hasMine ? [['Votre tribu', bar(mine ? mine.percent : 0, d.endgamePercent, `${pct(mine ? mine.percent : 0)} / ${d.endgamePercent} %`)]] : []),
+       ['Votre contribution', bar(contribution, d.endgamePercent, `${pct(contribution)} / ${d.endgamePercent} %`)],
+     ];
+   } else if (s.type === 'pointsVillages') {
+     const pv = v.pointsVillages;
+     top = { title: `Top des ${byPlayer ? 'joueurs' : 'tribus'} par points`, cols: [byPlayer ? 'Joueur' : 'Tribu', 'Points', 'Villages'], cells: (r) => [who(r), num(r.points), num(r.villages)] };
+     const holdMs = pv.holdHours * 3600000;
+     rows = [
+       ['Top points', bar(leader ? leader.points : 0, pv.points, `${num(leader ? leader.points : 0)} / ${num(pv.points)}`)],
+       ['Top villages', bar(leader ? leader.villages : 0, pv.villages, `${num(leader ? leader.villages : 0)} / ${num(pv.villages)}`)],
+       ['Compte à rebours', bar(heldMs, holdMs, `${Math.floor(heldMs / 3600000)} / ${pv.holdHours} heures`)],
+       ...(hasMine ? [
+         [byPlayer ? 'Vos points' : 'Points de votre tribu', bar(mine ? mine.points : 0, pv.points, `${num(mine ? mine.points : 0)} / ${num(pv.points)}`)],
+         [byPlayer ? 'Vos villages' : 'Villages de votre tribu', bar(mine ? mine.villages : 0, pv.villages, `${num(mine ? mine.villages : 0)} / ${num(pv.villages)}`)],
+       ] : []),
+     ];
+   } else if (s.type === 'runes') {
+     const rn = v.runes;
+     top = { title: 'Top des tribus par villages de rune', cols: ['Tribu', 'Runes', 'Part'], cells: (r) => [who(r), num(r.villages), pct(r.percent)] };
+     rows = [
+       ['Apparition des runes', bar(s.age, rn.spawnAfterDays, s.spawned ? `${num(s.total)} villages de rune` : `${num(Math.floor(s.age))} / ${rn.spawnAfterDays} jours`)],
+       ['Top des runes', bar(leader ? leader.percent : 0, rn.winPercent, `${pct(leader ? leader.percent : 0)} / ${rn.winPercent} %`)],
+       ['Compte à rebours des runes', bar(heldMs, rn.holdDays * DAY, `${days(heldMs)} / ${rn.holdDays} jours`)],
+       ...(hasMine ? [['Votre tribu', bar(mine ? mine.percent : 0, rn.winPercent, `${pct(mine ? mine.percent : 0)} / ${rn.winPercent} %`)]] : []),
+     ];
+   } else if (s.type === 'siege') {
+     const sg = v.siege;
+     top = { title: 'Top des tribus par influence', cols: ['Tribu', 'Quartiers', 'Influence'], cells: (r) => [who(r), num(r.villages), num(r.influence)] };
+     rows = [
+       ['Apparition de la cité', bar(s.age, sg.startAfterDays, s.spawned ? `${sg.villages} quartiers` : `${num(Math.floor(s.age))} / ${sg.startAfterDays} jours`)],
+       ['Top influence', bar(leader ? leader.influence : 0, s.required, `${num(leader ? leader.influence : 0)} / ${num(s.required)}`)],
+       ...(hasMine ? [['Votre tribu', bar(mine ? mine.influence : 0, s.required, `${num(mine ? mine.influence : 0)} / ${num(s.required)}`)]] : []),
+       ["Baisse de l'objectif", bar(s.reduction * 100, sg.maxReductionPercent, `${Math.round(s.reduction * 100)} / ${sg.maxReductionPercent} %`)],
+     ];
+   } %>
+<section class="<%= ui.panel %> min-w-0">
+  <%- panelHead(names[s.type] || names.none, `<span class="text-[13px] text-parchment-300">${esc(world.name)}</span>`) %>
+  <div class="<%= ui.panelBody %> gap-4">
+    <% if (world.endedAt) { %>
+      <div class="<%= ui.boxGoldV %> flex items-center gap-3 p-3.5">
+        <span class="<%= ui.medallionGold %> size-[46px] minimal:size-[34px]"><%- icon('crown', 'size-[22px]') %></span>
+        <p class="text-parchment-200"><strong class="font-display text-[17px] font-semibold text-gold-200"><%= state.winnerName %></strong> a gagné le monde <%= when(world.endedAt, now) %>. Le monde est en paix.</p>
+      </div>
+    <% } else if (state.holderId) { %>
+      <div class="<%= ui.boxGold %> flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 text-parchment-200">
+        <span class="font-semibold text-gold-200">Fin de partie en cours :</span>
+        <strong class="font-semibold text-parchment-100"><%= state.holderName %></strong> gagne <%= when(state.until, now) %> s'il tient jusque-là ·
+        <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(state.until).getTime() %>"><%= duration((new Date(state.until) - now) / 1000) %></span>
+      </div>
+    <% } %>
+
+    <div class="flex flex-col gap-2.5 text-[15px] leading-relaxed text-parchment-300">
+      <% if (s.type === 'dominance') { const d = v.dominance; %>
+        <p>Chaque monde a besoin d'un vainqueur, mais quel groupe de valeureux seigneurs s'unira pour gagner <%= world.name %> ?</p>
+        <p>Afin de vraiment prouver leur valeur, une tribu doit contrôler au moins <%- b(`${d.endgamePercent} %`) %> de l'ensemble des villages des joueurs de ce monde. Ce pourcentage est aussi connu comme le pourcentage de domination d'une tribu.</p>
+        <p>Afin d'éviter que le monde ne se termine trop tôt sur une victoire non satisfaisante, le monde doit être vieux d'au moins <%- b(d.minWorldAgeDays) %> jours pour qu'une tribu puisse prétendre à la victoire.</p>
+        <p>La tribu dominatrice doit conserver le pourcentage de dominance pendant <%- b(d.holdDays) %> jours consécutifs pour prétendre à la victoire. Tous les joueurs sont prévenus dès qu'une tribu dépasse <%= d.warningPercent %> % (monde d'au moins <%= d.warningWorldAgeDays %> jours).</p>
+      <% } else if (s.type === 'pointsVillages') { const pv = v.pointsVillages; %>
+        <p>Sur ce monde, la victoire revient <%= byPlayer ? 'au premier joueur' : 'à la première tribu' %> qui atteint à la fois <%- b(`${num(pv.points)} points`) %> et <%- b(`${num(pv.villages)} villages`) %>.</p>
+        <p><%= byPlayer ? 'Le joueur' : 'La tribu' %> doit tenir ces deux seuils pendant <%- b(`${pv.holdHours} heures`) %> consécutives pour gagner le monde.</p>
+      <% } else if (s.type === 'runes') { const rn = v.runes; %>
+        <p>Au bout de <%- b(`${rn.spawnAfterDays} jours`) %>, <%= rn.villagesPerContinent %> villages de rune garnis de troupes apparaissent sur chaque continent peuplé.</p>
+        <p>Une tribu gagne en détenant <%- b(`${rn.winPercent} %`) %> des villages de rune pendant <%- b(`${rn.holdDays} jours`) %> consécutifs.</p>
+      <% } else if (s.type === 'siege') { const sg = v.siege; %>
+        <p>Au bout de <%- b(`${sg.startAfterDays} jours`) %>, les <%= sg.villages %> quartiers de la cité apparaissent au centre de la carte. Chaque quartier tenu rapporte <%- b(num(sg.influencePerVillagePerDay)) %> points d'influence par jour à sa tribu.</p>
+        <p>La première tribu qui atteint l'objectif d'influence gagne immédiatement. L'objectif baisse de <%= sg.reductionPercent %> % tous les <%= sg.reductionEveryDays %> jours (au plus −<%= sg.maxReductionPercent %> %) ; il est actuellement de <%- b(num(s.required)) %> points.</p>
+      <% } else { %>
+        <p>Ce monde n'a pas de condition de victoire automatique.</p>
+      <% } %>
+    </div>
+
+    <% if (s.type !== 'none') { %>
+      <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+        <div class="overflow-x-auto border border-bronze-800">
+          <table class="<%= ui.table %>">
+            <thead><tr><th colspan="<%= top.cols.length %>"><%= top.title %></th></tr></thead>
+            <tbody>
+              <% if (!s.list.length) { %><tr><td colspan="<%= top.cols.length %>" class="text-parchment-500"><%= byPlayer ? 'Aucun joueur.' : 'Aucune tribu pour le moment.' %></td></tr><% } %>
+              <% s.list.slice(0, 20).forEach((r) => { const cells = top.cells(r); const me = mine && r.id === mine.id; %>
+                <tr class="<%= me ? ui.rowActive : '' %>">
+                  <% cells.forEach((c, i) => { %><td class="<%= i ? 'text-right tabular-nums' : '' %>"><%- c %></td><% }) %>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="overflow-x-auto border border-bronze-800">
+          <table class="<%= ui.table %>">
+            <thead><tr><th colspan="2">Liste des conditions de fin de monde</th></tr></thead>
+            <tbody>
+              <% for (const [label, html] of rows) { %>
+                <tr><td class="w-52 text-parchment-200"><%= label %></td><td><%- html %></td></tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</section>

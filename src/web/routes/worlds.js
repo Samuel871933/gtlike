@@ -13,14 +13,32 @@ const { ah, flash, requireAuth } = require('../middleware');
 
 const router = express.Router();
 
-/** Données de la page « Fin du monde » (affichée hors partie ou dans l'interface du jeu). */
-async function victoryLocals(world) {
-  const standings = await require('../../services/VictoryService').standings(world, new Date());
-  return { world, cfg: world.getConfig(), standings, state: world.victoryState || {} };
+/**
+ * Données de la fin du monde (entrée du menu des classements, comme « Dominance du monde » sur GT) :
+ * état de la condition, part du joueur qui regarde (`me` : { playerId, tribeId }) et durée tenue par le meneur.
+ */
+async function victoryLocals(world, me = {}) {
+  const now = new Date();
+  const standings = await require('../../services/VictoryService').standings(world, now);
+  const state = world.victoryState || {};
+  const scopePlayer = standings.type === 'pointsVillages' && world.getConfig().victory.pointsVillages.scope === 'player';
+  const mineId = scopePlayer ? me.playerId : me.tribeId;
+  const [myVillages, totalVillages] = await Promise.all([
+    me.playerId ? Village.count({ where: { playerId: me.playerId } }) : 0,
+    Village.count({ where: { worldId: world.id, playerId: { [Op.ne]: null } } }),
+  ]);
+  return {
+    world, cfg: world.getConfig(), standings, state, now,
+    mine: (standings.list || []).find((r) => r.id === mineId) || null,
+    hasMine: Boolean(mineId),
+    contribution: totalVillages ? (100 * myVillages) / totalVillages : 0,
+    heldMs: state.holderId && state.since ? now - new Date(state.since) : 0,
+  };
 }
 
 // Classements : types (menu de gauche) et nombre de lignes par page, comme sur Guerre Tribale.
-const RANKING_TYPES = ['players', 'tribes', 'continent', 'kills', 'awards'];
+// `victory` : la fin du monde (dominance, runes…), dans le même cadre que les classements.
+const RANKING_TYPES = ['players', 'tribes', 'continent', 'kills', 'awards', 'victory'];
 const RANKING_PAGE = 25;
 
 /**
@@ -32,12 +50,21 @@ const RANKING_PAGE = 25;
 async function rankingLocals(world, query, me = {}) {
   const type = RANKING_TYPES.includes(query.type) ? query.type : 'players';
   const kind = ['att', 'def', 'sup', 'all'].includes(query.kind) ? query.kind : 'all';
+  if (type === 'victory') {
+    return {
+      type, kind, killsOf: 'players', continentRanking: null, byTribe: true, rows: [], isMine: () => false,
+      pager: { page: 1, pages: 1, offset: 0, total: 0, focus: -1 }, search: { q: '', rank: '', notFound: false },
+      victory: await victoryLocals(world, me), world,
+    };
+  }
   const ALL = 1e9;
   let rows = [];
   let continent = null;
   if (type === 'players') rows = (await MapService.ranking(world.id, ALL)).map((player) => ({ player, points: player.points, villages: player.villageCount }));
   if (type === 'tribes') rows = await TribeService.ranking(world.id, ALL);
-  if (type === 'kills') rows = await MapService.killRanking(world.id, kind, ALL);
+  // Adversaires vaincus : par joueur ou par tribu (?of=tribes), filtre en attaque / défense / soutien / total (?kind=).
+  const killsOf = query.of === 'tribes' ? 'tribes' : 'players';
+  if (type === 'kills') rows = killsOf === 'tribes' ? await MapService.tribeKillRanking(world.id, kind, ALL) : await MapService.killRanking(world.id, kind, ALL);
   if (type === 'awards') rows = await AchievementService.ranking(world.id, ALL);
   if (type === 'continent') {
     const list = await MapService.continents(world.id);
@@ -47,7 +74,7 @@ async function rankingLocals(world, query, me = {}) {
     rows = k ? await MapService.continentRanking(world.id, k, { tribes: of === 'tribes', limit: ALL }) : [];
   }
 
-  const byTribe = type === 'tribes' || (type === 'continent' && continent.of === 'tribes');
+  const byTribe = type === 'tribes' || (type === 'continent' && continent.of === 'tribes') || (type === 'kills' && killsOf === 'tribes');
   const isMine = (r) => (byTribe ? r.tribe && r.tribe.id === me.tribeId : r.player && r.player.id === me.playerId);
   const mine = rows.findIndex(isMine);
   const q = String(query.q || '').trim().toLowerCase();
@@ -62,7 +89,7 @@ async function rankingLocals(world, query, me = {}) {
   const page = Number.isFinite(asked) ? Math.min(pages, Math.max(1, asked)) : Math.floor(Math.max(0, focus) / RANKING_PAGE) + 1;
   const offset = (page - 1) * RANKING_PAGE;
   return {
-    world, type, kind, continentRanking: continent, byTribe,
+    world, type, kind, killsOf, continentRanking: continent, byTribe,
     rows: rows.slice(offset, offset + RANKING_PAGE),
     pager: { page, pages, offset, total: rows.length, focus: focus >= offset && focus < offset + RANKING_PAGE ? focus - offset : -1 },
     search: { q: String(query.q || ''), rank: Number.isFinite(rank) && rank > 0 ? rank : '', notFound: Boolean(q) && found < 0 },
@@ -145,9 +172,8 @@ router.get('/worlds/:slug/info', ah(async (req, res) => {
   res.render('world-info', { world, cfg: world.getConfig(), players, villages, lobbyPage: 'info' });
 }));
 
-router.get('/worlds/:slug/victory', requireAuth, ah(async (req, res) => {
-  res.render('victory', await victoryLocals(await findWorld(req.params.slug)));
-}));
+// Ancienne adresse de la fin du monde : elle est maintenant dans les classements.
+router.get('/worlds/:slug/victory', requireAuth, (req, res) => res.redirect(`/worlds/${encodeURIComponent(req.params.slug)}/ranking?type=victory`));
 
 router.get('/worlds/:slug/ranking', requireAuth, ah(async (req, res) => {
   const world = await findWorld(req.params.slug);

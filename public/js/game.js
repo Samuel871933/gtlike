@@ -250,7 +250,11 @@
     }
   });
 
-  // Menus déroulants de l'en-tête (Rapports) : le lien reste utilisable sans JS, le clic ouvre le menu sous le bouton.
+  // Menus déroulants de l'en-tête (Rapports, Tribu) : ouverts au survol de la souris, le clic suit le lien (Tous les
+  // rapports, Aperçu de la tribu). Au toucher (pas de survol), le premier appui ouvre le menu, le second suit le lien.
+  let closeTimer = null;
+  let lastPointer = 'mouse';
+  document.addEventListener('pointerdown', (e) => { lastPointer = e.pointerType; }, true);
   function closeMenus(except) {
     document.querySelectorAll('[data-menu]').forEach((m) => {
       if (m === except) return;
@@ -259,19 +263,38 @@
       if (t) t.setAttribute('aria-expanded', 'false');
     });
   }
+  function openMenu(toggle) {
+    const menu = document.querySelector(`[data-menu="${toggle.dataset.menuToggle}"]`);
+    if (!menu) return null;
+    clearTimeout(closeTimer);
+    closeMenus(menu);
+    menu.classList.remove('hidden');
+    toggle.setAttribute('aria-expanded', 'true');
+    const box = menu.parentElement.getBoundingClientRect();
+    const left = toggle.getBoundingClientRect().left - box.left;
+    menu.style.left = `${Math.max(0, Math.min(left, box.width - menu.offsetWidth))}px`;
+    return menu;
+  }
+  // Petit délai à la sortie : le pointeur a le temps de passer du bouton au menu.
+  const closeSoon = () => { clearTimeout(closeTimer); closeTimer = setTimeout(() => closeMenus(), 180); };
+  document.querySelectorAll('[data-menu-toggle]').forEach((toggle) => {
+    toggle.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') openMenu(toggle); });
+    toggle.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') closeSoon(); });
+    // Clavier seulement (au toucher, le focus précède le clic et ouvrirait le menu avant de suivre le lien).
+    toggle.addEventListener('focus', () => { if (toggle.matches(':focus-visible')) openMenu(toggle); });
+  });
+  document.querySelectorAll('[data-menu]').forEach((menu) => {
+    menu.addEventListener('pointerenter', () => clearTimeout(closeTimer));
+    menu.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') closeSoon(); });
+    menu.addEventListener('focusout', (e) => { if (!menu.contains(e.relatedTarget)) closeSoon(); });
+  });
   document.addEventListener('click', (e) => {
     const toggle = e.target.closest('[data-menu-toggle]');
     if (toggle) {
-      e.preventDefault();
       const menu = document.querySelector(`[data-menu="${toggle.dataset.menuToggle}"]`);
-      if (!menu) return;
-      closeMenus(menu);
-      const open = menu.classList.toggle('hidden') === false;
-      toggle.setAttribute('aria-expanded', String(open));
-      if (open) {
-        const box = menu.parentElement.getBoundingClientRect();
-        const left = toggle.getBoundingClientRect().left - box.left;
-        menu.style.left = `${Math.max(0, Math.min(left, box.width - menu.offsetWidth))}px`;
+      if (lastPointer !== 'mouse' && menu && menu.classList.contains('hidden')) {
+        e.preventDefault();
+        openMenu(toggle);
       }
       return;
     }
@@ -301,6 +324,45 @@
   document.addEventListener('submit', (e) => {
     const form = e.target.closest('form[data-confirm]');
     if (form && !window.confirm(form.dataset.confirm)) e.preventDefault();
+  });
+
+  // « Sélectionner tout » : coche les cases liées au formulaire indiqué (boîte de réception).
+  document.addEventListener('change', (e) => {
+    const all = e.target.closest('[data-select-all]');
+    if (all) document.querySelectorAll(`[form="${all.dataset.selectAll}"][data-select-item]`).forEach((box) => { box.checked = all.checked; });
+  });
+
+  // Encarts qu'on peut masquer (« Masquer ce message ») : mémorisé dans le navigateur.
+  document.querySelectorAll('[data-dismissable]').forEach((el) => {
+    const key = `gtlike:dismiss:${el.dataset.dismissable}`;
+    try { if (localStorage.getItem(key)) el.hidden = true; } catch (err) { /* stockage indisponible */ }
+    el.querySelector('[data-dismiss]')?.addEventListener('click', () => {
+      el.hidden = true;
+      try { localStorage.setItem(key, '1'); } catch (err) { /* stockage indisponible */ }
+    });
+  });
+
+  // Écrire un message : menu « Tribu » du champ À (groupe de destinataires à la place des pseudos).
+  document.querySelectorAll('form[data-recipients]').forEach((form) => {
+    const input = form.querySelector('[data-group-input]');
+    const to = form.querySelector('[data-to-input]');
+    const chip = form.querySelector('[data-group-chip]');
+    const menu = form.querySelector('[data-group-menu]');
+    const set = (id, label) => {
+      input.value = id;
+      to.hidden = Boolean(id);
+      to.required = !id;
+      chip.hidden = !id;
+      chip.querySelector('[data-group-name]').textContent = label || '';
+      if (menu) menu.open = false;
+      if (!id) to.focus();
+    };
+    form.addEventListener('click', (e) => {
+      const pick = e.target.closest('[data-group]');
+      if (pick) set(pick.dataset.group, pick.dataset.groupLabel);
+      else if (e.target.closest('[data-group-clear]')) set('', '');
+      else if (e.target.closest('[data-group-close]') && menu) menu.open = false;
+    });
   });
 
   // Bouton « Copier » (page Inviter des joueurs).

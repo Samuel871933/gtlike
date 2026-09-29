@@ -34,13 +34,13 @@ const reload = async (name) => (players[name] = await Player.findByPk(players[na
 
 test('fonder une tribu : nom et tag uniques', async () => {
   tribe = await TribeService.create(players.Alice.id, { name: 'Les Loups', tag: 'LUP' });
-  assert.equal((await reload('Alice')).tribeRole, 'founder');
+  assert.equal((await reload('Alice')).tribeRole, 'duke');
   await assert.rejects(TribeService.create(players.Bob.id, { name: 'Autre', tag: 'LUP' }), /tag est déjà pris/);
   await assert.rejects(TribeService.create(players.Alice.id, { name: 'Encore', tag: 'ENC' }), /déjà dans une tribu/);
   await assert.rejects(TribeService.create(players.Bob.id, { name: 'Okay', tag: 'TROPLONG' }), /tag/);
 });
 
-test('invitations : réservées aux chefs, limite de membres', async () => {
+test('invitations : droit d’inviter, limite de membres', async () => {
   await TribeService.invite(players.Alice.id, 'Bob');
   await assert.rejects(TribeService.invite(players.Alice.id, 'Bob'), /déjà invité/);
   const [inv] = await TribeService.invitesFor(players.Bob.id);
@@ -48,7 +48,7 @@ test('invitations : réservées aux chefs, limite de membres', async () => {
   assert.equal((await reload('Bob')).tribeId, tribe.id);
   assert.equal(players.Bob.tribeRole, 'member');
 
-  await assert.rejects(TribeService.invite(players.Bob.id, 'Carol'), /chefs/);
+  await assert.rejects(TribeService.invite(players.Bob.id, 'Carol'), /droit d'inviter/);
   await TribeService.invite(players.Alice.id, 'Carol');
   const [invC] = await TribeService.invitesFor(players.Carol.id);
   await assert.rejects(TribeService.acceptInvite(players.Carol.id, invC.id), /complète/);
@@ -76,22 +76,34 @@ test('pas d’attaque entre membres ; soutien réservé à la tribu si le monde 
   assert.equal((await TribeService.relationsOf(tribe.id)).get((await reload('Carol')).tribeId), 'ally');
 });
 
-test('rôles : le fondateur promeut, passe la main ; exclusion selon le rang', async () => {
-  await assert.rejects(TribeService.kick(players.Bob.id, players.Alice.id), /chefs/);
-  await TribeService.setRole(players.Alice.id, players.Bob.id, 'leader');
-  await assert.rejects(TribeService.kick(players.Bob.id, players.Alice.id), /ne pouvez pas exclure/);
-  await assert.rejects(TribeService.leave(players.Alice.id), /autre fondateur/);
+test('droits GT : le duc nomme barons et ducs, droits individuels, renvoi selon le titre', async () => {
+  await assert.rejects(TribeService.kick(players.Bob.id, players.Alice.id), /ducs et barons/);
+  await assert.rejects(TribeService.setRelation(players.Bob.id, 'OURS', 'enemy'), /diplomatie/);
 
-  await TribeService.setRole(players.Alice.id, players.Bob.id, 'founder');
-  assert.equal((await reload('Alice')).tribeRole, 'leader');
-  assert.equal((await reload('Bob')).tribeRole, 'founder');
-  await TribeService.kick(players.Bob.id, players.Alice.id);
+  // Droits individuels : diplomatie cochée, le titre reste « membre ».
+  await TribeService.setRights(players.Alice.id, players.Bob.id, { title: 'member', rights: ['diplomacy', 'inconnu'] });
+  assert.deepEqual((await reload('Bob')).tribeRights, ['diplomacy']);
+  await TribeService.setRelation(players.Bob.id, 'OURS', 'ally');
+  assert.equal(TribeService.can(players.Bob, 'invite'), false);
+
+  // Baron : tous les droits sauf ceux du duc.
+  await TribeService.setRights(players.Alice.id, players.Bob.id, { title: 'baron' });
+  assert.equal((await reload('Bob')).tribeRole, 'baron');
+  assert.ok(TribeService.can(players.Bob, 'massMail'));
+  await assert.rejects(TribeService.kick(players.Bob.id, players.Alice.id), /ne pouvez pas renvoyer/);
+  await assert.rejects(TribeService.setRights(players.Bob.id, players.Alice.id, { title: 'member' }), /ne pouvez pas modifier/);
+  await assert.rejects(TribeService.leave(players.Alice.id), /autre duc/);
+
+  // Plusieurs ducs : Alice nomme Bob duc et garde son titre ; elle peut alors partir.
+  await TribeService.setRights(players.Alice.id, players.Bob.id, { title: 'duke' });
+  assert.equal((await reload('Alice')).tribeRole, 'duke');
+  assert.equal((await reload('Bob')).tribeRole, 'duke');
+  await assert.rejects(TribeService.kick(players.Bob.id, players.Alice.id), /ne pouvez pas renvoyer/);
+  await TribeService.leave(players.Alice.id);
   assert.equal((await reload('Alice')).tribeId, null);
 });
 
-test('mur, classement, dissolution quand le dernier membre part', async () => {
-  const msg = await TribeService.post(players.Bob.id, 'Rendez-vous à 20h');
-  await assert.rejects(TribeService.deleteMessage(players.Alice.id, msg.id), /introuvable/);
+test('classement, dissolution quand le dernier membre part', async () => {
 
   const ranking = await TribeService.ranking(villages.Alice.worldId);
   assert.equal(ranking.length, 2);
@@ -99,4 +111,62 @@ test('mur, classement, dissolution quand le dernier membre part', async () => {
 
   await TribeService.leave(players.Bob.id);
   assert.equal(await Tribe.count({ where: { id: tribe.id } }), 0, 'tribu dissoute');
+});
+
+test('fil de la tribu : événements de membres, de diplomatie et divers, filtrés et paginés', async () => {
+  const TribeEventService = require('../src/services/TribeEventService');
+  const carol = await reload('Carol');
+  const all = await TribeEventService.list(carol.tribeId);
+  assert.ok(all.events.some((e) => e.type === 'founded' && e.data.actor.name === 'Carol'));
+
+  // Invitation refusée puis acceptée, droits, relation, annonces, renvoi.
+  await TribeService.invite(carol.id, 'Alice');
+  await TribeService.declineInvite(players.Alice.id, (await TribeService.invitesFor(players.Alice.id))[0].id);
+  await TribeService.invite(carol.id, 'Alice');
+  await TribeService.acceptInvite(players.Alice.id, (await TribeService.invitesFor(players.Alice.id))[0].id);
+  await TribeService.setRights(carol.id, players.Alice.id, { title: 'member', rights: ['invite'] });
+  await TribeService.create(players.Bob.id, { name: 'Les Cerfs', tag: 'CERF' });
+  await TribeService.setRelation(carol.id, 'CERF', 'enemy');
+  await TribeService.updateAnnouncement(carol.id, 'Rassemblement dimanche');
+  assert.equal((await Tribe.findByPk(carol.tribeId)).announcement, 'Rassemblement dimanche');
+  await TribeService.kick(carol.id, players.Alice.id);
+
+  const types = (await TribeEventService.list(carol.tribeId)).events.map((e) => e.type);
+  assert.deepEqual(types, ['kicked', 'announcement', 'relation', 'rights', 'joined', 'invited', 'inviteDeclined', 'invited', 'founded']);
+  const diplomacy = await TribeEventService.list(carol.tribeId, { category: 'diplomacy' });
+  assert.equal(diplomacy.events.length, 1);
+  assert.equal(diplomacy.events[0].data.tribe.tag, 'CERF');
+  assert.deepEqual((await TribeEventService.list(carol.tribeId, { category: 'misc' })).events.map((e) => e.type), ['announcement', 'founded']);
+  assert.equal((await TribeEventService.list(carol.tribeId, { category: 'noble' })).total, 0);
+});
+
+test('fil de la tribu : une conquête apparaît chez le conquérant et chez le perdant', async () => {
+  const TribeEventService = require('../src/services/TribeEventService');
+  const { TribeEvent } = require('../src/models');
+  const [bob, carol] = [await reload('Bob'), await reload('Carol')];
+  await TribeEventService.conquest({ village: villages.Carol, winner: bob, loser: carol, at: new Date() });
+  const won = await TribeEvent.findOne({ where: { tribeId: bob.tribeId, type: 'conquered' } });
+  const lost = await TribeEvent.findOne({ where: { tribeId: carol.tribeId, type: 'lost' } });
+  assert.equal(won.data.village.name, villages.Carol.name);
+  assert.match(won.data.village.k, /^K\d+$/);
+  assert.equal(lost.data.actor.name, 'Bob');
+  assert.equal(won.category, 'noble');
+});
+
+test('notes de village : partagées avec la tribu seulement si l’auteur partage et le lecteur les affiche', async () => {
+  const { VillageNote } = require('../src/models');
+  const VillageNoteService = require('../src/services/VillageNoteService');
+  const carol = await reload('Carol');
+  await Player.update({ tribeId: carol.tribeId, tribeRole: 'member' }, { where: { id: players.Alice.id } });
+  const village = villages.Bob;
+  await VillageNote.create({ playerId: carol.id, villageId: village.id, text: 'Muraille 20' });
+  await VillageNote.create({ playerId: players.Alice.id, villageId: village.id, text: 'Actif le soir' });
+
+  const seen = async (name) => ((await VillageNoteService.visible(await reload(name), [village.id])).get(village.id) || []).map((n) => `${n.mine ? 'moi' : n.author}:${n.text}`);
+  assert.deepEqual(await seen('Alice'), ['moi:Actif le soir'], 'rien de la tribu par défaut');
+  await VillageNoteService.setTribeSettings(players.Alice.id, { shareVillageNotes: false, showTribeNotes: true });
+  assert.deepEqual(await seen('Alice'), ['moi:Actif le soir'], 'Carol ne partage pas encore');
+  await VillageNoteService.setTribeSettings(carol.id, { shareVillageNotes: true, showTribeNotes: false });
+  assert.deepEqual(await seen('Alice'), ['moi:Actif le soir', 'Carol:Muraille 20']);
+  assert.deepEqual(await seen('Carol'), ['moi:Muraille 20'], "Alice ne partage pas, et Carol n'affiche pas");
 });

@@ -83,3 +83,13 @@ test('VillageState : une mine terminée en cours de route change la production �
   assert.equal(s.level('wood'), 2);
   assert.ok(Math.abs(s.resources.wood - (30 + 30 * 1.163118)) < 1e-6);
 });
+
+test('affordableAt : heure où la production couvre le coût, null au-delà de l\'entrepôt', () => {
+  const now = new Date('2026-01-01T00:00:00Z');
+  const state = new VillageState({ buildings: { wood: 1, stone: 1, iron: 1, storage: 1 }, units: {}, wood: 0, stone: 30, iron: 60, resourcesAt: now }, world1);
+  const p = state.productionPerHour();
+  // Le bois manque le plus : 60 à produire.
+  assert.equal(state.affordableAt({ wood: 60, stone: 30, iron: 0 }, now).getTime(), now.getTime() + Math.ceil((60 / p.wood) * 3600) * 1000);
+  assert.equal(state.affordableAt({ wood: 0, stone: 0, iron: 0 }, now).getTime(), now.getTime());
+  assert.equal(state.affordableAt({ wood: 5000, stone: 0, iron: 0 }, now), null);
+});

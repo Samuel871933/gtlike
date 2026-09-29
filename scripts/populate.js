@@ -249,13 +249,13 @@ async function populate(slug, count) {
     const list = tribeRows.map((r) => byTag.get(r.tag));
     // Membres : les tribus des meilleurs fondateurs sont les plus remplies.
     const members = list.map(() => []);
-    founders.forEach((f, i) => members[i].push([f, 'founder']));
+    founders.forEach((f, i) => members[i].push([f, 'duke']));
     const pool = ranked.slice(tribeCount).filter(() => rng() < 0.62);
     for (const p of pool) {
       const i = Math.min(list.length - 1, Math.floor(Math.pow(rng(), 1.4) * list.length));
       const slot = members[i].length < limit ? i : members.findIndex((m) => m.length < limit);
       if (slot < 0) break;
-      members[slot].push([p, members[slot].length < 3 ? 'leader' : 'member']);
+      members[slot].push([p, members[slot].length < 3 ? 'baron' : 'member']);
     }
     for (const [i, tribe] of list.entries()) {
       for (const [p, role] of members[i]) {

@@ -403,12 +403,18 @@ html.game_style body {
 .village-design--viking.village-marker--4 { --village-image: url('/img/map/villages/viking/level-4.png'); }
 .village-design--viking.village-marker--5 { --village-image: url('/img/map/villages/viking/level-5.png'); }
 .village-design--viking.village-marker--6 { --village-image: url('/img/map/villages/viking/level-6.png'); }
-.village-design--rome-antique.village-marker--1 { --village-image: url('/img/map/villages/rome-antique/level-1.png'); }
-.village-design--rome-antique.village-marker--2 { --village-image: url('/img/map/villages/rome-antique/level-2.png'); }
-.village-design--rome-antique.village-marker--3 { --village-image: url('/img/map/villages/rome-antique/level-3.png'); }
-.village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png'); }
-.village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png'); }
-.village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png'); }
+.village-design--rome-antique.village-marker--1 { --village-image: url('/img/map/villages/rome-antique/level-1.png?v=3'); }
+.village-design--rome-antique.village-marker--2 { --village-image: url('/img/map/villages/rome-antique/level-2.png?v=3'); }
+.village-design--rome-antique.village-marker--3 { --village-image: url('/img/map/villages/rome-antique/level-3.png?v=3'); }
+.village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png?v=3'); }
+.village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png?v=3'); }
+.village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png?v=3'); }
+.village-design--egyptien.village-marker--1 { --village-image: url('/img/map/villages/egyptien/level-1.png?v=1'); }
+.village-design--egyptien.village-marker--2 { --village-image: url('/img/map/villages/egyptien/level-2.png?v=1'); }
+.village-design--egyptien.village-marker--3 { --village-image: url('/img/map/villages/egyptien/level-3.png?v=1'); }
+.village-design--egyptien.village-marker--4 { --village-image: url('/img/map/villages/egyptien/level-4.png?v=1'); }
+.village-design--egyptien.village-marker--5 { --village-image: url('/img/map/villages/egyptien/level-5.png?v=2'); }
+.village-design--egyptien.village-marker--6 { --village-image: url('/img/map/villages/egyptien/level-6.png?v=1'); }
 .village-marker--current { --village-color: #fff; }
 .village-marker--own { --village-color: #f0c74b; }
 .village-marker--tribe { --village-color: #3159b8; }
@@ -499,3 +505,60 @@ html.game_style body {
   .report-army-card__body { padding: .4rem; }
   .report-army-table { min-width: 700px; }
 }
+
+/* Vue illustrée du village médiéval : décor et sprites restent utilisables sans classes Tailwind générées. */
+.village-scene-medieval {
+  aspect-ratio: 3 / 2;
+  background: url('/img/village/medieval/background-v2.png') center / cover no-repeat;
+}
+.village-building-plot {
+  aspect-ratio: 8 / 7;
+
+}
+
+.village-building-plot--wall { aspect-ratio: 7 / 4; }
+.village-building-sprite {
+  filter: drop-shadow(3px 5px 2px rgb(0 0 0 / .45));
+  transition: filter 120ms ease;
+}
+.village-building-plot:not(.village-building-plot--decorative):hover .village-building-sprite {
+  filter: brightness(1.08) drop-shadow(3px 5px 2px rgb(0 0 0 / .55));
+}
+.village-building-empty {
+  inset: 18%;
+  border-color: color-mix(in srgb, var(--color-parchment-300) 80%, transparent);
+  border-radius: 50%;
+  background: rgb(0 0 0 / .25);
+  color: color-mix(in srgb, var(--color-parchment-100) 80%, transparent);
+}
+.village-building-level {
+  bottom: 24px;
+  left: 4%;
+  background: color-mix(in srgb, var(--color-night) 90%, transparent);
+  color: var(--color-gold-400);
+  box-shadow: 1px 2px 0 rgb(0 0 0 / .5);
+}
+.village-building-name {
+  bottom: 2%;
+  left: 50%;
+  width: max-content;
+  max-width: 160px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--color-night) 90%, transparent);
+  color: var(--color-parchment-100);
+  box-shadow: 2px 2px 0 rgb(0 0 0 / .5);
+  opacity: .92;
+  pointer-events: none;
+}
+
+.village-building-activities { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 3; display: grid; gap: 2px; width: max-content; }
+.village-building-activities-list { display: grid; gap: 2px; }
+.village-building-timer { display: flex; align-items: center; justify-content: space-between; gap: 5px; border: 1px solid #000; background: var(--color-night); color: var(--color-gold-200); padding: 1px 3px; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; box-shadow: 1px 1px 0 #000; }
+
+/* Les illustrations suivent la profondeur ; les informations restent devant tous les bâtiments. */
+.village-building-sprite, .village-building-empty { z-index: var(--plot-depth); }
+.village-building-level, .village-building-name, .village-building-favorite, .village-building-activities { z-index: calc(100 + var(--plot-depth)); }
+.village-building-favorite { top: auto; bottom: 24px; right: 4%; }
+.village-building-plot a:focus-visible { outline: none; }
+.village-building-plot a:focus-visible .village-building-name { outline: 2px solid var(--color-gold-200); outline-offset: 2px; }
+.village-building-plot a[data-selected] .village-building-sprite { filter: drop-shadow(0 0 6px var(--color-gold-200)); }

@@ -1,22 +1,57 @@
-<%- include('partials/header', { title: 'Nouveau message' }) %>
-<div class="mx-auto flex w-full max-w-2xl flex-col gap-5">
-  <section class="<%= ui.panel %>">
-    <%- panelHead('Nouveau message', `<a href="/village/${ctx.village.id}/messages" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Messages</a>`, { tag: 'h1' }) %>
-    <form method="post" action="/village/<%= ctx.village.id %>/messages" class="<%= ui.panelBody %> gap-4"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <label class="<%= ui.label %>">Destinataires
-        <input name="to" value="<%= form.to %>" required placeholder="Pseudo1, Pseudo2" class="<%= ui.input %> w-full">
-        <span class="text-xs text-parchment-600">Séparez les pseudos par des virgules (<%= max %> maximum).</span>
-      </label>
-      <label class="<%= ui.label %>">Objet
-        <input name="subject" value="<%= form.subject %>" maxlength="100" required class="<%= ui.input %> w-full">
-      </label>
-      <label class="<%= ui.label %>">Message
-        <textarea name="body" rows="8" maxlength="5000" required class="<%= ui.textarea %> w-full"><%= form.body %></textarea>
-      </label>
-      <div class="flex justify-end">
-        <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
+<%- include('partials/header', { title: 'Écrire un message' }) %>
+<% const m = `/village/${ctx.village.id}/messages`;
+   const chosen = groups.find((g) => g.id === form.group && !g.blocker) || null;
+   const open = groups.filter((g) => !g.blocker); %>
+<%- include('partials/messages-start', { tab }) %>
+<div class="flex flex-col gap-3 p-3">
+  <%# Rappel de GT ; « Masquer ce message » est mémorisé dans le navigateur (game.js). %>
+  <p class="text-[15px] text-blood-450" data-dismissable="messages-rules">
+    <span class="font-semibold">N'oubliez pas de garder votre calme et de rester polis lorsque vous vous adressez à d'autres joueurs. Les insultes peuvent être très sévèrement sanctionnées.</span>
+    <button type="button" class="<%= ui.link %> cursor-pointer" data-dismiss>Masquer ce message</button>
+  </p>
+
+  <form method="post" action="<%= m %>" class="flex flex-col gap-2" data-recipients><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="group" value="<%= chosen ? chosen.id : '' %>" data-group-input>
+    <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
+      <label for="msg-to" class="text-parchment-300">À :</label>
+      <div class="relative flex min-w-0 flex-wrap items-center gap-2">
+        <input id="msg-to" name="to" value="<%= form.to %>" placeholder="Pseudo1, Pseudo2" autocomplete="off" class="<%= ui.input %> min-w-0 flex-1" data-to-input <%= chosen ? 'hidden' : 'required' %>>
+        <span class="inline-flex h-9 items-center gap-2 border border-gold-400 bg-night px-3 text-sm font-semibold text-gold-200" data-group-chip <%= chosen ? '' : 'hidden' %>>
+          <%- icon('tribe', 'size-3.5', 2) %><span data-group-name><%= chosen ? chosen.name : '' %></span>
+          <button type="button" class="cursor-pointer text-parchment-300 hover:text-parchment-50" title="Effacer le destinataire" aria-label="Effacer le destinataire" data-group-clear><%- icon('close', 'size-3', 2.6) %></button>
+        </span>
+          <details class="relative" data-group-menu>
+            <summary class="<%= btn('dark', 'md') %> list-none [&::-webkit-details-marker]:hidden"><%- icon('tribe', 'size-3.5', 2) %>Tribu</summary>
+            <div class="absolute right-0 z-20 mt-1 flex w-60 flex-col border-2 border-black bg-panel-top shadow-[3px_3px_0_#050505]">
+              <div class="flex justify-end border-b border-bronze-700 bg-head px-2 py-1"><button type="button" class="cursor-pointer text-[13px] font-semibold text-parchment-100 hover:text-gold-200" data-group-close>fermer</button></div>
+              <ul class="flex flex-col py-1">
+                <% for (const g of groups) { %>
+                  <li>
+                    <% if (g.blocker) { %>
+                      <span class="block cursor-not-allowed px-3 py-1.5 text-parchment-600" title="<%= g.blocker %>"><span class="font-semibold"><%= g.name %></span></span>
+                    <% } else { %>
+                      <button type="button" class="w-full cursor-pointer px-3 py-1.5 text-left font-semibold text-parchment-200 transition hover:bg-row-hover hover:text-parchment-50" data-group="<%= g.id %>" data-group-label="<%= g.name %>"><%= g.name %></button>
+                    <% } %>
+                  </li>
+                <% } %>
+              </ul>
+              <% const why = [...new Set(groups.map((g) => g.blocker).filter(Boolean))]; %>
+              <% if (why.length) { %><p class="border-t border-bronze-800 px-3 py-1.5 text-xs text-parchment-500"><%= why.join(' ') %></p><% } %>
+              <button type="button" class="cursor-pointer border-t border-bronze-800 px-3 py-1.5 text-left text-[13px] font-semibold text-parchment-400 hover:text-parchment-100" data-group-clear>Effacer le destinataire</button>
+            </div>
+          </details>
       </div>
-    </form>
-  </section>
+      <span></span>
+      <span class="-mt-1 text-xs text-parchment-600">Séparez les pseudos par des virgules (<%= max %> maximum), ou choisissez un groupe avec le bouton Tribu.<%= open.some((g) => g.id === 'tribe') ? ' « Tribu entière » envoie un mail circulaire.' : '' %></span>
+
+      <label for="msg-subject" class="text-parchment-300">Objet :</label>
+      <input id="msg-subject" name="subject" value="<%= form.subject %>" maxlength="100" required class="<%= ui.input %> w-full">
+    </div>
+    <textarea name="body" rows="12" maxlength="5000" required aria-label="Message" class="<%= ui.textarea %> w-full"><%= form.body %></textarea>
+    <div class="flex justify-end">
+      <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
+    </div>
+  </form>
 </div>
+<%- include('partials/messages-end') %>
 <%- include('partials/footer') %>

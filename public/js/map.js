@@ -97,6 +97,14 @@
   let baseY = 0;
   let span = 0;
 
+  // Gommette de la dernière attaque dans l'infobulle (comme sur GT) : composant du serveur (helpers.attackDot),
+  // le même que dans l'aperçu du village et les rapports. { win|partial|loss|spy: { html, label } }
+  const LAST = boot.attackDots || {};
+  const HAUL = { full: 'butin plein', partial: 'butin partiel' };
+  const lastDot = (last) => LAST[last.result].html;
+  // Note du carnet sur ce village : petite feuille en haut à gauche de la case.
+  const NOTE_ICON = '<svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8 12h8M8 16h6"/></svg>';
+
   function villageHtml(c) {
     const relationHasDot = ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind);
     // Une seule pastille par village : le marquage personnalisé remplace la relation. Les barbares,
@@ -106,7 +114,8 @@
       : relationHasDot ? '<span class="village-relation-dot"></span>' : '';
     const fav = c.fav ? '<span class="pointer-events-none absolute bottom-0 left-0.5 z-[6] text-xs leading-none text-map-label-me [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
     const barb = c.kind === 'barb' ? ' group-data-[layer-nobarb]/map:hidden' : '';
-    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span></span>${fav}`;
+    const note = c.note ? `<span class="pointer-events-none absolute top-0.5 left-0.5 z-[6] flex border border-black bg-[#f4e8c8] p-px text-[#3a2812] shadow-[1px_1px_0_#000]" title="Note">${NOTE_ICON}</span>` : '';
+    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span>${note}</span>${fav}`;
   }
 
   function render() {
@@ -436,6 +445,19 @@
     const mor = tip.querySelector('[data-tip="morale"]');
     if (mor) mor.classList.toggle('text-blood-450', Boolean(d.morale) && d.morale !== '100 %');
     show('morale', Boolean(d.morale));
+    const lastCell = tip.querySelector('[data-tip="last"]');
+    const hasLast = Boolean(d.last && LAST[d.last.result]);
+    if (lastCell) {
+      lastCell.innerHTML = hasLast
+        ? `<span class="inline-flex items-center gap-1.5">${lastDot(d.last)}<span class="font-semibold">${esc(LAST[d.last.result].label)}</span><span class="text-parchment-400 tabular-nums">${esc(d.last.at)}</span>${d.last.haul ? `<span class="text-parchment-400">· ${HAUL[d.last.haul]}</span>` : ''}</span>`
+        : '';
+    }
+    show('last', hasLast);
+    const notesCell = tip.querySelector('[data-tip="notes"]');
+    if (notesCell) {
+      notesCell.innerHTML = (d.notes || []).map((n) => `<span class="block whitespace-pre-line wrap-break-word text-parchment-200">${n.author ? `<b class="font-semibold text-gold-200">${esc(n.author)} :</b> ` : ''}${esc(n.text)}</span>`).join('');
+    }
+    show('notes', Boolean(d.notes && d.notes.length));
     tip.classList.remove('hidden');
     placeBeside(tip, el);
   }
@@ -490,9 +512,11 @@
     const btn = 'pointer-events-auto absolute flex size-[30px] -translate-1/2 cursor-pointer items-center justify-center border-2 border-black bg-panel-top no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000] transition hover:scale-110 hover:bg-head-dark hover:text-parchment-100';
     const svg = (ic) => `<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MENU_ICONS[ic]}</svg>`;
     const POINT = { market: 0, profile: 1, message: 2, star: 3, troops: 4 };
+    // Au centre, sur le village, comme « Informations » sur GT : aperçu du village (fiche, trajets, derniers rapports).
+    actions.push(['eye', 'Aperçu du village', `${base}/villages/${d.id}`, 'middle']);
     radial.querySelector('[data-radial-items]').innerHTML = actions.map(([ic, label, href, kind]) => {
       const a = (-90 + POINT[ic] * 72) * (Math.PI / 180);
-      const at = `left:${Math.round(Math.cos(a) * rx)}px;top:${Math.round(Math.sin(a) * ry)}px`;
+      const at = kind === 'middle' ? 'left:0;top:0' : `left:${Math.round(Math.cos(a) * rx)}px;top:${Math.round(Math.sin(a) * ry)}px`;
       const cls = `${btn} ${MENU_COLORS[ic] || 'text-parchment-300'}`;
       const attrs = `style="${at}" title="${esc(label)}" aria-label="${esc(label)}" data-radial-action="${esc(label)}"`;
       if (kind === 'post') return `<form method="post" action="${esc(href)}" class="contents"><input type="hidden" name="_csrf" value="${esc(frame.dataset.csrf)}"><button class="${cls}" ${attrs}>${svg(ic)}</button></form>`;

@@ -1,26 +1,79 @@
-<%- include('partials/header', { title: 'Messages' }) %>
-<div class="flex flex-col gap-5">
-  <section class="<%= ui.panel %>">
-    <%- panelHead('Messages', `<a href="/village/${ctx.village.id}/messages/new" class="${btn('gold', 'sm')}">${icon('plus', 'size-3.5', 2.4)}Nouveau message</a>`, { tag: 'h1' }) %>
-    <% if (!inbox.length) { %>
-      <p class="px-4.5 py-4 text-parchment-500">Aucune conversation.</p>
-    <% } else { %>
-      <ul>
-        <% for (const { conversation: c, unread, others } of inbox) { %>
-          <li class="border-b border-bronze-700/35 last:border-b-0">
-            <a href="/village/<%= ctx.village.id %>/messages/<%= c.id %>" class="group flex min-h-14 items-center gap-3 px-4.5 py-2.5 no-underline transition hover:bg-gold-400/5 <%= unread ? 'bg-gold-400/5' : '' %>">
-              <span class="<%= unread ? ui.medallionGold : ui.medallion %> size-9 <%= unread ? '' : 'opacity-70' %>"><%- icon('messages', 'size-4') %></span>
-              <span class="flex min-w-0 flex-1 flex-col">
-                <span class="truncate transition group-hover:text-gold-200 <%= unread ? 'font-semibold text-parchment-100' : 'text-parchment-300' %>"><%= c.subject %></span>
-                <span class="truncate text-[13px] text-parchment-500">avec <%= others.join(', ') || 'personne' %></span>
-              </span>
-              <% if (unread) { %><span class="size-2 shrink-0 rotate-45 border border-black bg-gold-200" title="Non lu"></span><span class="sr-only">Non lu</span><% } %>
-              <span class="shrink-0 text-right text-[13px] text-parchment-500 tabular-nums"><%= when(c.lastMessageAt, now) %></span>
-            </a>
-          </li>
+<%- include('partials/header', { title: tab === 'circular' ? 'Mail circulaire' : 'Messages' }) %>
+<% const m = `/village/${ctx.village.id}/messages`;
+   const q = tab === 'inbox' ? inbox.search : '';
+   // Colonne « Joueur » : l'autre participant, le groupe d'un courrier circulaire ou « Chat de groupe ».
+   const who = (row) => {
+     if (row.group) return `${icon('tribe', 'size-3.5', 2)}<span>${row.author && row.author.id !== ctx.village.playerId ? `${playerLink(ctx.village.id, row.author)} · ` : ''}${esc(row.group)}</span>`;
+     if (row.others.length > 1) return `${icon('tribe', 'size-3.5', 2)}<span title="${esc(row.others.map((o) => o.name).join(', '))}">Chat de groupe</span>`;
+     if (row.others.length === 1) return `${icon('profile', 'size-3.5', 2)}${playerLink(ctx.village.id, row.others[0])}`;
+     return '<span class="text-parchment-500">Personne</span>';
+   }; %>
+<%- include('partials/messages-start', { tab, q }) %>
+
+<% if (tab === 'inbox') { %>
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-bronze-900 px-3 py-2">
+    <span class="inline-flex items-center gap-2 font-semibold text-parchment-100"><%- icon('messages', 'size-4', 2) %>Boîte de réception
+      <% if (q) { %><span class="font-normal text-parchment-400">· recherche « <%= q %> » (<%= inbox.total %>) <a href="<%= m %>" class="<%= ui.link %> text-sm">effacer</a></span><% } %>
+    </span>
+    <%- include('partials/pager', { page: inbox.page, pages: inbox.pages, href: (n) => `${m}?page=${n}${q ? `&q=${encodeURIComponent(q)}` : ''}` }) %>
+  </div>
+  <% if (!inbox.rows.length) { %>
+    <p class="px-4.5 py-4 text-parchment-500"><%= q ? 'Aucun message ne correspond à cette recherche.' : 'Aucun message.' %></p>
+  <% } else { %>
+    <form id="messages-select" method="post" action="<%= m %>/delete" data-confirm="Effacer les conversations sélectionnées ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %>">
+        <thead><tr><th class="w-8"></th><th>Objet</th><th>Joueur</th><th class="text-right">Dernier message</th></tr></thead>
+        <tbody>
+        <% for (const row of inbox.rows) { const c = row.conversation; %>
+          <tr class="<%= row.unread ? 'font-semibold' : '' %>">
+            <td><input type="checkbox" name="ids" value="<%= c.id %>" form="messages-select" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner « <%= c.subject %> »"></td>
+            <td class="min-w-56">
+              <a href="<%= m %>/<%= c.id %>" class="inline-flex items-center gap-2 no-underline <%= row.unread ? 'text-gold-200' : 'text-parchment-200' %> hover:text-parchment-50">
+                <span class="<%= row.unread ? 'text-gold-400' : 'text-parchment-600' %>"><%- icon('messages', 'size-3.5', 2) %></span>
+                <span class="wrap-break-word"><%= c.subject %><% if (row.count > 1) { %> <span class="font-normal text-parchment-500 tabular-nums">(<%= row.count %>)</span><% } %></span>
+                <% if (row.unread) { %><span class="sr-only">(non lu)</span><% } %>
+              </a>
+            </td>
+            <td class="whitespace-nowrap text-parchment-300"><span class="inline-flex items-center gap-1.5 font-normal"><%- who(row) %></span></td>
+            <td class="text-right whitespace-nowrap text-[13px] font-normal text-parchment-400 tabular-nums"><%= whenShort(c.lastMessageAt, now) %></td>
+          </tr>
         <% } %>
-      </ul>
-    <% } %>
-  </section>
-</div>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-900 px-3 py-2.5">
+      <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-parchment-300"><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="messages-select">Sélectionner tout</label>
+      <button class="<%= btn('danger', 'sm') %>" form="messages-select"><%- icon('trash', 'size-3.5', 2) %>Effacer</button>
+    </div>
+  <% } %>
+  <form method="post" action="<%= m %>/settings" class="flex flex-wrap items-center gap-2 border-t border-bronze-900 px-3 py-2.5 text-sm"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label for="per-page" class="text-parchment-400">Messages par page :</label>
+    <input id="per-page" type="number" name="perPage" min="<%= perPageRange.min %>" max="<%= perPageRange.max %>" value="<%= perPage %>" class="<%= ui.inputSm %> w-20 text-right tabular-nums">
+    <button class="<%= btn('dark', 'sm') %>">Sauvegarder</button>
+  </form>
+<% } else { %>
+  <div class="flex items-center gap-2 border-b border-bronze-900 px-3 py-2 font-semibold text-parchment-100"><%- icon('tribe', 'size-4', 2) %>Mails circulaires envoyés</div>
+  <% if (!circulars.length) { %>
+    <p class="px-4.5 py-4 text-parchment-500">Vous n'avez envoyé aucun mail circulaire. Dans « Écrire un message », le bouton Tribu du champ À envoie à toute la tribu ou à ses ducs, barons et diplomates.</p>
+  <% } else { %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %>">
+        <thead><tr><th>Objet</th><th>Destinataires</th><th class="text-right">Envoyé</th><th class="text-right">Dernier message</th></tr></thead>
+        <tbody>
+        <% for (const row of circulars) { const c = row.conversation; %>
+          <tr>
+            <td class="min-w-56"><a href="<%= m %>/<%= c.id %>" class="<%= ui.linkPlain %> wrap-break-word"><%= c.subject %><% if (row.count > 1) { %> <span class="text-parchment-500 tabular-nums">(<%= row.count %>)</span><% } %></a></td>
+            <td class="whitespace-nowrap text-parchment-300"><%= row.group %> <span class="text-parchment-500 tabular-nums">(<%= row.others.length %> joueur<%= row.others.length > 1 ? 's' : '' %>)</span></td>
+            <td class="text-right whitespace-nowrap text-[13px] text-parchment-400 tabular-nums"><%= whenShort(c.createdAt, now) %></td>
+            <td class="text-right whitespace-nowrap text-[13px] text-parchment-400 tabular-nums"><%= whenShort(c.lastMessageAt, now) %></td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+<% } %>
+
+<%- include('partials/messages-end') %>
 <%- include('partials/footer') %>

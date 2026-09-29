@@ -31,7 +31,9 @@ class VictoryService {
     for (const v of villages) {
       const owner = scope === 'tribe' ? v.Player.Tribe : v.Player;
       if (!owner) continue;
-      const row = rows.get(owner.id) || { id: owner.id, name: owner.tag ? `[${owner.tag}] ${owner.name}` : owner.name, villages: 0, points: 0 };
+      const row = rows.get(owner.id) || {
+        id: owner.id, name: owner.tag ? `[${owner.tag}] ${owner.name}` : owner.name, tag: owner.tag || null, label: owner.name, villages: 0, points: 0,
+      };
       row.villages += 1;
       row.points += v.points;
       rows.set(owner.id, row);

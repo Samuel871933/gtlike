@@ -40,6 +40,8 @@ class VillageService {
     const villageBonus = await KnightSkillService.villageBonuses(village, cfg, t);
     const state = new VillageState({ ...village.get({ plain: true }), villageBonus }, cfg);
     const finished = state.applyBuildOrders(buildOrders, now);
+    // Milice arrivée à échéance (accrue la renvoie déjà quand l'échéance tombe dans l'intervalle).
+    if (state.militiaUntil && now >= state.militiaUntil) state.dismissMilitia();
     const updates = state.applyRecruitOrders(recruitOrders, now);
     if (KnightSkillService.enabled(cfg)) await KnightSkillService.finishTraining(village, state, now, t);
     await require('./ScavengeService').applyFinished(village, state, cfg, now, t);
@@ -175,14 +177,7 @@ class VillageService {
     if (ctx.buildOrders.length >= cfg.buildQueueSlots) option.blockers.push('La file de construction est pleine');
     if (!state.canAfford(option.cost)) {
       option.lacksResources = true;
-      // Heure à laquelle la production couvrira le coût (comme « Ressources disponibles … » sur GT).
-      const prod = state.productionPerHour();
-      const waits = ['wood', 'stone', 'iron'].map((r) => {
-        const missing = option.cost[r] - state.resources[r];
-        return missing <= 0 ? 0 : prod[r] > 0 ? (missing / prod[r]) * 3600 : Infinity;
-      });
-      const wait = Math.max(...waits);
-      if (Number.isFinite(wait)) option.availableAt = new Date(ctx.now.getTime() + Math.ceil(wait) * 1000);
+      option.availableAt = state.affordableAt(option.cost, ctx.now);
     }
     return option;
   }
@@ -423,7 +418,7 @@ class VillageService {
       let total = 0;
       const units = { ...ctx.state.units };
       for (const [id, raw] of Object.entries(counts || {})) {
-        if (!registry.UNITS.has(id) || id === 'knight' || id === 'snob') continue;
+        if (!registry.UNITS.has(id) || id === 'knight' || id === 'snob' || id === 'militia') continue;
         const n = Math.floor(Number(raw));
         if (!Number.isFinite(n) || n <= 0) continue;
         if ((units[id] || 0) < n) throw new GameError(`Pas assez de ${registry.unit(id).name} dans le village.`);
@@ -458,6 +453,7 @@ class VillageService {
           : missing.length ? missing.map((m) => `${registry.building(m.building).name} niveau ${m.level}`).join(' · ')
             : inProgress ? 'Une recherche est déjà en cours'
               : !state.canAfford(type.research) ? 'Ressources insuffisantes' : null;
+      option.lacksResources = option.blocker === 'Ressources insuffisantes';
       return option;
     });
   }

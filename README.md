@@ -11,6 +11,8 @@ npm test
 npm run migrate    # applique les migrations (obligatoire en production)
 npm run migrate -- status | down | create nom-de-la-migration
 npm run populate   # monde « speed » : 1000 joueurs fictifs, tribus, barbares (-- <monde> <nombre> [--reset])
+node scripts/seed-tribes.js [monde] [nombre]   # range les joueurs sans tribu dans des tribus de test (speed, 12)
+node scripts/seed-market.js [monde] [joueur]   # anime le marché autour d'un joueur : offres, acceptations, livraisons
 ```
 
 Le style est uniquement en Tailwind, sans CSS maison : [src/styles/app.css](src/styles/app.css) ne contient que
@@ -62,7 +64,7 @@ maquettes/           Maquette de référence de l'interface (bundle HTML autonom
 
 Organisation reprise de Guerre Tribale, habillage de la maquette `maquettes/GTLike.html` (style « BD » : encre
 noire, rouge sang et bronze, aplats et ombres portées, polices Marcellus (titres), Cinzel (logo) et Barlow Semi Condensed ; casse normale et graisses moyennes, capitales réservées aux tags). En-tête collant :
-menu principal (Aperçu, Carte, Rapports, Messages, Tribu, Classement, Profil ; joueur et rang, fin du monde, compte,
+menu principal (Aperçu, Carte, Rapports, Messages, Tribu, Classement, Profil ; joueur et rang, compte,
 déconnexion), puis barre du village (changement de village, attaques entrantes, barre rapide des bâtiments favoris — étoile sur le plan du village, au quartier général et sur chaque page de bâtiment ; par défaut les bâtiments construits,
 ressources, entrepôt, population).
 L'aperçu reprend la vue de la cité : barre de titre (coordonnées, continent, points, population, loyauté), plan vu de
@@ -79,7 +81,7 @@ reprend l'écran d'accueil de la maquette.
 Outils de la maquette : menu « Rapports » de l'en-tête (non-lus par catégorie) ; sur le plan du village, le survol
 d'un bâtiment affiche son encart (coût et durée du niveau suivant, bouton Améliorer), un clic ouvre sa page ; notifications
 en haut à droite. Sur la carte : infobulle au survol (dont la durée du trajet de chaque unité), actions rapides au clic sur un village d'un autre joueur, en cercle autour de la case comme sur GT
-(envoyer des troupes, profil, message, favoris, ressources ; menu pour ses propres villages), calques (marquages, influence de la tribu, zones ennemies,
+(envoyer des troupes, profil, message, favoris, ressources, et au centre l'aperçu du village ; menu pour ses propres villages), gommette de la dernière attaque sur chaque village attaqué (vert : aucune perte, jaune : pertes partielles, rouge : pertes totales, bleu : espionnage ; détail et butin dans l'infobulle et l'aperçu du village). Aperçu d'un village (`/villages/:id`, comme sur GT) : fiche avec mini-carte centrée, actions (centrer, envoyer des troupes avec un modèle d'armée, ressources, message, favoris, marquages), carnet de notes (icône sur la case de la carte, texte dans l'infobulle ; partage avec la tribu dans le compte, « Réglages tribu » : partager mes notes, afficher celles de la tribu), propres ordres en cours vers ce village (icône de l'unité la plus lente), durées de trajet et rapports sur ce village (sélection, suppression), calques (marquages, influence de la tribu, zones ennemies,
 barbares, quadrillage de 5 cases, frontières de continent) et tailles (carte 4×4 à 30×30, mini-carte 20×20 à 120×120) mémorisés
 sur le joueur, marquages de couleur par joueur, tribu ou village (menu d'un village, profil, panneau « Marquages »), recherche (joueur, village, tribu, coordonnées), favoris
 et « Ordres rapides » (modèles d'armée créés au point de ralliement, qui pré-remplissent l'envoi). Pages publiques :
@@ -97,7 +99,7 @@ rangée des sous-forums (par défaut Annonces, Attaque, Défense, Taverne, Vacan
 encadré « Nouveaux messages du forum » (5 par page, forums en sourdine exclus au choix), titre du sous-forum avec
 « Marquer le forum comme lu », « Marquer tous les forums comme lus » et « Ignorer le forum » (sourdine), boutons
 Nouveau sujet et Créer un sondage, recherche (titres et messages), tableau Sujets · Auteur · Dernier message ·
-Réponses. Sondages : 2 à 10 réponses, un vote par membre, modifiable. Les chefs gèrent les sous-forums (« Réglages du
+Réponses. Sondages : 2 à 10 réponses, un vote par membre, modifiable. Les modérateurs (ducs, barons, droit « Modérateur du forum ») gèrent les sous-forums (« Réglages du
 forum »), épinglent, verrouillent et suppriment n'importe quel message. Les sujets non lus alimentent la pastille de
 l'onglet Tribu. Un joueur qui quitte le monde laisse ses messages ; la dissolution de la tribu efface son forum.
 
@@ -166,16 +168,40 @@ et les pertes des éclaireurs.
 - Envoi direct vers n'importe quel village de joueur ; à la livraison, l'excédent au-delà de l'entrepôt est perdu.
 - Offres : lots « X contre Y », rapport maximal `1:market.maxRatio` (3). Ressources et marchands réservés
   à la publication, rendus au retrait. Accepter une offre envoie les marchands des deux côtés.
+- Page du marché comme sur GT (sans centre d'échange premium) : menu Échange, Créer des offres, Créer des offres en
+  masse, Envoyer des ressources, Transports, Statut des marchands, Toutes tes propres offres, Demande ; en-tête
+  Marchands, Quantité de transport maximale, Arrivant, Sortant.
+- Échange : Je veux / J'offre, durée de voyage maximale, filtre (tout, acceptables maintenant, ma tribu), ratio,
+  disponibilité, acceptation avec maximum, offres par page (réglage du joueur).
+- Créer une offre : préremplie de la ressource la plus abondante vers la plus rare ; limites durée maximale du voyage
+  et commerce de tribu uniquement (offre cachée et refusée à qui ne les respecte pas). Offres en masse : la même offre
+  depuis plusieurs villages. Demande : tes autres villages envoient des ressources au village courant.
 - Les livraisons et les mouvements de troupes sont traités dans un seul ordre chronologique.
+
+## Milice
+
+Module `features.militia` du monde (désactivé par défaut, actif sur `speed`), réglages `militia` : comme sur GT,
+depuis la ferme, un joueur qui a au plus `maxVillages` (2) villages appelle `perFarmLevel` (20) miliciens par niveau
+de ferme, jusqu'au niveau `maxFarmLevel` (15), soit 300 au plus. Ils restent `hours` (6) heures puis disparaissent ;
+la production des ressources est multipliée par `productionFactor` (0,5) pendant ce temps. Unité de get_unit_info :
+attaque 0, défense 15 / 45 cavalerie / 25 archers, population 0 ; elle ne quitte jamais le village (ni envoi, ni
+modèle, ni renvoi) et disparaît si le village est conquis. Points « adversaires vaincus » : ceux du lancier
+(aucune source officielle). [src/services/MilitiaService.js](src/services/MilitiaService.js)
 
 ## Tribus
 
-- Fondation (nom et tag uniques par monde), invitations, rôles fondateur / chef / membre,
-  exclusion selon le rang, passation du rôle de fondateur, dissolution au départ du dernier membre.
+- Fondation (nom et tag uniques par monde), invitations, dissolution au départ du dernier membre.
+- Titres et pouvoirs de GT ([src/game/tribeRights.js](src/game/tribeRights.js), tableau « Droits » de l'onglet Membres) :
+  duc (tous les droits, seul à nommer ducs et barons ; plusieurs ducs possibles, le dernier ne part qu'après en avoir
+  nommé un autre), baron (droits des membres, renvois, tous les autres droits), et pour les membres des droits à cocher :
+  inviter, diplomatie (description et relations), courrier circulaire, modérateur du forum (sous-forums, messages).
+  Les forums cachés et pour membres de confiance de GT ne sont pas repris.
 - Limite de membres `tribe.memberLimit` (25). `tribe.noHarm` (par défaut) : pas d'attaque entre membres.
   `tribe.supportOnlyTribe` : soutien réservé à ses villages, à sa tribu et aux tribus alliées.
 - Diplomatie à sens unique (allié, PNA, ennemi), visible sur la carte et le profil de la tribu.
-- Description, mur de messages interne, classement des tribus, export public `/worlds/:slug/map/ally.txt`.
+- Aperçu comme sur GT : fil des événements (anoblissements, diplomatie, membres, divers ; filtres, pagination) et
+  annonces internes (ducs et barons) ; onglet Propriétés pour la description publique. Pas de mur : les discussions
+  passent par le forum de tribu. Classement des tribus, export public `/worlds/:slug/map/ally.txt`.
 
 ## Villages barbares, messagerie, profils
 
@@ -185,7 +211,11 @@ et les pertes des éclaireurs.
   en montant surtout leurs mines, jusqu'à `barbarian.maxPoints` (1 500). La croissance est calculée
   au rafraîchissement du village ; la boucle de jeu les rafraîchit toutes les 10 minutes.
 - Renommer un village depuis son aperçu.
-- Messagerie privée : conversations jusqu'à 10 destinataires, réponses, non-lus, départ d'une conversation.
+- Messagerie agencée comme sur GT : menu Messages / Mail circulaire / Écrire un message, recherche (objet et texte).
+  Boîte de réception paginée (messages par page réglables, 12 par défaut) : Objet (nombre de messages) · Joueur (autre
+  participant, « Chat de groupe » ou groupe du mail circulaire) · Dernier message, sélection et effacement groupé.
+  Écrire : jusqu'à 10 pseudos, ou le menu « Tribu » du champ À : Tribu entière (mail circulaire, droit requis), Duc,
+  Baron, Diplomatie. « Mail circulaire » liste les mails circulaires envoyés.
 - Profil de chaque joueur, agencé comme sur Guerre Tribale : mini-carte de ses villages, fiche (points, rang,
   adversaires vaincus, tribu), actions (message, carte, invitation en tribu), villages par ordre alphabétique,
   texte personnel modifiable, succès par catégorie. Noms et tags sont cliquables partout dans le jeu.
@@ -207,7 +237,11 @@ lancier et porte-épée sans recherche ; la hache demande la forge 2. Durée div
 ## Compte : rapports, sommeil, vacances, paladin
 
 - Rapports : filtres (attaques, défenses, soutiens, commerce), pagination par 50, sélection multiple
-  (marquer lus / non lus, supprimer), « tout marquer comme lu », suppression depuis un rapport.
+  (marquer lus / non lus, supprimer), « tout marquer comme lu », suppression depuis un rapport, flèches vers le
+  rapport plus récent / plus ancien. Hors combats, en-tête Objet / Envoyé comme sur GT ; offre acceptée (Vendeur /
+  Acheteur avec leurs villages, « a vendu » / « a payé » par lots, heure d'arrivée du paiement, « Re-créer l'offre »
+  qui préremplit le marché), livraison (De / À, ressources livrées), succès (objectif atteint, palier suivant, palier
+  à droite, lien vers les succès du profil).
 - Mode sommeil (`sleep.active`, mondes speed) : délai d'activation, durée min/max, éveil minimal entre deux
   sommeils. Les attaques qui arrivent pendant le sommeil deviennent des visites ; un joueur endormi ne peut pas attaquer.
 - Mode vacances (`sitter`) : un joueur désigne un remplaçant du même monde, qui accepte puis joue ses villages
@@ -258,7 +292,7 @@ Classement « Adversaires vaincus » et exports `/worlds/:slug/map/kill_att.txt`
 ## Quitter un monde, supprimer son compte
 
 Mot de passe requis. Les villages redeviennent barbares (avec leurs troupes) ; files, troupes et marchands à
-l'extérieur, offres, rapports et invitations sont supprimés ; la tribu passe au meilleur chef (ou est dissoute).
+l'extérieur, offres, rapports et invitations sont supprimés ; le titre de duc passe à un baron, sinon au meilleur membre (ou la tribu est dissoute).
 Les messages déjà envoyés restent visibles, signés « Joueur supprimé ».
 
 ## Collecte
@@ -279,7 +313,11 @@ sans éclaireurs, béliers, catapultes ni nobles, sans annulation ; butin plafon
   `reductionPercent` % tous les `reductionEveryDays` jours (au plus `maxReductionPercent` %).
 
 Fin de partie annulée si la condition n'est plus remplie. Victoire : monde en paix (plus d'attaques), inscriptions
-fermées, succès « Vainqueur du monde », rapports à tous les joueurs. Page « Fin du monde » par monde.
+fermées, succès « Vainqueur du monde », rapports à tous les joueurs. La fin du monde est une entrée du menu des
+classements (`?type=victory`), nommée selon la condition (« Dominance du monde »…) : explication chiffrée, top des
+tribus, « Liste des conditions de fin de monde » en barres (âge, meneur, compte à rebours, votre tribu, votre
+contribution). Les seuils sont des paramètres du monde (`config.victory`, voir [scripts/seed.js](scripts/seed.js)),
+affichés dans « Réglages du monde ».
 
 ## Hors périmètre
 

@@ -1,6 +1,5 @@
 <%- include('partials/header', { title: tribe.name }) %>
 <%
-  const roleName = { founder: 'Fondateur', leader: 'Chef', member: 'Membre' };
   const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
   const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-semibold tracking-[0.02em]';
   const relBadge = {
@@ -8,7 +7,8 @@
     nap: 'border-rel-nap/60 bg-rel-nap/15 text-rel-nap',
     enemy: 'border-rel-enemy/60 bg-rel-enemy/15 text-rel-enemy',
   };
-  const roleTag = { founder: ui.tagGold, leader: ui.tagGold, member: ui.tagMuted };
+  // Titres en texte (les capitales des tags sont réservées au tag de la tribu).
+  const roleTag = { duke: 'font-semibold text-gold-200', baron: 'font-semibold text-gold-200', member: 'text-parchment-300' };
 %>
 <section class="<%= ui.panel %>">
   <%- panelHead(tribe.name, `<span class="${ui.tagGold}">${esc(tribe.tag)}</span>`, { tag: 'h1' }) %>
@@ -36,12 +36,12 @@
     <%- panelHead('Membres', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${members.length}</span>`) %>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %>">
-        <thead><tr><th>Joueur</th><th>Rôle</th><th class="text-right">Points</th><th class="text-right">Villages</th></tr></thead>
+        <thead><tr><th>Joueur</th><th>Titre</th><th class="text-right">Points</th><th class="text-right">Villages</th></tr></thead>
         <tbody>
         <% for (const m of members) { %>
           <tr class="<%= m.id === ctx.village.playerId ? ui.rowActive : '' %>">
             <td class="font-semibold"><a href="/village/<%= ctx.village.id %>/players/<%= m.id %>" class="<%= ui.linkPlain %>"><%= m.name %></a></td>
-            <td><span class="<%= roleTag[m.tribeRole] %>"><%= roleName[m.tribeRole] %></span></td>
+            <td><span class="<%= roleTag[m.tribeRole] %>"><%= tribeRights.TITLES[m.tribeRole] %></span></td>
             <td class="text-right font-semibold tabular-nums"><%= num(m.points) %></td>
             <td class="text-right tabular-nums"><%= m.villageCount %></td>
           </tr>

@@ -5,7 +5,9 @@
 // Le décor (herbe, forêts, collines, lacs) ne transite pas : il est calculé par le navigateur.
 
 const { Op, fn, col } = require('sequelize');
-const { Player, Village, Tribe, User } = require('../models');
+const { Player, Village, Tribe, User, LastAttack } = require('../models');
+const VillageNoteService = require('../services/VillageNoteService');
+const { whenShort } = require('./helpers');
 const { villageDesignFor, DEFAULT_VILLAGE_DESIGN } = require('./villageDesigns');
 const TribeService = require('../services/TribeService');
 const MarkerService = require('../services/MarkerService');
@@ -46,7 +48,7 @@ function kindOf(vc, v) {
 const markOf = (vc, v) => MarkerService.colorOf(vc.colors, v);
 
 /** Un village tel que l'affichent la case, l'infobulle et le menu d'actions. */
-function cellOf(vc, v, tribePoints) {
+function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map()) {
   const kind = kindOf(vc, v);
   const p = v.Player;
   const t = p && p.Tribe;
@@ -63,7 +65,17 @@ function cellOf(vc, v, tribePoints) {
     mark: markOf(vc, v),
     // Morale de tes attaques contre ce joueur (rien contre les barbares et tes propres villages).
     morale: vc.moraleOf && p && kind !== 'own' && kind !== 'current' ? `${Math.round(vc.moraleOf(p.points) * 100)} %` : '',
+    // Dernière attaque du joueur sur ce village (gommette et infobulle, comme sur GT) : résultat, butin, date, rapport.
+    last: lastOf(lastAttacks.get(v.id)),
+    // Notes visibles sur ce village (la tienne, celles que ta tribu partage) : icône sur la case, texte dans l'infobulle.
+    note: notes.has(v.id),
+    notes: (notes.get(v.id) || []).map((n) => ({ author: n.mine ? '' : n.author, text: n.text.length > 280 ? `${n.text.slice(0, 279)}…` : n.text })),
   };
+}
+
+function lastOf(a) {
+  if (!a) return null;
+  return { result: a.result, haul: a.haul, at: whenShort(a.happenedAt), reportId: a.reportId };
 }
 
 /** Villages d'un secteur (sx, sy : numéros de secteur, 20 cases de côté). */
@@ -86,7 +98,12 @@ async function sector(vc, sx, sy) {
     const sums = await Player.findAll({ where: { tribeId: tribeIds }, attributes: ['tribeId', [fn('SUM', col('points')), 'total']], group: ['tribeId'], raw: true });
     for (const r of sums) tribePoints.set(r.tribeId, Number(r.total));
   }
-  return { sx, sy, cells: villages.map((v) => cellOf(vc, v, tribePoints)) };
+  const attacks = villages.length
+    ? await LastAttack.findAll({ where: { playerId: vc.player.id, villageId: villages.map((v) => v.id) }, attributes: ['villageId', 'result', 'haul', 'happenedAt', 'reportId'] })
+    : [];
+  const lastAttacks = new Map(attacks.map((a) => [a.villageId, a]));
+  const notes = await VillageNoteService.visible(vc.player, villages.map((v) => v.id));
+  return { sx, sy, cells: villages.map((v) => cellOf(vc, v, tribePoints, lastAttacks, notes)) };
 }
 
 /** Secteurs couvrant un rectangle de cases (bornes incluses). */

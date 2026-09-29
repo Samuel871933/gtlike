@@ -1,6 +1,6 @@
 'use strict';
 
-// Forum de tribu : réservé aux membres, sous-forums gérés par les chefs, non-lus, verrouillage, dissolution.
+// Forum de tribu : réservé aux membres, sous-forums gérés par les modérateurs (duc, baron, droit de modérateur), non-lus, verrouillage, dissolution.
 
 process.env.SQLITE_STORAGE = ':memory:';
 delete process.env.DATABASE_URL;
@@ -40,12 +40,12 @@ let thread;
 const DEFAULTS = ['Annonces', 'Attaque', 'Défense', 'Taverne', 'Vacances', 'Suggestions'];
 const names = async (playerId) => (await TribeForumService.overview(playerId)).sections.map((s) => s.section.name);
 
-test('une nouvelle tribu a ses sous-forums par défaut ; seuls les chefs les gèrent', async () => {
+test('une nouvelle tribu a ses sous-forums par défaut ; seuls les modérateurs les gèrent', async () => {
   const { sections, manager } = await TribeForumService.overview(p.Membre.id);
   assert.equal(manager, false);
   assert.deepEqual(sections.map((s) => s.section.name), DEFAULTS);
   general = sections.find((s) => s.section.name === 'Taverne').section;
-  await assert.rejects(TribeForumService.createSection(p.Membre.id, 'Secret'), /Réservé aux chefs/);
+  await assert.rejects(TribeForumService.createSection(p.Membre.id, 'Secret'), /modérateur du forum/);
   const ops = await TribeForumService.createSection(p.Chef.id, 'Opérations');
   await TribeForumService.moveSection(p.Chef.id, ops.id, -1);
   assert.deepEqual(await names(p.Chef.id), [...DEFAULTS.slice(0, 5), 'Opérations', 'Suggestions']);
@@ -86,7 +86,7 @@ test('sujet, réponse et non-lus', async () => {
 });
 
 test('verrouillage, épinglage et droits de suppression', async () => {
-  await assert.rejects(TribeForumService.setFlag(p.Membre.id, thread.id, 'locked', true), /Réservé aux chefs/);
+  await assert.rejects(TribeForumService.setFlag(p.Membre.id, thread.id, 'locked', true), /modérateur du forum/);
   await TribeForumService.setFlag(p.Chef.id, thread.id, 'locked', true);
   await assert.rejects(TribeForumService.reply(p.Membre.id, thread.id, { body: 'Et moi ?' }, at(100)), /verrouillé/);
   await TribeForumService.reply(p.Chef.id, thread.id, { body: 'Les chefs peuvent encore répondre.' }, at(100));

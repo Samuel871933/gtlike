@@ -66,7 +66,10 @@
               <dt class="text-parchment-500">Propriétaire</dt><dd class="min-w-0"><span class="font-semibold" data-tip="owner"></span> <span class="text-parchment-400 tabular-nums" data-tip="ownerInfo"></span></dd>
               <dt class="text-parchment-500" data-tip-row="tribe">Tribu</dt><dd class="min-w-0" data-tip-row="tribe"><span class="font-semibold text-gold-200" data-tip="tribe"></span> <span data-tip="tribeName"></span> <span class="text-parchment-400 tabular-nums" data-tip="tribeInfo"></span></dd>
               <dt class="text-parchment-500" data-tip-row="morale">Morale</dt><dd class="font-semibold tabular-nums" data-tip-row="morale" data-tip="morale"></dd>
+              <dt class="text-parchment-500" data-tip-row="last">Dernière attaque</dt><dd class="min-w-0" data-tip-row="last" data-tip="last"></dd>
             </dl>
+            <%# Notes visibles sur ce village (la tienne, celles de la tribu si elles sont affichées), remplies par map.js. %>
+            <div class="hidden border-b border-bronze-900 px-2.5 py-1.5" data-tip-row="notes"><span class="text-parchment-500 underline">Carnet de notes :</span> <span data-tip="notes"></span></div>
             <%# Durée du trajet de chaque unité depuis le village courant (calculée par map.js avec la distance) : icône au-dessus, durée dessous. %>
             <%# Une seule rangée jusqu'à 10 unités, sinon deux rangées égales ; 50 px par colonne au moins pour « 0:00:00 ». %>
             <div class="grid gap-px bg-bronze-900 p-px" style="grid-template-columns: repeat(<%= paces.length <= 10 ? paces.length : Math.ceil(paces.length / 2) %>, minmax(50px, 1fr))" data-tip-travel>

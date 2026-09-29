@@ -79,11 +79,44 @@ test('messagerie : conversation à plusieurs, non-lus, réponses, départ', asyn
 
   await MessageService.reply(p.Bob.id, conv.id, 'Oui !', { now: new Date(T0.getTime() + 2000) });
   assert.equal(await MessageService.unreadCount(p.Alice.id), 1);
-  const [entry] = await MessageService.inbox(p.Alice.id);
+  const { rows: [entry] } = await MessageService.inbox(p.Alice.id);
   assert.equal(entry.unread, true);
-  assert.deepEqual(entry.others.sort(), ['Bob', 'Carol']);
+  assert.equal(entry.count, 2);
+  assert.equal(entry.author.name, 'Alice');
+  assert.deepEqual(entry.others.map((o) => o.name).sort(), ['Bob', 'Carol']);
+  assert.equal((await MessageService.inbox(p.Alice.id, { search: 'ATTAQUE' })).total, 1, 'recherche dans le texte');
+  assert.equal((await MessageService.inbox(p.Alice.id, { search: 'plan' })).total, 1, "recherche dans l'objet");
+  assert.equal((await MessageService.inbox(p.Alice.id, { search: 'rien' })).total, 0);
 
   await assert.rejects(MessageService.read(p.Carol.id, 999), /introuvable/);
   for (const name of ['Alice', 'Bob', 'Carol']) await MessageService.leave(p[name].id, conv.id);
   assert.equal(await Conversation.count(), 0, 'supprimée quand tout le monde est parti');
+});
+
+test('courrier circulaire : groupes de la tribu, droit requis pour la tribu entière, liste des envois', async () => {
+  const TribeService = require('../src/services/TribeService');
+  const { Player } = require('../src/models');
+  await TribeService.create(p.Alice.id, { name: 'Les Hiboux', tag: 'HIB' });
+  for (const name of ['Bob', 'Carol']) {
+    await TribeService.invite(p.Alice.id, name);
+    const [inv] = await TribeService.invitesFor(p[name].id);
+    await TribeService.acceptInvite(p[name].id, inv.id);
+  }
+  const bob = await Player.findByPk(p.Bob.id);
+  assert.deepEqual(MessageService.groupsFor(bob).filter((g) => !g.blocker).map((g) => g.id), ['duke', 'baron', 'diplomacy'], 'sans le droit : pas de tribu entière');
+  assert.ok(MessageService.groupsFor({ tribeId: null }).every((g) => g.blocker), 'sans tribu : menu grisé');
+  await assert.rejects(MessageService.start(p.Bob.id, { group: 'tribe', subject: 'x', body: 'y' }), /courrier circulaire/);
+  await assert.rejects(MessageService.start(p.Bob.id, { group: 'diplomacy', subject: 'x', body: 'y' }), /Aucun autre membre/);
+
+  const toDuke = await MessageService.start(p.Bob.id, { group: 'duke', subject: 'Question', body: 'Qui attaque ?' }, { now: T0 });
+  assert.equal(await MessageService.unreadCount(p.Alice.id), 1);
+  assert.equal(await MessageService.unreadCount(p.Carol.id), 0);
+
+  const all = await MessageService.start(p.Alice.id, { group: 'tribe', subject: 'Opération', body: 'Tous à 20h' }, { now: T0 });
+  assert.equal(await MessageService.unreadCount(p.Carol.id), 1);
+  const sent = await MessageService.circulars(p.Alice.id);
+  assert.deepEqual(sent.map((c) => [c.conversation.id, c.group, c.others.length]), [[all.id, 'Tribu entière', 2]]);
+
+  assert.equal(await MessageService.leaveMany(p.Alice.id, [toDuke.id, all.id, 999]), 2);
+  assert.equal((await MessageService.inbox(p.Alice.id)).total, 0);
 });

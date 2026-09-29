@@ -38,7 +38,7 @@
         <%# Les six niveaux, comme sur la carte (herbe de la carte, cases de 53 × 38). %>
         <div class="m-1 grid grid-cols-3 gap-1 border-2 border-black bg-[url(/img/map/terrain-grass.webp)] bg-size-[220px] p-2">
           <% for (let level = 1; level <= 6; level++) { %>
-            <img src="/img/map/villages/<%= d.id %>/level-<%= level %>.png" alt="" class="aspect-53/38 w-full object-contain drop-shadow-[0_2px_1px_rgb(0_0_0/0.8)] <%= level <= 2 ? 'p-[9%]' : '' %>" loading="lazy">
+            <img src="/img/map/villages/<%= d.id %>/level-<%= level %>.png<%= d.id === 'rome-antique' ? '?v=3' : d.id === 'egyptien' ? (level === 5 ? '?v=2' : '?v=1') : '' %>" alt="" class="aspect-53/38 w-full object-contain drop-shadow-[0_2px_1px_rgb(0_0_0/0.8)] <%= level <= 2 ? 'p-[9%]' : '' %>" loading="lazy">
           <% } %>
         </div>
         <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
@@ -181,6 +181,32 @@
         </ul>
       <% } %>
     </div>
+  </section>
+
+  <%# Réglages tribu : une ligne par élément partageable, colonnes « Partager avec la tribu » et « Afficher la tribu »
+      (liste TRIBE_SHARING de src/services/VillageNoteService.js). %>
+  <section class="<%= ui.panel %>" id="reglages-tribu">
+    <%- panelHead('Réglages tribu') %>
+    <form method="post" action="/village/<%= vid %>/account/tribe-settings"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Élément</th><th class="w-32 text-center">Partager avec la tribu</th><th class="w-32 text-center">Afficher la tribu</th></tr></thead>
+          <tbody>
+            <% for (const item of tribeSharing) { %>
+              <tr>
+                <td><span class="font-semibold text-parchment-100"><%= item.label %></span><span class="block text-[13px] text-parchment-500"><%= item.text %></span></td>
+                <td class="text-center"><input type="checkbox" name="<%= item.share %>" value="1" class="<%= ui.checkbox %>" aria-label="<%= item.label %> : partager avec la tribu" <%= player[item.share] ? 'checked' : '' %>></td>
+                <td class="text-center"><input type="checkbox" name="<%= item.show %>" value="1" class="<%= ui.checkbox %>" aria-label="<%= item.label %> : afficher la tribu" <%= player[item.show] ? 'checked' : '' %>></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between gap-3 border-t border-bronze-900 px-3 py-2.5">
+        <span class="text-[13px] text-parchment-500"><%= player.tribeId ? '' : "Tu n'es dans aucune tribu : ces réglages serviront quand tu en rejoindras une." %></span>
+        <button class="<%= btn('dark', 'sm') %>">Enregistrer</button>
+      </div>
+    </form>
   </section>
 
   <section class="<%= ui.panel %>">

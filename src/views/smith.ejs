@@ -48,7 +48,7 @@
                 <form method="post" action="/village/<%= ctx.village.id %>/research" class="inline-flex flex-col items-end gap-1"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <input type="hidden" name="unit" value="<%= o.type.id %>">
                   <button class="<%= btn('gold', 'sm') %>" <%= o.blocker ? 'disabled' : '' %>>Rechercher</button>
-                  <% if (o.blocker) { %><span class="text-xs whitespace-nowrap text-blood-300"><%= o.blocker %></span><% } %>
+                  <% if (o.blocker) { %><span class="text-xs whitespace-nowrap text-blood-300"><%= o.lacksResources ? resourcesWhen(ctx.state, o.cost, now) : o.blocker %></span><% } %>
                 </form>
               <% } %>
             </td>

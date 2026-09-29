@@ -55,6 +55,12 @@ test('attaque d’un village barbare : combat, pillage, retour et rapport', asyn
   const report = await Report.findOne({ where: { playerId: a.playerId, type: 'attack' } });
   assert.equal(report.data.attackerWins, true);
   assert.equal(await Report.count({ where: { type: 'defense' } }), 0, 'pas de rapport pour les barbares');
+  // Gommette de la carte : dernière attaque sur ce village, butin plein.
+  const { LastAttack } = require('../src/models');
+  const last = await LastAttack.findOne({ where: { playerId: a.playerId, villageId: barb.id } });
+  assert.ok(['win', 'partial'].includes(last.result));
+  assert.equal(last.haul, 'full');
+  assert.equal(last.reportId, report.id);
 
   ctx = await VillageService.withVillage(a.id, async (c) => c, { now: cmd.arrivesAt });
   assert.equal(ctx.popUsed(), popBefore, 'les troupes en route comptent dans la ferme');
@@ -74,6 +80,10 @@ test('éclaireurs seuls : pas de combat, ressources et bâtiments visibles', asy
   const report = await Report.findOne({ where: { playerId: a.playerId }, order: [['id', 'DESC']] });
   assert.ok(report.data.intel.resources && report.data.intel.buildings);
   assert.equal(report.data.attackerWins, null);
+  const { LastAttack } = require('../src/models');
+  const last = await LastAttack.findOne({ where: { playerId: a.playerId, villageId: barb.id } });
+  assert.equal(last.result, 'spy', 'la dernière attaque remplace la précédente');
+  assert.equal(await LastAttack.count(), 1);
   await CommandService.processDue(new Date(cmd.arrivesAt.getTime() + 86400000), noLuck);
 });
 
@@ -113,4 +123,14 @@ test('soutien : stationné chez l’allié, défend, puis rappelé', async () =>
   assert.equal(await SupportStack.count(), 0);
   const back = await Command.findOne({ where: { type: 'return', originVillageId: a.id } });
   assert.equal(back.units.spear, stack.units.spear);
+});
+
+test('gommette de la dernière attaque : sans perte, pertes partielles, totales, espionnage ; butin', () => {
+  const { outcome } = require('../src/game/lastAttack');
+  const attack = (units, losses, loot = {}, carry = 0) => outcome({ attacker: { units, losses }, loot, carry });
+  assert.deepEqual(attack({ axe: 10 }, {}, { wood: 100, stone: 0, iron: 0 }, 100), { result: 'win', haul: 'full' });
+  assert.deepEqual(attack({ axe: 10 }, { axe: 3 }, { wood: 50 }, 100), { result: 'partial', haul: 'partial' });
+  assert.deepEqual(attack({ axe: 10, ram: 2 }, { axe: 10, ram: 2 }), { result: 'loss', haul: null });
+  assert.deepEqual(attack({ spy: 5 }, {}), { result: 'spy', haul: null });
+  assert.equal(attack({ spy: 5 }, { spy: 5 }).result, 'loss', 'éclaireurs tous tués');
 });

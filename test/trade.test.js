@@ -109,3 +109,41 @@ test('ordre chronologique : une livraison arrivée avant une attaque est pillée
   const { ctx } = await load(b.id, atk.arrivesAt);
   assert.equal(ret.loot.wood, ctx.state.storageCapacity(), `butin en bois : ${ret.loot.wood}`);
 });
+
+test('rapports de commerce : parties joueur / village, lots et arrivée du paiement', async () => {
+  const { Report } = require('../src/models');
+  const accepted = (await Report.findAll({ where: { type: 'trade' } })).find((r) => r.data.kind === 'offer');
+  assert.ok(accepted, "rapport d'offre acceptée au nouveau format");
+  assert.equal(accepted.title, `${accepted.data.buyer.playerName} a accepté votre offre`);
+  assert.ok(accepted.data.seller.villageId && accepted.data.buyer.x != null);
+  assert.equal(accepted.data.lots, 1);
+  assert.ok(accepted.data.sell.amount > 0 && accepted.data.buy.amount > 0);
+  assert.ok(new Date(accepted.data.arrivesAt) > accepted.happenedAt, 'le paiement arrive après l’acceptation');
+});
+
+test('limites d’une offre : tribu uniquement et durée maximale du voyage, cachées et refusées sinon', async () => {
+  const { Player } = require('../src/models');
+  const TribeService = require('../src/services/TribeService');
+  const now = at(200);
+  await Village.update({ wood: 20000, stone: 20000, iron: 20000, resourcesAt: now, buildings: { main: 5, farm: 10, storage: 25, market: 10 } }, { where: { id: [a.id, b.id] } });
+  await assert.rejects(TradeService.createOffer(a.id, { sellResource: 'wood', sellAmount: 1000, buyResource: 'iron', buyAmount: 1000, tribeOnly: '1' }, { now }), /aucune tribu/);
+
+  const tribe = await TribeService.create(a.playerId, { name: 'Marchands', tag: 'MAR' });
+  const tribal = await TradeService.createOffer(a.id, { sellResource: 'wood', sellAmount: 1000, buyResource: 'iron', buyAmount: 1000, tribeOnly: '1' }, { now });
+  const short = await TradeService.createOffer(a.id, { sellResource: 'stone', sellAmount: 1000, buyResource: 'iron', buyAmount: 1000, maxHours: 1 }, { now });
+  const seen = async () => VillageService.withVillage(b.id, (ctx) => TradeService.listOffers(ctx), { now });
+  const ids = (await seen()).map((r) => r.offer.id);
+  assert.ok(!ids.includes(tribal.id), 'offre de tribu cachée à un non-membre');
+  await assert.rejects(TradeService.acceptOffer(b.id, tribal.id, 1, { now }), /réservée à la tribu/);
+
+  const seconds = TradeService.travelSeconds(a, b, (await VillageService.withVillage(b.id, (ctx) => ctx.cfg, { now })));
+  if (seconds > 3600) {
+    assert.ok(!ids.includes(short.id), 'trop loin : cachée');
+    await assert.rejects(TradeService.acceptOffer(b.id, short.id, 1, { now }), /Trop loin/);
+  } else assert.ok(ids.includes(short.id));
+
+  await Player.update({ tribeId: tribe.id, tribeRole: 'member' }, { where: { id: b.playerId } });
+  const row = (await seen()).find((r) => r.offer.id === tribal.id);
+  assert.ok(row && row.sameTribe && row.max >= 1, 'visible et acceptable pour la tribu');
+  assert.equal((await VillageService.withVillage(b.id, (ctx) => TradeService.listOffers(ctx, { filter: 'tribe' }), { now })).every((r) => r.sameTribe), true);
+});

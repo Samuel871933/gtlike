@@ -29,6 +29,9 @@
     return parts.join(' · ');
   };
   const shown = allMoves ? moves : moves.slice(0, 9);
+  // Nos ordres, comme sur GT : icône de l'unité qui donne la vitesse du convoi (la plus lente, ou le paladin
+  // qu'un soutien accompagne), en plus du pictogramme du type d'ordre.
+  const paceOf = (c) => paceUnit(c.units, c.type);
   const qs = (o) => '?' + new URLSearchParams({ ...(view === 'list' ? { vue: 'liste' } : {}), ...o }).toString();
   const units = Object.entries(ctx.state.units).filter(([, n]) => n > 0);
   const unitCount = units.reduce((s, [, n]) => s + n, 0);
@@ -51,6 +54,14 @@
   ];
   const arrow = 'flex size-[26px] shrink-0 items-center justify-center border-2 border-black bg-night font-semibold text-gold-400 no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-700)] transition hover:bg-head-dark hover:text-parchment-100';
   const roleOf = (id) => { const u = registry.unit(id); return `Att. ${num(u.attack)} · Déf. ${num(u.defense)}`; };
+  // Encadré Troupes comme sur GT : une seule grille (icône, nombre, nom) pour que les colonnes s'alignent
+  // d'une ligne à l'autre, y compris dans les groupes « En soutien ici » et « Hors du village ».
+  const byOrder = (list) => Object.entries(list || {}).filter(([, n]) => n > 0).sort(([a], [b]) => [...registry.UNITS.keys()].indexOf(a) - [...registry.UNITS.keys()].indexOf(b));
+  const troopGroups = [
+    [null, byOrder(ctx.state.units)],
+    ['En soutien ici', byOrder(supportUnits)],
+    ['Hors du village', byOrder(ctx.awayUnits)],
+  ].filter(([label, list]) => !label || list.length);
 %>
 <div class="flex flex-wrap items-start gap-3.5">
   <div class="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5">
@@ -112,6 +123,8 @@
             <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] items-center border-b border-bronze-800 <%= i % 2 ? 'bg-row-alt' : '' %> hover:bg-row-hover">
               <div class="flex min-w-0 items-center gap-2 border-r border-bronze-900 px-2.5 py-[5px]">
                 <span class="flex size-[22px] shrink-0 items-center justify-center border-2 border-black text-night shadow-[2px_2px_0_#000] <%= st.box %>"><%- icon(st.icon, 'size-[13px]', 3.2) %></span>
+                <% const pace = dir === 'out' ? paceOf(c) : null; %>
+                <% if (pace) { %><span class="flex shrink-0 text-gold-400" title="Unité la plus lente : <%= pace.name %>"><%- unitIcon(pace.id, 'size-[18px]', 2) %></span><% } %>
                 <div class="min-w-0">
                   <div class="truncate font-semibold <%= dir === 'in' && c.type === 'attack' ? 'text-blood-500' : '' %>"><%= dir === 'in' ? (c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant') : verbs[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></div>
                   <% if (sub) { %><div class="truncate text-[11px] text-parchment-500" title="<%= sub %>"><%- subOf(m, true) %></div><% } %>
@@ -119,7 +132,7 @@
               </div>
               <div class="min-w-0 truncate border-r border-bronze-900 px-2.5 py-[5px]">
                 <a href="/village/<%= vid %>/map?x=<%= other.x %>&y=<%= other.y %>" class="<%= ui.linkPlain %>"><%= other.name %></a>
-                <span class="font-semibold text-gold-400 tabular-nums">(<%= other.x %>|<%= other.y %>)</span>
+                <span class="font-semibold text-gold-400 tabular-nums">(<%= other.x %>|<%= other.y %>) <%= continent(other.x, other.y) %></span>
               </div>
               <span class="border-r border-bronze-900 px-2.5 py-[5px] text-parchment-500 tabular-nums"><%= whenShort(c.arrivesAt, now) %></span>
               <span class="px-2.5 py-[5px] text-right text-[15px] font-semibold tabular-nums <%= left < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration(left) %></span>
@@ -151,7 +164,7 @@
         <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; const pct = Math.min(100, (value / cap) * 100); %>
           <div>
             <div class="flex items-center gap-1.5">
-              <span class="<%= r.text %>"><%- icon(r.icon, 'size-3.5', 2) %></span>
+              <span><%- resourceIcon(r.id) %></span>
               <span class="flex-1"><%= r.label %></span><span class="font-semibold tabular-nums"><%= num(prod[r.id]) %></span>
             </div>
             <div class="mt-[3px] h-1 border border-bronze-800 bg-night"><div class="h-full <%= pct >= 70 ? 'bg-blood-450' : 'bg-bronze-500' %>" style="width: <%= pct.toFixed(1) %>%"></div></div>
@@ -227,22 +240,15 @@
     <%# Troupes %>
     <section class="<%= ui.panel %>">
       <%- panelHead('Troupes', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${num(unitCount)} au village</span>`) %>
-      <div class="py-1">
-        <% if (!units.length) { %><p class="px-2.5 py-1.5 text-[13px] text-parchment-500">Aucune unité au village.</p><% } %>
-        <% for (const [id, n] of units) { %>
-          <div class="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-[3px] hover:bg-thead" title="<%= unitName(id) %>">
-            <span class="text-right text-base font-semibold text-parchment-100 tabular-nums"><%= num(n) %></span>
-            <span class="flex min-w-0 items-center gap-1.5 font-semibold"><span class="text-gold-400"><%- unitIcon(id, 'size-3.5', 2) %></span><span class="truncate"><%= unitName(id) %></span></span>
-            <span class="text-[11px] text-parchment-500 tabular-nums"><%= roleOf(id) %></span>
-          </div>
-        <% } %>
-        <% if (Object.keys(supportUnits).length) { %>
-          <p class="<%= ui.subLabel %> mt-1.5 px-2.5">En soutien ici</p>
-          <div class="px-2.5 py-1"><%- include('partials/units', { units: supportUnits, losses: null }) %></div>
-        <% } %>
-        <% if (Object.keys(ctx.awayUnits).length) { %>
-          <p class="<%= ui.subLabel %> mt-1.5 px-2.5">Hors du village</p>
-          <div class="px-2.5 py-1"><%- include('partials/units', { units: ctx.awayUnits, losses: null }) %></div>
+      <div class="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 px-2.5 py-1.5">
+        <% if (!units.length) { %><p class="col-span-3 py-0.5 text-[13px] text-parchment-500">Aucune unité au village.</p><% } %>
+        <% for (const [label, list] of troopGroups) { %>
+          <% if (label) { %><p class="<%= ui.subLabel %> col-span-3 mt-2 border-t border-bronze-800 pt-1.5"><%= label %></p><% } %>
+          <% for (const [id, n] of list) { %>
+            <span class="flex justify-center text-gold-400" title="<%= roleOf(id) %>"><%- unitIcon(id, 'size-4', 2) %></span>
+            <span class="text-right font-semibold text-parchment-100 tabular-nums"><%= num(n) %></span>
+            <span class="truncate py-[3px] text-parchment-200" title="<%= unitName(id) %> · <%= roleOf(id) %>"><%= unitName(id) %></span>
+          <% } %>
         <% } %>
       </div>
       <div class="flex flex-col gap-1.5 border-t border-bronze-800 px-2.5 py-2">

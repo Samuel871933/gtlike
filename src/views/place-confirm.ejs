@@ -27,7 +27,7 @@
         <tr><td class="<%= label %>">Arrivée</td><td class="tabular-nums" data-arrive-in="<%= plan.seconds * 1000 %>"><%= when(plan.arrivesAt, now) %></td></tr>
         <% if (isAttack) { %>
           <tr><td class="<%= label %>">Moral</td><td class="font-semibold tabular-nums"><%= Math.round(plan.morale * 100) %> %</td></tr>
-          <tr><td class="<%= label %>">Butin possible</td><td><span class="flex items-center gap-1.5 tabular-nums" title="Capacité de transport des troupes"><span class="text-gold-400"><%- icon('storage', 'size-3.5', 2) %></span><%= num(carry) %></span></td></tr>
+          <tr><td class="<%= label %>">Butin possible</td><td><span class="flex items-center gap-1.5 tabular-nums" title="Capacité de transport des troupes"><span><%- resourceIcon('storage') %></span><%= num(carry) %></span></td></tr>
         <% } %>
       </tbody>
     </table>

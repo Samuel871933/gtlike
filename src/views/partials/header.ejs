@@ -48,7 +48,8 @@
       <a href="<%= href %>" class="<%= navLink %> <%= active ? navOn : navOff %>"<%- active ? ' aria-current="page"' : '' %><%- menu ? ` data-menu-toggle="${menu}" aria-haspopup="true" aria-expanded="false"` : '' %>>
         <span class="text-gold-400"><%- icon(ic, 'size-4', 2.2) %></span><%= label %>
         <% if (badge) { %><span class="<%= badgeCls %>"><%= badge %></span><% } %>
-        <% if (menu) { %><span class="text-parchment-500"><%- icon('chevronDown', 'size-3', 3) %></span><% } %>
+        <%# Couleur du texte de l'onglet (claire sur l'onglet actif ou survolé, quel que soit le style de jeu). %>
+        <% if (menu) { %><span class="opacity-70"><%- icon('chevronDown', 'size-3', 3) %></span><% } %>
       </a>
     <% } %>
   </nav>
@@ -59,7 +60,6 @@
         <span class="text-[11px] text-parchment-500 tabular-nums">#<%= num(playerRank) %> · <%= num(player.points) %> pts</span>
       </a>
     <% } %>
-    <a href="<%= v %>/victory" class="<%= page === 'victory' ? ui.iconBtnOn : ui.iconBtn %> max-sm:hidden" title="Fin du monde" aria-label="Fin du monde"><%- icon('victory', 'size-4', 2.2) %></a>
     <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-4', 2.2) %></a>
     <%# Fausse déconnexion, comme sur Guerre Tribale : on quitte le monde et on revient au choix des mondes (la session reste ouverte). %>
     <a href="/worlds" class="<%= ui.iconBtn %>" title="Déconnexion : retour au choix des mondes" aria-label="Déconnexion"><%- icon('logout', 'size-4', 2.2) %></a>
@@ -67,7 +67,7 @@
 </div>
 
 <%
-  // Contenu des menus déroulants de la barre du haut (ouverts par game.js sous leur bouton).
+  // Contenu des menus déroulants de la barre du haut (ouverts au survol par game.js sous leur bouton ; le clic sur le bouton suit son lien).
   const menus = [['reports', 'Rapports', [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']]
     .map(([f, label]) => [`${v}/reports?filter=${f}`, label, unreadByFilter[f] || 0])]];
   if (player && player.tribeId) {
@@ -75,7 +75,6 @@
       [`${v}/tribe`, 'Aperçu', 0],
       [`${v}/tribe?tab=members`, 'Membres', 0],
       [`${v}/tribe?tab=diplomacy`, 'Diplomatie', 0],
-      [`${v}/tribe?tab=wall`, 'Mur', 0],
       [`${v}/tribe?tab=forum`, 'Forum', tribeForumUnread],
       [`${v}/tribes/${player.tribeId}`, 'Page publique', 0],
     ]]);
@@ -142,16 +141,16 @@
   <div class="flex min-w-0 flex-[0_1_auto] gap-[3px] overflow-x-auto [scrollbar-width:none]">
     <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; %>
       <a href="<%= bld(r.id) %>" class="<%= chip %>" title="<%= r.label %> · +<%= num(prod[r.id]) %>/h · entrepôt <%= num(cap) %>">
-        <span class="<%= r.text %>"><%- icon(r.icon, 'size-[15px]', 2) %></span>
+        <span><%- resourceIcon(r.id, 'size-5') %></span>
         <span class="text-sm font-semibold tabular-nums <%= value >= cap ? 'text-blood-450' : 'text-parchment-100' %>" data-res="<%= value %>" data-rate="<%= prod[r.id] %>" data-cap="<%= cap %>"
               data-at="<%= ctx.state.resourcesAt.getTime() %>"><%= num(value) %></span>
       </a>
     <% } %>
     <a href="<%= bld('storage') %>" class="<%= chip %>" title="Capacité de l'entrepôt">
-      <span class="text-gold-400"><%- icon('storage', 'size-[15px]', 2) %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(cap) %></span>
+      <span><%- resourceIcon('storage', 'size-5') %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(cap) %></span>
     </a>
     <a href="<%= bld('farm') %>" class="<%= chip %>" title="Population utilisée / capacité de la ferme">
-      <span class="text-pop"><%- icon('pop', 'size-[15px]', 2) %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(ctx.popUsed()) %>/<%= num(ctx.state.farmCapacity()) %></span>
+      <span><%- resourceIcon('pop', 'size-5') %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(ctx.popUsed()) %>/<%= num(ctx.state.farmCapacity()) %></span>
     </a>
   </div>
 </div>
@@ -176,7 +175,6 @@
       <%- lobbyLink('/forum', 'Forum', current === 'forum') %>
       <% if (w) { %>
         <%- lobbyLink(`/worlds/${w.slug}/ranking`, 'Classement', current === 'ranking') %>
-        <%- lobbyLink(`/worlds/${w.slug}/victory`, 'Fin du monde', current === 'victory') %>
         <%- lobbyLink(`/worlds/${w.slug}/play`, 'Jouer', false) %>
       <% } %>
       <%- lobbyLink('/account', 'Mon compte', current === 'account') %>
@@ -212,7 +210,7 @@
 <% if (ctx && ctx.world.endedAt) { %>
   <div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-2">
     <%- icon('victory', 'size-4') %><span class="font-semibold">Monde terminé :</span> <%= (ctx.world.victoryState || {}).winnerName %> a gagné. Le monde est en paix.
-    <a href="/village/<%= ctx.village.id %>/victory" class="<%= ui.link %> ml-auto">Détails</a>
+    <a href="/village/<%= ctx.village.id %>/ranking?type=victory" class="<%= ui.link %> ml-auto">Détails</a>
   </div>
 <% } %>
 <% if (asSitter) { %>

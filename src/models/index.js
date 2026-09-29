@@ -42,8 +42,25 @@ const Tribe = sequelize.define(
     name: { type: DataTypes.STRING(32), allowNull: false },
     tag: { type: DataTypes.STRING(6), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    // Annonces internes (encadré de l'aperçu, visible des seuls membres), distinctes de la description publique.
+    announcement: { type: DataTypes.TEXT, allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['worldId', 'tag'] }, { unique: true, fields: ['worldId', 'name'] }] },
+);
+
+/**
+ * Événement du fil de la tribu (aperçu comme sur GT) : `category` noble | diplomacy | members | misc, `type` précis
+ * (joined, conquered…) et `data` les noms utiles à l'affichage (joueurs, village, tribu), figés au moment des faits.
+ */
+const TribeEvent = sequelize.define(
+  'TribeEvent',
+  {
+    type: { type: DataTypes.STRING(20), allowNull: false },
+    category: { type: DataTypes.STRING(12), allowNull: false },
+    data: { type: DataTypes.JSON, allowNull: false },
+    happenedAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  { indexes: [{ fields: ['tribeId', 'happenedAt'] }] },
 );
 
 /** Invitation d'un joueur dans une tribu. */
@@ -56,12 +73,6 @@ const TribeRelation = sequelize.define(
   { indexes: [{ unique: true, fields: ['tribeId', 'otherTribeId'] }] },
 );
 
-/** Mur de messages interne à la tribu. */
-const TribeMessage = sequelize.define(
-  'TribeMessage',
-  { body: { type: DataTypes.TEXT, allowNull: false } },
-  { indexes: [{ fields: ['tribeId', 'createdAt'] }] },
-);
 
 /** Conversation privée entre joueurs d'un même monde. */
 const Conversation = sequelize.define(
@@ -69,6 +80,9 @@ const Conversation = sequelize.define(
   {
     subject: { type: DataTypes.STRING(100), allowNull: false },
     lastMessageAt: { type: DataTypes.DATE, allowNull: false },
+    // Joueur qui a lancé la conversation, et groupe de la tribu visé par un courrier circulaire (tribe | duke | baron | diplomacy).
+    authorId: { type: DataTypes.INTEGER, allowNull: true },
+    recipientGroup: { type: DataTypes.STRING(12), allowNull: true },
   },
   { indexes: [{ fields: ['worldId'] }] },
 );
@@ -151,8 +165,16 @@ const Player = sequelize.define(
     villageCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     // Pièces d'or frappées à l'académie : elles déterminent le nombre de nobles possibles.
     coins: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-    // Rôle dans la tribu : founder | leader | member (nul si sans tribu).
+    // Titre dans la tribu : duke | baron | member (nul si sans tribu) ; droits des membres (voir game/tribeRights.js).
     tribeRole: { type: DataTypes.STRING(8), allowNull: true },
+    tribeRights: { type: DataTypes.JSON, allowNull: true },
+    // Messages par page de la boîte de réception (nul : valeur par défaut).
+    messagesPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    // Réglages tribu : partager ses notes de village avec sa tribu, afficher les notes partagées par la tribu.
+    shareVillageNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    // Offres par page de la recherche du marché (nulle : valeur par défaut).
+    marketPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    showTribeNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // Mode sommeil : les attaques qui arrivent dans cet intervalle deviennent des visites.
     sleepStartsAt: { type: DataTypes.DATE, allowNull: true },
     sleepEndsAt: { type: DataTypes.DATE, allowNull: true },
@@ -204,6 +226,8 @@ const Village = sequelize.define(
     loyalty: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 100 },
     // Villages barbares : date de référence de la croissance (voir game/barbarian.js).
     grownAt: { type: DataTypes.DATE, allowNull: true },
+    // Milice stationnée jusqu'à cette date (module militia) ; nulle sans milice.
+    militiaUntil: { type: DataTypes.DATE, allowNull: true },
     // Unités recherchées à la forge : { axe: true, … }
     research: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
     // Collecte : options débloquées et déblocage en cours { unlocked: [1, 2], unlocking: { option, endsAt } }
@@ -326,11 +350,33 @@ const MarketOffer = sequelize.define(
     buyAmount: { type: DataTypes.INTEGER, allowNull: false },
     count: { type: DataTypes.INTEGER, allowNull: false },
     merchantsPerOffer: { type: DataTypes.INTEGER, allowNull: false },
+    // Limites (comme sur GT) : durée maximale du voyage en heures (nulle : aucune), réservée à la tribu du vendeur.
+    maxHours: { type: DataTypes.INTEGER, allowNull: true },
+    tribeOnly: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { indexes: [{ fields: ['worldId'] }, { fields: ['villageId'] }] },
 );
 
 /** Rapport de combat, de soutien ou de retour, adressé à un joueur. */
+/** Dernière attaque d'un joueur sur un village (gommette et infobulle de la carte), voir game/lastAttack.js. */
+const LastAttack = sequelize.define(
+  'LastAttack',
+  {
+    result: { type: DataTypes.STRING(8), allowNull: false },
+    haul: { type: DataTypes.STRING(8), allowNull: true },
+    happenedAt: { type: DataTypes.DATE, allowNull: false },
+    reportId: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { indexes: [{ unique: true, fields: ['playerId', 'villageId'] }] },
+);
+
+/** Carnet de notes d'un joueur sur un village (aperçu du village). */
+const VillageNote = sequelize.define(
+  'VillageNote',
+  { text: { type: DataTypes.TEXT, allowNull: false } },
+  { indexes: [{ unique: true, fields: ['playerId', 'villageId'] }] },
+);
+
 const Report = sequelize.define(
   'Report',
   {
@@ -343,6 +389,11 @@ const Report = sequelize.define(
   { indexes: [{ fields: ['playerId', 'happenedAt'] }] },
 );
 
+Player.hasMany(VillageNote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+Village.hasMany(VillageNote, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
+VillageNote.belongsTo(Player, { foreignKey: 'playerId' });
+Player.hasMany(LastAttack, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+Village.hasMany(LastAttack, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
 User.hasMany(Player, { foreignKey: { name: 'userId', allowNull: false } });
 Player.belongsTo(User, { foreignKey: 'userId' });
 World.hasMany(Player, { foreignKey: { name: 'worldId', allowNull: false } });
@@ -373,9 +424,8 @@ Player.hasMany(TribeInvite, { foreignKey: { name: 'playerId', allowNull: false }
 TribeInvite.belongsTo(Player, { foreignKey: 'playerId' });
 Tribe.hasMany(TribeRelation, { as: 'relations', foreignKey: { name: 'tribeId', allowNull: false }, onDelete: 'CASCADE' });
 TribeRelation.belongsTo(Tribe, { as: 'other', foreignKey: { name: 'otherTribeId', allowNull: false }, onDelete: 'CASCADE' });
-Tribe.hasMany(TribeMessage, { foreignKey: { name: 'tribeId', allowNull: false }, onDelete: 'CASCADE' });
+Tribe.hasMany(TribeEvent, { foreignKey: { name: 'tribeId', allowNull: false }, onDelete: 'CASCADE' });
 // Auteur nul = joueur supprimé : ses messages restent visibles pour les autres.
-TribeMessage.belongsTo(Player, { foreignKey: { name: 'playerId', allowNull: true }, onDelete: 'SET NULL' });
 
 World.hasMany(Conversation, { foreignKey: { name: 'worldId', allowNull: false } });
 Conversation.hasMany(ConversationParticipant, { as: 'participants', foreignKey: { name: 'conversationId', allowNull: false }, onDelete: 'CASCADE' });
@@ -551,8 +601,8 @@ TribeForumPoll.hasMany(TribeForumVote, { as: 'votes', foreignKey: { name: 'pollI
 Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 
 module.exports = {
-  sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, Transport, MarketOffer,
-  Tribe, TribeInvite, TribeRelation, TribeMessage, Conversation, ConversationParticipant, ConversationMessage,
+  sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, LastAttack, VillageNote, Transport, MarketOffer,
+  Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
 };

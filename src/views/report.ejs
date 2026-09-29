@@ -2,7 +2,9 @@
 <%
   const d = report.data;
   const vid = ctx.village.id;
-  const order = [...registry.UNITS.keys()];
+  // Colonnes d'unités : toutes, sauf la milice quand le combat n'en compte pas.
+  const withMilitia = ['attacker', 'defender'].some((k) => d[k] && ((d[k].units || {}).militia || (d[k].losses || {}).militia));
+  const order = [...registry.UNITS.keys()].filter((id) => id !== 'militia' || withMilitia);
   // Tableau d'unités : une colonne par unité (icône en en-tête), lignes Quantité / Pertes.
   const unitTable = (units, losses) => {
     const ids = order;
@@ -24,14 +26,32 @@
     ? (won == null ? 'Espionnage' : (d.perspective === 'attacker' ? (won ? 'Victoire' : 'Défaite') : (won ? 'Village vaincu' : 'Attaque repoussée')))
     : null;
   const reportVisual = won == null ? 'espionage' : (good ? 'victory' : 'defeat');
+  // Rapports de commerce comme sur GT : « Vendeur : joueur » puis « Village : nom (x|y) K55 » avec lien vers la carte.
+  const partyRows = (label, p) => {
+    if (!p) return '';
+    const who = p.playerId ? playerLink(vid, { id: p.playerId, name: p.playerName }, { cls: `${ui.linkPlain} font-semibold` }) : `<span class="text-parchment-400">${esc(p.playerName || 'Barbares')}</span>`;
+    const place = `<a href="/village/${vid}/villages/${p.villageId}" class="${ui.linkPlain} font-semibold">${esc(p.name)} (${p.x}|${p.y}) ${continent(p.x, p.y)}</a>`
+      + ` <a href="/village/${vid}/map?x=${p.x}&amp;y=${p.y}" class="ml-1 inline-flex align-[-2px] text-parchment-500 hover:text-gold-200" title="Centrer la carte" aria-label="Centrer la carte sur ce village">${icon('map', 'size-3.5', 2)}</a>`;
+    return `<tr><th scope="row" class="w-28 text-left">${esc(label)} :</th><th class="text-left"><span class="text-[15px]">${who}</span></th></tr>`
+      + `<tr><td class="text-parchment-400">Village :</td><td>${place}</td></tr>`;
+  };
+  const resourceOf = (id) => RESOURCES.find((r) => r.id === id);
+  const lot = (n, res) => { const r = resourceOf(res.resource);
+    return `<span class="inline-flex items-center gap-1.5 font-semibold tabular-nums"><span class="text-parchment-400">${num(n)}×</span><span title="${esc(r.label)}">${resourceIcon(r.id)}</span>${num(res.amount)}</span>`; };
+  const actionLink = `${ui.link} inline-flex items-center gap-1.5 text-sm`;
+  const ownsVillage = (id) => myVillages.some((v) => v.id === id);
 %>
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-5 <%= isBattleReport ? 'battle-report-page' : '' %>">
   <section class="<%= ui.panel %>">
+    <% const arrow = (id, dir, label) => id
+         ? `<a href="/village/${vid}/reports/${id}" class="${ui.iconBtn}" title="${label}" aria-label="${label}">${icon(dir, 'size-3.5', 2.4)}</a>`
+         : `<span class="${ui.iconBtn} pointer-events-none opacity-40" aria-hidden="true">${icon(dir, 'size-3.5', 2.4)}</span>`; %>
     <%- panelHead('Rapport', `
       <div class="flex items-center gap-2">
         <a href="/village/${vid}/reports" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Rapports</a>
+        ${arrow(neighbours.newer, 'chevronUp', 'Rapport plus récent')}${arrow(neighbours.older, 'chevronDown', 'Rapport plus ancien')}
         <form method="post" action="/village/${vid}/reports/${report.id}/delete"><input type="hidden" name="_csrf" value="${csrfToken}">
-          <button class="${btn('danger', 'sm')}">${icon('trash', 'size-3.5', 2)}Supprimer</button>
+          <button class="${btn('danger', 'sm')}">${icon('trash', 'size-3.5', 2)}Effacer</button>
         </form>
       </div>`, { tag: 'h1' }) %>
     <div class="<%= ui.panelBody %> gap-4">
@@ -45,10 +65,12 @@
           </div>
         </div>
       <% } else { %>
-        <div class="flex flex-col gap-1">
-          <% if (kickers[d.perspective]) { %><span class="<%= ui.kicker %>"><%= kickers[d.perspective] %></span><% } %>
-          <p class="font-display text-lg font-semibold wrap-break-word text-parchment-100"><%= report.title %></p>
-          <p class="flex items-center gap-1.5 text-sm text-parchment-500 tabular-nums"><%- icon('clock', 'size-3.5') %><%= when(report.happenedAt, now) %></p>
+        <%# En-tête des rapports comme sur GT : Objet, puis Envoyé. %>
+        <div class="overflow-x-auto border border-bronze-800">
+          <table class="<%= ui.table %>">
+            <thead><tr><th class="w-28">Objet</th><th class="whitespace-normal"><span class="text-[15px] font-semibold text-parchment-100"><%= report.title %></span><% if (kickers[d.perspective]) { %> <span class="text-[13px] font-normal text-parchment-500">· <%= kickers[d.perspective] %></span><% } %></th></tr></thead>
+            <tbody><tr><td class="text-parchment-400">Envoyé</td><td class="tabular-nums"><%= when(report.happenedAt, now) %></td></tr></tbody>
+          </table>
         </div>
       <% } %>
 
@@ -61,19 +83,55 @@
           <div class="flex flex-wrap items-center gap-3"><span class="<%= ui.subLabel %>">Butin</span><%- include('partials/cost', { cost: d.received, have: null }) %></div>
         </div>
         <p class="text-xs text-parchment-600">Ce qui dépasse la capacité de l'entrepôt est perdu.</p>
-      <% } else if (d.perspective === 'award') { %>
-        <div class="<%= ui.boxGold %> flex items-center gap-4 p-4">
-          <span class="<%= ui.medallionGold %> size-12 font-display text-lg font-semibold"><%= d.tier %></span>
-          <span class="flex min-w-0 flex-col gap-0.5">
-            <strong class="font-display text-[15px] text-gold-200"><%= d.name %></strong>
-            <span class="text-parchment-400"><%= d.description %></span>
-          </span>
+      <% } else if (d.perspective === 'award') { const tierIdx = d.tiers > 1 ? d.tier : 4; %>
+        <%# Succès, comme l'encadré « Accomplissement reçu » de GT : icône, objectif atteint, lien, palier à droite. %>
+        <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3.5 shadow-[3px_3px_0_#050505]">
+          <h2 class="font-display text-lg font-semibold text-parchment-100"><%= d.name %><% if (d.tiers > 1) { %> <span class="<%= TIER_STYLES.text[d.tier] %>">(<%= TIER_STYLES.names[d.tier - 1] %> · niveau <%= d.tier %>)</span><% } %></h2>
+          <div class="flex items-start gap-4">
+            <span class="<%= TIER_STYLES.medal %> <%= TIER_STYLES.border[tierIdx] %> size-16"><%- icon(ACHIEVEMENT_ICONS[d.key] || 'victory', 'size-8') %></span>
+            <div class="flex min-w-0 flex-1 flex-col gap-2 text-[15px]">
+              <p class="text-parchment-200"><%= d.description %></p>
+              <% if (d.goal != null) { %><p class="text-parchment-400">Objectif atteint : <span class="font-semibold text-parchment-100 tabular-nums"><%= num(d.goal) %></span><%- d.next != null ? ` · palier suivant : <span class="font-semibold text-parchment-100 tabular-nums">${num(d.next)}</span>` : ' · palier maximal' %></p><% } %>
+              <a href="/village/<%= vid %>/players/<%= ctx.village.playerId %>#succes" class="<%= actionLink %> self-start">Voir vos succès</a>
+            </div>
+            <span class="flex shrink-0 flex-col items-center gap-1 max-sm:hidden" title="Palier <%= TIER_STYLES.names[tierIdx - 1].toLowerCase() %>">
+              <span class="<%= TIER_STYLES.medal %> <%= TIER_STYLES.border[tierIdx] %> size-14 font-display text-xl font-semibold"><%= d.tiers > 1 ? d.tier : '★' %></span>
+              <span class="text-xs font-semibold <%= TIER_STYLES.text[tierIdx] %>"><%= d.daily ? 'Du jour' : TIER_STYLES.names[tierIdx - 1] %></span>
+            </span>
+          </div>
         </div>
       <% } else if (d.perspective === 'visit') { %>
         <p class="<%= ui.box %> flex items-center gap-3 px-4 py-3 text-parchment-300"><span class="text-gold-400"><%- icon('moon', 'size-4') %></span><%= d.sleeper %> était en mode sommeil : aucun combat, les troupes sont reparties.</p>
         <p><span class="text-parchment-500">De</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p>
         <%- include('partials/units', { units: d.units, losses: null }) %>
+      <% } else if (d.perspective === 'trade' && d.kind === 'offer') { const arrived = new Date(d.arrivesAt) <= now; %>
+        <%# Offre acceptée : Vendeur / Acheteur, ce qui a été vendu et payé, arrivée du paiement, « Re-créer l'offre ». %>
+        <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3 shadow-[3px_3px_0_#050505]">
+          <div class="overflow-x-auto"><table class="<%= ui.table %>"><tbody><%- partyRows('Vendeur', d.seller) %><%- partyRows('Acheteur', d.buyer) %></tbody></table></div>
+          <div class="<%= ui.box %> flex flex-col gap-1.5 self-start px-3 py-2.5 text-[15px]">
+            <p class="flex flex-wrap items-center gap-x-2"><span class="font-semibold text-parchment-100"><%= d.seller.playerName %></span> <span class="text-parchment-400">a vendu :</span> <%- lot(d.lots, d.sell) %></p>
+            <p class="flex flex-wrap items-center gap-x-2"><span class="font-semibold text-parchment-100"><%= d.buyer.playerName %></span> <span class="text-parchment-400">a payé :</span> <%- lot(d.lots, d.buy) %></p>
+          </div>
+          <p class="text-parchment-300">Les biens échangés ont bien été embarqués et <%= arrived ? 'sont arrivés' : 'arriveront' %> <span class="tabular-nums"><%= when(d.arrivesAt, now) %></span>.</p>
+          <% const home = ownsVillage(d.seller.villageId) ? d.seller.villageId : vid; %>
+          <a href="/village/<%= home %>/market?tab=mine&amp;sellResource=<%= d.sell.resource %>&amp;sellAmount=<%= d.sell.amount %>&amp;buyResource=<%= d.buy.resource %>&amp;buyAmount=<%= d.buy.amount %>&amp;count=<%= d.lots %>" class="<%= actionLink %> self-start"><%- icon('market', 'size-3.5', 2) %>Re-créer l'offre</a>
+        </div>
+      <% } else if (d.perspective === 'trade' && d.kind === 'delivery') { %>
+        <%# Livraison : De / À, puis les ressources livrées. %>
+        <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3 shadow-[3px_3px_0_#050505]">
+          <div class="overflow-x-auto"><table class="<%= ui.table %>"><tbody><%- partyRows('De', d.sender) %><%- partyRows('À', d.recipient) %></tbody></table></div>
+          <div class="flex flex-col gap-1.5">
+            <span class="font-semibold text-parchment-100">Ressources :</span>
+            <span class="flex flex-wrap items-center gap-x-4 gap-y-1 font-semibold tabular-nums">
+              <% for (const r of RESOURCES.filter((x) => d.received[x.id] > 0)) { %>
+                <span class="inline-flex items-center gap-1.5" title="<%= r.label %>"><span><%- resourceIcon(r.id) %></span><%= num(d.received[r.id]) %></span>
+              <% } %>
+            </span>
+          </div>
+          <p class="text-xs text-parchment-600">Ce qui dépasse la capacité de l'entrepôt est perdu.</p>
+        </div>
       <% } else if (d.perspective === 'trade') { %>
+        <%# Anciens rapports de commerce (avant les parties joueur / village). %>
         <p><span class="text-parchment-500">De</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p>
         <div class="<%= ui.box %> flex flex-col gap-2 p-3.5">
           <% if (d.sent) { %><div class="flex flex-wrap items-center gap-3"><span class="<%= ui.subLabel %> w-16">Envoyé</span><%- include('partials/cost', { cost: d.sent, have: null }) %></div><% } %>
