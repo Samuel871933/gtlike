@@ -80,6 +80,10 @@ const loadVillage = ah(async (req, res, next) => {
   res.locals.gameStyle = gameStyleFor(req.user, rights);
   res.locals.villageDesign = villageDesignFor(req.user, rights);
   res.locals.gameLayout = gameLayoutFor(req.user);
+  // Happy hour des Adartons : popup en jeu tant que ce créneau n'a pas été vu par le compte (la popup le signale
+  // elle-même en s'ouvrant, POST happy-hour/seen : une requête de fond ne la consomme pas).
+  const happy = require('../game/shopCatalog').happyHour(now);
+  if (happy.active && req.user.happyHourSeen !== happy.endsAt.toISOString()) res.locals.happyPopup = happy;
   res.locals.playerRank = 1 + await Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } });
   res.locals.tribeInvites = await TribeInvite.count({ where: { playerId: owned.playerId } });
   // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.

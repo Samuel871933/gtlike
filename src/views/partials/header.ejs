@@ -87,7 +87,11 @@
       </a>
     <% } %>
     <%# Boutique (hors partie), avec ce monde présélectionné pour les achats « un monde ». %>
-    <a href="/shop?world=<%= encodeURIComponent(ctx.world.slug) %>" class="<%= ui.iconBtn %>" title="Boutique · <%= num(user ? user.adartons : 0) %> Adartons" aria-label="Boutique"><%- icon('adarton', 'size-4', 2.2) %></a>
+    <%# Pièce d'Adarton et solde : accès à la boutique. %>
+    <a href="/shop?world=<%= encodeURIComponent(ctx.world.slug) %>" class="group flex shrink-0 items-center gap-1 no-underline" title="Boutique" aria-label="Boutique · <%= num(user ? user.adartons : 0) %> Adartons">
+      <%- icon('adarton', 'size-7 minimal:size-6 drop-shadow-[0_0_6px_rgba(227,178,60,0.35)] transition group-hover:-rotate-12') %>
+      <span class="text-[13px] font-semibold text-gold-200 tabular-nums max-sm:hidden egypt:text-gold-700"><%= num(user ? user.adartons : 0) %></span>
+    </a>
     <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-4', 2.2) %></a>
     <%# Fausse déconnexion, comme sur Guerre Tribale : on quitte le monde et on revient au choix des mondes (la session reste ouverte). %>
     <a href="/worlds" class="<%= ui.iconBtn %>" title="Déconnexion : retour au choix des mondes" aria-label="Déconnexion"><%- icon('logout', 'size-4', 2.2) %></a>
@@ -192,6 +196,7 @@
 </header>
 
 <main class="relative z-[2] mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] grow flex-col gap-3.5 px-2.5 pt-3.5 pb-10 minimal:gap-2.5 minimal:py-6">
+<% if (happyPopup) { %><%- include('happy-hour-popup') %><% } %>
 <% } else {
   const lobbyLink = (href, label, active) => `<a href="${href}" class="shrink-0 text-[13px] font-semibold tracking-[0.02em] no-underline transition ${active ? 'text-parchment-100' : 'text-gold-400 hover:text-parchment-100'}">${label}</a>`;
   const current = typeof lobbyPage !== 'undefined' ? lobbyPage : null;

@@ -17,6 +17,7 @@
 
 const { GAME_STYLES, DEFAULT_GAME_STYLE } = require('../web/gameStyles');
 const { VILLAGE_DESIGNS, DEFAULT_VILLAGE_DESIGN } = require('../web/villageDesigns');
+const config = require('../config');
 
 const SCOPES = {
   world: { name: 'Un monde', hint: 'Pour ton joueur, sur le monde choisi.' },
@@ -60,11 +61,16 @@ const DESIGNS = Object.values(VILLAGE_DESIGNS).filter((d) => d.id !== DEFAULT_VI
   offers: cosmeticOffers(COSMETIC),
 }));
 
-// Pack : tous les thèmes et tous les designs, présents et à venir ; environ moitié prix de tout acheter à l'unité.
+// Pack : tous les thèmes et tous les designs, présents et à venir. 2 000 pour un monde, 10 000 pour le compte,
+// 8 000 pour toute la durée du serveur (comme le premium serveur).
 const ALL_COSMETICS = {
   key: 'cosmetics:all', kind: 'bundle', name: 'Tous les cosmétiques',
   description: 'Tous les thèmes de jeu et tous les designs de village, y compris ceux qui sortiront plus tard.',
-  offers: cosmeticOffers(2000),
+  offers: [
+    { id: 'world', scope: 'world', days: null, price: 2000 },
+    { id: 'account', scope: 'account', days: null, price: 10000 },
+    { id: 'server', scope: 'server', days: null, price: 8000 },
+  ],
 };
 
 const ITEMS = [PREMIUM, ALL_COSMETICS, ...THEMES, ...DESIGNS];
@@ -79,6 +85,37 @@ const PACKS = [
   { id: 'pack-7800', adartons: 7800, price: '79,99 €', bonus: '+95 %' },
 ];
 
+// Happy hour : tous les vendredis et samedis de 19 h à 20 h (heure du serveur), +25 % d'Adartons sur l'achat d'un pack.
+const HAPPY_HOUR = { days: [5, 6], startHour: 19, endHour: 20, bonus: 0.25 };
+const DAY_NAMES = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+
+/**
+ * Happy hour à `now` : { active, endsAt (si active), next (prochain début sinon), bonus, label }.
+ * `label` : « tous les vendredis et samedis de 19 h à 20 h ».
+ */
+function happyHour(now = new Date()) {
+  const { days, startHour, endHour, bonus } = HAPPY_HOUR;
+  const at = (d, h) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h);
+  const label = `tous les ${days.map((d) => `${DAY_NAMES[d]}s`).join(' et ')} de ${startHour} h à ${endHour} h`;
+  // Forçage de test (config.happyHourForce) : toujours en cours, jusqu'à l'heure pleine suivante.
+  if (config.happyHourForce) return { active: true, endsAt: at(now, now.getHours() + 1), bonus, label, forced: true };
+  if (days.includes(now.getDay()) && now >= at(now, startHour) && now < at(now, endHour)) {
+    return { active: true, endsAt: at(now, endHour), bonus, label };
+  }
+  for (let i = 0; i < 8; i += 1) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    if (days.includes(d.getDay()) && at(d, startHour) > now) return { active: false, next: at(d, startHour), bonus, label };
+  }
+  return { active: false, next: null, bonus, label };
+}
+
+/** Adartons crédités pour un pack à `now` : le pack, et le bonus de l'happy hour s'il est en cours. */
+function packCredit(pack, now = new Date()) {
+  const hh = happyHour(now);
+  const bonus = hh.active ? Math.round(pack.adartons * hh.bonus) : 0;
+  return { base: pack.adartons, bonus, total: pack.adartons + bonus };
+}
+
 /** Article d'une clé, ou nul. */
 const item = (key) => BY_KEY.get(key) || null;
 
@@ -91,4 +128,4 @@ function durationLabel(offer) {
   return offer.scope === 'account' ? 'pour toujours' : offer.scope === 'server' ? 'toute la durée du serveur' : 'toute la durée du monde';
 }
 
-module.exports = { SCOPES, ITEMS, PACKS, item, isCosmetic, durationLabel };
+module.exports = { SCOPES, ITEMS, PACKS, HAPPY_HOUR, item, isCosmetic, durationLabel, happyHour, packCredit };

@@ -154,6 +154,19 @@ class ShopService {
     });
   }
 
+  /**
+   * Crédit d'un pack d'Adartons payé (à appeler par le futur paiement, une fois le paiement confirmé) : le pack, plus
+   * le bonus de l'happy hour si le paiement tombe pendant (vendredi et samedi, 19 h-20 h).
+   */
+  static async creditPack(userId, packId, { now = new Date() } = {}) {
+    const pack = catalog.PACKS.find((p) => p.id === packId);
+    if (!pack) throw new GameError('Pack inconnu.');
+    const { base, bonus, total } = catalog.packCredit(pack, now);
+    const label = bonus ? `Pack de ${base} Adartons + ${bonus} offerts (happy hour)` : `Pack de ${base} Adartons`;
+    await ShopService.credit(userId, total, label, { reason: 'pack' });
+    return { base, bonus, total };
+  }
+
   /** « Mes achats » : droits du compte (y compris ceux offerts à ses serveurs) et historique des Adartons. */
   static async history(userId, { now = new Date() } = {}) {
     const rights = await Entitlement.findAll({

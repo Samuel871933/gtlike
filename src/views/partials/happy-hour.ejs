@@ -1,0 +1,22 @@
+<%#
+  Happy hour des Adartons (game/shopCatalog.js happyHour) dans la boutique : en cours, carte sombre au liseré doré avec
+  le bonus, le compte à rebours (la page se recharge à la fin, game.js) et l'accès aux packs (`cta`). Hors créneau :
+  rien (l'happy hour n'est pas annoncée à l'avance). Locaux : happy (résultat de happyHour), cta (lien, facultatif).
+%>
+<% const pct = Math.round(happy.bonus * 100); const withCta = typeof cta !== 'undefined' && cta; %>
+<% if (happy.active) { %>
+  <section class="happy-card relative overflow-hidden">
+    <div class="relative flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-3.5">
+      <%- icon('adarton', 'size-14 drop-shadow-[0_0_14px_rgba(227,178,60,0.55)]') %>
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span class="flex items-center gap-2 text-[13px] text-gold-400">
+          <span class="relative flex size-2"><span class="absolute inline-flex size-full animate-ping bg-gold-400 opacity-60 motion-reduce:hidden"></span><span class="relative inline-flex size-2 bg-gold-400"></span></span>
+          Happy hour en cours · jusqu’à <%= happy.endsAt.getHours() %> h
+        </span>
+        <span class="text-parchment-200"><span class="text-2xl font-semibold text-gold-200 tabular-nums">+<%= pct %> %</span> d’Adartons offerts sur tous les packs</span>
+      </div>
+      <span class="flex items-center gap-2 text-sm text-parchment-400">Fin dans <span class="happy-timer tabular-nums" data-countdown="<%= happy.endsAt.getTime() %>"><%= duration((happy.endsAt - now) / 1000) %></span></span>
+      <% if (withCta) { %><a href="<%= cta %>" class="<%= btn('gold', 'md') %>"><%- icon('adarton', 'size-5') %>Voir les packs</a><% } %>
+    </div>
+  </section>
+<% } %>

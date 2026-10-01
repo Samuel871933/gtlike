@@ -4,6 +4,10 @@
   // (construction, durée, achèvement, annulation), puis tableau des bâtiments (besoins, bouton du niveau suivant).
   // Pas de colonne « Accélération » : la boutique ne vend pas d'accélération (le premium allonge seulement la file).
   const vid = ctx.village.id;
+  // Premium (boutique) : file de construction plus longue ; sans premium, incitation quand la file est pleine.
+  const queueFull = ctx.buildOrders.length >= ctx.buildQueueSlots;
+  const premiumHref = `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`;
+  const premiumSlots = ctx.buildQueueSlots + ctx.cfg.premium.buildQueueBonus;
   const favs = new Set(favoriteBuildings(player, ctx));
   const tabHref = (t) => `/village/${vid}/main${t === 'demolition' ? '?tab=demolition' : ''}`;
   const clock = (s) => `<span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600">${icon('clock', 'size-3.5', 2)}</span>${duration(s)}</span>`;
@@ -35,7 +39,7 @@
   <%# File en cours (constructions et démolitions). %>
   <% if (ctx.buildOrders.length) { %>
     <section class="<%= ui.panel %> min-w-0">
-      <%- panelHead('Constructions en cours', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueSlots}</span>`) %>
+      <%- panelHead('Constructions en cours', `<span class="flex items-center gap-2">${ctx.premium ? `<span class="${ui.tagGold}">Premium</span>` : ''}<span class="text-[13px] font-semibold ${queueFull ? 'text-gold-200' : 'text-parchment-500'} tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueSlots}</span></span>`) %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
           <thead><tr><th>Construction</th><th>Durée</th><th class="max-sm:hidden">Achèvement</th><th class="text-right">Annulation</th></tr></thead>
@@ -79,6 +83,17 @@
           </tbody>
         </table>
       </div>
+      <% if (!ctx.premium) { %>
+        <%# Incitation au premium : 3 emplacements de plus ; mise en avant quand la file est pleine. %>
+        <a href="<%= premiumHref %>" class="group flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-bronze-800 px-3 no-underline <%= queueFull ? 'bg-[linear-gradient(90deg,rgba(227,178,60,0.22),rgba(227,178,60,0.04))] py-2.5' : 'py-2 hover:bg-row-hover' %>">
+          <%- icon('adarton', `${queueFull ? 'size-9' : 'size-7'} drop-shadow-[0_0_8px_rgba(227,178,60,0.4)] transition group-hover:-rotate-12`) %>
+          <span class="flex min-w-0 flex-1 flex-col leading-snug">
+            <span class="<%= queueFull ? 'font-semibold text-parchment-100' : 'text-parchment-300' %>"><%= queueFull ? `File pleine ? Avec le premium, enchaîne jusqu’à ${premiumSlots} constructions.` : `Le premium allonge la file à ${premiumSlots} constructions.` %></span>
+            <span class="text-[13px] text-parchment-500"><%= ctx.cfg.premium.buildQueueBonus %> emplacements de plus dans chaque village · dès 30 Adartons</span>
+          </span>
+          <span class="<%= btn(queueFull ? 'gold' : 'dark', 'sm') %>">Passer au premium</span>
+        </a>
+      <% } %>
       <p class="border-t border-bronze-800 px-3 py-1.5 text-xs text-parchment-600">
         Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources (rien pour une démolition) ·
         moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes : « Terminer » est gratuit.
@@ -112,7 +127,9 @@
                 <td class="whitespace-nowrap max-md:hidden"><%- clock(o.duration) %></td>
                 <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= reason === 'La ferme est trop petite' ? 'text-blood-400' : 'text-parchment-300' %>"><span><%- resourceIcon('pop') %></span><%= num(o.pop) %></span></td>
                 <td class="text-right">
-                  <% if (reason) { %>
+                  <% if (reason === 'La file de construction est pleine' && !ctx.premium) { %>
+                    <span class="flex flex-col items-end text-[13px] leading-tight"><span class="text-parchment-500">File pleine</span><a href="<%= premiumHref %>" class="<%= ui.link %> inline-flex items-center gap-1"><%- icon('adarton', 'size-4') %>Agrandir la file</a></span>
+                  <% } else if (reason) { %>
                     <span class="text-[13px] text-parchment-500"><%= reason %></span>
                   <% } else if (o.lacksResources) { %>
                     <span class="text-[13px] leading-tight text-parchment-500"><%= o.availableAt ? `Ressources disponibles ${when(o.availableAt, now)}` : 'Ressources insuffisantes' %></span>

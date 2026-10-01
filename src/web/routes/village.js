@@ -1042,6 +1042,13 @@ router.get('/account', ah(async (req, res) => {
 
 router.use('/account', (req, res, next) => (req.method === 'POST' ? ownerOnly(req, res, next) : next()));
 
+// Popup de l'happy hour vue : plus affichée pour ce créneau (une fois par compte).
+router.post('/happy-hour/seen', ah(async (req, res) => {
+  const happy = require('../../game/shopCatalog').happyHour(new Date());
+  if (happy.active) await req.user.update({ happyHourSeen: happy.endsAt.toISOString() });
+  res.status(204).end();
+}));
+
 router.post('/account/game-style', ah(async (req, res) => {
   const { isGameStyle, GAME_STYLES } = require('../gameStyles');
   const id = String(req.body.style || '');

@@ -9,9 +9,9 @@
   const blocked = (id) => (lists[id] ? !lists[id].length : false);
   const presetWorld = targets.world.find((w) => w.slug === preset);
   const presetServer = targets.server.find((w) => w.slug === preset);
-  // Portée proposée d'abord : le monde d'où l'on vient, sinon un monde si l'on joue, sinon le compte ; jamais le serveur d'office.
-  const startScope = (presetServer && scopes.some((s) => s.id === 'server') && 'server')
-    || (!blocked('world') && scopes.some((s) => s.id === 'world') && 'world')
+  // Portée proposée d'abord : un monde (celui d'où l'on vient s'il est dans la liste), sinon le compte ; jamais le serveur
+  // d'office, même depuis son propre serveur (il y est seulement présélectionné dans la liste « Pour quel serveur ? »).
+  const startScope = (!blocked('world') && scopes.some((s) => s.id === 'world') && 'world')
     || (scopes.some((s) => s.id === 'account') && 'account')
     || scopes.find((s) => !blocked(s.id))?.id || scopes[0].id;
   const scopeIcon = { world: 'map', account: 'profile', server: 'crown' };
@@ -20,16 +20,16 @@
   const step = (n, title) => `<span class="flex items-center gap-2 font-display text-[17px] font-semibold text-parchment-100"><span class="flex size-6 items-center justify-center border-2 border-black bg-head text-[13px] text-on-accent">${n}</span>${title}</span>`;
 %>
 <div class="flex flex-col gap-3.5 pb-4">
-  <a href="/shop" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boutique</a>
+  <a href="/shop<%= shopQuery %>" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boutique</a>
   <%- include('partials/page-title', { kicker: 'Boutique', title: item.name, sub: item.description }) %>
 
   <% if (ownedEverywhere) { %>
     <p class="<%= ui.alertInfo %>">Tu possèdes déjà cet article pour tout ton compte, sur tous les mondes : inutile de l’acheter à nouveau.</p>
   <% } %>
 
-  <form method="post" action="/shop/buy" class="<%= ui.panel %>" data-shop-form data-balance="<%= user.adartons %>" data-item="<%= item.name %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <form method="post" action="/shop/buy<%= shopQuery %>" class="<%= ui.panel %>" data-shop-form data-balance="<%= user.adartons %>" data-item="<%= item.name %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <input type="hidden" name="itemKey" value="<%= item.key %>">
-    <%- panelHead('Acheter', `<span class="text-[13px] text-parchment-500 tabular-nums">Ton solde : ${num(user.adartons)} Adartons</span>`) %>
+    <%- panelHead('Acheter', `<span class="flex items-center gap-1.5 text-[13px] text-parchment-300 tabular-nums">Ton solde ${icon('adarton', 'size-5')}<span class="font-semibold text-gold-200">${num(user.adartons)}</span></span>`) %>
 
     <%# 1. Pour qui ? %>
     <fieldset class="flex flex-col gap-2.5 border-b border-bronze-900 px-4 py-3.5">
@@ -43,7 +43,7 @@
             <% if (off) { %>
               <span class="mt-auto text-[13px] text-parchment-500"><%= s.id === 'world' ? 'Tu ne joues sur aucun monde en cours.' : 'Réservé aux créateurs d’un serveur privé.' %></span>
             <% } else { %>
-              <span class="mt-auto flex items-center gap-1 text-sm text-parchment-300"><%= s.offers.length > 1 ? 'dès' : '' %> <span class="flex items-center gap-1 font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-3.5', 2) %><%= num(from) %></span></span>
+              <span class="mt-auto flex items-center gap-1 text-sm text-parchment-300"><%= s.offers.length > 1 ? 'dès' : '' %> <span class="flex items-center gap-1 font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-5') %><%= num(from) %></span></span>
             <% } %>
           </label>
         <% } %>
@@ -70,7 +70,7 @@
               <label class="flex min-w-32 cursor-pointer flex-col items-start gap-0.5 border-2 border-black bg-night px-3 py-2 shadow-[inset_0_0_0_1px_var(--color-bronze-800)] has-checked:bg-thead has-checked:shadow-[inset_0_0_0_2px_var(--color-gold-400)] hover:shadow-[inset_0_0_0_1px_var(--color-gold-400)]">
                 <input type="radio" name="offerId" value="<%= o.id %>" class="sr-only" data-offer data-scope-of="<%= s.id %>" data-price="<%= o.price %>" data-duration="<%= durationLabel(o) %>" <%= s.id === startScope && i === 0 ? 'checked' : '' %>>
                 <span class="text-parchment-200"><%= cap(durationLabel(o)) %></span>
-                <span class="flex items-center gap-1 font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-3.5', 2) %><%= num(o.price) %></span>
+                <span class="flex items-center gap-1 font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-5') %><%= num(o.price) %></span>
               </label>
             <% }) %>
           </div>
@@ -85,19 +85,19 @@
         <span class="text-parchment-100" data-summary><%= item.name %></span>
         <span class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
           <span class="text-parchment-400">Prix</span>
-          <span class="flex items-center gap-1 text-xl font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-4', 2) %><span data-total>—</span></span>
+          <span class="flex items-center gap-1 text-xl font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-8 drop-shadow-[0_0_8px_rgba(227,178,60,0.4)]') %><span data-total>—</span></span>
         </span>
         <span class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
           <span class="text-parchment-400">Solde après l’achat</span>
           <span class="tabular-nums" data-after>—</span>
         </span>
-        <span class="hidden text-sm text-blood-450" data-missing>Il te manque <span class="font-semibold tabular-nums" data-missing-amount></span> Adartons. <a href="/shop/adartons" class="<%= ui.link %>">Acheter des Adartons</a></span>
+        <span class="hidden text-sm text-blood-450" data-missing>Il te manque <span class="font-semibold tabular-nums" data-missing-amount></span> Adartons. <a href="/shop/adartons<%= shopQuery %>" class="<%= ui.link %>">Acheter des Adartons</a></span>
       </div>
       <label class="<%= ui.checkLabel %> items-start text-[13px] leading-snug text-parchment-400">
         <input type="checkbox" name="waiver" value="1" required class="<%= ui.checkbox %> mt-0.5">
         <span>Je veux l’article tout de suite et je renonce à mon droit de rétractation (contenu numérique fourni immédiatement). J’accepte les <a href="/cgv" class="<%= ui.link %>" target="_blank">conditions générales de vente</a>.</span>
       </label>
-      <button class="<%= btn('gold') %> self-start" data-pay><%- icon('adarton', 'size-3.5', 2.2) %><span data-pay-label>Payer avec mes Adartons</span></button>
+      <button class="<%= btn('gold') %> self-start" data-pay><%- icon('adarton', 'size-5') %><span data-pay-label>Payer avec mes Adartons</span></button>
     </div>
   </form>
 </div>

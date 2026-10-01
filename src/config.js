@@ -13,4 +13,6 @@ module.exports = {
   // Images envoyées par les joueurs (profils), servies sous /uploads.
   uploadsDir: process.env.UPLOADS_DIR || 'data/uploads',
   gameLoopIntervalMs: Number(process.env.GAME_LOOP_MS) || 5000,
+  // Tests : happy hour des Adartons forcée en permanence (HAPPY_HOUR_FORCE=1), jamais en production.
+  happyHourForce: process.env.NODE_ENV !== 'production' && process.env.HAPPY_HOUR_FORCE === '1',
 };

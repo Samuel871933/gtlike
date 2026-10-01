@@ -1,4 +1,4 @@
-"""Create or extend the 9-row by 6-column design gallery on the local speed world."""
+"""Create or extend the design gallery on the local speed world."""
 
 import os
 import sqlite3
@@ -18,6 +18,16 @@ DESIGNS = (
     ("futuriste", "ApercuFuturiste", "Futuriste"),
     ("grece-antique", "ApercuGrece", "Grece"),
     ("arabo-musulman", "ApercuAraboMusulman", "Empire Arabo"),
+    ("napoleon", "ApercuNapoleon", "Napoleon"),
+    ("empire-japonais", "ApercuEmpireJaponais", "Empire Japonais"),
+    ("camp-caravanes", "ApercuCampCaravanes", "Camp Caravanes"),
+    ("ville-luxe", "ApercuVilleLuxe", "Ville du Golf"),
+    ("ville-zombie", "ApercuVilleZombie", "Apocalypse Zombi"),
+    ("ville-enfer", "ApercuVilleEnfer", "Enfer"),
+    ("paradis", "ApercuParadis", "Paradis"),
+    ("palais-glace", "ApercuPalaisGlace", "Palais de Glace"),
+    ("halloween", "ApercuHalloween", "Halloween"),
+    ("noel", "ApercuNoel", "Noel"),
 )
 STAGES = ((0, 299, 150), (300, 999, 650), (1000, 2999, 2000),
           (3000, 5999, 4500), (6000, 8999, 7500), (9000, 999999, 9800))

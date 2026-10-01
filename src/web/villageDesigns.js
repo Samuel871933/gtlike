@@ -18,10 +18,20 @@ const VILLAGE_DESIGNS = {
   noir: { id: 'noir', name: 'Noir', description: 'Pierre sombre et toits rouge sang.' },
   viking: { id: 'viking', name: 'Camp viking', description: 'Longues maisons, palissades et forteresses des terres du Nord.' },
   'rome-antique': { id: 'rome-antique', name: 'Rome antique', description: 'Camps légionnaires, villas de pierre, temples et capitale impériale.' },
+  napoleon: { id: 'napoleon', name: 'Napoléon', description: 'Hameaux aux toits d’ardoise, casernes et cités fortifiées du Premier Empire.' },
+  'empire-japonais': { id: 'empire-japonais', name: 'Empire japonais', description: 'Hameaux de bois, toits de tuiles et cités fortifiées autour d’un donjon japonais.' },
+  'camp-caravanes': { id: 'camp-caravanes', name: 'Camp de caravanes', description: 'Un camp moderne de caravanes blanches qui grandit jusqu’à devenir un village entier.' },
+  'ville-luxe': { id: 'ville-luxe', name: 'Ville du golf', description: 'Villas claires, palmiers et gratte-ciel de verre inspirés des villes du Golfe.' },
+  'ville-zombie': { id: 'ville-zombie', name: 'Apocalypse zombi', description: 'Maisons abandonnées, fenêtres condamnées et quartiers barricadés.' },
+  'ville-enfer': { id: 'ville-enfer', name: 'Enfer', description: 'Pierre volcanique, fissures de lave et forteresses aux flammes ardentes.' },
+  paradis: { id: 'paradis', name: 'Paradis', description: 'Maisons de pierre claire, toits dorés et palais céleste au-dessus des nuages.' },
+  'palais-glace': { id: 'palais-glace', name: 'Palais de glace', description: 'Maisons de givre, remparts cristallins et palais sculpté dans la glace.' },
   'grece-antique': { id: 'grece-antique', name: 'Grèce antique', description: 'Hameaux de pierre claire, temples à colonnes et cités fortifiées.' },
   'arabo-musulman': { id: 'arabo-musulman', name: 'Empire arabo-musulman', description: 'Maisons de pierre ocre, arches, dômes turquoise et cités fortifiées.' },
   egyptien: { id: 'egyptien', name: 'Égypte antique', description: 'Hameaux de terre crue, temples monumentaux et capitale pharaonique.' },
   futuriste: { id: 'futuriste', name: 'Futuriste', description: 'Avant-poste modulaire, panneaux solaires et cité fortifiée de haute technologie.' },
+  halloween: { id: 'halloween', name: 'Halloween', description: 'Hameaux hantés, citrouilles lumineuses et châteaux aux toits violets.' },
+  noel: { id: 'noel', name: 'Noël', description: 'Villages enneigés, toits verts, guirlandes et châteaux illuminés.' },
 };
 
 const DEFAULT_VILLAGE_DESIGN = 'beige';

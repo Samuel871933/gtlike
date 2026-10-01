@@ -87,6 +87,54 @@
 .village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png?v=5'); }
 .village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png?v=5'); }
 .village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png?v=5'); }
+.village-design--napoleon.village-marker--1 { --village-image: url('/img/map/villages/napoleon/level-1.png'); }
+.village-design--napoleon.village-marker--2 { --village-image: url('/img/map/villages/napoleon/level-2.png'); }
+.village-design--napoleon.village-marker--3 { --village-image: url('/img/map/villages/napoleon/level-3.png'); }
+.village-design--napoleon.village-marker--4 { --village-image: url('/img/map/villages/napoleon/level-4.png'); }
+.village-design--napoleon.village-marker--5 { --village-image: url('/img/map/villages/napoleon/level-5.png'); }
+.village-design--napoleon.village-marker--6 { --village-image: url('/img/map/villages/napoleon/level-6.png'); }
+.village-design--empire-japonais.village-marker--1 { --village-image: url('/img/map/villages/empire-japonais/level-1.png?v=2'); }
+.village-design--empire-japonais.village-marker--2 { --village-image: url('/img/map/villages/empire-japonais/level-2.png?v=2'); }
+.village-design--empire-japonais.village-marker--3 { --village-image: url('/img/map/villages/empire-japonais/level-3.png?v=2'); }
+.village-design--empire-japonais.village-marker--4 { --village-image: url('/img/map/villages/empire-japonais/level-4.png?v=2'); }
+.village-design--empire-japonais.village-marker--5 { --village-image: url('/img/map/villages/empire-japonais/level-5.png?v=2'); }
+.village-design--empire-japonais.village-marker--6 { --village-image: url('/img/map/villages/empire-japonais/level-6.png?v=2'); }
+.village-design--camp-caravanes.village-marker--1 { --village-image: url('/img/map/villages/camp-caravanes/level-1.png'); }
+.village-design--camp-caravanes.village-marker--2 { --village-image: url('/img/map/villages/camp-caravanes/level-2.png'); }
+.village-design--camp-caravanes.village-marker--3 { --village-image: url('/img/map/villages/camp-caravanes/level-3.png'); }
+.village-design--camp-caravanes.village-marker--4 { --village-image: url('/img/map/villages/camp-caravanes/level-4.png'); }
+.village-design--camp-caravanes.village-marker--5 { --village-image: url('/img/map/villages/camp-caravanes/level-5.png'); }
+.village-design--camp-caravanes.village-marker--6 { --village-image: url('/img/map/villages/camp-caravanes/level-6.png'); }
+.village-design--ville-luxe.village-marker--1 { --village-image: url('/img/map/villages/ville-luxe/level-1.png'); }
+.village-design--ville-luxe.village-marker--2 { --village-image: url('/img/map/villages/ville-luxe/level-2.png'); }
+.village-design--ville-luxe.village-marker--3 { --village-image: url('/img/map/villages/ville-luxe/level-3.png'); }
+.village-design--ville-luxe.village-marker--4 { --village-image: url('/img/map/villages/ville-luxe/level-4.png'); }
+.village-design--ville-luxe.village-marker--5 { --village-image: url('/img/map/villages/ville-luxe/level-5.png'); }
+.village-design--ville-luxe.village-marker--6 { --village-image: url('/img/map/villages/ville-luxe/level-6.png'); }
+.village-design--ville-zombie.village-marker--1 { --village-image: url('/img/map/villages/ville-zombie/level-1.png'); }
+.village-design--ville-zombie.village-marker--2 { --village-image: url('/img/map/villages/ville-zombie/level-2.png'); }
+.village-design--ville-zombie.village-marker--3 { --village-image: url('/img/map/villages/ville-zombie/level-3.png'); }
+.village-design--ville-zombie.village-marker--4 { --village-image: url('/img/map/villages/ville-zombie/level-4.png'); }
+.village-design--ville-zombie.village-marker--5 { --village-image: url('/img/map/villages/ville-zombie/level-5.png'); }
+.village-design--ville-zombie.village-marker--6 { --village-image: url('/img/map/villages/ville-zombie/level-6.png'); }
+.village-design--ville-enfer.village-marker--1 { --village-image: url('/img/map/villages/ville-enfer/level-1.png'); }
+.village-design--ville-enfer.village-marker--2 { --village-image: url('/img/map/villages/ville-enfer/level-2.png'); }
+.village-design--ville-enfer.village-marker--3 { --village-image: url('/img/map/villages/ville-enfer/level-3.png'); }
+.village-design--ville-enfer.village-marker--4 { --village-image: url('/img/map/villages/ville-enfer/level-4.png'); }
+.village-design--ville-enfer.village-marker--5 { --village-image: url('/img/map/villages/ville-enfer/level-5.png'); }
+.village-design--ville-enfer.village-marker--6 { --village-image: url('/img/map/villages/ville-enfer/level-6.png'); }
+.village-design--paradis.village-marker--1 { --village-image: url('/img/map/villages/paradis/level-1.png?v=2'); }
+.village-design--paradis.village-marker--2 { --village-image: url('/img/map/villages/paradis/level-2.png?v=2'); }
+.village-design--paradis.village-marker--3 { --village-image: url('/img/map/villages/paradis/level-3.png?v=2'); }
+.village-design--paradis.village-marker--4 { --village-image: url('/img/map/villages/paradis/level-4.png?v=2'); }
+.village-design--paradis.village-marker--5 { --village-image: url('/img/map/villages/paradis/level-5.png?v=2'); }
+.village-design--paradis.village-marker--6 { --village-image: url('/img/map/villages/paradis/level-6.png?v=2'); }
+.village-design--palais-glace.village-marker--1 { --village-image: url('/img/map/villages/palais-glace/level-1.png'); }
+.village-design--palais-glace.village-marker--2 { --village-image: url('/img/map/villages/palais-glace/level-2.png'); }
+.village-design--palais-glace.village-marker--3 { --village-image: url('/img/map/villages/palais-glace/level-3.png'); }
+.village-design--palais-glace.village-marker--4 { --village-image: url('/img/map/villages/palais-glace/level-4.png'); }
+.village-design--palais-glace.village-marker--5 { --village-image: url('/img/map/villages/palais-glace/level-5.png'); }
+.village-design--palais-glace.village-marker--6 { --village-image: url('/img/map/villages/palais-glace/level-6.png'); }
 .village-design--grece-antique.village-marker--1 { --village-image: url('/img/map/villages/grece-antique/level-1.png?v=1'); }
 .village-design--grece-antique.village-marker--2 { --village-image: url('/img/map/villages/grece-antique/level-2.png?v=1'); }
 .village-design--grece-antique.village-marker--3 { --village-image: url('/img/map/villages/grece-antique/level-3.png?v=1'); --village-scale: .99; }
@@ -116,6 +164,18 @@
 .village-design--futuriste.village-marker--4 { --village-image: url('/img/map/villages/futuriste/level-4.png'); --village-scale: 1.17; }
 .village-design--futuriste.village-marker--5 { --village-image: url('/img/map/villages/futuriste/level-5.png'); --village-scale: 1.32; }
 .village-design--futuriste.village-marker--6 { --village-image: url('/img/map/villages/futuriste/level-6.png'); --village-scale: 1.43; }
+.village-design--halloween.village-marker--1 { --village-image: url('/img/map/villages/halloween/level-1.png'); }
+.village-design--halloween.village-marker--2 { --village-image: url('/img/map/villages/halloween/level-2.png'); }
+.village-design--halloween.village-marker--3 { --village-image: url('/img/map/villages/halloween/level-3.png'); --village-scale: .99; }
+.village-design--halloween.village-marker--4 { --village-image: url('/img/map/villages/halloween/level-4.png'); }
+.village-design--halloween.village-marker--5 { --village-image: url('/img/map/villages/halloween/level-5.png'); --village-scale: 1.17; }
+.village-design--halloween.village-marker--6 { --village-image: url('/img/map/villages/halloween/level-6.png'); --village-scale: 1.29; }
+.village-design--noel.village-marker--1 { --village-image: url('/img/map/villages/noel/level-1.png'); }
+.village-design--noel.village-marker--2 { --village-image: url('/img/map/villages/noel/level-2.png'); }
+.village-design--noel.village-marker--3 { --village-image: url('/img/map/villages/noel/level-3.png'); --village-scale: .99; }
+.village-design--noel.village-marker--4 { --village-image: url('/img/map/villages/noel/level-4.png'); }
+.village-design--noel.village-marker--5 { --village-image: url('/img/map/villages/noel/level-5.png'); --village-scale: 1.17; }
+.village-design--noel.village-marker--6 { --village-image: url('/img/map/villages/noel/level-6.png'); --village-scale: 1.29; }
 .village-marker { width: var(--tile-w, 53px); height: var(--tile-h, 38px); }
 .village-marker::after { display: none; }
 .village-relation-dot { position: absolute; z-index: 4; left: 1px; top: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }

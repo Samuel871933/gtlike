@@ -2,16 +2,24 @@
 <%
   // Catalogue de la boutique (game/shopCatalog.js) : premium, pack, thèmes, designs. Chaque article mène à ses offres
   // (un monde, tout le compte, tout un serveur privé). `rights` : droits du compte seul, pour « Possédé partout ».
-  const q = world ? `?world=${encodeURIComponent(world)}` : '';
+  const q = shopQuery;
   const from = (it) => Math.min(...it.offers.map((o) => o.price));
   const sections = [
     ['premium', 'Premium et pack', 'Des fonctionnalités en plus pour une durée choisie, ou tout l’habillage du jeu en un seul achat (nouveautés comprises).', items.filter((i) => i.kind === 'premium' || i.kind === 'bundle')],
     ['themes', 'Thèmes de jeu', 'Change tout l’intérieur du jeu : couleurs, polices, fonds. Le thème Adarma reste gratuit.', items.filter((i) => i.kind === 'theme')],
-    ['designs', 'Designs de village', 'L’apparence de tes villages sur la carte, vue par tous les joueurs. Le design Beige reste gratuit.', items.filter((i) => i.kind === 'design')],
+    ['designs', 'Designs de village', 'L’apparence de tous tes villages sur la carte, du hameau à la capitale, vue par tous les joueurs. Le design Beige reste gratuit.', items.filter((i) => i.kind === 'design')],
   ];
   const preview = (it) => {
     if (it.kind === 'theme') return `<div class="aspect-966/580 border-2 border-black bg-cover bg-center" style="background-image: url('/img/game-styles/${it.styleId}/background-preview.webp')" aria-hidden="true"></div>`;
-    if (it.kind === 'design') return `<div class="grid grid-cols-3 gap-1 border-2 border-black bg-[url(/img/map/terrain-grass.webp)] bg-size-[220px] p-2" aria-hidden="true">${[2, 4, 6].map((l) => `<span class="village-design-preview-cell"><span class="village-marker village-marker--${l} village-design--${it.designId}"><span class="village-sprite"></span></span></span>`).join('')}</div>`;
+    // Design : vitrine sur un coin de carte, la capitale (niveau 6) en grand, puis la progression des niveaux 1 à 5.
+    if (it.kind === 'design') {
+      const marker = (l, w, h) => `<span class="village-marker village-marker--${l} village-design--${it.designId}" style="--tile-w:${w}px;--tile-h:${h}px"><span class="village-sprite"></span></span>`;
+      return `<div class="relative overflow-hidden border-2 border-black bg-[url(/img/map/terrain-grass.webp)] bg-size-[260px]" aria-hidden="true">
+        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(255,236,170,0.28),transparent_55%),radial-gradient(ellipse_at_50%_50%,transparent_55%,rgba(0,0,0,0.55))]"></div>
+        <div class="relative flex h-36 items-end justify-center pb-3">${marker(6, 140, 100)}</div>
+        <div class="relative flex items-end justify-center gap-1 border-t border-black/40 bg-black/35 px-2 py-1.5">${[1, 2, 3, 4, 5].map((l) => marker(l, 44, 32)).join('')}</div>
+      </div>`;
+    }
     const artwork = { premium: 'premium', 'cosmetics:all': 'all-cosmetics' }[it.key];
     if (artwork) return `<div class="flex h-24 items-center justify-center border-2 border-black bg-night" aria-hidden="true"><img src="/img/shop/${artwork}.webp" width="512" height="512" class="h-full max-w-full object-contain p-1" alt="" loading="lazy" decoding="async"></div>`;
     return `<div class="flex h-24 items-center justify-center border-2 border-black bg-night text-gold-400" aria-hidden="true">${icon(it.kind === 'premium' ? 'bolt' : 'star', 'size-10', 1.6)}</div>`;
@@ -20,19 +28,8 @@
 <div class="flex flex-col gap-3.5 pb-4">
   <%- include('partials/page-title', { kicker: 'Adarma', title: 'Boutique', sub: 'Le jeu reste gratuit : la boutique ajoute des options et de l’habillage, pour un monde, pour tout ton compte ou pour tout ton serveur.' }) %>
 
-  <section class="<%= ui.panel %> flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-    <span class="flex items-center gap-3">
-      <span class="<%= ui.medallionGold %> size-10"><%- icon('adarton', 'size-5', 2) %></span>
-      <span class="flex flex-col leading-tight">
-        <span class="text-[13px] text-parchment-500">Ton solde</span>
-        <span class="font-display text-xl font-semibold text-gold-200 tabular-nums"><%= num(user.adartons) %> Adartons</span>
-      </span>
-    </span>
-    <span class="flex flex-wrap gap-2">
-      <a href="/shop/adartons" class="<%= btn('gold', 'sm') %>"><%- icon('plus', 'size-3.5', 2.4) %>Acheter des Adartons</a>
-      <a href="/shop/purchases" class="<%= btn('dark', 'sm') %>">Mes achats</a>
-    </span>
-  </section>
+  <%- include('partials/adarton-balance') %>
+  <% if (happy.active) { %><%- include('partials/happy-hour', { cta: `/shop/adartons${shopQuery}` }) %><% } %>
 
   <% for (const [id, title, intro, list] of sections) { if (!list.length) continue; %>
     <section class="<%= ui.panel %>" id="<%= id %>">
@@ -48,7 +45,7 @@
                 <% if (owned) { %><span class="<%= ui.tagGold %>"><%= it.kind === 'premium' ? 'Actif' : 'Possédé' %></span><% } %>
               </span>
               <span class="text-sm text-parchment-400"><%= it.description %></span>
-              <span class="mt-auto flex items-center gap-1.5 text-sm text-parchment-300"><%- icon('adarton', 'size-3.5', 2) %>à partir de <span class="font-semibold text-gold-200 tabular-nums"><%= num(from(it)) %></span> Adartons</span>
+              <span class="mt-auto flex items-center gap-1.5 border-t border-bronze-900 pt-2 text-sm text-parchment-400"><%- icon('adarton', 'size-6') %><%= it.offers.length > 1 && new Set(it.offers.map((o) => o.price)).size > 1 ? 'dès' : '' %> <span class="text-base font-semibold text-gold-200 tabular-nums"><%= num(from(it)) %></span></span>
             </span>
           </a>
         <% } %>

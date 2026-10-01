@@ -53,7 +53,7 @@ function createApp() {
   }));
 
   app.use((req, res, next) => {
-    Object.assign(res.locals, helpers, { now: new Date(), ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null, playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, asSitter: false });
+    Object.assign(res.locals, helpers, { now: new Date(), ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null, playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, asSitter: false, happyPopup: null });
     const publicPages = {
       '/': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },
       '/login': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },

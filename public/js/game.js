@@ -94,6 +94,8 @@
     document.querySelectorAll('[data-countdown]').forEach((el) => {
       const left = Math.ceil((Number(el.dataset.countdown) - now) / 1000);
       el.textContent = fmt(Math.max(0, left));
+      // Comptes à rebours sans rechargement à la fin (popup de l'happy hour).
+      if (left <= 0 && el.hasAttribute('data-countdown-noreload')) return;
       if (left <= 0) {
         if (isOverview) refreshOverview();
         else if (!reloading) {
@@ -433,6 +435,15 @@
         if (box) updateColumn(box.dataset.tribeColumn);
       }
     });
+  }
+
+  // Popup de l'happy hour (une fois par créneau) : ouverte au chargement, signalée « vue » au serveur tout de suite.
+  const happy = document.querySelector('[data-happy-popup]');
+  if (happy && typeof happy.showModal === 'function') {
+    happy.showModal();
+    const seen = happy.querySelector('[data-happy-seen]');
+    fetch(seen.action, { method: 'POST', body: new URLSearchParams(new FormData(seen)), headers: { accept: 'application/json' } }).catch(() => {});
+    happy.addEventListener('click', (e) => { if (e.target === happy) happy.close(); });
   }
 
   // Encarts qu'on peut masquer (« Masquer ce message ») : mémorisé dans le navigateur.

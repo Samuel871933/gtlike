@@ -2,6 +2,7 @@
 
 process.env.SQLITE_STORAGE = ':memory:';
 delete process.env.DATABASE_URL;
+process.env.HAPPY_HOUR_FORCE = '0'; // créneaux réels, même si le .env force l'happy hour
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -43,6 +44,7 @@ test('catalogue : thème et design par défaut gratuits, trois portées par cosm
   assert.ok(rights.has('theme:adarma') && rights.has('design:beige') && !rights.has('theme:viking'));
   assert.ok(new ShopService.Rights(['cosmetics:all']).has('design:noir'), 'le pack couvre les designs');
   assert.ok(!new ShopService.Rights(['cosmetics:all']).premium, 'mais pas le premium');
+  assert.deepEqual(catalog.item('cosmetics:all').offers.map((o) => o.price), [2000, 10000, 8000]);
 });
 
 test('achat : renonciation, solde, débit et historique', async () => {
@@ -106,4 +108,21 @@ test('mondes terminés exclus ; suppression du compte : droits perdus, cadeaux a
   assert.equal(await Entitlement.count({ where: { scope: 'account', itemKey: 'theme:viking' } }), 0);
   assert.ok((await ShopService.rightsFor(bob.id, server.id)).has('theme:egypt'), 'le pack offert au serveur reste');
   assert.ok(await AdartonTransaction.count({ where: { userId: null } }) >= 2, 'historique gardé sans compte');
+});
+
+test('happy hour : vendredi et samedi de 19 h à 20 h, +25 % d’Adartons sur les packs', async () => {
+  const at = (d, h, m = 0) => new Date(2026, 9, d, h, m); // octobre 2026 : le 1er est un jeudi
+  assert.equal(catalog.happyHour(at(2, 19, 30)).active, true, 'vendredi 19 h 30');
+  assert.equal(catalog.happyHour(at(3, 19, 0)).active, true, 'samedi 19 h');
+  assert.equal(catalog.happyHour(at(2, 20, 0)).active, false, 'vendredi 20 h : fini');
+  assert.equal(catalog.happyHour(at(4, 19, 30)).active, false, 'dimanche');
+  assert.equal(catalog.happyHour(at(1, 12)).next.getTime(), at(2, 19).getTime(), 'jeudi : prochaine le vendredi 19 h');
+  assert.equal(catalog.happyHour(at(3, 21)).next.getTime(), at(9, 19).getTime(), 'samedi soir : vendredi suivant');
+
+  const carol = await AuthService.register({ username: 'Carol', email: 'c@example.com', password: 'motdepasse' });
+  assert.deepEqual(await ShopService.creditPack(carol.id, 'pack-560', { now: at(2, 19, 15) }), { base: 560, bonus: 140, total: 700 });
+  assert.deepEqual(await ShopService.creditPack(carol.id, 'pack-560', { now: at(2, 18, 59) }), { base: 560, bonus: 0, total: 560 });
+  assert.equal((await User.findByPk(carol.id)).adartons, 1260);
+  const tx = await AdartonTransaction.findAll({ where: { userId: carol.id }, order: [['id', 'ASC']] });
+  assert.match(tx[0].label, /\+ 140 offerts \(happy hour\)/);
 });

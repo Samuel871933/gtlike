@@ -17,6 +17,8 @@ const User = sequelize.define('User', {
   gameLayout: { type: DataTypes.STRING(16), allowNull: true },
   // Solde d'Adartons, la monnaie de la boutique (voir ShopService) ; chaque mouvement est inscrit dans AdartonTransactions.
   adartons: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  // Dernière happy hour déjà annoncée par la popup du jeu (fin du créneau, en ISO) : une seule fois par créneau.
+  happyHourSeen: { type: DataTypes.STRING(32), allowNull: true },
 });
 
 /**

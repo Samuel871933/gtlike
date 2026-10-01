@@ -9,8 +9,10 @@
   const sourceName = { purchase: 'Achat', legacy: 'Droit acquis', admin: 'Offert' };
 %>
 <div class="flex flex-col gap-3.5 pb-4">
-  <a href="/shop" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boutique</a>
-  <%- include('partials/page-title', { kicker: 'Boutique', title: 'Mes achats', sub: `Solde : ${num(user.adartons)} Adartons` }) %>
+  <a href="/shop<%= shopQuery %>" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boutique</a>
+  <%- include('partials/page-title', { kicker: 'Boutique', title: 'Mes achats' }) %>
+  <% if (world) { %><a href="/worlds/<%= encodeURIComponent(world) %>/play" class="<%= btn('gold', 'sm', 'self-start') %>"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Retour au jeu</a><% } %>
+  <%- include('partials/adarton-balance', { compact: true }) %>
 
   <section class="<%= ui.panel %>">
     <%- panelHead('Articles', `<span class="text-[13px] text-parchment-500 tabular-nums">${rights.length}</span>`) %>

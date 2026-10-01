@@ -1,0 +1,23 @@
+<%#
+  Bandeau « trésor » des pages de la boutique : la pièce d'Adarton en grand, le solde du compte et les accès aux packs
+  et aux achats. `compact` : version réduite (pages secondaires).
+%>
+<% const small = typeof compact !== 'undefined' && compact; %>
+<section class="<%= ui.panel %> relative overflow-hidden">
+  <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_12%_50%,rgba(227,178,60,0.22),transparent_60%)]" aria-hidden="true"></div>
+  <div class="relative flex flex-wrap items-center gap-x-5 gap-y-3 <%= small ? 'px-4 py-3' : 'px-5 py-4' %>">
+    <%- icon('adarton', `${small ? 'size-16' : 'size-24 sm:size-28'} drop-shadow-[0_0_14px_rgba(227,178,60,0.45)] -rotate-6`) %>
+    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span class="text-[13px] text-gold-400">Ton trésor</span>
+      <span class="flex items-baseline gap-2">
+        <span class="<%= small ? 'text-2xl' : 'text-4xl' %> font-semibold text-gold-200 tabular-nums [text-shadow:2px_2px_0_#000]"><%= num(user.adartons) %></span>
+        <span class="font-display text-lg text-parchment-200">Adartons</span>
+      </span>
+      <% if (!small) { %><span class="text-sm text-parchment-400">La monnaie d’Adarma : elle débloque le premium, les thèmes et les designs, pour un monde, ton compte ou tout ton serveur.</span><% } %>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="/shop/adartons<%= typeof shopQuery !== 'undefined' ? shopQuery : '' %>" class="<%= btn('gold', small ? 'sm' : 'md') %>"><%- icon('adarton', 'size-5') %>Acheter des Adartons</a>
+      <a href="/shop/purchases<%= typeof shopQuery !== 'undefined' ? shopQuery : '' %>" class="<%= btn('dark', small ? 'sm' : 'md') %>">Mes achats</a>
+    </div>
+  </div>
+</section>

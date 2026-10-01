@@ -18,7 +18,7 @@
           </span>
           <span class="text-sm text-parchment-400"><%= s.description %></span>
           <% if (!active && owned) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
-          <% if (!owned) { %><a href="<%= shopLink(`theme:${s.id}`) %>" class="<%= btn('dark', 'sm', 'mt-auto w-full') %>"><%- icon('adarton', 'size-3.5', 2) %>Débloquer</a><% } %>
+          <% if (!owned) { %><a href="<%= shopLink(`theme:${s.id}`) %>" class="<%= btn('dark', 'sm', 'mt-auto w-full') %>"><%- icon('adarton', 'size-5') %>Débloquer</a><% } %>
         </div>
       </form>
     <% } %>
@@ -45,7 +45,7 @@
           </span>
           <span class="text-sm text-parchment-400"><%= d.description %></span>
           <% if (!active && owned) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
-          <% if (!owned) { %><a href="<%= shopLink(`design:${d.id}`) %>" class="<%= btn('dark', 'sm', 'mt-auto w-full') %>"><%- icon('adarton', 'size-3.5', 2) %>Débloquer</a><% } %>
+          <% if (!owned) { %><a href="<%= shopLink(`design:${d.id}`) %>" class="<%= btn('dark', 'sm', 'mt-auto w-full') %>"><%- icon('adarton', 'size-5') %>Débloquer</a><% } %>
         </div>
       </form>
     <% } %>

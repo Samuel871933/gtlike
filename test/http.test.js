@@ -110,7 +110,7 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   assert.match((await http(joined.location)).html, /data-game-style="adarma"/);
   const ShopService = require('../src/services/ShopService');
   const bobUser = await require('../src/models').User.findOne({ where: { username: 'Bob' } });
-  await ShopService.credit(bobUser.id, 6000, 'Test');
+  await ShopService.credit(bobUser.id, require('../src/game/shopCatalog').item('cosmetics:all').offers.find((o) => o.id === 'account').price, 'Test');
   await ShopService.purchase(bobUser.id, { itemKey: 'cosmetics:all', offerId: 'account', waiver: true });
   const styled = await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
   assert.equal(styled.status, 302);
@@ -668,6 +668,14 @@ test('boutique : catalogue, offres, achat en Adartons, packs en construction, me
   assert.equal((await http('/shop')).status, 200);
   const item = await http('/shop/item/theme:roman');
   assert.match(item.html, /name="waiver"/);
+  // Venue d'un monde (?world=slug) : portée « un monde » proposée, ce monde présélectionné, gardé jusqu'à « Mes achats ».
+  const worlds = await http('/worlds');
+  await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const fromWorld = await http('/shop/item/premium?world=w1');
+  assert.match(fromWorld.html, /name="scope" value="world"[^>]*checked/);
+  assert.match(fromWorld.html, /<option value="\d+" selected>Monde 1<\/option>/);
+  assert.match(fromWorld.html, /action="\/shop\/buy\?world=w1"/);
+  assert.match(fromWorld.html, /href="\/shop\?world=w1"/);
   assert.equal((await http('/shop/item/inconnu')).status, 404);
   assert.match((await http('/shop/adartons')).html, /\/shop\/coming-soon\?pack=pack-200/);
   assert.match((await http('/shop/coming-soon?pack=pack-200')).html, /En construction/);
@@ -681,4 +689,25 @@ test('boutique : catalogue, offres, achat en Adartons, packs en construction, me
   assert.equal(bought.location, '/shop/purchases');
   assert.equal((await user.reload()).adartons, 300);
   assert.match((await http('/shop/purchases')).html, /Thème Romain/);
+});
+
+test('happy hour : popup en jeu une seule fois par créneau et par compte', async () => {
+  const config = require('../src/config');
+  const forced = config.happyHourForce;
+  config.happyHourForce = true;
+  try {
+    const http = client();
+    const reg = await http('/register');
+    await http('/register', { method: 'POST', form: { username: 'Fetard', email: 'fetard@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+    const worlds = await http('/worlds');
+    const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+    const page = await http(joined.location);
+    assert.match(page.html, /data-happy-popup/);
+    assert.match(page.html, /\+25 %/);
+    const seen = await http(`${joined.location}/happy-hour/seen`, { method: 'POST', form: { _csrf: tokenOf(page.html) } });
+    assert.equal(seen.status, 204);
+    assert.doesNotMatch((await http(joined.location)).html, /data-happy-popup/);
+  } finally {
+    config.happyHourForce = forced;
+  }
 });

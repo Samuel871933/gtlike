@@ -1,0 +1,18 @@
+<%#
+  Popup de l'happy hour en jeu (une fois par créneau et par compte, voir loadVillage) : ouverte par game.js, qui
+  envoie le formulaire caché « vu » pour ne plus l'afficher. Local : happyPopup (happyHour en cours).
+%>
+<dialog class="m-auto w-[min(92vw,440px)] overflow-visible border-0 bg-transparent p-0 text-parchment-200 backdrop:bg-black/70" data-happy-popup aria-labelledby="happy-title">
+  <form method="post" action="/village/<%= ctx.village.id %>/happy-hour/seen" hidden data-happy-seen><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+  <div class="happy-card relative flex flex-col items-center gap-3 px-6 pt-14 pb-5 text-center">
+    <%- icon('adarton', 'absolute -top-12 left-1/2 size-24 -translate-x-1/2 drop-shadow-[0_0_22px_rgba(227,178,60,0.6)]') %>
+    <span class="text-[13px] text-gold-400">Happy hour · jusqu’à <%= happyPopup.endsAt.getHours() %> h</span>
+    <h2 id="happy-title" class="m-0 font-display text-2xl text-parchment-100"><span class="text-gold-200">+<%= Math.round(happyPopup.bonus * 100) %> %</span> d’Adartons offerts</h2>
+    <p class="text-sm text-parchment-400">Sur tous les packs d’Adartons achetés pendant l’happy hour.</p>
+    <span class="flex items-center gap-2 text-sm text-parchment-400">Fin dans <span class="happy-timer tabular-nums" data-countdown="<%= happyPopup.endsAt.getTime() %>" data-countdown-noreload><%= duration((happyPopup.endsAt - now) / 1000) %></span></span>
+    <div class="mt-1 flex w-full flex-col gap-2 sm:flex-row">
+      <a href="/shop/adartons?world=<%= encodeURIComponent(ctx.world.slug) %>" class="<%= btn('gold', 'md', 'flex-1') %>"><%- icon('adarton', 'size-5') %>Voir les packs</a>
+      <form method="dialog" class="flex-1"><button class="h-full min-h-9 w-full cursor-pointer border-2 border-black bg-[#2a261c] px-3 text-sm font-semibold text-[#e7dcc2] shadow-[inset_0_0_0_1px_#6b5530,2px_2px_0_#000] transition hover:bg-[#3a3424]">Plus tard</button></form>
+    </div>
+  </div>
+</dialog>
