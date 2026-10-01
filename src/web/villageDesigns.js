@@ -5,7 +5,8 @@
   les joueurs les voient ainsi, quel que soit leur style de jeu ; les barbares gardent le design par défaut.
   Chaque design a :
     - une entrée ici ;
-    - ses images dans public/img/map/villages/<id>/level-1.png … level-6.png ;
+    - ses images dans public/img/map/villages/<id>/level-1.png … level-6.png (sources), converties en
+      level-N.webp par scripts/optimize-map-images.js : ce sont les WebP que référence le CSS ;
     - ses règles .village-design--<id>.village-marker--N dans src/styles/app.css (et public/css/map-v3.css).
   Chaque case de village reçoit le design de son propriétaire (src/web/mapView.js, champ `design`).
   Le design par défaut est gratuit ; les autres s'achètent à la boutique (article « design:<id> », voir

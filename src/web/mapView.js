@@ -84,10 +84,24 @@ function lastOf(a) {
 
 /** Villages d'un secteur (sx, sy : numéros de secteur, 20 cases de côté). */
 async function sector(vc, sx, sy) {
-  const x0 = sx * SECTOR;
-  const y0 = sy * SECTOR;
-  const villages = await Village.findAll({
-    where: { worldId: vc.village.worldId, x: { [Op.between]: [x0, x0 + SECTOR - 1] }, y: { [Op.between]: [y0, y0 + SECTOR - 1] } },
+  return (await sectors(vc, [[sx, sy]]))[0];
+}
+
+/**
+ * Villages de plusieurs secteurs [[sx, sy], …] en une seule série de requêtes (le rectangle qui les englobe),
+ * puis répartis par secteur : la carte demande en général un bloc de secteurs voisins d'un coup.
+ */
+async function sectors(vc, list) {
+  if (!list.length) return [];
+  const sxs = list.map(([sx]) => sx);
+  const sys = list.map(([, sy]) => sy);
+  const x0 = Math.min(...sxs) * SECTOR;
+  const y0 = Math.min(...sys) * SECTOR;
+  const x1 = (Math.max(...sxs) + 1) * SECTOR - 1;
+  const y1 = (Math.max(...sys) + 1) * SECTOR - 1;
+  const wanted = new Set(list.map(([sx, sy]) => `${sx}|${sy}`));
+  const all = await Village.findAll({
+    where: { worldId: vc.village.worldId, x: { [Op.between]: [x0, x1] }, y: { [Op.between]: [y0, y1] } },
     attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
     include: [{
       model: Player,
@@ -95,6 +109,8 @@ async function sector(vc, sx, sy) {
       include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }, { model: User, attributes: ['villageDesign'] }],
     }],
   });
+  const sectorOf = (v) => `${Math.floor(v.x / SECTOR)}|${Math.floor(v.y / SECTOR)}`;
+  const villages = all.filter((v) => wanted.has(sectorOf(v)));
   const rights = await ShopService.rightsByUser(villages.map((v) => v.Player && v.Player.userId), vc.village.worldId);
   // Points des tribus présentes (infobulle) : somme des points de leurs membres.
   const tribeIds = [...new Set(villages.map((v) => v.Player && v.Player.tribeId).filter(Boolean))];
@@ -109,7 +125,9 @@ async function sector(vc, sx, sy) {
   const lastAttacks = new Map(attacks.map((a) => [a.villageId, a]));
   const notes = await VillageNoteService.visible(vc.player, villages.map((v) => v.id));
   const orders = await MapOrderService.visible(vc.player, villages.map((v) => v.id));
-  return { sx, sy, cells: villages.map((v) => cellOf(vc, v, tribePoints, lastAttacks, notes, orders, rights)) };
+  const bySector = new Map(list.map(([sx, sy]) => [`${sx}|${sy}`, { sx, sy, cells: [] }]));
+  for (const v of villages) bySector.get(sectorOf(v)).cells.push(cellOf(vc, v, tribePoints, lastAttacks, notes, orders, rights));
+  return [...bySector.values()];
 }
 
 /** Secteurs couvrant un rectangle de cases (bornes incluses). */
@@ -137,4 +155,4 @@ function point(vc, v) {
   return mark ? [v.x, v.y, kindOf(vc, v), mark] : [v.x, v.y, kindOf(vc, v)];
 }
 
-module.exports = { SECTOR, point, viewContext, kindOf, markOf, sector, sectorsCovering, mini, villageLevel };
+module.exports = { SECTOR, point, viewContext, kindOf, markOf, sector, sectors, sectorsCovering, mini, villageLevel };

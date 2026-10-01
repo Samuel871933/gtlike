@@ -2,6 +2,7 @@
 
 const path = require('path');
 const express = require('express');
+const compression = require('compression');
 const multer = require('multer');
 const session = require('express-session');
 const SequelizeStore = require('connect-session-sequelize')(session.Store);
@@ -29,6 +30,11 @@ function createApp() {
   app.set('views', path.join(__dirname, 'views'));
   if (config.isProduction) app.set('trust proxy', 1);
 
+  // Pages, CSS, JS et JSON de la carte compressés (gzip) : les secteurs de la carte sont lus en continu.
+  app.use(compression());
+  // Images : gardées un jour par le navigateur en production (sinon revalidées à chaque page, des dizaines de
+  // requêtes sur la carte). Une image modifiée en profondeur change de nom (-v2, ?v=2…).
+  app.use('/img', express.static(path.join(__dirname, '..', 'public', 'img'), { maxAge: config.isProduction ? '1d' : 0 }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
   app.get('/robots.txt', (req, res) => {
     const sitemap = config.siteUrl ? `Sitemap: ${config.siteUrl}/sitemap.xml\n` : '';

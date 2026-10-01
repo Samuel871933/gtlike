@@ -47,7 +47,9 @@ test('designs des villages : beige par défaut, 6 images et règles CSS pour cha
   for (const id of Object.keys(VILLAGE_DESIGNS)) {
     for (let level = 1; level <= 6; level++) {
       assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'img', 'map', 'villages', id, `level-${level}.png`)), `${id} : niveau ${level}`);
-      assert.ok(css.includes(`/img/map/villages/${id}/level-${level}.png`), `${id} : règle CSS du niveau ${level}`);
+      // Le CSS sert la version WebP (scripts/optimize-map-images.js).
+      assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'img', 'map', 'villages', id, `level-${level}.webp`)), `${id} : niveau ${level} en WebP`);
+      assert.ok(css.includes(`/img/map/villages/${id}/level-${level}.webp`), `${id} : règle CSS du niveau ${level}`);
     }
   }
 });

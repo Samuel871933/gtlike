@@ -271,7 +271,7 @@ const Player = sequelize.define(
     // Joueur géré par l'IA (voir BotService) : sans compte (userId nul), ses réglages sont dans Bot.
     isBot: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
-  { indexes: [{ unique: true, fields: ['userId', 'worldId'] }] },
+  { indexes: [{ unique: true, fields: ['userId', 'worldId'] }, { fields: ['tribeId'] }, { fields: ['worldId', 'points'] }] },
 );
 
 /** Bot d'un monde : le joueur qu'il incarne, sa prochaine décision et sa mémoire (cibles à éviter…). */

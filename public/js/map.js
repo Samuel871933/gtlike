@@ -40,7 +40,9 @@
   const texOffset = (cells, px) => -((((cells * px) % texture()) + texture()) % texture());
 
   // ------------------------------------------------------------------ Données : secteurs de villages
+  // Villages par case, clé numérique (x, y) : lue des centaines de fois par bloc dessiné (voir near).
   const cells = new Map();
+  const ck = (x, y) => y * 8192 + x;
   const loaded = new Set();
   const loading = new Set();
   const key = (x, y) => `${x}|${y}`;
@@ -55,7 +57,7 @@
   const addSector = (s) => {
     loaded.add(key(s.sx, s.sy));
     for (const c of s.cells) {
-      cells.set(key(c.x, c.y), c);
+      cells.set(ck(c.x, c.y), c);
       noteArrivals(c);
     }
   };
@@ -63,19 +65,26 @@
   const live = (list) => (list || []).filter((o) => new Date(o.arrivesAt).getTime() > Date.now());
   const liveOrders = (c) => ({ own: live(c.orders && c.orders.own), tribe: live(c.orders && c.orders.tribe) });
   boot.sectors.forEach(addSector);
+  // Secteurs manquants de la zone : demandés ensemble (/map/sectors, 16 par requête), puis seuls les blocs
+  // touchés sont redessinés (sectorLoaded).
   function ensure(x0, y0, x1, y1) {
     const max = Math.ceil(WORLD / SECTOR) - 1;
+    const missing = [];
     for (let sy = Math.max(0, Math.floor(y0 / SECTOR)); sy <= Math.min(max, Math.floor(y1 / SECTOR)); sy++) {
       for (let sx = Math.max(0, Math.floor(x0 / SECTOR)); sx <= Math.min(max, Math.floor(x1 / SECTOR)); sx++) {
         const k = key(sx, sy);
         if (loaded.has(k) || loading.has(k)) continue;
         loading.add(k);
-        fetch(`${base}/map/sector?sx=${sx}&sy=${sy}`, { headers: { accept: 'application/json' } })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((s) => { if (s) { addSector(s); render(); refreshTip(); } })
-          .catch(() => {})
-          .finally(() => loading.delete(k));
+        missing.push([sx, sy]);
       }
+    }
+    for (let i = 0; i < missing.length; i += 16) {
+      const batch = missing.slice(i, i + 16);
+      fetch(`${base}/map/sectors?s=${batch.map(([sx, sy]) => `${sx}.${sy}`).join(',')}`, { headers: { accept: 'application/json' } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((list) => { if (list) list.forEach(sectorLoaded); })
+        .catch(() => {})
+        .finally(() => batch.forEach(([sx, sy]) => loading.delete(key(sx, sy))));
     }
   }
 
@@ -100,7 +109,7 @@
   const near = (x, y, kinds, radius = 1) => {
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dy = -radius; dy <= radius; dy++) {
-        const c = cells.get(key(x + dx, y + dy));
+        const c = cells.get(ck(x + dx, y + dy));
         if (c && kinds.includes(c.kind)) return true;
       }
     }
@@ -146,24 +155,33 @@
     return marks ? `<div class="pointer-events-none absolute z-[5] w-(--tile-w) h-(--tile-h)" style="${style}" aria-hidden="true"><span class="absolute top-px -right-5 flex flex-col items-end">${marks}</span></div>` : '';
   }
 
-  function render() {
-    fit();
-    const x0 = Math.floor(cx) - half - MARGIN;
-    const y0 = Math.floor(cy) - half - MARGIN;
-    span = size + 2 * MARGIN;
-    baseX = x0;
-    baseY = y0;
-    ensure(x0, y0, x0 + span - 1, y0 + span - 1);
+  // La carte est découpée en blocs de CHUNK × CHUNK cases, posés en coordonnées du monde dans le calque. Un bloc
+  // est dessiné une fois puis gardé : glisser ne fait qu'ajouter les blocs qui entrent dans la zone (et retirer ceux
+  // qui s'en éloignent), au lieu de redessiner toute la carte. Un bloc n'est redessiné que si les villages de son
+  // secteur ou d'un secteur voisin changent (le décor et les zones d'influence dépendent des cases voisines).
+  // Les blocs ne créent pas de contexte d'empilement (ni z-index, ni transform) : villages, décors et pastilles
+  // de toute la carte se superposent comme s'ils étaient dans un seul calque.
+  const CHUNK = 10;
+  const chunkBox = document.createElement('div');
+  const overlay = document.createElement('div');
+  overlay.className = 'pointer-events-none absolute';
+  layer.append(chunkBox, overlay);
+  const chunks = new Map();
+  const dirty = new Set();
+  // Zone de blocs à garder dessinés (vue + MARGIN cases de chaque côté), en numéros de bloc.
+  let zone = null;
+
+  function chunkHtml(x0, y0) {
     const out = [];
     const badges = [];
     const at = (x, y) => `left:${(x - x0) * tw}px;top:${(y - y0) * th}px`;
-    for (let y = y0; y < y0 + span; y++) {
-      for (let x = x0; x < x0 + span; x++) {
-        if (x < 0 || y < 0 || x >= WORLD || y >= WORLD) {
+    for (let y = y0; y < y0 + CHUNK; y++) {
+      for (let x = x0; x < x0 + CHUNK; x++) {
+        if (x >= WORLD || y >= WORLD) {
           out.push(`<div class="absolute w-(--tile-w) h-(--tile-h) bg-map-edge" style="${at(x, y)}"></div>`);
           continue;
         }
-        const c = cells.get(key(x, y));
+        const c = cells.get(ck(x, y));
         // Calques d'influence : cases voisines d'un village à soi ou de sa tribu, ou d'un ennemi.
         if (near(x, y, ['current', 'own', 'tribe'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-blood-700/25 group-data-[layer-influence]/map:block" style="${at(x, y)}"></div>`);
         else if (near(x, y, ['enemy'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-rel-enemy/20 group-data-[layer-enemy]/map:block" style="${at(x, y)}"></div>`);
@@ -216,19 +234,125 @@
         }
       }
     }
+    return out.join('') + badges.join('');
+  }
+
+  // Bloc (a, b) : cases a·CHUNK… et b·CHUNK…, texture d'herbe calée sur le monde. Hors du monde : simple bord.
+  function buildChunk(a, b) {
+    const k = key(a, b);
+    let el = chunks.get(k);
+    const x0 = a * CHUNK; const y0 = b * CHUNK;
+    const outside = x0 + CHUNK <= 0 || y0 + CHUNK <= 0 || x0 >= WORLD || y0 >= WORLD;
+    if (!el) {
+      el = document.createElement('div');
+      el.className = outside ? 'absolute bg-map-edge' : 'absolute';
+      if (!outside) el.setAttribute('data-map-chunk', '');
+      el.style.cssText = `left:${x0 * tw}px;top:${y0 * th}px;width:${CHUNK * tw}px;height:${CHUNK * th}px;--terrain-px:${texOffset(x0, tw)}px;--terrain-py:${texOffset(y0, th)}px`;
+      // Ordre du document : ligne par ligne, comme les cases, pour que les décors qui débordent sur le bloc
+      // suivant passent dessus comme avant.
+      const order = b * 100000 + a;
+      el.dataset.order = order;
+      const next = [...chunkBox.children].find((n) => Number(n.dataset.order) > order);
+      chunkBox.insertBefore(el, next || null);
+      chunks.set(k, el);
+    }
+    dirty.delete(k);
+    if (!outside) el.innerHTML = chunkHtml(x0, y0);
+  }
+
+  // Tout redessiner (taille des cases changée, carte agrandie…).
+  function dropChunks() {
+    chunkBox.textContent = '';
+    chunks.clear();
+    dirty.clear();
+    zone = null;
+  }
+
+  // Blocs de la zone autour de la vue : ceux qui touchent la partie visible sont dessinés tout de suite, les autres
+  // (la marge) au fil des images suivantes (pump), pour ne jamais bloquer un glisser.
+  function syncChunks() {
+    const left = cx - half; const top = cy - half;
+    const z = {
+      a0: Math.floor((left - MARGIN) / CHUNK), a1: Math.floor((left + size + MARGIN) / CHUNK),
+      b0: Math.floor((top - MARGIN) / CHUNK), b1: Math.floor((top + size + MARGIN) / CHUNK),
+    };
+    if (zone && z.a0 === zone.a0 && z.a1 === zone.a1 && z.b0 === zone.b0 && z.b1 === zone.b1) return;
+    zone = z;
+    ensure(z.a0 * CHUNK, z.b0 * CHUNK, (z.a1 + 1) * CHUNK - 1, (z.b1 + 1) * CHUNK - 1);
+    for (const [k, el] of chunks) {
+      const [a, b] = k.split('|').map(Number);
+      if (a < z.a0 - 1 || a > z.a1 + 1 || b < z.b0 - 1 || b > z.b1 + 1) { el.remove(); chunks.delete(k); dirty.delete(k); }
+    }
+    for (let b = Math.floor(top / CHUNK); b <= Math.floor((top + size) / CHUNK); b++) {
+      for (let a = Math.floor(left / CHUNK); a <= Math.floor((left + size) / CHUNK); a++) if (!chunks.has(key(a, b))) buildChunk(a, b);
+    }
+    schedule();
+  }
+
+  // Blocs à (re)dessiner, du centre vers les bords : 6 ms au plus par image.
+  let pumpFrame = 0;
+  function schedule() { if (!pumpFrame) pumpFrame = requestAnimationFrame(pump); }
+  function pump() {
+    pumpFrame = 0;
+    if (!zone) return;
+    const mx = (cx + 0.5) / CHUNK; const my = (cy + 0.5) / CHUNK;
+    const todo = [];
+    for (let b = zone.b0; b <= zone.b1; b++) {
+      for (let a = zone.a0; a <= zone.a1; a++) {
+        const k = key(a, b);
+        if (!chunks.has(k) || dirty.has(k)) todo.push([a, b, (a + 0.5 - mx) ** 2 + (b + 0.5 - my) ** 2]);
+      }
+    }
+    if (!todo.length) return;
+    todo.sort((p, q) => p[2] - q[2]);
+    const start = performance.now();
+    let rebuilt = false;
+    for (const [a, b] of todo) {
+      if (performance.now() - start > 6) { schedule(); break; }
+      rebuilt = rebuilt || chunks.has(key(a, b));
+      buildChunk(a, b);
+    }
+    if (rebuilt) refreshTip();
+  }
+
+  // Secteur reçu : ses blocs, et ceux qui touchent ses bords (cases voisines), sont à redessiner.
+  function sectorLoaded(sec) {
+    addSector(sec);
+    const x0 = sec.sx * SECTOR; const y0 = sec.sy * SECTOR;
+    for (let b = Math.floor((y0 - 1) / CHUNK); b <= Math.floor((y0 + SECTOR) / CHUNK); b++) {
+      for (let a = Math.floor((x0 - 1) / CHUNK); a <= Math.floor((x0 + SECTOR) / CHUNK); a++) {
+        if (chunks.has(key(a, b))) dirty.add(key(a, b));
+      }
+    }
+    schedule();
+  }
+
+  // Calque du dessus (quadrillage, frontières, zones de foi, flèches) et règles : posés sur une fenêtre autour de
+  // la vue, refaits quand la vue sort de sa marge (quelques éléments seulement).
+  function frameOverlay() {
+    const x0 = Math.floor(cx) - half - MARGIN;
+    const y0 = Math.floor(cy) - half - MARGIN;
+    span = size + 2 * MARGIN;
+    baseX = x0;
+    baseY = y0;
+    const out = [];
     // Frontières de continent (tous les 100 cases) et quadrillage de 5 cases (fond du calque).
     for (let x = Math.ceil(x0 / 100) * 100; x < x0 + span; x += 100) out.push(`<div class="pointer-events-none absolute top-0 z-[5] hidden h-full border-l-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="left:${(x - x0) * tw}px"></div>`);
     for (let y = Math.ceil(y0 / 100) * 100; y < y0 + span; y += 100) out.push(`<div class="pointer-events-none absolute left-0 z-[5] hidden w-full border-t-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="top:${(y - y0) * th}px"></div>`);
     out.push(`<div class="map-grid-lines pointer-events-none absolute inset-0 z-[4] hidden group-data-[layer-grid]/map:block" style="--grid-x:${(5 - (((x0 % 5) + 5) % 5)) % 5};--grid-y:${(5 - (((y0 % 5) + 5) % 5)) % 5}"></div>`);
     out.push(churchZones(x0, y0));
     out.push(arrows(x0, y0));
-    layer.innerHTML = out.join('') + badges.join('');
-    layer.style.width = `${span * tw}px`;
-    layer.style.height = `${span * th}px`;
-    // Texture d'herbe (6 cases de large) calée sur les coordonnées du monde.
-    layer.style.setProperty('--terrain-px', `${texOffset(x0, tw)}px`);
-    layer.style.setProperty('--terrain-py', `${texOffset(y0, th)}px`);
+    overlay.innerHTML = out.join('');
+    overlay.style.cssText = `left:${x0 * tw}px;top:${y0 * th}px;width:${span * tw}px;height:${span * th}px`;
     rulers();
+  }
+
+  function render() {
+    const [w, h] = [tw, th];
+    fit();
+    if (tw !== w || th !== h) dropChunks();
+    zone = null;
+    frameOverlay();
     place();
   }
 
@@ -271,16 +395,16 @@
     rulerY.innerHTML = `<div class="absolute inset-x-0 -top-5" data-inner>${hy}</div>`;
   }
 
-  // Décale le calque pour montrer la zone centrée sur (cx, cy) ; redessine si l'on sort de la marge chargée.
+  // Décale le calque (en coordonnées du monde) pour montrer la zone centrée sur (cx, cy), complète les blocs, et
+  // recale le calque du dessus et les règles si l'on sort de leur marge.
   function place() {
     const left = cx - half;
     const top = cy - half;
-    if (left < baseX + 1 || top < baseY + 1 || left + size > baseX + span - 1 || top + size > baseY + span - 1) { render(); return; }
-    const ox = -(left - baseX) * tw;
-    const oy = -(top - baseY) * th;
-    layer.style.transform = `translate3d(${ox}px, ${oy}px, 0)`;
-    rulerX.firstChild.style.transform = `translateX(${ox}px)`;
-    rulerY.firstChild.style.transform = `translateY(${oy}px)`;
+    if (left < baseX + 1 || top < baseY + 1 || left + size > baseX + span - 1 || top + size > baseY + span - 1) frameOverlay();
+    layer.style.transform = `translate3d(${-left * tw}px, ${-top * th}px, 0)`;
+    rulerX.firstChild.style.transform = `translateX(${-(left - baseX) * tw}px)`;
+    rulerY.firstChild.style.transform = `translateY(${-(top - baseY) * th}px)`;
+    syncChunks();
     drawMini();
   }
 
@@ -440,14 +564,14 @@
       e.preventDefault();
       sel = [clampC(x), clampC(y)];
       moveTo(x, y, { animate: Math.hypot(x - cx, y - cy) < size * 2 });
-      render();
+      applySelection();
     });
   }
   let resizeTimer = null;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 100); });
 
   // ------------------------------------------------------------------ Infobulle et menu d'actions
-  const cellOf = (el) => cells.get(key(Number(el.dataset.x), Number(el.dataset.y)));
+  const cellOf = (el) => cells.get(ck(Number(el.dataset.x), Number(el.dataset.y)));
   function placeBeside(el, target) {
     const f = frame.getBoundingClientRect();
     const r = target.getBoundingClientRect();
@@ -538,10 +662,15 @@
   // rechargement 6 s plus tard, au cas où l'horloge du navigateur serait en avance sur celle du serveur.
   const RELOAD_AFTER_MS = 6000;
   function reloadVisible() {
-    for (let sy = Math.floor(baseY / SECTOR); sy <= Math.floor((baseY + span - 1) / SECTOR); sy++) {
-      for (let sx = Math.floor(baseX / SECTOR); sx <= Math.floor((baseX + span - 1) / SECTOR); sx++) loaded.delete(key(sx, sy));
+    if (!zone) return;
+    const [x0, y0, x1, y1] = [zone.a0 * CHUNK, zone.b0 * CHUNK, (zone.a1 + 1) * CHUNK - 1, (zone.b1 + 1) * CHUNK - 1];
+    for (let sy = Math.floor(y0 / SECTOR); sy <= Math.floor(y1 / SECTOR); sy++) {
+      for (let sx = Math.floor(x0 / SECTOR); sx <= Math.floor(x1 / SECTOR); sx++) loaded.delete(key(sx, sy));
     }
-    render();
+    // Pastilles des ordres arrivés retirées tout de suite ; les secteurs rechargés redessinent ensuite leurs blocs.
+    for (const k of chunks.keys()) dirty.add(k);
+    schedule();
+    ensure(x0, y0, x1, y1);
   }
   function refreshTip() {
     if (!tip || tip.classList.contains('hidden') || !tipAt) return;
@@ -556,6 +685,18 @@
     refreshTip();
     setTimeout(() => { reloadVisible(); }, RELOAD_AFTER_MS);
   }, 1000);
+
+  // Case sélectionnée par « Aller à » : marquée sur le bloc déjà dessiné (les blocs dessinés ensuite la marquent eux-mêmes).
+  function applySelection() {
+    layer.querySelectorAll('[data-selected]').forEach((n) => { if (n.hasAttribute('data-map-tile')) n.removeAttribute('data-selected'); else n.remove(); });
+    if (!sel) return;
+    const [x, y] = sel;
+    const tile = layer.querySelector(`[data-map-tile][data-x="${x}"][data-y="${y}"]`);
+    if (tile) { tile.setAttribute('data-selected', ''); return; }
+    const a = Math.floor(x / CHUNK); const b = Math.floor(y / CHUNK);
+    const el = chunks.get(key(a, b));
+    if (el && el.hasAttribute('data-map-chunk')) el.insertAdjacentHTML('beforeend', `<div class="map-tile pointer-events-none absolute w-(--tile-w) h-(--tile-h) bg-none" style="left:${(x - a * CHUNK) * tw}px;top:${(y - b * CHUNK) * th}px" data-selected></div>`);
+  }
 
   function selectTile(el) {
     sel = [Number(el.dataset.x), Number(el.dataset.y)];

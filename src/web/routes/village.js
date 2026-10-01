@@ -1219,7 +1219,7 @@ router.get('/map', ah(async (req, res) => {
   const miniHalf = Math.floor(miniSize / 2);
   const [templates, sectors, miniVillages, movements] = await Promise.all([
     ArmyTemplateService.list(village.playerId),
-    Promise.all(around.map(([sx, sy]) => mapView.sector(vc, sx, sy))),
+    mapView.sectors(vc, around),
     mapView.mini(vc, cx - miniHalf, cy - miniHalf, miniSize),
     CommandService.overview(village.id),
   ]);
@@ -1246,6 +1246,15 @@ router.get('/map/sector', ah(async (req, res) => {
   const max = Math.ceil(req.ctx.cfg.mapSize / mapView.SECTOR);
   if (!(sx >= 0 && sy >= 0 && sx < max && sy < max)) throw new GameError('Secteur hors de la carte.', 404);
   res.json(await mapView.sector(await mapView.viewContext(req.ctx.village, req.ctx.cfg), sx, sy));
+}));
+
+// Carte : plusieurs secteurs d'un coup (?s=sx.sy,sx.sy…, 16 au plus) — une seule série de requêtes pour le bloc
+// de secteurs qui entre dans la vue.
+router.get('/map/sectors', ah(async (req, res) => {
+  const max = Math.ceil(req.ctx.cfg.mapSize / mapView.SECTOR);
+  const list = String(req.query.s || '').split(',').slice(0, 16).map((p) => p.split('.').map((n) => Number.parseInt(n, 10)))
+    .filter(([sx, sy]) => sx >= 0 && sy >= 0 && sx < max && sy < max);
+  res.json(await mapView.sectors(await mapView.viewContext(req.ctx.village, req.ctx.cfg), list));
 }));
 
 // Mini-carte recentrée : points colorés des villages du carré.

@@ -611,6 +611,27 @@ test('carte : un secteur rechargé après une arrivée montre le retour sur son 
   assert.equal(await Command.count({ where: { id: cmd.id } }), 0, 'attaque résolue');
 });
 
+test('carte : plusieurs secteurs en une requête, hors carte ignorés', async () => {
+  const { Village } = require('../src/models');
+  const mapView = require('../src/web/mapView');
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Secteurs', email: 'secteurs@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const home = await Village.findByPk(Number(joined.location.match(/\/village\/(\d+)/)[1]));
+  const sx = Math.floor(home.x / mapView.SECTOR);
+  const sy = Math.floor(home.y / mapView.SECTOR);
+  const res = await http(`${joined.location}/map/sectors?s=${sx}.${sy},${sx + 1}.${sy},-1.0,9999.0`);
+  const list = JSON.parse(res.html);
+  assert.deepEqual(list.map((s) => [s.sx, s.sy]), [[sx, sy], [sx + 1, sy]]);
+  assert.ok(list[0].cells.some((c) => c.id === home.id));
+  assert.ok(list[1].cells.every((c) => Math.floor(c.x / mapView.SECTOR) === sx + 1));
+  // Même contenu que le secteur seul.
+  const single = JSON.parse((await http(`${joined.location}/map/sector?sx=${sx}&sy=${sy}`)).html);
+  assert.deepEqual(single.cells.map((c) => c.id).sort(), list[0].cells.map((c) => c.id).sort());
+});
+
 test('confirmation d’attaque : attaques supplémentaires envoyées à la suite', async () => {
   const { Village, Command } = require('../src/models');
   const http = client();

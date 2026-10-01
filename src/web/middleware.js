@@ -11,7 +11,7 @@ const { villageDesignFor } = require('./villageDesigns');
 const ShopService = require('../services/ShopService');
 const { gameLayoutFor } = require('./gameLayouts');
 const { Op } = require('sequelize');
-const { User, Village, TribeInvite, Player, Tribe } = require('../models');
+const { User, Village, TribeInvite, Player, Tribe, World } = require('../models');
 
 /** Enveloppe un handler async pour transmettre les erreurs à Express 4. */
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -59,6 +59,9 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Routes JSON de la carte servies sans le contexte complet (voir loadVillage).
+const MAP_DATA = /^\/map\/(sectors?|mini|world)$/;
+
 /** Vérifie la propriété du village, le rafraîchit et expose le contexte aux vues. */
 const loadVillage = ah(async (req, res, next) => {
   const { village: owned, asSitter } = await VillageService.assertAccess(Number(req.params.villageId), req.user.id);
@@ -67,6 +70,13 @@ const loadVillage = ah(async (req, res, next) => {
   // Même instant pour les arrivées résolues et l'état du village : une arrivée ne peut pas tomber entre les deux.
   const now = new Date();
   await CommandService.processDue(now);
+  // Données de la carte (JSON lu en continu pendant les déplacements) : ni état du village (transaction avec
+  // verrou), ni en-tête de page. Le village et la configuration du monde suffisent.
+  if (req.method === 'GET' && MAP_DATA.test(req.path)) {
+    const world = await World.findByPk(owned.worldId);
+    req.ctx = { village: owned, cfg: world.getConfig() };
+    return next();
+  }
   req.ctx = await VillageService.withVillage(owned.id, async (ctx) => ctx, { now });
   res.locals.ctx = req.ctx;
   res.locals.unreadByFilter = await ReportService.unreadByFilter(owned.playerId);
