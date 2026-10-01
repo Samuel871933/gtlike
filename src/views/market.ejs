@@ -106,14 +106,7 @@
             </table>
           </div>
         <% } %>
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-900 px-3 py-2.5 text-sm">
-          <form method="post" action="<%= m %>/settings" class="flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <label for="market-per-page" class="text-parchment-400">Offres par page :</label>
-            <input id="market-per-page" type="number" name="perPage" min="<%= perPageRange.min %>" max="<%= perPageRange.max %>" value="<%= perPage %>" class="<%= ui.inputSm %> w-20 text-right tabular-nums">
-            <button class="<%= btn('dark', 'sm') %>">Sauvegarder</button>
-          </form>
-          <%- include('partials/pager', { page: pageNumber, pages, href: (n) => q({ page: n }) }) %>
-        </div>
+        <%- include('partials/pagination', { list: 'market', pagination, href: (n) => q({ page: n }) }) %>
       </section>
 <% } %>
 

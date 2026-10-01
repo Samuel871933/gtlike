@@ -3,6 +3,7 @@
 const { Op } = require('sequelize');
 const { Report } = require('../models');
 const GameError = require('./GameError');
+const { paginate } = require('./PaginationService');
 
 // Filtres de la boîte de rapports : clé → types de rapport.
 const FILTERS = {
@@ -14,7 +15,6 @@ const FILTERS = {
   award: ['award'],
   scavenge: ['scavenge'],
 };
-const PAGE_SIZE = 50;
 
 function parseIds(input) {
   const list = Array.isArray(input) ? input : input == null ? [] : [input];
@@ -22,17 +22,18 @@ function parseIds(input) {
 }
 
 class ReportService {
-  static async list(playerId, { filter = 'all', page = 1 } = {}) {
+  /** Page de la boîte de rapports ; `perPage` : réglage du joueur (PaginationService). */
+  static async list(playerId, { filter = 'all', page = 1, perPage = 25 } = {}) {
     const types = FILTERS[filter] === undefined ? null : FILTERS[filter];
     const where = { playerId, ...(types ? { type: { [Op.in]: types } } : {}) };
-    const current = Math.max(1, Math.floor(Number(page)) || 1);
-    const { rows, count } = await Report.findAndCountAll({
+    const p = paginate(await Report.count({ where }), page, perPage);
+    const reports = await Report.findAll({
       where,
       order: [['happenedAt', 'DESC'], ['id', 'DESC']],
-      limit: PAGE_SIZE,
-      offset: (current - 1) * PAGE_SIZE,
+      limit: p.perPage,
+      offset: p.offset,
     });
-    return { reports: rows, page: current, pages: Math.max(1, Math.ceil(count / PAGE_SIZE)), total: count };
+    return { reports, ...p };
   }
 
   /** Rapports non lus par filtre de la boîte : { all: 4, attack: 2, … } (menu « Rapports » de l'en-tête). */
@@ -92,6 +93,5 @@ class ReportService {
 }
 
 ReportService.FILTERS = Object.keys(FILTERS);
-ReportService.PAGE_SIZE = PAGE_SIZE;
 
 module.exports = ReportService;

@@ -1,7 +1,7 @@
 'use strict';
 
 /*
-  Composants de la charte (maquette « GTLike », maquettes/GTLike.html) sous forme de chaînes de classes Tailwind.
+  Composants de la charte (maquette « Adarma », maquettes/Adarma.html) sous forme de chaînes de classes Tailwind.
   Style « BD » : encre noire (bordures 2px), filet intérieur, ombre portée franche décalée, aucun arrondi.
   Typographie sobre : casse normale, graisses moyennes (semi-gras pour l'emphase), capitales réservées aux tags.
   Aucun CSS maison : chaque composant n'est qu'un assemblage d'utilitaires, réutilisé dans les vues.
@@ -150,4 +150,14 @@ function segTabs(items) {
   return `<nav class="${ui.seg}">${items.map(([href, label, on]) => `<a href="${esc(href)}" class="${on ? ui.segOn : ui.segOff}"${on ? ' aria-current="page"' : ''}>${esc(label)}</a>`).join('')}</nav>`;
 }
 
-module.exports = { ui, btn, panelHead, segTabs, esc };
+/**
+ * Onglets segmentés sur desktop, liste déroulante sur mobile (menus de plus de 4 onglets, ou aux libellés longs).
+ * Mêmes items que segTabs ; `label` nomme la liste pour les lecteurs d'écran.
+ */
+function segMenu(items, { label = 'Afficher' } = {}) {
+  const options = items.map(([href, name, on]) => `<option value="${esc(href)}"${on ? ' selected' : ''}>${esc(name)}</option>`).join('');
+  return `<div class="max-md:hidden">${segTabs(items)}</div>`
+    + `<select class="${ui.inputSm} max-w-full md:hidden" aria-label="${esc(label)}" onchange="location.href = this.value">${options}</select>`;
+}
+
+module.exports = { ui, btn, panelHead, segTabs, segMenu, esc };

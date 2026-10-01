@@ -26,11 +26,11 @@ class WorldService {
     }));
   }
 
-  /** Nombre de joueurs actifs (au moins un village) de chaque monde : Map(worldId → nombre). */
+  /** Nombre de joueurs actifs (au moins un village, bots non compris) de chaque monde : Map(worldId → nombre). */
   static async playerCounts(worldIds) {
     if (!worldIds.length) return new Map();
     const rows = await Player.findAll({
-      where: { worldId: worldIds, villageCount: { [Op.gt]: 0 } },
+      where: { worldId: worldIds, isBot: false, villageCount: { [Op.gt]: 0 } },
       attributes: ['worldId', [sequelize.fn('COUNT', sequelize.col('id')), 'n']], group: ['worldId'], raw: true,
     });
     return new Map(rows.map((r) => [r.worldId, Number(r.n)]));
@@ -56,43 +56,66 @@ class WorldService {
         throw new GameError('Vous jouez déjà sur ce monde.');
       }
 
-      const cfg = world.getConfig();
       if (!player) {
         player = await Player.create({ userId: user.id, worldId: world.id, name: user.username }, { transaction });
       } else {
         await player.update({ stats: { ...player.stats, restarts: (player.stats.restarts || 0) + 1 } }, { transaction });
       }
-
-      // Emplacements du village et de ses barbares (autour de lui : ses premières cibles de pillage). On part du
-      // bord de la zone peuplée et on avance par bandes de MapPlacer.BAND cases : chaque bande ne lit que ses
-      // villages, jamais toute la carte.
-      const count = await Village.count({ where: { worldId: world.id }, transaction });
-      const last = await Village.findOne({
-        where: { worldId: world.id, playerId: { [Op.ne]: null } }, order: [['id', 'DESC']], attributes: ['x', 'y'], raw: true, transaction,
-      });
-      const barbarians = MapPlacer.barbariansOnJoin(cfg.placement.emptyVillages, rng);
-      let spots = null;
-      for (let r = MapPlacer.startRadius(cfg, count, last); !spots; r += MapPlacer.BAND) {
-        if (r > MapPlacer.edge(cfg)) throw new GameError("La carte est pleine : plus aucun emplacement libre.");
-        const ring = MapPlacer.bandRing(r);
-        const coords = await WorldService.villagesInRing(world.id, cfg.center, ring, transaction);
-        const placer = new MapPlacer(cfg, new Set(coords.map((c) => MapPlacer.key(c.x, c.y))), rng, { count, ring });
-        const spot = placer.trySpot({ direction, radius: r, until: r + MapPlacer.BAND });
-        if (spot) spots = { spot, barbs: Array.from({ length: barbarians }, () => placer.findNear(spot)) };
-      }
-
-      const village = await WorldService.createVillage(world, {
-        ...spots.spot, player, name: `Village de ${player.name}`, isFirst: true, buildings: cfg.startBuildings, now,
-      }, transaction);
-      for (const barbSpot of spots.barbs) {
-        const buildings = { ...cfg.startBuildings };
-        for (const r of ['wood', 'stone', 'iron']) buildings[r] = 1 + Math.floor(rng() * 5);
-        await WorldService.createVillage(world, { ...barbSpot, player: null, name: 'Village barbare', buildings, now }, transaction);
-      }
-
-      await player.update({ points: village.points, villageCount: 1 }, { transaction });
+      const village = await WorldService.settle(world, player, { direction, now, rng }, transaction);
       return { player, village };
     });
+  }
+
+  /**
+   * Fait entrer un bot sur le monde (joueur sans compte, voir BotService) : nouveau joueur nommé `name`, ou `player`
+   * existant qui a perdu tous ses villages et recommence. Mêmes règles de placement qu'un joueur.
+   */
+  static async joinBot(world, { name, player = null, now = new Date(), rng = Math.random } = {}) {
+    return sequelize.transaction(async (transaction) => {
+      if (player) {
+        await player.update({ stats: { ...player.stats, restarts: (player.stats.restarts || 0) + 1 } }, { transaction });
+      } else {
+        player = await Player.create({ userId: null, isBot: true, worldId: world.id, name }, { transaction });
+      }
+      const village = await WorldService.settle(world, player, { now, rng }, transaction);
+      return { player, village };
+    });
+  }
+
+  /** Premier village d'un joueur (et ses barbares autour), points et nombre de villages du joueur à jour. */
+  static async settle(world, player, { direction = 'random', now, rng }, transaction) {
+    const cfg = world.getConfig();
+    // Emplacements du village et de ses barbares (autour de lui : ses premières cibles de pillage). On part du
+    // bord de la zone peuplée et on avance par bandes de MapPlacer.BAND cases : chaque bande ne lit que ses
+    // villages, jamais toute la carte.
+    const count = await Village.count({ where: { worldId: world.id }, transaction });
+    const last = await Village.findOne({
+      where: { worldId: world.id, playerId: { [Op.ne]: null } }, order: [['id', 'DESC']], attributes: ['x', 'y'], raw: true, transaction,
+    });
+    const barbarians = MapPlacer.barbariansOnJoin(cfg.placement.emptyVillages, rng);
+    let spots = null;
+    for (let r = MapPlacer.startRadius(cfg, count, last); !spots; r += MapPlacer.BAND) {
+      if (r > MapPlacer.edge(cfg)) throw new GameError("La carte est pleine : plus aucun emplacement libre.");
+      const ring = MapPlacer.bandRing(r);
+      const coords = await WorldService.villagesInRing(world.id, cfg.center, ring, transaction);
+      const placer = new MapPlacer(cfg, new Set(coords.map((c) => MapPlacer.key(c.x, c.y))), rng, { count, ring });
+      const spot = placer.trySpot({ direction, radius: r, until: r + MapPlacer.BAND });
+      if (spot) spots = { spot, barbs: Array.from({ length: barbarians }, () => placer.findNear(spot)) };
+    }
+
+    const village = await WorldService.createVillage(world, {
+      ...spots.spot, player, name: `Village de ${player.name}`, isFirst: true, now,
+      // Mondes avec église : le premier village a déjà sa première église, comme sur GT.
+      buildings: cfg.hasFeature('church') ? { ...cfg.startBuildings, church_f: 1 } : cfg.startBuildings,
+    }, transaction);
+    for (const barbSpot of spots.barbs) {
+      const buildings = { ...cfg.startBuildings };
+      for (const r of ['wood', 'stone', 'iron']) buildings[r] = 1 + Math.floor(rng() * 5);
+      await WorldService.createVillage(world, { ...barbSpot, player: null, name: 'Village barbare', buildings, now }, transaction);
+    }
+
+    await player.update({ points: village.points, villageCount: 1 }, { transaction });
+    return village;
   }
 
   /** Coordonnées des villages entre `ring.min` et `ring.max` cases du centre (index worldId, x, y). */

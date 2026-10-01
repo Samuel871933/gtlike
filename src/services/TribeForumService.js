@@ -5,6 +5,7 @@ const {
   sequelize, Player, TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
 } = require('../models');
 const GameError = require('./GameError');
+const { paginate } = require('./PaginationService');
 const TribeService = require('./TribeService');
 
 // Forum interne d'une tribu (comme sur Guerre Tribale) : réservé à ses membres.
@@ -38,10 +39,7 @@ function cleanName(text, min, max, label) {
   return name;
 }
 
-const pageOf = (page, count) => {
-  const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
-  return { page: Math.min(pages, Math.max(1, Math.floor(Number(page)) || 1)), pages };
-};
+const pageOf = (page, count) => paginate(count, page, PAGE_SIZE);
 
 /** Joueur membre d'une tribu (sinon erreur), avec son droit de modérateur du forum. */
 async function memberOf(playerId) {
@@ -242,7 +240,7 @@ class TribeForumService {
     const { player, manager } = await memberOf(playerId);
     const thread = await threadOf(player, threadId);
     const count = await TribeForumPost.count({ where: { threadId: thread.id } });
-    const p = pageOf(page === 'last' ? Infinity : page, count);
+    const p = pageOf(page, count);
     const posts = await TribeForumPost.findAll({
       where: { threadId: thread.id },
       include: [authorOf()],

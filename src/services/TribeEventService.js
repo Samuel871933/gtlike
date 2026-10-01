@@ -1,6 +1,8 @@
 'use strict';
 
-const { TribeEvent } = require('../models');
+const { Op } = require('sequelize');
+const { TribeEvent, Player } = require('../models');
+const { paginate } = require('./PaginationService');
 const { continent } = require('../game/MapPlacer');
 
 // Catégories du fil (filtres « Anoblissements, Diplomatie, Membres, Divers » de GT) et type → catégorie.
@@ -38,11 +40,16 @@ class TribeEventService {
   static async list(tribeId, { category, page = 1 } = {}) {
     const where = { tribeId, ...(CATEGORIES[category] ? { category } : {}) };
     const total = await TribeEvent.count({ where });
-    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    const current = Math.min(pages, Math.max(1, Math.floor(Number(page)) || 1));
+    const { page: current, pages, offset } = paginate(total, page, PAGE_SIZE);
     const events = await TribeEvent.findAll({
-      where, order: [['happenedAt', 'DESC'], ['id', 'DESC']], limit: PAGE_SIZE, offset: (current - 1) * PAGE_SIZE,
+      where, order: [['happenedAt', 'DESC'], ['id', 'DESC']], limit: PAGE_SIZE, offset,
     });
+    // Joueur à l'origine de chaque événement (sinon celui qu'il concerne), avec son image de profil actuelle.
+    const who = (e) => (e.data && ((e.data.actor && e.data.actor.id) || (e.data.target && e.data.target.id))) || null;
+    const ids = [...new Set(events.map(who).filter(Boolean))];
+    const players = ids.length ? await Player.findAll({ where: { id: { [Op.in]: ids } }, attributes: ['id', 'name', 'avatar'] }) : [];
+    const byId = new Map(players.map((p) => [p.id, p]));
+    for (const e of events) e.player = byId.get(who(e)) || null;
     return { events, page: current, pages, total, category: CATEGORIES[category] ? category : 'all' };
   }
 }

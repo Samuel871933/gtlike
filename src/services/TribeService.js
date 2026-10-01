@@ -5,6 +5,7 @@ const { sequelize, World, Player, Tribe, TribeInvite, TribeRelation, TribeEvent 
 const GameError = require('./GameError');
 const tribeRights = require('../game/tribeRights');
 const TribeEventService = require('./TribeEventService');
+const ImageService = require('./ImageService');
 
 const { who } = TribeEventService;
 
@@ -73,6 +74,7 @@ class TribeService {
       const manager = await TribeService.requireRight(managerId, 'invite', t);
       const target = await Player.findOne({ where: { worldId: manager.worldId, name: String(playerName || '').trim() }, transaction: t });
       if (!target) throw new GameError('Aucun joueur de ce nom sur ce monde.');
+      if (target.isBot) throw new GameError('Les bots ne rejoignent pas de tribu.');
       if (target.tribeId === manager.tribeId) throw new GameError('Ce joueur est déjà dans la tribu.');
       const [, created] = await TribeInvite.findOrCreate({
         where: { tribeId: manager.tribeId, playerId: target.id }, transaction: t,
@@ -134,6 +136,8 @@ class TribeService {
   }
 
   static async dissolve(tribeId, t) {
+    const gone = await Tribe.findByPk(tribeId, { attributes: ['avatar'], transaction: t });
+    if (gone?.avatar) t.afterCommit(() => ImageService.remove(gone.avatar));
     await TribeRelation.destroy({ where: { [Op.or]: [{ tribeId }, { otherTribeId: tribeId }] }, transaction: t });
     // Chargé ici : TribeForumService dépend lui-même de TribeService.
     await require('./TribeForumService').destroyTribe(tribeId, t);
@@ -188,6 +192,15 @@ class TribeService {
     });
   }
 
+  /** Image du profil public (comme la description, il faut le droit de diplomatie) ; sans `buffer`, la retire. */
+  static async updateAvatar(managerId, buffer) {
+    const manager = await sequelize.transaction((t) => TribeService.requireRight(managerId, 'diplomacy', t));
+    const tribe = await Tribe.findByPk(manager.tribeId, { attributes: ['id', 'avatar'] });
+    if (!tribe) throw new GameError('Tribu introuvable.', 404);
+    await ImageService.replaceAvatar(tribe, 'tribe', buffer);
+    await TribeEventService.log(tribe.id, 'profile', { actor: who(manager) });
+  }
+
   /** Annonces internes (encadré de l'aperçu), modifiables par les ducs et barons, comme les « administrateurs » de GT. */
   static async updateAnnouncement(managerId, text) {
     return sequelize.transaction(async (t) => {
@@ -237,22 +250,29 @@ class TribeService {
 
   // ---------------------------------------------------------------- Lecture
 
+  /** Données du profil public : aucune relation diplomatique ni annonce interne. */
   static async profile(tribeId) {
-    const tribe = await Tribe.findByPk(Number(tribeId));
+    const tribe = await Tribe.findByPk(Number(tribeId), { attributes: ['id', 'worldId', 'name', 'tag', 'description', 'avatar'] });
     if (!tribe) throw new GameError('Tribu introuvable.', 404);
     const members = await Player.findAll({ where: { tribeId: tribe.id }, order: [['points', 'DESC'], ['id', 'ASC']] });
-    const relations = await TribeRelation.findAll({ where: { tribeId: tribe.id }, include: [{ association: 'other' }], order: [['type', 'ASC']] });
     return {
-      tribe, members, relations,
+      tribe, members,
       points: members.reduce((n, m) => n + m.points, 0),
       villages: members.reduce((n, m) => n + m.villageCount, 0),
     };
   }
 
   static async dashboard(player) {
+    if (!player || !player.tribeId) throw new GameError("Vous n'êtes dans aucune tribu.", 403);
+    const member = await Player.findOne({ where: { id: player.id, tribeId: player.tribeId }, attributes: ['id'] });
+    if (!member) throw new GameError("Vous n'êtes pas membre de cette tribu.", 403);
     const base = await TribeService.profile(player.tribeId);
-    const invites = await TribeInvite.findAll({ where: { tribeId: player.tribeId }, include: [Player] });
-    return { ...base, invites };
+    const [tribe, relations, invites] = await Promise.all([
+      Tribe.findByPk(player.tribeId),
+      TribeRelation.findAll({ where: { tribeId: player.tribeId }, include: [{ association: 'other' }], order: [['type', 'ASC']] }),
+      TribeInvite.findAll({ where: { tribeId: player.tribeId }, include: [Player] }),
+    ]);
+    return { ...base, tribe, relations, invites };
   }
 
   static async invitesFor(playerId) {

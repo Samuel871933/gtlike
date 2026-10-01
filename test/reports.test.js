@@ -32,12 +32,17 @@ test.before(async () => {
 test.after(() => sequelize.close());
 
 test('pagination et filtres par type', async () => {
-  const p1 = await ReportService.list(alice.id);
+  const p1 = await ReportService.list(alice.id, { perPage: 50 });
   assert.equal(p1.total, 60);
   assert.equal(p1.pages, 2);
   assert.equal(p1.reports[0].title, 'r59', 'les plus récents d’abord');
-  const p2 = await ReportService.list(alice.id, { page: 2 });
+  const p2 = await ReportService.list(alice.id, { page: 2, perPage: 50 });
   assert.equal(p2.reports.length, 10);
+  // Page au-delà de la dernière : ramenée à la dernière ; nombre par page réglable.
+  assert.equal((await ReportService.list(alice.id, { page: 9, perPage: 50 })).page, 2);
+  const small = await ReportService.list(alice.id, { page: 'last', perPage: 25 });
+  assert.equal(small.pages, 3);
+  assert.equal(small.reports.length, 10);
   const trade = await ReportService.list(alice.id, { filter: 'trade' });
   assert.equal(trade.total, 20);
 });

@@ -65,3 +65,18 @@ test('awardPending traite les journées terminées, pas la journée en cours', a
   const awards = await DailyAward.findAll({ where: { key: 'dailyConqueror' } });
   assert.deepEqual(awards.map((a) => a.day), [DailyService.dayKey(new Date(now.getTime() - 86400000))]);
 });
+
+test('record journalier : meilleure journée de chaque joueur, la première en cas d’égalité', async () => {
+  const worldId = v.Alice.worldId;
+  await DailyStat.bulkCreate([
+    { worldId, playerId: p.Bob.id, day: '2026-09-10', unitsKilledAttacker: 80 },
+    { worldId, playerId: p.Bob.id, day: '2026-09-11', unitsKilledAttacker: 120 },
+    { worldId, playerId: p.Bob.id, day: '2026-09-12', unitsKilledAttacker: 120 },
+    { worldId, playerId: p.Carol.id, day: '2026-09-10', unitsKilledAttacker: 90 },
+  ]);
+  const rows = await DailyService.records(worldId, 'att');
+  assert.deepEqual(rows.map((r) => [r.player.name, r.score, r.day]), [['Bob', 120, '2026-09-11'], ['Carol', 90, '2026-09-10']]);
+
+  const counts = await DailyService.countsFor(p.Bob.id);
+  assert.equal(counts.find((c) => c.def.key === 'dailyRobber').last, '2026-09-20');
+});

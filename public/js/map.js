@@ -23,6 +23,8 @@
   const menu = frame.querySelector('[data-map-menu]');
   const pad2 = (n) => String(n).padStart(2, '0');
   const fmt = (s) => `${Math.floor(s / 3600)}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`;
+  // Heure d'arrivée d'un ordre, à la milliseconde comme sur Guerre Tribale : « 01/10 11:25:21:926 ».
+  const arrivalAt = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}:${String(d.getMilliseconds()).padStart(3, '0')}`;
   const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const continent = (x, y) => `K${Math.floor(y / 100)}${Math.floor(x / 100)}`;
 
@@ -42,10 +44,24 @@
   const loaded = new Set();
   const loading = new Set();
   const key = (x, y) => `${x}|${y}`;
+  // Prochaine arrivée d'un ordre affiché (voir plus bas, « Ordres arrivés »).
+  let nextArrival = Infinity;
+  const noteArrivals = (c) => {
+    for (const o of [...((c.orders && c.orders.own) || []), ...((c.orders && c.orders.tribe) || [])]) {
+      const t = new Date(o.arrivesAt).getTime();
+      if (t > Date.now() && t < nextArrival) nextArrival = t;
+    }
+  };
   const addSector = (s) => {
     loaded.add(key(s.sx, s.sy));
-    for (const c of s.cells) cells.set(key(c.x, c.y), c);
+    for (const c of s.cells) {
+      cells.set(key(c.x, c.y), c);
+      noteArrivals(c);
+    }
   };
+  // Ordres encore en route : un ordre arrivé disparaît tout de suite de la case et de l'infobulle (voir expireOrders).
+  const live = (list) => (list || []).filter((o) => new Date(o.arrivesAt).getTime() > Date.now());
+  const liveOrders = (c) => ({ own: live(c.orders && c.orders.own), tribe: live(c.orders && c.orders.tribe) });
   boot.sectors.forEach(addSector);
   function ensure(x0, y0, x1, y1) {
     const max = Math.ceil(WORLD / SECTOR) - 1;
@@ -56,7 +72,7 @@
         loading.add(k);
         fetch(`${base}/map/sector?sx=${sx}&sy=${sy}`, { headers: { accept: 'application/json' } })
           .then((r) => (r.ok ? r.json() : null))
-          .then((s) => { if (s) { addSector(s); render(); } })
+          .then((s) => { if (s) { addSector(s); render(); refreshTip(); } })
           .catch(() => {})
           .finally(() => loading.delete(k));
       }
@@ -115,12 +131,19 @@
     const fav = c.fav ? '<span class="pointer-events-none absolute right-0.5 bottom-0 z-[6] text-xs leading-none text-map-label-me [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
     const barb = c.kind === 'barb' ? ' group-data-[layer-nobarb]/map:hidden' : '';
     const note = c.note ? `<span class="pointer-events-none absolute bottom-0.5 left-0.5 z-[6] flex border border-black bg-[#f4e8c8] p-px text-[#3a2812] shadow-[1px_1px_0_#000]" title="Note">${NOTE_ICON}</span>` : '';
-    const orders = [...((c.orders && c.orders.own) || []), ...((c.orders && c.orders.tribe) || [])];
+    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span>${note}</span>${fav}`;
+  }
+
+  // Pastilles des ordres en cours (en haut à droite, débordant sur la case voisine) : dans un calque au-dessus de
+  // tous les villages, et transparentes aux clics pour qu'on puisse toujours cliquer sur le village voisin. Dans
+  // la case, elles passeraient sous le village voisin (chaque case de village a son propre z-index).
+  function orderBadgesHtml(c, style) {
+    const { own, tribe } = liveOrders(c);
+    const orders = [...own, ...tribe];
     const active = orders.find((o) => o.type !== 'return');
     const returning = orders.find((o) => o.type === 'return');
-    const orderMarks = [active, returning].filter(Boolean).map((o) => `<span title="${o.type === 'return' ? 'Troupes en retour' : 'Ordre en cours'}">${o.mapBadge}</span>`).join('');
-    const orderCorner = orderMarks ? `<span class="pointer-events-none absolute top-px -right-5 z-[7] flex flex-col items-end" aria-hidden="true">${orderMarks}</span>` : '';
-    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span>${note}</span>${fav}${orderCorner}`;
+    const marks = [active, returning].filter(Boolean).map((o) => `<span title="${o.type === 'return' ? 'Troupes en retour' : 'Ordre en cours'}">${o.mapBadge}</span>`).join('');
+    return marks ? `<div class="pointer-events-none absolute z-[5] w-(--tile-w) h-(--tile-h)" style="${style}" aria-hidden="true"><span class="absolute top-px -right-5 flex flex-col items-end">${marks}</span></div>` : '';
   }
 
   function render() {
@@ -132,6 +155,7 @@
     baseY = y0;
     ensure(x0, y0, x0 + span - 1, y0 + span - 1);
     const out = [];
+    const badges = [];
     const at = (x, y) => `left:${(x - x0) * tw}px;top:${(y - y0) * th}px`;
     for (let y = y0; y < y0 + span; y++) {
       for (let x = x0; x < x0 + span; x++) {
@@ -148,6 +172,7 @@
         if (woods) out.push(`<div class="pointer-events-none absolute w-(--tile-w) h-(--tile-h)" style="${at(x, y)};background:rgb(22 40 12 / ${(0.1 + 0.3 * woods).toFixed(2)})"></div>`);
         if (c) {
           out.push(`<div class="map-tile map-tile--village absolute flex w-(--tile-w) h-(--tile-h) cursor-pointer items-center justify-center" style="${at(x, y)}" data-map-tile data-x="${x}" data-y="${y}"${sel && sel[0] === x && sel[1] === y ? ' data-selected' : ''} aria-label="${esc(`${c.name} ${x}|${y} · ${c.points} pts · ${c.owner}`)}">${villageHtml(c)}</div>`);
+          badges.push(orderBadgesHtml(c, at(x, y)));
         } else {
           const ground = terrain(x, y);
           if (ground === 'water') {
@@ -195,8 +220,9 @@
     for (let x = Math.ceil(x0 / 100) * 100; x < x0 + span; x += 100) out.push(`<div class="pointer-events-none absolute top-0 z-[5] hidden h-full border-l-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="left:${(x - x0) * tw}px"></div>`);
     for (let y = Math.ceil(y0 / 100) * 100; y < y0 + span; y += 100) out.push(`<div class="pointer-events-none absolute left-0 z-[5] hidden w-full border-t-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="top:${(y - y0) * th}px"></div>`);
     out.push(`<div class="map-grid-lines pointer-events-none absolute inset-0 z-[4] hidden group-data-[layer-grid]/map:block" style="--grid-x:${(5 - (((x0 % 5) + 5) % 5)) % 5};--grid-y:${(5 - (((y0 % 5) + 5) % 5)) % 5}"></div>`);
+    out.push(churchZones(x0, y0));
     out.push(arrows(x0, y0));
-    layer.innerHTML = out.join('');
+    layer.innerHTML = out.join('') + badges.join('');
     layer.style.width = `${span * tw}px`;
     layer.style.height = `${span * th}px`;
     // Texture d'herbe (6 cases de large) calée sur les coordonnées du monde.
@@ -204,6 +230,14 @@
     layer.style.setProperty('--terrain-py', `${texOffset(y0, th)}px`);
     rulers();
     place();
+  }
+
+  // Zones d'influence de ses églises (mondes avec église, calque « Zones de foi ») : hors de ces cercles, ses villages se
+  // battent à 50 %.
+  function churchZones(x0, y0) {
+    if (!boot.churches || !boot.churches.length) return '';
+    const circles = boot.churches.map(([x, y, r]) => `<ellipse cx="${((x - x0 + 0.5) * tw).toFixed(1)}" cy="${((y - y0 + 0.5) * th).toFixed(1)}" rx="${(r * tw).toFixed(1)}" ry="${(r * th).toFixed(1)}"/>`).join('');
+    return `<svg class="pointer-events-none absolute inset-0 z-[4] hidden overflow-visible group-data-[layer-church]/map:block" width="100%" height="100%" aria-hidden="true"><g class="fill-gold-200/10 stroke-gold-200" stroke-width="2" stroke-dasharray="8 4">${circles}</g></svg>`;
   }
 
   // Flèches des attaques en cours depuis ce village (calque « Mouvements de troupes »).
@@ -425,9 +459,11 @@
     el.style.top = `${clamp(flipY ? top + r.height - el.offsetHeight : top, frame.clientHeight - el.offsetHeight)}px`;
   }
   const hideTip = () => tip && tip.classList.add('hidden');
+  let tipAt = null;
   function showTip(el) {
     const d = cellOf(el);
     if (!d || !tip) return;
+    tipAt = [d.x, d.y];
     const set = (k, v) => { const n = tip.querySelector(`[data-tip="${k}"]`); if (n) n.textContent = v; };
     const show = (row, on) => tip.querySelectorAll(`[data-tip-row="${row}"]`).forEach((n) => n.classList.toggle('hidden', !on));
     const dist = Math.hypot(d.x - meX, d.y - meY);
@@ -465,7 +501,7 @@
     show('notes', Boolean(d.notes && d.notes.length));
     const orderLabels = { attack: 'Attaque', support: 'Soutien', relocate: 'Déplacement', return: 'Retour' };
     for (const group of ['own', 'tribe']) {
-      const orders = (d.orders && d.orders[group]) || [];
+      const orders = liveOrders(d)[group];
       set(`orders-${group}-count`, orders.length);
       show(`orders-${group}`, orders.length > 0);
       const container = tip.querySelector(`[data-tip="orders-${group}"]`);
@@ -475,7 +511,7 @@
         const origin = `${order.origin} (${order.x}|${order.y})`;
         return `<div class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-bronze-900 px-2 py-1 text-[11px]">`
           + `<span class="flex min-w-0 items-center gap-1.5">${order.badge}<span class="min-w-0 truncate" title="${esc(origin)}">${esc(orderLabels[order.type] || order.type)} · ${esc(origin)}${group === 'tribe' ? ` · ${esc(order.player)}` : ''}</span></span>`
-          + `<span class="text-parchment-400 tabular-nums">${arrival.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>`
+          + `<span class="text-parchment-400 tabular-nums">${arrivalAt(arrival)}</span>`
           + `<span class="font-semibold text-gold-200 tabular-nums" data-order-arrival="${arrival.getTime()}">${fmt(remaining)}</span></div>`;
       }).join('');
     }
@@ -493,6 +529,31 @@
     tip.querySelectorAll('[data-order-arrival]').forEach((el) => {
       el.textContent = fmt(Math.max(0, Math.ceil((Number(el.dataset.orderArrival) - Date.now()) / 1000)));
     });
+  }, 1000);
+
+  // Ordres arrivés : à 0, la case et l'infobulle ouverte se mettent à jour (ordres en route seulement), et les
+  // secteurs affichés sont rechargés aussitôt : le serveur résout les arrivées échues à chaque requête d'un village
+  // (middleware loadVillage), d'où le retour des troupes, la gommette et l'infobulle de la dernière attaque. Second
+  // rechargement 6 s plus tard, au cas où l'horloge du navigateur serait en avance sur celle du serveur.
+  const RELOAD_AFTER_MS = 6000;
+  function reloadVisible() {
+    for (let sy = Math.floor(baseY / SECTOR); sy <= Math.floor((baseY + span - 1) / SECTOR); sy++) {
+      for (let sx = Math.floor(baseX / SECTOR); sx <= Math.floor((baseX + span - 1) / SECTOR); sx++) loaded.delete(key(sx, sy));
+    }
+    render();
+  }
+  function refreshTip() {
+    if (!tip || tip.classList.contains('hidden') || !tipAt) return;
+    const el = layer.querySelector(`[data-map-tile][data-x="${tipAt[0]}"][data-y="${tipAt[1]}"]`);
+    if (el) showTip(el);
+  }
+  setInterval(() => {
+    if (Date.now() < nextArrival) return;
+    nextArrival = Infinity;
+    for (const c of cells.values()) noteArrivals(c);
+    reloadVisible();
+    refreshTip();
+    setTimeout(() => { reloadVisible(); }, RELOAD_AFTER_MS);
   }, 1000);
 
   function selectTile(el) {
@@ -537,7 +598,7 @@
     ] : [
       ['troops', tplOption && tplOption.value ? `Envoyer des troupes · ${tplOption.textContent}` : 'Envoyer des troupes', `${base}/place?${target}`],
       ...(d.playerId ? [['profile', `Profil de ${d.owner}`, `${base}/players/${d.playerId}`]] : []),
-      ...(d.playerId ? [['message', `Écrire à ${d.owner}`, `${base}/messages/new?${new URLSearchParams({ to: d.owner })}`]] : []),
+      ...(d.playerId && !d.bot ? [['message', `Écrire à ${d.owner}`, `${base}/messages/new?${new URLSearchParams({ to: d.owner })}`]] : []),
       ['star', d.fav ? 'Retirer des favoris' : 'Ajouter aux favoris', `${base}/favorites/${d.id}`, 'post'],
       ['market', 'Envoyer des ressources', `${base}/market?tab=send&x=${d.x}&y=${d.y}`],
     ];
@@ -632,9 +693,11 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
   // ------------------------------------------------------------------ Ordres rapides (choix mémorisés dans le navigateur)
-  const QUICK_KEY = 'gtlike.quickOrders';
+  // Ancienne clé (le jeu s'appelait GTLike) lue tant que la nouvelle n'existe pas.
+  const QUICK_KEY = 'adarma.quickOrders';
+  const OLD_QUICK_KEY = 'gtlike.quickOrders';
   function readQuick() {
-    try { return JSON.parse(localStorage.getItem(QUICK_KEY) || '{}') || {}; } catch (err) { return {}; }
+    try { return JSON.parse(localStorage.getItem(QUICK_KEY) || localStorage.getItem(OLD_QUICK_KEY) || '{}') || {}; } catch (err) { return {}; }
   }
   function saveQuick(q) {
     try { localStorage.setItem(QUICK_KEY, JSON.stringify(q)); } catch (err) { /* stockage indisponible */ }
@@ -654,7 +717,7 @@
 
   // ------------------------------------------------------------------ Calques (mémorisés sur le joueur)
   // Aussi appliqués à la mini-carte et à la carte du monde (public/js/minimap.js).
-  const LAYER_KEYS = ['markers', 'moves', 'influence', 'enemy', 'nobarb', 'grid', 'borders'];
+  const LAYER_KEYS = ['markers', 'moves', 'church', 'influence', 'enemy', 'nobarb', 'grid', 'borders'];
   const layersOn = () => Object.fromEntries(LAYER_KEYS.map((k) => [k, frame.hasAttribute(`data-layer-${k}`)]));
   document.querySelectorAll('[data-map-layer]').forEach((b) => {
     b.addEventListener('click', () => {

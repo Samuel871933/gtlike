@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="966" height="580" viewBox="0 0 966 580">
-  <!-- Fond de la vue du village (d'après la maquette « GTLike ») : plan vu de dessus, aplats, traits d'encre, ombres portées.
+  <!-- Fond de la vue du village (d'après la maquette « Adarma ») : plan vu de dessus, aplats, traits d'encre, ombres portées.
        Enceinte 210,50 → 756,470 ; routes en croix ; les bâtiments sont posés par-dessus (partials/village-plan.ejs). -->
   <defs>
     <pattern id="ground" width="34" height="10" patternUnits="userSpaceOnUse">

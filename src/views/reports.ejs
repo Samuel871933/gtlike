@@ -29,7 +29,7 @@
       </div>`, { tag: 'h1' }) %>
 
     <div class="overflow-x-auto border-b border-bronze-900 px-4.5 py-3">
-      <%- segTabs(tabs.map(([id, name]) => [link(id, 1), name, filter === id])) %>
+      <%- segMenu(tabs.map(([id, name]) => [link(id, 1), name, filter === id]), { label: 'Type de rapport' }) %>
     </div>
 
     <% if (!reports.length) { %>
@@ -66,14 +66,8 @@
           <% } %>
         </ul>
       </form>
-      <% if (pages > 1) { %>
-        <div class="flex items-center justify-between gap-3 border-t border-bronze-900 px-4.5 py-3">
-          <% if (pageNumber > 1) { %><a href="<%= link(filter, pageNumber - 1) %>" class="<%= btn('dark', 'sm') %>"><%- icon('chevronLeft', 'size-3.5', 2.2) %>Précédents</a><% } else { %><span></span><% } %>
-          <span class="text-sm text-parchment-500 tabular-nums">Page <%= pageNumber %> / <%= pages %></span>
-          <% if (pageNumber < pages) { %><a href="<%= link(filter, pageNumber + 1) %>" class="<%= btn('dark', 'sm') %>">Suivants<%- icon('chevronRight', 'size-3.5', 2.2) %></a><% } else { %><span></span><% } %>
-        </div>
-      <% } %>
     <% } %>
+    <%- include('partials/pagination', { list: 'reports', pagination, href: (n) => link(filter, n) }) %>
   </section>
 </div>
 <%- include('partials/footer') %>

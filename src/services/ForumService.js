@@ -3,6 +3,7 @@
 const { Op } = require('sequelize');
 const { sequelize, ForumThread, ForumPost, User } = require('../models');
 const GameError = require('./GameError');
+const { paginate } = require('./PaginationService');
 
 // Sections du forum communautaire (commun à tous les mondes).
 const SECTIONS = [
@@ -34,10 +35,7 @@ async function assertNotFlooding(userId, now) {
   if (recent) throw new GameError(`Patiente ${FLOOD_SECONDS} secondes entre deux messages.`);
 }
 
-const pageOf = (page, count) => {
-  const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
-  return { page: Math.min(pages, Math.max(1, Math.floor(Number(page)) || 1)), pages };
-};
+const pageOf = (page, count) => paginate(count, page, PAGE_SIZE);
 
 class ForumService {
   /** Accueil du forum : chaque section avec son nombre de sujets et son dernier sujet actif. */
@@ -70,7 +68,7 @@ class ForumService {
     const thread = await ForumThread.findByPk(Number(threadId), { include: [authorOf()] });
     if (!thread) throw new GameError('Sujet introuvable.', 404);
     const count = await ForumPost.count({ where: { threadId: thread.id } });
-    const p = pageOf(page === 'last' ? Infinity : page, count);
+    const p = pageOf(page, count);
     const posts = await ForumPost.findAll({
       where: { threadId: thread.id },
       include: [authorOf()],

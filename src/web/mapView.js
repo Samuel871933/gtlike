@@ -55,8 +55,8 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), 
   const t = p && p.Tribe;
   return {
     x: v.x, y: v.y, id: v.id, name: v.name, kind, level: villageLevel(v.points), points: num(v.points),
-    owner: p ? p.name : 'Barbares', playerId: p ? p.id : '',
-    ownerInfo: p ? `${num(p.points)} points · ${num(p.villageCount)} village${p.villageCount > 1 ? 's' : ''}` : '',
+    owner: p ? p.name : 'Barbares', playerId: p ? p.id : '', bot: p && p.isBot ? 1 : '',
+    ownerInfo: p ? `${p.isBot ? 'bot · ' : ''}${num(p.points)} points · ${num(p.villageCount)} village${p.villageCount > 1 ? 's' : ''}` : '',
     tribeId: t ? t.id : '', tribe: t ? t.tag : '', tribeName: t ? t.name : '',
     tribeInfo: t && tribePoints.has(t.id) ? `${num(tribePoints.get(t.id))} points` : '',
     special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
@@ -89,7 +89,7 @@ async function sector(vc, sx, sy) {
     attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
     include: [{
       model: Player,
-      attributes: ['id', 'name', 'tribeId', 'points', 'villageCount'],
+      attributes: ['id', 'name', 'tribeId', 'points', 'villageCount', 'isBot'],
       include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }, { model: User, attributes: ['villageDesign'] }],
     }],
   });

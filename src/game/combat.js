@@ -17,7 +17,8 @@ const registry = require('./registry');
 
 const RAM_DIVISOR = 4; // béliers : niveaux = n × 2 / (4 × 1.09^niveau) ; ≈ 22 béliers par niveau avant combat au mur 20
 const CATAPULT_DIVISOR = 200; // catapultes : niveaux = n × 100 / (200 × 1.09^niveau)
-const UNDESTROYABLE = new Set(['hide']);
+// Première église : indestructible par les catapultes, comme sur GT (elle peut être démolie au QG).
+const UNDESTROYABLE = new Set(['hide', 'church_f']);
 const MIN_LEVEL_ONE = new Set(['main', 'farm', 'storage']);
 
 function sumBy(units, fn) {
@@ -82,6 +83,7 @@ function mergeBonuses(base, extra) {
 function resolve({
   attackers, defenders, wall = 0, morale: mor = 1, luck = 0, nightFactor = 1, catapultTarget = null,
   attackerItems = [], defenderItems = [], attackerSkills = null, defenderSkills = null,
+  attackerFaith = 1, defenderFaith = 1,
 }) {
   const attBonus = mergeBonuses(itemBonuses(attackerItems), attackerSkills);
   const defBonus = mergeBonuses(itemBonuses(defenderItems), defenderSkills);
@@ -127,6 +129,9 @@ function resolve({
     luck,
     morale: mor,
     nightFactor,
+    // Foi (mondes avec église) : 1, ou 0.5 pour des troupes hors de la zone d'influence d'une église.
+    attackerFaith,
+    defenderFaith,
   };
   if (attSpies) result.attackerLosses.spy = spiesLost;
   if (!hasArmy) {
@@ -134,11 +139,11 @@ function resolve({
     return result;
   }
 
-  const attack = rawAttack * mor * (1 + luck);
+  const attack = rawAttack * mor * (1 + luck) * attackerFaith;
   const share = (type) => (rawAttack > 0 ? attByType[type] / rawAttack : 1 / 3);
   const weights = rawAttack > 0 ? { infantry: share('infantry'), cavalry: share('cavalry'), archer: share('archer') } : { infantry: 1, cavalry: 0, archer: 0 };
   const unitDefense = sumBy(defenders, (u) => (u.defense * weights.infantry + u.defenseCavalry * weights.cavalry + u.defenseArcher * weights.archer)
-    * (1 + (defBonus.defense[u.id] || 0)));
+    * (1 + (defBonus.defense[u.id] || 0))) * defenderFaith;
   // Huile bouillante : la part apportée par la muraille (défense de base et multiplicateur) est renforcée.
   const wallMultiplier = 1 + (Math.pow(1.037, wallFight) - 1) * wallBoost;
   const defense = (unitDefense + 20 + 50 * wallFight * wallBoost) * wallMultiplier * nightFactor;

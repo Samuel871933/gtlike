@@ -52,9 +52,10 @@
     </div>
   </section>
 
-  <div class="grid items-start gap-3.5 md:grid-cols-2">
+  <%# Colonnes (masonry) : chaque encart se place sous le précédent, sans trou à côté des encarts plus courts. %>
+  <div class="gap-3.5 md:columns-2">
     <% for (const g of groups) { %>
-      <section class="<%= ui.panel %>">
+      <section class="<%= ui.panel %> mb-3.5 break-inside-avoid">
         <%- panelHead(g.title) %>
         <% if (g.intro) { %><p class="border-b border-bronze-800 px-3.5 py-2 text-[13px] leading-snug text-parchment-400"><%= g.intro %></p><% } %>
         <div class="flex flex-col divide-y divide-bronze-900 px-3.5 py-1.5 text-sm">

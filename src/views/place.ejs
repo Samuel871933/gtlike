@@ -9,6 +9,9 @@
   const villageHref = (v) => `/village/${vid}/villages/${v.id}`;
   // Lien qui pré-remplit le formulaire avec un modèle d'armée (en gardant la cible saisie).
   const useHref = (tpl) => `/village/${vid}/place?${new URLSearchParams({ x: form.x, y: form.y, ...tpl.units })}`;
+  // Modèle fixe « Toutes les troupes » (comme sur GT) : toutes les unités présentes au village, avant les modèles du joueur.
+  const allTroops = Object.fromEntries(allUnits.map((u) => [u.id, ctx.state.units[u.id] || 0]).filter(([, n]) => n > 0));
+  const quickTemplates = [{ name: 'Toutes les troupes', units: allTroops, fixed: true }, ...templates];
   const unitsText = (u) => Object.entries(u).map(([id, n]) => `${num(n)} ${unitName(id)}`).join(' · ');
   const moveHead = `<div class="hidden grid-cols-[minmax(0,1fr)_150px_110px_40px] gap-4 border-b border-bronze-900 bg-black/25 px-4.5 py-2.5 font-display text-[11px] font-semibold tracking-[0.02em] text-parchment-500 sm:grid"><span>Ordre</span><span>Arrivée</span><span class="text-right">Dans</span><span></span></div>`;
   const troopView = query.view === 'units' ? 'units' : 'summary';
@@ -22,13 +25,21 @@
   <% if (!units.length) { %>
     <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Aucune troupe disponible dans ce village.</p></div>
   <% } else { %>
-  <% if (templates.length) { %>
-    <div class="flex flex-wrap items-center gap-1.5 border-b border-bronze-800 px-3 py-2">
-      <span class="<%= ui.subLabel %> mr-1">Modèles</span>
-      <% for (const tpl of templates) { %><a href="<%= useHref(tpl) %>" class="<%= ui.chip %> no-underline hover:bg-head-dark hover:text-parchment-100" title="<%= unitsText(tpl.units) %>"><%= tpl.name %></a><% } %>
-    </div>
-  <% } %>
-  <form method="post" action="/village/<%= vid %>/place/confirm" data-travel="<%= JSON.stringify(pace) %>" data-from-x="<%= ctx.village.x %>" data-from-y="<%= ctx.village.y %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+ <%# Comme sur GT : le formulaire, et les modèles de troupes dans une petite colonne à droite (au-dessus sur mobile). %>
+  <div class="grid lg:grid-cols-[minmax(0,1fr)_210px]">
+  <aside class="flex flex-col border-b border-bronze-800 lg:order-last lg:border-b-0 lg:border-l" aria-label="Modèles de troupes">
+    <span class="<%= ui.subLabel %> border-b border-bronze-900 bg-thead px-3 py-1.5">Modèles de troupes</span>
+    <ul class="flex flex-wrap lg:flex-col">
+      <% for (const tpl of quickTemplates) { %>
+        <li class="lg:border-b lg:border-bronze-900">
+          <a href="<%= useHref(tpl) %>" class="flex items-center justify-between gap-2 px-3 py-1.5 text-sm font-semibold text-gold-400 no-underline hover:bg-row-hover hover:text-parchment-100" title="<%= Object.keys(tpl.units).length ? unitsText(tpl.units) : 'Aucune troupe au village' %>">
+            <span class="truncate"><%= tpl.name %></span><%- tpl.fixed ? icon('attack', 'size-3.5 shrink-0', 2.2) : '' %>
+          </a>
+        </li>
+      <% } %>
+    </ul>
+  </aside>
+  <form method="post" action="/village/<%= vid %>/place/confirm" data-travel="<%= JSON.stringify(pace) %>" data-arrival-step="<%= ctx.cfg.arrivalStepMs %>" data-from-x="<%= ctx.village.x %>" data-from-y="<%= ctx.village.y %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="grid gap-3 px-4.5 py-4 sm:grid-cols-2 2xl:grid-cols-4">
       <% for (const [name, ids] of groups) { %>
         <fieldset class="<%= ui.box %> flex min-w-0 flex-col gap-1 px-3 pt-1 pb-2.5">
@@ -63,6 +74,7 @@
       </div>
     </div>
   </form>
+  </div>
   <% } %>
 </section>
 
@@ -228,6 +240,10 @@
       <label class="<%= ui.label %>">Morale (%)<input type="number" name="morale" min="30" max="100" value="<%= Math.round(inp.morale * 100) %>" class="<%= ui.input %> w-24 tabular-nums"></label>
       <label class="<%= ui.label %>">Chance (%)<input type="number" name="luck" min="-25" max="25" value="<%= Math.round(inp.luck * 100) %>" class="<%= ui.input %> w-24 tabular-nums"></label>
       <label class="<%= ui.checkLabel %> h-[38px]"><input type="checkbox" name="night" value="1" <%= inp.night ? 'checked' : '' %> class="<%= ui.checkbox %>"> Bonus de nuit</label>
+      <% if (ctx.cfg.hasFeature('church')) { %>
+        <label class="<%= ui.checkLabel %> h-[38px]" title="Village d’origine hors de la zone d’influence de vos églises : attaque à 50 %"><input type="checkbox" name="attFaithless" value="1" <%= inp.attFaithless ? 'checked' : '' %> class="<%= ui.checkbox %>"> Attaquant sans foi</label>
+        <label class="<%= ui.checkLabel %> h-[38px]" title="Village défendu hors de la zone d’influence des églises de son propriétaire : défense à 50 %"><input type="checkbox" name="defFaithless" value="1" <%= inp.defFaithless ? 'checked' : '' %> class="<%= ui.checkbox %>"> Défenseur sans foi</label>
+      <% } %>
       <button class="<%= btn('gold', 'md', 'sm:ml-auto') %>"><%- icon('sword', 'size-3.5', 2.2) %>Simuler</button>
     </div>
   </form>

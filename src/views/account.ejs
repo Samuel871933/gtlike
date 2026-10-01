@@ -8,13 +8,7 @@
       <form method="post" action="/village/<%= vid %>/account/game-style" data-game-style="<%= s.id %>"
             class="flex flex-col overflow-hidden border-2 border-black bg-panel-top text-parchment-200 <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),5px_5px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' %>">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="style" value="<%= s.id %>">
-        <div class="relative m-1 aspect-966/580 border-2 border-black bg-(image:--game-image-village) bg-cover bg-center">
-          <span class="absolute top-2 left-2 flex gap-1" aria-hidden="true">
-            <span class="size-4 border-2 border-black bg-head"></span>
-            <span class="size-4 border-2 border-black bg-action"></span>
-            <span class="size-4 border-2 border-black bg-gold-400"></span>
-          </span>
-        </div>
+        <div class="m-1 aspect-966/580 border-2 border-black bg-cover bg-center" style="background-image: url('/img/game-styles/<%= s.id %>/<%= s.id === 'adarma' ? 'background-texture.webp' : 'background-preview.webp' %>')" role="img" aria-label="Fond du thème <%= s.name %>"></div>
         <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
           <span class="flex items-center justify-between gap-2">
             <span class="font-display text-lg font-semibold tracking-[0.02em] text-gold-400"><%= s.name %></span>
@@ -187,16 +181,20 @@
       (liste TRIBE_SHARING de src/services/VillageNoteService.js). %>
   <section class="<%= ui.panel %>" id="reglages-tribu">
     <%- panelHead('Réglages tribu') %>
-    <form method="post" action="/village/<%= vid %>/account/tribe-settings"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <form method="post" action="/village/<%= vid %>/account/tribe-settings" data-tribe-sharing><input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
-          <thead><tr><th>Élément</th><th class="w-32 text-center">Partager avec la tribu</th><th class="w-32 text-center">Afficher la tribu</th></tr></thead>
+          <thead><tr>
+            <th>Élément</th>
+            <th class="w-40 text-center">Partager avec la tribu<label class="mt-1 flex cursor-pointer items-center justify-center gap-1.5 text-[11px] font-normal text-parchment-300"><input type="checkbox" class="<%= ui.checkbox %>" data-tribe-select-all="share" aria-label="Tout sélectionner : partager avec la tribu">Tout sélectionner</label></th>
+            <th class="w-40 text-center">Afficher la tribu<label class="mt-1 flex cursor-pointer items-center justify-center gap-1.5 text-[11px] font-normal text-parchment-300"><input type="checkbox" class="<%= ui.checkbox %>" data-tribe-select-all="show" aria-label="Tout sélectionner : afficher la tribu">Tout sélectionner</label></th>
+          </tr></thead>
           <tbody>
             <% for (const item of tribeSharing) { %>
               <tr>
                 <td><span class="font-semibold text-parchment-100"><%= item.label %></span><span class="block text-[13px] text-parchment-500"><%= item.text %></span></td>
-                <td class="text-center"><input type="checkbox" name="<%= item.share %>" value="1" class="<%= ui.checkbox %>" aria-label="<%= item.label %> : partager avec la tribu" <%= player[item.share] ? 'checked' : '' %>></td>
-                <td class="text-center"><input type="checkbox" name="<%= item.show %>" value="1" class="<%= ui.checkbox %>" aria-label="<%= item.label %> : afficher la tribu" <%= player[item.show] ? 'checked' : '' %>></td>
+                <td class="text-center"><input type="checkbox" name="<%= item.share %>" value="1" class="<%= ui.checkbox %>" data-tribe-column="share" aria-label="<%= item.label %> : partager avec la tribu" <%= player[item.share] ? 'checked' : '' %>></td>
+                <td class="text-center"><input type="checkbox" name="<%= item.show %>" value="1" class="<%= ui.checkbox %>" data-tribe-column="show" aria-label="<%= item.label %> : afficher la tribu" <%= player[item.show] ? 'checked' : '' %>></td>
               </tr>
             <% } %>
           </tbody>

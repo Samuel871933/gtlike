@@ -1,12 +1,5 @@
 <%- include('partials/header', { title: tribe.name }) %>
 <%
-  const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
-  const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-semibold tracking-[0.02em]';
-  const relBadge = {
-    ally: 'border-rel-ally/60 bg-rel-ally/15 text-rel-ally',
-    nap: 'border-rel-nap/60 bg-rel-nap/15 text-rel-nap',
-    enemy: 'border-rel-enemy/60 bg-rel-enemy/15 text-rel-enemy',
-  };
   // Titres en texte (les capitales des tags sont réservées au tag de la tribu).
   const roleTag = { duke: 'font-semibold text-gold-200', baron: 'font-semibold text-gold-200', member: 'text-parchment-300' };
 %>
@@ -15,7 +8,7 @@
   <div class="<%= ui.panelBody %> gap-4">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex min-w-0 items-center gap-3">
-        <span class="<%= ui.medallionGold %> size-[46px] minimal:size-[34px]"><%- icon('tribe', 'size-[22px]') %></span>
+        <%- avatarThumb('tribe', tribe, { size: 'size-[46px] minimal:size-[34px]', iconCls: 'size-[22px]' }) %>
         <span class="flex min-w-0 flex-col gap-0.5">
           <span class="<%= ui.kicker %>">Tribu</span>
           <span class="truncate font-display text-[17px] font-semibold text-parchment-100"><%= tribe.name %></span>
@@ -27,7 +20,6 @@
         <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Membres</dt><dd class="<%= ui.tileValue %>"><%= members.length %></dd></div>
       </dl>
     </div>
-    <% if (tribe.description) { %><p class="border-t border-bronze-900 pt-3 whitespace-pre-line text-parchment-300"><%= tribe.description %></p><% } %>
   </div>
 </section>
 
@@ -40,7 +32,7 @@
         <tbody>
         <% for (const m of members) { %>
           <tr class="<%= m.id === ctx.village.playerId ? ui.rowActive : '' %>">
-            <td class="font-semibold"><a href="/village/<%= ctx.village.id %>/players/<%= m.id %>" class="<%= ui.linkPlain %>"><%= m.name %></a></td>
+            <td class="font-semibold"><%- playerLink(ctx.village.id, m, { avatar: true }) %></td>
             <td><span class="<%= roleTag[m.tribeRole] %>"><%= tribeRights.TITLES[m.tribeRole] %></span></td>
             <td class="text-right font-semibold tabular-nums"><%= num(m.points) %></td>
             <td class="text-right tabular-nums"><%= m.villageCount %></td>
@@ -51,17 +43,21 @@
     </div>
   </section>
 
+  <div class="flex min-w-0 flex-col gap-5">
+  <% if (tribe.avatar) { %>
   <section class="<%= ui.panel %>">
-    <%- panelHead('Diplomatie') %>
+    <%- panelHead('Image de la tribu') %>
     <div class="<%= ui.panelBody %>">
-      <% if (!relations.length) { %><p class="text-parchment-500">Aucune relation publique.</p><% } %>
-      <% for (const r of relations) { %>
-        <div class="flex items-center gap-3">
-          <span class="<%= relTag %> <%= relBadge[r.type] %> w-20 justify-center"><%= relName[r.type] %></span>
-          <a href="/village/<%= ctx.village.id %>/tribes/<%= r.other.id %>" class="<%= ui.linkPlain %> inline-flex min-w-0 items-center gap-2 font-semibold"><span class="<%= ui.tagMuted %>"><%= r.other.tag %></span><span class="truncate"><%= r.other.name %></span></a>
-        </div>
-      <% } %>
+      <%- avatarImage('tribe', tribe) %>
     </div>
   </section>
+  <% } %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Description') %>
+    <div class="<%= ui.panelBody %>">
+      <% if (tribe.description) { %><p class="whitespace-pre-line wrap-break-word text-parchment-300"><%= tribe.description %></p><% } else { %><p class="text-parchment-500">Pas encore de description.</p><% } %>
+    </div>
+  </section>
+  </div>
 </div>
 <%- include('partials/footer') %>

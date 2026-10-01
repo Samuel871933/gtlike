@@ -4,7 +4,11 @@ const { Op } = require('sequelize');
 const { Command, Player, Village } = require('../models');
 const { orderBadge } = require('../web/helpers');
 
-/** Ordres associés aux villages ciblés, limités au joueur et aux membres qui les partagent. */
+/**
+ * Ordres en route associés à chaque village, limités au joueur et aux membres qui les partagent : les attaques,
+ * soutiens et déplacements sur leur cible ; les retours sur le village où les troupes rentrent (leur origine),
+ * avec le village d'où elles reviennent.
+ */
 async function visible(viewer, villageIds) {
   const byVillage = new Map();
   if (!villageIds.length) return byVillage;
@@ -18,10 +22,9 @@ async function visible(viewer, villageIds) {
   }
   const commands = await Command.findAll({
     where: {
-      targetVillageId: villageIds,
       [Op.or]: [
-        { type: { [Op.in]: ['attack', 'support', 'relocate'] }, cancelled: false },
-        { type: 'return' },
+        { targetVillageId: villageIds, type: { [Op.in]: ['attack', 'support', 'relocate'] }, cancelled: false },
+        { originVillageId: villageIds, type: 'return' },
       ],
       arrivesAt: { [Op.gt]: new Date() },
     },
@@ -33,8 +36,9 @@ async function visible(viewer, villageIds) {
   });
   for (const command of commands) {
     const origin = command.origin;
-    const villageId = command.targetVillageId;
-    const from = origin;
+    const back = command.type === 'return';
+    const villageId = back ? command.originVillageId : command.targetVillageId;
+    const from = back ? command.target : origin;
     const list = byVillage.get(villageId) || { own: [], tribe: [] };
     list[origin.playerId === viewer.id ? 'own' : 'tribe'].push({
       type: command.type, arrivesAt: command.arrivesAt, origin: from.name,

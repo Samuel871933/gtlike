@@ -4,9 +4,9 @@
 // type et accès, modules, sous-titre, ancienneté.
 
 const VICTORY_NAMES = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Runes', siege: 'Grand Siège', none: 'aucune' };
-const FEATURE_NAMES = { knight: 'paladin', archer: 'archers', militia: 'milice' };
+const FEATURE_NAMES = { knight: 'paladin', archer: 'archers', militia: 'milice', church: 'église' };
 
-/** Modules actifs d'un monde (paladin, archers, milice). */
+/** Modules actifs d'un monde (paladin, archers, milice, église). */
 const worldModules = (cfg) => Object.entries(cfg.features).filter(([, on]) => on).map(([k]) => FEATURE_NAMES[k] || k);
 
 /** « Vitesse ×100 · paladin, archers » ou « Vitesse ×1 · classique ». */

@@ -1,6 +1,7 @@
 'use strict';
 
 process.env.SQLITE_STORAGE = ':memory:';
+process.env.SITE_URL = 'https://adarma.example';
 delete process.env.DATABASE_URL;
 
 const test = require('node:test');
@@ -44,6 +45,28 @@ test.after(async () => {
   await sequelize.close();
 });
 
+test('SEO : accueil indexable, pages privées exclues et favicon accessible', async () => {
+  const http = client();
+  const home = await http('/');
+  assert.equal(home.status, 200);
+  assert.match(home.html, /<title>Jeu de stratégie et de gestion en ligne \| Adarma<\/title>/);
+  assert.match(home.html, /<h1[^>]*>Jeu de stratégie et de gestion en ligne<\/h1>/);
+  assert.match(home.html, /<link rel="canonical" href="https:\/\/adarma\.example\/">/);
+  assert.match(home.html, /<meta name="description"/);
+  assert.match(home.html, /application\/ld\+json/);
+  assert.doesNotMatch(home.html, /name="robots" content="noindex/);
+  assert.match((await http('/register')).html, /href="https:\/\/adarma\.example\/register"/);
+  assert.match((await http('/password/forgot')).html, /name="robots" content="noindex, follow"/);
+  assert.equal((await http('/favicon.ico')).status, 200);
+  assert.equal((await http('/favicon-48x48.png')).status, 200);
+  assert.equal((await http('/apple-touch-icon.png')).status, 200);
+  assert.match((await http('/robots.txt')).html, /Sitemap: https:\/\/adarma\.example\/sitemap\.xml/);
+  const sitemap = await http('/sitemap.xml');
+  assert.equal(sitemap.status, 200);
+  assert.match(sitemap.html, /https:\/\/adarma\.example\/help/);
+  assert.doesNotMatch(sitemap.html, /\/worlds/);
+});
+
 test('CSRF : un formulaire sans jeton est refusé, avec le jeton il passe', async () => {
   const http = client();
   const page = await http('/register');
@@ -80,8 +103,8 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   // Onglet Démolition.
   assert.match((await http(`${joined.location}/main?tab=demolition`)).html, /Quartier général niveau 15/);
 
-  // Thème de jeu : médiéval par défaut en jeu, choix enregistré sur le compte, page d'accueil jamais stylée.
-  assert.match(after.html, /data-game-style="medieval"/);
+  // Thème de jeu : Adarma par défaut en jeu, choix enregistré sur le compte, page d'accueil jamais stylée.
+  assert.match(after.html, /data-game-style="adarma"/);
   const styled = await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
   assert.equal(styled.status, 302);
   assert.match((await http(joined.location)).html, /class="h-full scheme-dark light:scheme-light game_style" data-game-style="viking"/);
@@ -112,7 +135,7 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   await http(`${joined.location}/account/village-design`, { method: 'POST', form: { design: 'inconnu', _csrf: tokenOf(after.html) } });
   assert.match((await http(`${joined.location}/map`)).html, /"design":"blanc-bleu"/);
 
-  for (const page of ['', '/villages', '/villages?mode=prod', '/villages?mode=units', '/villages?mode=buildings', '/place', '/place?tab=troops', '/place?tab=troops&view=units', '/scavenge', '/map', '/reports', '/messages', '/tribe', '/market', '/ranking', '/ranking?type=continent', '/ranking?type=victory']) {
+  for (const page of ['', '/villages', '/villages?mode=prod', '/villages?mode=units', '/villages?mode=buildings', '/place', '/place?tab=troops', '/place?tab=troops&view=units', '/scavenge', '/map', '/reports', '/messages', '/tribe', '/market', '/ranking', '/ranking?type=continent', '/ranking?type=daily', '/ranking?type=daily&rec=loot', '/ranking?type=victory']) {
     const r = await http(joined.location + page);
     assert.ok([200, 302].includes(r.status), `${page} → ${r.status}`);
   }
@@ -122,7 +145,7 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   assert.match(simulation.html, /report-army-table/);
 });
 
-test('pages de la maquette GTLike : outils de la carte, contenus publics, mot de passe oublié', async () => {
+test('pages de la maquette Adarma : outils de la carte, contenus publics, mot de passe oublié', async () => {
   const http = client();
   const reg = await http('/register');
   await http('/register', { method: 'POST', form: { username: 'Carole', email: 'c@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
@@ -329,7 +352,7 @@ test('messagerie : boîte, écriture avec groupe de tribu, mail circulaire, effa
   assert.match(feed.html, /Pour toute question : Ines/);
   assert.match(feed.html, /a modifié les annonces internes/);
   assert.equal((await http(`${joined.location}/tribe?tab=properties`)).status, 200);
-  const members = await http(`${joined.location}/tribe?tab=members`);
+  const members = await http(`${joined.location}/tribe?tab=rights`);
   assert.match(members.html, /Courrier circulaire/);
   await http(`${joined.location}/tribe/members/${bob.id}/rights`, { method: 'POST', form: { title: 'member', rights: 'forumMod', _csrf: tokenOf(members.html) } });
   assert.deepEqual((await Player.findByPk(bob.id)).tribeRights, ['forumMod']);
@@ -349,8 +372,14 @@ test('messagerie : boîte, écriture avec groupe de tribu, mail circulaire, effa
   const id = sent.location.split('/').pop();
   await http(`${m}/delete`, { method: 'POST', form: { ids: id, _csrf: tokenOf(inbox.html) } });
   assert.doesNotMatch((await http(m)).html, /Rassemblement/);
-  await http(`${m}/settings`, { method: 'POST', form: { perPage: '30', _csrf: tokenOf(inbox.html) } });
+  const v = joined.location;
+  await http(`${v}/per-page`, { method: 'POST', form: { list: 'messages', perPage: '30', _csrf: tokenOf(inbox.html) } });
   assert.match((await http(m)).html, /name="perPage"[^>]*value="30"/);
+  // Même réglage commun pour les rapports ; valeur hors bornes refusée.
+  await http(`${v}/per-page`, { method: 'POST', form: { list: 'reports', perPage: '40', _csrf: tokenOf(inbox.html) } });
+  assert.match((await http(`${v}/reports`)).html, /name="perPage"[^>]*value="40"/);
+  await http(`${v}/per-page`, { method: 'POST', form: { list: 'reports', perPage: '9999', _csrf: tokenOf(inbox.html) } });
+  assert.match((await http(`${v}/reports`)).html, /name="perPage"[^>]*value="40"/);
 });
 
 test('fin du monde : dans le menu des classements, une page par type de victoire, ancienne adresse redirigée', async () => {
@@ -409,6 +438,8 @@ test('aperçu d’un village : fiche, carnet de notes, propres ordres, rapports 
   const tpl = await ArmyTemplateService.create(player.id, { name: 'Nettoyage', axe: 7 }, (await require('../src/models').World.findOne({ where: { slug: 'w1' } })).getConfig());
   const place = await http(`${joined.location}/place?x=${target.x}&y=${target.y}&tpl=${tpl.id}`);
   assert.match(place.html, /name="axe"[^>]*value="7"/);
+  // Colonne des modèles : « Toutes les troupes » d'abord (toutes les unités du village), puis ceux du joueur.
+  assert.match(place.html, /aria-label="Modèles de troupes"[\s\S]*Toutes les troupes[\s\S]*Nettoyage/);
   const troops = await http(`${joined.location}/place?tab=troops`);
   assert.equal(troops.status, 200);
   assert.ok(troops.html.includes(`href="${joined.location}/villages/${target.id}"`), 'le village en campagne ouvre son aperçu');
@@ -485,4 +516,110 @@ test('ferme : population maximale et population actuelle détaillée, total éga
   const used = await VillageService.withVillage(id, (ctx) => ctx.popUsed());
   const total = page.html.match(/font-semibold">Tout<\/td><td[^>]*>([\d\s  ]+)/)[1].replace(/\D/g, '');
   assert.equal(Number(total), used);
+});
+
+test('profil public de tribu : description visible, diplomatie et annonces internes privées', async () => {
+  const { Village } = require('../src/models');
+  const TribeService = require('../src/services/TribeService');
+  const join = async (username, email) => {
+    const http = client();
+    const reg = await http('/register');
+    await http('/register', { method: 'POST', form: { username, email, password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+    const worlds = await http('/worlds');
+    const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+    const village = await Village.findByPk(Number(joined.location.split('/').pop()));
+    return { http, village };
+  };
+  const owner = await join('PriveAlice', 'prive-alice@example.com');
+  const outsider = await join('PriveBob', 'prive-bob@example.com');
+  const visitor = await join('PriveVisiteur', 'prive-visiteur@example.com');
+  const tribe = await TribeService.create(owner.village.playerId, { name: 'Tribu privée', tag: 'PRIV' });
+  await TribeService.create(outsider.village.playerId, { name: 'Tribu extérieure', tag: 'AUTRE' });
+  await TribeService.updateDescription(owner.village.playerId, 'Présentation publique de la tribu');
+  await TribeService.updateAnnouncement(owner.village.playerId, 'Plan interne secret');
+  await TribeService.setRelation(owner.village.playerId, 'AUTRE', 'enemy');
+
+  const publicUrl = `/village/${visitor.village.id}/tribes/${tribe.id}`;
+  const publicPage = await visitor.http(publicUrl);
+  assert.equal(publicPage.status, 200);
+  assert.match(publicPage.html, /<span class="min-w-0 truncate">Description<\/span>/);
+  assert.match(publicPage.html, /Présentation publique de la tribu/);
+  for (const secret of ['Diplomatie', 'Tribu extérieure', 'AUTRE', 'Plan interne secret']) {
+    assert.doesNotMatch(publicPage.html, new RegExp(secret), `${secret} ne doit pas figurer sur le profil public`);
+  }
+  const ownPublicPage = await owner.http(`/village/${owner.village.id}/tribes/${tribe.id}`);
+  assert.doesNotMatch(ownPublicPage.html, /<span class="min-w-0 truncate">Diplomatie<\/span>|AUTRE|Plan interne secret/, 'le profil public ne révèle rien, même à un membre');
+  const internalPage = await owner.http(`/village/${owner.village.id}/tribe?tab=diplomacy`);
+  assert.equal(internalPage.status, 200);
+  assert.match(internalPage.html, /Diplomatie/);
+  assert.match(internalPage.html, /AUTRE/);
+});
+
+test('profil d’un joueur : son contenu dans le thème de jeu de son propriétaire', async () => {
+  const join = async (name) => {
+    const http = client();
+    const reg = await http('/register');
+    await http('/register', { method: 'POST', form: { username: name, email: `${name}@example.com`, password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+    const worlds = await http('/worlds');
+    const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+    return { http, at: joined.location };
+  };
+  const owner = await join('Ysolde');
+  const page = await owner.http(owner.at);
+  await owner.http(`${owner.at}/account/game-style`, { method: 'POST', form: { style: 'egypt', _csrf: tokenOf(page.html) } });
+  const { Player } = require('../src/models');
+  const ysolde = await Player.findOne({ where: { name: 'Ysolde' } });
+
+  const visitor = await join('Tristan');
+  assert.match((await visitor.http(visitor.at)).html, /data-game-style="adarma"/, 'son propre thème ailleurs');
+  const profile = (await visitor.http(`${visitor.at}/players/${ysolde.id}`)).html;
+  // En-tête et pied de page dans le thème du visiteur, contenu du profil dans celui du propriétaire.
+  assert.match(profile, /<html[^>]*data-game-style="adarma"/);
+  assert.match(profile, /<div class="contents[^"]*" data-game-style="egypt">/);
+  assert.match(profile, /family=El\+Messiri/, 'polices du thème chargées');
+});
+
+test('carte : un secteur rechargé après une arrivée montre le retour sur son village, sans attendre la boucle de jeu', async () => {
+  const { Village, Command } = require('../src/models');
+  const CommandService = require('../src/services/CommandService');
+  const mapView = require('../src/web/mapView');
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Ragnhild', email: 'r@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const home = await Village.findByPk(Number(joined.location.match(/\/village\/(\d+)/)[1]));
+  const barb = await Village.findOne({ where: { worldId: home.worldId, playerId: null } });
+  await home.update({ units: { axe: 30 }, buildings: { ...home.buildings, place: 1 } });
+  const cmd = await CommandService.send(home.id, { x: barb.x, y: barb.y, type: 'attack', units: { axe: 30 } });
+  // L'attaque est arrivée, mais la boucle de jeu n'est pas passée.
+  await cmd.update({ startsAt: new Date(Date.now() - 60000), arrivesAt: new Date(Date.now() - 1000) });
+  const sector = await http(`${joined.location}/map/sector?sx=${Math.floor(home.x / mapView.SECTOR)}&sy=${Math.floor(home.y / mapView.SECTOR)}`);
+  const orders = JSON.parse(sector.html).cells.find((c) => c.id === home.id).orders.own;
+  assert.deepEqual(orders.map((o) => o.type), ['return']);
+  assert.equal(await Command.count({ where: { id: cmd.id } }), 0, 'attaque résolue');
+});
+
+test('confirmation d’attaque : attaques supplémentaires envoyées à la suite', async () => {
+  const { Village, Command } = require('../src/models');
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Multi', email: 'multi@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const vid = Number(joined.location.split('/').pop());
+  await Village.update({ buildings: { main: 5, farm: 10, storage: 10, place: 1, barracks: 5 }, units: { axe: 90 } }, { where: { id: vid } });
+  const barb = await Village.findOne({ where: { playerId: null } });
+  const csrf = tokenOf((await http(joined.location)).html);
+  const order = { x: barb.x, y: barb.y, type: 'attack', axe: 30, _csrf: csrf };
+
+  const confirm = await http(`${joined.location}/place/confirm`, { method: 'POST', form: order });
+  assert.match(confirm.html, /data-multi-attack/);
+  assert.match(confirm.html, /Ajouter une attaque supplémentaire/);
+  const sent = await http(`${joined.location}/place/send`, { method: 'POST', form: { ...order, extra_2_axe: 30, extra_3_axe: 30, extra_4_axe: '' } });
+  assert.equal(sent.status, 302);
+  const cmds = await Command.findAll({ where: { originVillageId: vid }, order: [['arrivesAt', 'ASC']] });
+  assert.equal(cmds.length, 3);
+  assert.deepEqual(cmds.map((c) => c.units.axe), [30, 30, 30]);
+  assert.equal(+cmds[2].arrivesAt - +cmds[1].arrivesAt, 100);
 });

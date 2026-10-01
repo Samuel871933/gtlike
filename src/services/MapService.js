@@ -9,7 +9,7 @@ class MapService {
     return Village.findAll({
       where: { worldId },
       attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
+      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points', 'isBot'], include: [{ model: Tribe, attributes: ['id', 'tag'] }] }],
       order: [['id', 'ASC']],
     });
   }
@@ -26,7 +26,7 @@ class MapService {
         y: { [Op.between]: [y0, y0 + size - 1] },
       },
       attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points', 'villageCount'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points', 'villageCount', 'isBot'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
     });
     // Points des tribus visibles (infobulle de la carte) : somme des points de leurs membres.
     const pointsByTribe = new Map();
@@ -49,7 +49,7 @@ class MapService {
 
   static async ranking(worldId, limit = 100) {
     return Player.findAll({
-      where: { worldId }, include: [{ model: Tribe, attributes: ['id', 'tag'] }], order: [['points', 'DESC'], ['id', 'ASC']], limit,
+      where: { worldId }, include: [{ model: Tribe, attributes: ['id', 'tag', 'avatar'] }], order: [['points', 'DESC'], ['id', 'ASC']], limit,
     });
   }
 
@@ -71,7 +71,7 @@ class MapService {
     const villages = await Village.findAll({
       where: { worldId, playerId: { [Op.ne]: null }, x: { [Op.between]: b.x }, y: { [Op.between]: b.y } },
       attributes: ['playerId', 'points'],
-      include: [{ model: Player, attributes: ['id', 'name', 'userId', 'tribeId'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+      include: [{ model: Player, attributes: ['id', 'name', 'userId', 'tribeId', 'isBot', 'avatar'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name', 'avatar'] }] }],
     });
     const rows = new Map();
     for (const v of villages) {
@@ -119,7 +119,7 @@ class MapService {
       raw: true,
     });
     const scored = rows.map((r) => ({ tribeId: r.tribeId, score: Number(r.score) || 0, members: Number(r.members) })).filter((r) => r.score > 0);
-    const tribes = await Tribe.findAll({ where: { id: { [Op.in]: scored.map((r) => r.tribeId) } }, attributes: ['id', 'tag', 'name'] });
+    const tribes = await Tribe.findAll({ where: { id: { [Op.in]: scored.map((r) => r.tribeId) } }, attributes: ['id', 'tag', 'name', 'avatar'] });
     const byId = new Map(tribes.map((t) => [t.id, t]));
     return scored
       .filter((r) => byId.has(r.tribeId))
@@ -132,7 +132,7 @@ class MapService {
     const expr = MapService.killExpr(kind);
     const players = await Player.findAll({
       where: { worldId, [Op.and]: [sequelize.literal(`${expr} > 0`)] },
-      include: [{ model: Tribe, attributes: ['id', 'tag'] }],
+      include: [{ model: Tribe, attributes: ['id', 'tag', 'avatar'] }],
       order: [[sequelize.literal(expr), 'DESC'], ['id', 'ASC']],
       limit,
     });

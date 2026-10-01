@@ -11,6 +11,12 @@
 */
 
 const GAME_STYLES = {
+  adarma: {
+    id: 'adarma',
+    name: 'Adarma',
+    description: 'Pierre claire, olive et terre cuite : un village chaleureux et lumineux.',
+    fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Marcellus&display=swap',
+  },
   medieval: {
     id: 'medieval',
     name: 'Médiéval',
@@ -37,8 +43,8 @@ const GAME_STYLES = {
   },
 };
 
-// Style par défaut : Médiéval, clair, aux couleurs de Guerre Tribale.
-const DEFAULT_GAME_STYLE = 'medieval';
+// Style par défaut : Adarma, clair, aux couleurs du jeu (comptes sans choix, nouveaux inscrits).
+const DEFAULT_GAME_STYLE = 'adarma';
 
 /** Le style existe-t-il ? */
 const isGameStyle = (id) => Object.prototype.hasOwnProperty.call(GAME_STYLES, id);
@@ -46,7 +52,9 @@ const isGameStyle = (id) => Object.prototype.hasOwnProperty.call(GAME_STYLES, id
 /** Style de jeu d'un compte : son choix s'il existe encore, sinon le style par défaut. */
 function gameStyleFor(user) {
   const id = user && user.gameStyle;
-  return GAME_STYLES[isGameStyle(id) ? id : DEFAULT_GAME_STYLE];
+  // Les comptes qui avaient choisi Brume ou Basic, anciens noms du style Adarma, gardent leur thème.
+  const resolvedId = id === 'brume' || id === 'basic' ? 'adarma' : id;
+  return GAME_STYLES[isGameStyle(resolvedId) ? resolvedId : DEFAULT_GAME_STYLE];
 }
 
 module.exports = { GAME_STYLES, DEFAULT_GAME_STYLE, isGameStyle, gameStyleFor };

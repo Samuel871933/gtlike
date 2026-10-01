@@ -124,6 +124,7 @@ AccountService.removePlayer = async function removePlayer(playerId, t) {
       await Conversation.destroy({ where: { id: conversationId }, transaction: t });
     }
   }
+  if (player.avatar) t.afterCommit(() => require('./ImageService').remove(player.avatar));
   await player.destroy({ transaction: t });
 };
 

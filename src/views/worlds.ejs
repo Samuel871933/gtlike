@@ -23,7 +23,7 @@
   // Tuile d'un monde, commune aux parties en cours, aux mondes officiels et aux serveurs privés : compacte (nom, puis
   // pastille et une ligne `primary`), le détail dans l'infobulle « i » au survol ou au focus (`details`, puis modules, vitesse et
   // ancienneté). Toute la tuile est cliquable (partie en cours : on entre ; autre monde : sa fiche). HTML déjà échappé.
-  const worldTile = (world, href, { tag = '', primary = '', details = [], edge = 'border-t-blood-600' } = {}) => {
+  const worldTile = (world, href, { tag = '', primary = '', details = [], edge = 'border-t-action' } = {}) => {
     const cfg = world.getConfig(); const a = age(world); const dom = cfg.victory.dominance;
     const rows = [
       ...details,
@@ -138,7 +138,7 @@
       <% if (available.length || ended.length) { %>
         <div class="<%= tileGrid %>">
           <% for (const { world } of available) { %>
-            <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: isNew(world) ? smallTag(ui.tagRed, 'Nouveau') : '', primary: esc(subtitle(world)) }) %>
+            <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: isNew(world) ? smallTag('border border-action-line bg-action font-semibold uppercase text-on-accent', 'Nouveau') : '', primary: esc(subtitle(world)) }) %>
           <% } %>
           <% for (const { world } of ended) { %>
             <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: smallTag(ui.tagMuted, 'Terminé'), primary: esc(subtitle(world)), edge: 'border-t-rel-barb' }) %>
@@ -214,15 +214,15 @@
       <% for (const { world } of official) { %>
         <article class="flex flex-col gap-1 border-2 border-black bg-parchment-300 px-3 py-2 text-panel-hi shadow-[inset_0_0_0_2px_var(--color-bld-marble),4px_4px_0_#000]">
           <div class="flex items-center justify-between border-b-2 border-panel-hi pb-[5px]">
-            <span class="text-xs font-semibold tracking-[0.02em] text-blood-800"><%= new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
+            <span class="text-xs font-semibold tracking-[0.02em] text-head-dark"><%= new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
             <span class="bg-panel-hi px-1.5 py-px text-[11px] font-semibold tracking-[0.02em] text-parchment-300"><%= world.endedAt ? 'Terminé' : 'Monde' %></span>
           </div>
           <span class="font-display text-[15px] leading-tight font-semibold"><%= world.name %></span>
           <span class="text-[13px] leading-snug text-bld-soot"><%= subtitle(world) %> · victoire : <%= victoryNames[world.getConfig().victory.type] %></span>
           <span class="mt-auto flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-semibold whitespace-nowrap">
-            <a href="/worlds/<%= world.slug %>/info" class="text-blood-800 no-underline hover:text-panel-hi">» Infos monde</a>
-            <a href="/worlds/<%= world.slug %>/ranking" class="text-blood-800 no-underline hover:text-panel-hi">» Classement</a>
-            <a href="/worlds/<%= world.slug %>/ranking?type=victory" class="text-blood-800 no-underline hover:text-panel-hi">» Fin du monde</a>
+            <a href="/worlds/<%= world.slug %>/info" class="text-head-dark no-underline hover:text-panel-hi">» Infos monde</a>
+            <a href="/worlds/<%= world.slug %>/ranking" class="text-head-dark no-underline hover:text-panel-hi">» Classement</a>
+            <a href="/worlds/<%= world.slug %>/ranking?type=victory" class="text-head-dark no-underline hover:text-panel-hi">» Fin du monde</a>
           </span>
         </article>
       <% } %>

@@ -21,7 +21,12 @@
     const last = orders.length ? orders[orders.length - 1] : null;
     return { b, level: ctx.state.level(b.id), orders, running, last, href: `/village/${vid}/${buildingPath(b.id, ctx.cfg)}` };
   };
-  const plan = Object.keys(SPOTS).map(plotOf).filter(Boolean);
+  // Mondes avec église : une parcelle d'église, occupée par la première église si le village l'a (ou l'a en file).
+  const churchOn = ctx.cfg.hasFeature('church');
+  const hasFirst = ctx.state.level('church_f') > 0 || ctx.buildOrders.some((o) => o.building === 'church_f');
+  const churchId = churchOn ? (hasFirst && !ctx.state.level('church') ? 'church_f' : 'church') : null;
+  const spotOf = (id) => (id === 'church' || id === 'church_f' ? CHURCH_SPOT : SPOTS[id]);
+  const plan = [...Object.keys(SPOTS), ...(churchId ? [churchId] : [])].map(plotOf).filter(Boolean);
   const wall = plotOf('wall');
   const works = ctx.buildOrders.length;
   const head = ctx.buildOrders[0] || null;
@@ -33,12 +38,14 @@
 %>
 <div class="<%= view === 'list' ? 'hidden' : 'hidden md:block' %> bg-night p-2">
   <div class="village-scene-medieval spacing-normal relative overflow-hidden border-[3px] border-black">
+    <% if (!churchOn) { %>
     <div class="village-building-plot village-building-plot--decorative absolute" style="<%= spotStyle(CHURCH_SPOT) %>" title="Église · Indisponible dans ce monde">
       <img src="/img/village/medieval/church.png" alt="Église — indisponible dans ce monde" width="320" height="280" class="village-building-sprite pointer-events-none absolute inset-0 size-full object-contain">
       <span class="village-building-name absolute z-[2] border-2 border-black px-1 py-px text-center text-[10px] font-bold">Église · Indisponible</span>
     </div>
+    <% } %>
     <% for (const p of plan) { %>
-      <div class="village-building-plot group/plot absolute" data-building="<%= p.b.id %>" style="<%= spotStyle(SPOTS[p.b.id]) %>">
+      <div class="village-building-plot group/plot absolute" data-building="<%= p.b.id %>" style="<%= spotStyle(spotOf(p.b.id)) %>">
       <a href="<%= p.href %>" data-plot="<%= p.b.id %>" class="group absolute inset-0 cursor-pointer no-underline"
          title="<%= titleOf(p) %>">
         <%# Visuel commun des bâtiments (helpers.buildingImg) ; non construit : silhouette grisée plus discrète. %>
@@ -108,6 +115,7 @@
 
 <%# Vue liste (et rendu mobile de la vue cité). %>
 <div class="<%= view === 'list' ? '' : 'md:hidden' %> grid gap-1.5 p-2.5 sm:grid-cols-2 xl:grid-cols-3">
+  <% if (!churchOn) { %>
   <div class="<%= ui.box %> flex items-center gap-2.5 p-1.5" title="Église · Indisponible dans ce monde">
     <img src="/img/village/medieval/church.png" alt="" width="320" height="280" class="h-12 w-16 shrink-0 object-contain">
     <span class="flex min-w-0 flex-col">
@@ -115,6 +123,7 @@
       <span class="text-[13px] text-parchment-500">Indisponible dans ce monde</span>
     </span>
   </div>
+  <% } %>
   <% for (const p of [...plan, ...(wall ? [wall] : [])]) { %>
     <div class="<%= ui.box %> flex items-center gap-1 pr-1.5 transition hover:bg-row-hover">
     <a href="<%= p.href %>" class="flex min-w-0 flex-1 items-center gap-2.5 p-1.5 no-underline" title="<%= titleOf(p) %>">

@@ -1,7 +1,7 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { World, DailyStat, DailyAward, Report } = require('../models');
+const { sequelize, World, Player, Tribe, DailyStat, DailyAward, Report } = require('../models');
 
 // Succès quotidiens (wiki DS) : attribués au gagnant unique de la journée (heure du serveur).
 const DAILY = [
@@ -11,6 +11,15 @@ const DAILY = [
   { key: 'dailyConqueror', name: 'Grande puissance du jour', field: 'conquests', text: 'le plus de villages conquis' },
   { key: 'dailyRobber', name: 'Brigand du jour', field: 'loot', text: 'le plus de ressources pillées' },
   { key: 'dailySupporter', name: 'Soutien du jour', field: 'unitsKilledSupporter', text: "le plus d'unités tuées en soutien" },
+];
+// Records journaliers (« Record Journalier » du classement GT) : plus haut score obtenu en une journée.
+const RECORDS = [
+  { key: 'att', field: 'unitsKilledAttacker', name: 'Unités détruites en attaque' },
+  { key: 'def', field: 'unitsKilledDefender', name: 'Unités détruites en défense' },
+  { key: 'sup', field: 'unitsKilledSupporter', name: 'Unités détruites en soutien' },
+  { key: 'loot', field: 'loot', name: 'Ressources pillées' },
+  { key: 'plunders', field: 'plunders', name: 'Villages pillés' },
+  { key: 'conquests', field: 'conquests', name: 'Villages conquis' },
 ];
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -64,13 +73,39 @@ class DailyService {
     }
   }
 
-  /** Nombre de succès quotidiens par catégorie pour un joueur. */
+  /** Nombre de succès quotidiens par catégorie pour un joueur, avec la date du dernier obtenu (`last`, AAAA-MM-JJ). */
   static async countsFor(playerId) {
-    const rows = await DailyAward.findAll({ where: { playerId }, attributes: ['key'], raw: true });
-    return DAILY.map((def) => ({ def, count: rows.filter((r) => r.key === def.key).length }));
+    const rows = await DailyAward.findAll({ where: { playerId }, attributes: ['key', 'day'], raw: true });
+    return DAILY.map((def) => {
+      const days = rows.filter((r) => r.key === def.key).map((r) => r.day).sort();
+      return { def, count: days.length, last: days.at(-1) || null };
+    });
+  }
+
+  /**
+   * Record journalier d'une catégorie de RECORDS : meilleure journée de chaque joueur du monde (la première s'il y en a
+   * plusieurs à égalité), du plus haut score au plus bas. Lignes { player (avec Tribe), score, day }.
+   */
+  static async records(worldId, recordKey) {
+    const def = RECORDS.find((r) => r.key === recordKey) || RECORDS[0];
+    const table = DailyStat.getTableName();
+    const best = await sequelize.query(
+      `SELECT playerId, score, day FROM (
+         SELECT playerId, "${def.field}" AS score, day,
+                ROW_NUMBER() OVER (PARTITION BY playerId ORDER BY "${def.field}" DESC, day ASC) AS n
+         FROM "${table}" WHERE worldId = :worldId AND "${def.field}" > 0
+       ) WHERE n = 1 ORDER BY score DESC, day ASC, playerId ASC`,
+      { replacements: { worldId }, type: sequelize.QueryTypes.SELECT },
+    );
+    const players = await Player.findAll({
+      where: { id: best.map((r) => r.playerId) }, include: [{ model: Tribe, attributes: ['id', 'tag', 'name', 'avatar'] }],
+    });
+    const byId = new Map(players.map((p) => [p.id, p]));
+    return best.filter((r) => byId.has(r.playerId)).map((r) => ({ player: byId.get(r.playerId), score: r.score, day: r.day }));
   }
 }
 
 DailyService.DAILY = DAILY;
+DailyService.RECORDS = RECORDS;
 
 module.exports = DailyService;

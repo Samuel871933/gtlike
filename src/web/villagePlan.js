@@ -15,7 +15,7 @@ const SPOTS = {
   stone: [10, 79, 14], farm: [90, 77, 14],
 };
 const WALL_SPOT = [50, 78, 14];
-// Décor uniquement : les mondes actuels ne proposent pas le bâtiment église.
+// Église et première église (une seule par village) : même parcelle ; décor seulement sur les mondes sans église.
 const CHURCH_SPOT = [73, 29, 13];
 
 /** Position d'une parcelle (style en ligne) ; `ratio` : hauteur / largeur de son image. */

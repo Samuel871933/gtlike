@@ -3,10 +3,10 @@
 const { Op } = require('sequelize');
 const { sequelize, Player, Conversation, ConversationParticipant, ConversationMessage } = require('../models');
 const GameError = require('./GameError');
+const { paginate } = require('./PaginationService');
 const tribeRights = require('../game/tribeRights');
 
 const MAX_RECIPIENTS = 10;
-const PER_PAGE = { default: 12, min: 5, max: 100 };
 
 /**
  * Destinataires groupés de la tribu (menu « Tribu » du champ À, comme sur GT). « Tribu entière » est le courrier
@@ -65,6 +65,8 @@ class MessageService {
         const recipients = await Player.findAll({ where: { worldId: author.worldId, name: { [Op.in]: names } }, transaction: t });
         const missing = names.filter((n) => !recipients.some((r) => r.name === n));
         if (missing.length) throw new GameError(`Joueur introuvable : ${missing.join(', ')}.`);
+        const bots = recipients.filter((r) => r.isBot);
+        if (bots.length) throw new GameError(`${bots.map((r) => r.name).join(', ')} : les bots ne lisent pas les messages.`);
         others = recipients.filter((r) => r.id !== author.id);
         if (!others.length) throw new GameError('Vous ne pouvez pas vous écrire à vous-même.');
       }
@@ -99,25 +101,11 @@ class MessageService {
     });
   }
 
-  /** Messages par page choisis par le joueur (bornés). */
-  static perPage(player) {
-    const n = Math.floor(Number(player && player.messagesPerPage));
-    return Number.isFinite(n) && n > 0 ? Math.min(PER_PAGE.max, Math.max(PER_PAGE.min, n)) : PER_PAGE.default;
-  }
-
-  static async setPerPage(playerId, value) {
-    const n = Math.floor(Number(value));
-    if (!Number.isFinite(n) || n < PER_PAGE.min || n > PER_PAGE.max) {
-      throw new GameError(`Entre ${PER_PAGE.min} et ${PER_PAGE.max} messages par page.`);
-    }
-    await Player.update({ messagesPerPage: n }, { where: { id: playerId } });
-  }
-
   /**
    * Boîte de réception paginée, les plus récentes d'abord : non-lu, autres participants, auteur, nombre de messages.
    * `search` filtre sur l'objet et le texte des messages.
    */
-  static async inbox(playerId, { page = 1, perPage = PER_PAGE.default, search = '' } = {}) {
+  static async inbox(playerId, { page = 1, perPage = 12, search = '' } = {}) {
     const where = { playerId };
     const q = String(search || '').trim().toLowerCase().slice(0, 100);
     if (q) {
@@ -135,18 +123,17 @@ class MessageService {
       where.conversationId = { [Op.in]: [...new Set([...inBody.map((r) => r.conversationId), ...bySubject.map((r) => r.id)])] };
     }
     const total = await ConversationParticipant.count({ where });
-    const pages = Math.max(1, Math.ceil(total / perPage));
-    const current = Math.min(pages, Math.max(1, Math.floor(Number(page)) || 1));
+    const pg = paginate(total, page, perPage);
     const rows = await ConversationParticipant.findAll({
       where,
       include: [{ model: Conversation, include: [{ association: 'participants', include: [Player] }] }],
       order: [[Conversation, 'lastMessageAt', 'DESC'], [Conversation, 'id', 'DESC']],
-      limit: perPage,
-      offset: (current - 1) * perPage,
+      limit: pg.perPage,
+      offset: pg.offset,
     });
     const counts = await MessageService.messageCounts(rows.map((p) => p.conversationId));
     return {
-      page: current, pages, total, search: q,
+      page: pg.page, pages: pg.pages, total, search: q,
       rows: rows.map((p) => MessageService.summary(p.Conversation, playerId, {
         unread: !p.lastReadAt || new Date(p.Conversation.lastMessageAt) > new Date(p.lastReadAt),
         count: counts.get(p.conversationId) || 0,
@@ -236,7 +223,6 @@ class MessageService {
 }
 
 MessageService.MAX_RECIPIENTS = MAX_RECIPIENTS;
-MessageService.PER_PAGE = PER_PAGE;
 MessageService.GROUPS = GROUPS;
 
 module.exports = MessageService;

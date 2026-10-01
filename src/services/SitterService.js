@@ -18,6 +18,7 @@ class SitterService {
       const sitter = await Player.findOne({ where: { worldId: owner.worldId, name: String(sitterName || '').trim() }, transaction: t });
       if (!sitter) throw new GameError('Aucun joueur de ce nom sur ce monde.');
       if (sitter.id === owner.id) throw new GameError('Choisissez un autre joueur.');
+      if (sitter.isBot) throw new GameError('Un bot ne peut pas être remplaçant.');
       await owner.update({ sitterId: sitter.id, sitterAcceptedAt: null }, { transaction: t });
       return sitter;
     });

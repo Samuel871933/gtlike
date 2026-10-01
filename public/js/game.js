@@ -196,7 +196,9 @@
     if (form) recruitTotal(form);
   });
 
-  // Point de ralliement : durée du trajet (unité la plus lente, comme le serveur) et heure d'arrivée.
+  // Point de ralliement : durée du trajet (unité la plus lente, comme le serveur) et heure d'arrivée, arrondie comme
+  // sur le serveur à la précision des arrivées du monde (data-arrival-step, en ms ; voir game/movement.arrivalAt).
+  const roundArrival = (ms, step) => new Date(Math.ceil(ms / Math.max(1, Number(step) || 1)) * Math.max(1, Number(step) || 1));
   function arrivalText(date, now) {
     const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}:${String(date.getMilliseconds()).padStart(3, '0')}`;
     const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
@@ -218,7 +220,7 @@
     const seconds = Math.round(dist * minutes * 60);
     const ok = minutes && x !== '' && y !== '' && seconds > 0;
     const now = new Date(serverNow());
-    form.querySelector('[data-travel-arrival]').textContent = ok ? arrivalText(new Date(now.getTime() + seconds * 1000), now) : '—';
+    form.querySelector('[data-travel-arrival]').textContent = ok ? arrivalText(roundArrival(now.getTime() + seconds * 1000, form.dataset.arrivalStep), now) : '—';
     form.querySelector('[data-travel-duration]').textContent = ok ? `(${fmt(seconds)})` : '';
   }
   document.addEventListener('input', (e) => {
@@ -230,7 +232,7 @@
     document.querySelectorAll('form[data-travel]').forEach(travelPreview);
     document.querySelectorAll('[data-arrive-in]').forEach((el) => {
       const now = new Date(serverNow());
-      el.textContent = arrivalText(new Date(now.getTime() + Number(el.dataset.arriveIn)), now);
+      el.textContent = arrivalText(roundArrival(now.getTime() + Number(el.dataset.arriveIn), el.dataset.arrivalStep), now);
     });
     requestAnimationFrame(arrivalFrame);
   }
@@ -410,14 +412,48 @@
     if (all) document.querySelectorAll(`[form="${all.dataset.selectAll}"][data-select-item]`).forEach((box) => { box.checked = all.checked; });
   });
 
+  // Réglages tribu : chaque en-tête commande seulement les cases de sa colonne.
+  const tribeSharing = document.querySelector('[data-tribe-sharing]');
+  if (tribeSharing) {
+    const updateColumn = (column) => {
+      const all = tribeSharing.querySelector(`[data-tribe-select-all="${column}"]`);
+      const boxes = [...tribeSharing.querySelectorAll(`[data-tribe-column="${column}"]`)];
+      all.checked = boxes.length > 0 && boxes.every((box) => box.checked);
+      all.indeterminate = !all.checked && boxes.some((box) => box.checked);
+    };
+    for (const column of ['share', 'show']) updateColumn(column);
+    tribeSharing.addEventListener('change', (e) => {
+      const all = e.target.closest('[data-tribe-select-all]');
+      if (all) {
+        const column = all.dataset.tribeSelectAll;
+        tribeSharing.querySelectorAll(`[data-tribe-column="${column}"]`).forEach((box) => { box.checked = all.checked; });
+        updateColumn(column);
+      } else {
+        const box = e.target.closest('[data-tribe-column]');
+        if (box) updateColumn(box.dataset.tribeColumn);
+      }
+    });
+  }
+
   // Encarts qu'on peut masquer (« Masquer ce message ») : mémorisé dans le navigateur.
   document.querySelectorAll('[data-dismissable]').forEach((el) => {
-    const key = `gtlike:dismiss:${el.dataset.dismissable}`;
-    try { if (localStorage.getItem(key)) el.hidden = true; } catch (err) { /* stockage indisponible */ }
+    const key = `adarma:dismiss:${el.dataset.dismissable}`;
+    // Ancienne clé (le jeu s'appelait GTLike) encore lue, pour ne pas réafficher un encart déjà masqué.
+    try { if (localStorage.getItem(key) || localStorage.getItem(`gtlike:dismiss:${el.dataset.dismissable}`)) el.hidden = true; } catch (err) { /* stockage indisponible */ }
     el.querySelector('[data-dismiss]')?.addEventListener('click', () => {
       el.hidden = true;
       try { localStorage.setItem(key, '1'); } catch (err) { /* stockage indisponible */ }
     });
+  });
+
+  // Zones de dépôt de fichier (image de profil) : nom du fichier choisi, zone éclairée pendant le glisser-déposer.
+  document.querySelectorAll('[data-dropzone]').forEach((zone) => {
+    const input = zone.querySelector('input[type="file"]');
+    const name = zone.querySelector('[data-dropzone-name]');
+    const empty = name.textContent;
+    input.addEventListener('change', () => { name.textContent = input.files[0]?.name || empty; });
+    input.addEventListener('dragenter', () => { zone.dataset.dragover = ''; });
+    ['dragleave', 'drop'].forEach((type) => input.addEventListener(type, () => { delete zone.dataset.dragover; }));
   });
 
   // Écrire un message : menu « Tribu » du champ À (groupe de destinataires à la place des pseudos).
@@ -456,4 +492,80 @@
 
   tick();
   setInterval(tick, 1000);
+})();
+
+// Confirmation d'attaque : « Ajouter une attaque supplémentaire ». Chaque ajout répartit à parts égales, entre toutes les
+// lignes ajoutées, les troupes qui restent après l'attaque #1 ; les lignes sont envoyées sous extra_<n>_<unité>.
+(() => {
+  const box = document.querySelector('[data-multi-attack]');
+  if (!box) return;
+  const form = box.closest('form');
+  const units = JSON.parse(box.dataset.units);
+  const available = JSON.parse(box.dataset.available);
+  const first = JSON.parse(box.dataset.first);
+  const max = Number(box.dataset.max) || 50;
+  const panel = box.querySelector('[data-multi-panel]');
+  const rows = box.querySelector('[data-multi-rows]');
+  const template = box.querySelector('[data-multi-row]');
+  const error = box.querySelector('[data-multi-error]');
+  const addButton = box.querySelector('[data-multi-add]');
+  const submit = form.querySelector('[data-multi-submit]');
+  const fmt = (n) => Math.floor(n).toLocaleString('fr-FR');
+  const extras = () => [...rows.querySelectorAll('tr[data-extra]')];
+
+  function renumber() {
+    extras().forEach((tr, i) => {
+      tr.querySelector('[data-multi-label]').textContent = `Attaque #${i + 2}`;
+      tr.querySelectorAll('input[data-unit]').forEach((input) => { input.name = `extra_${i + 2}_${input.dataset.unit}`; });
+    });
+    addButton.hidden = extras().length + 1 >= max;
+  }
+
+  function update() {
+    let over = false;
+    for (const id of units) {
+      const total = (first[id] || 0) + extras().reduce((n, tr) => n + Math.max(0, Math.floor(Number(tr.querySelector(`[data-unit="${id}"]`).value)) || 0), 0);
+      const cell = box.querySelector(`[data-multi-total="${id}"]`);
+      cell.textContent = fmt(total);
+      const bad = total > (available[id] || 0);
+      over ||= bad;
+      cell.classList.toggle('text-blood-450', bad);
+      cell.classList.toggle('text-parchment-600', !bad && !total);
+    }
+    error.hidden = !over;
+    if (submit) submit.disabled = over;
+  }
+
+  // Troupes restantes (disponibles moins l'attaque #1) réparties entre les lignes ; le reste va aux premières.
+  function split() {
+    const list = extras();
+    for (const id of units) {
+      const rest = Math.max(0, (available[id] || 0) - (first[id] || 0));
+      const share = Math.floor(rest / list.length);
+      list.forEach((tr, i) => {
+        const n = share + (i < rest % list.length ? 1 : 0);
+        tr.querySelector(`[data-unit="${id}"]`).value = n || '';
+      });
+    }
+  }
+
+  addButton.addEventListener('click', () => {
+    panel.hidden = false;
+    box.closest('form').querySelector('[data-multi-single]')?.setAttribute('hidden', '');
+    const tr = template.content.firstElementChild.cloneNode(true);
+    tr.dataset.extra = '';
+    rows.append(tr);
+    renumber();
+    split();
+    update();
+  });
+  rows.addEventListener('input', update);
+  rows.addEventListener('click', (e) => {
+    const remove = e.target.closest('[data-multi-remove]');
+    if (!remove) return;
+    remove.closest('tr').remove();
+    renumber();
+    update();
+  });
+  update();
 })();

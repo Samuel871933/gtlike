@@ -68,6 +68,8 @@ const Tribe = sequelize.define(
     description: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     // Annonces internes (encadré de l'aperçu, visible des seuls membres), distinctes de la description publique.
     announcement: { type: DataTypes.TEXT, allowNull: true },
+    // Image du profil public (fichier WebP réduit, voir ImageService), nulle sans image.
+    avatar: { type: DataTypes.STRING(64), allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['worldId', 'tag'] }, { unique: true, fields: ['worldId', 'name'] }] },
 );
@@ -194,6 +196,8 @@ const Player = sequelize.define(
     tribeRights: { type: DataTypes.JSON, allowNull: true },
     // Messages par page de la boîte de réception (nul : valeur par défaut).
     messagesPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    // Rapports par page (nul : valeur par défaut, voir PaginationService).
+    reportsPerPage: { type: DataTypes.INTEGER, allowNull: true },
     // Réglages tribu : partager ses notes de village avec sa tribu, afficher les notes partagées par la tribu.
     shareVillageNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // Offres par page de la recherche du marché (nulle : valeur par défaut).
@@ -221,12 +225,26 @@ const Player = sequelize.define(
     tribeJoinedAt: { type: DataTypes.DATE, allowNull: true },
     // Texte personnel affiché sur le profil public (texte brut, retours à la ligne conservés).
     profileText: { type: DataTypes.TEXT, allowNull: true },
+    // Image du profil public (fichier WebP réduit, voir ImageService), nulle sans image.
+    avatar: { type: DataTypes.STRING(64), allowNull: true },
     // Bâtiments favoris de la barre d'accès rapide (ids) ; nul = barre par défaut (bâtiments construits).
     favoriteBuildings: { type: DataTypes.JSON, allowNull: true },
     // Réglages de la carte : { size, mini, layers: { influence: true, … } } ; nul = réglages par défaut.
     mapSettings: { type: DataTypes.JSON, allowNull: true },
+    // Joueur géré par l'IA (voir BotService) : sans compte (userId nul), ses réglages sont dans Bot.
+    isBot: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { indexes: [{ unique: true, fields: ['userId', 'worldId'] }] },
+);
+
+/** Bot d'un monde : le joueur qu'il incarne, sa prochaine décision et sa mémoire (cibles à éviter…). */
+const Bot = sequelize.define(
+  'Bot',
+  {
+    nextActionAt: { type: DataTypes.DATE, allowNull: false },
+    memory: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+  },
+  { indexes: [{ unique: true, fields: ['playerId'] }, { fields: ['nextActionAt'] }] },
 );
 
 /** Le joueur dort-il à cet instant ? */
@@ -420,7 +438,11 @@ Village.hasMany(VillageNote, { foreignKey: { name: 'villageId', allowNull: false
 VillageNote.belongsTo(Player, { foreignKey: 'playerId' });
 Player.hasMany(LastAttack, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 Village.hasMany(LastAttack, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
-User.hasMany(Player, { foreignKey: { name: 'userId', allowNull: false } });
+// userId nul = bot (le compte n'existe pas : les bots ne sont pas dans Users).
+User.hasMany(Player, { foreignKey: { name: 'userId', allowNull: true }, onDelete: 'CASCADE' });
+Player.hasOne(Bot, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+Bot.belongsTo(Player, { foreignKey: 'playerId' });
+World.hasMany(Bot, { foreignKey: { name: 'worldId', allowNull: false }, onDelete: 'CASCADE' });
 Player.belongsTo(User, { foreignKey: 'userId' });
 World.hasMany(Player, { foreignKey: { name: 'worldId', allowNull: false } });
 Player.belongsTo(World, { foreignKey: 'worldId' });
@@ -627,7 +649,7 @@ TribeForumPoll.hasMany(TribeForumVote, { as: 'votes', foreignKey: { name: 'pollI
 Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 
 module.exports = {
-  sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, LastAttack, VillageNote, Transport, MarketOffer,
+  sequelize, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,

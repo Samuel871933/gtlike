@@ -36,7 +36,10 @@ class PrivateServerService {
       const slug = `p${randomCode(6).toLowerCase()}`;
       const joinCode = access === 'code' ? randomCode(8) : null;
       if (await World.count({ where: { [Op.or]: [{ slug }, ...(joinCode ? [{ joinCode }] : [])] } })) continue;
-      return World.create({ slug, name, config, ownerUserId: user.id, access, joinCode });
+      const world = await World.create({ slug, name, config, ownerUserId: user.id, access, joinCode });
+      // Les bots demandés sont là dès l'ouverture (la boucle de jeu remplace ensuite ceux qui manquent).
+      await require('./BotService').ensureBots(world);
+      return world;
     }
     throw new GameError('Création impossible pour le moment, réessaie.');
   }

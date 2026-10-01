@@ -7,7 +7,7 @@
 //   npm run populate -- skills 300      → 300 joueurs sur le monde « skills »
 //   npm run populate -- speed 1000 --reset  → retire d'abord le peuplement précédent de ce monde
 //
-// Les comptes fictifs ont l'adresse <nom>@bots.gtlike.local et le mot de passe « motdepasse ».
+// Les comptes fictifs ont l'adresse <nom>@bots.adarma.local et le mot de passe « motdepasse ».
 // Sans --reset, le script refuse de peupler deux fois le même monde.
 
 const bcrypt = require('bcryptjs');
@@ -18,7 +18,7 @@ const VillageState = require('../src/game/VillageState');
 const registry = require('../src/game/registry');
 const formulas = require('../src/game/formulas');
 
-const BOT_DOMAIN = 'bots.gtlike.local';
+const BOT_DOMAIN = 'bots.adarma.local';
 const PASSWORD = 'motdepasse';
 
 // Générateur reproductible (mulberry32) : deux peuplements avec la même graine donnent la même carte.

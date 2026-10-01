@@ -15,7 +15,11 @@ const DEFAULTS = {
   freeFinishSeconds: 180,
   // Démolition au quartier général (comme sur GT) : QG de ce niveau au moins, loyauté à 100 %.
   demolishMainLevel: 15,
-  features: { knight: false, archer: false },
+  features: { knight: false, archer: false, church: false },
+  // Église (module `features.church`, comme sur GT) : rayon d'influence en cases par niveau d'église, rayon de la
+  // première église (niveau 1 seulement) ; hors de toute zone d'une de ses églises, les troupes d'un joueur se battent
+  // avec `faithless` de leur force (attaque depuis ce village, défense de ce village).
+  church: { radius: [0, 4, 6, 8], firstRadius: 6, faithless: 0.5 },
   startBuildings: { main: 1, farm: 1, storage: 1, place: 1 },
   startResources: { wood: 500, stone: 500, iron: 500 },
   // Placement. emptyVillages : villages barbares créés à chaque inscription, en % comme coord.empty_villages de
@@ -46,9 +50,16 @@ const DEFAULTS = {
   night: { active: false, startHour: 0, endHour: 8, defFactor: 2 },
   newbieDays: 5,
   commandCancelSeconds: 600,
+  // Précision des arrivées de troupes et de marchands (ms) : chaque arrivée est arrondie à la tranche supérieure (voir
+  // movement.arrivalAt). 1 : à la milliseconde près, comme sur Guerre Tribale ; 100 : au dixième de seconde…
+  arrivalStepMs: 1,
   // Villages barbares : points gagnés par jour (× vitesse du monde) et plafond. Ils ne recrutent jamais ;
   // troops : un village abandonné garde ses troupes (comme sur GT), sinon il redevient barbare sans défense.
   barbarian: { growthPerDay: 40, maxPoints: 1500, troops: true },
+  // Bots (joueurs gérés par l'IA, voir BotService) : nombre de bots que le monde garde en jeu (0 = aucun) et
+  // difficulté : peaceful (se développent et pillent les barbares), normal (attaquent aussi les joueurs proches et
+  // conquièrent des barbares), aggressive (attaques fréquentes, conquièrent aussi les joueurs). Voir game/botBrain.
+  bots: { count: 0, difficulty: 'normal' },
   // Collecte : 4 options (taux de butin), la première est ouverte d'office. Coûts et durées de
   // déblocage estimés (non publiés), durées divisées par la vitesse du monde.
   scavenging: {
@@ -108,9 +119,11 @@ class WorldConfig {
         siege: { ...DEFAULTS.victory.siege, ...(raw.victory?.siege || {}) },
       },
       barbarian: { ...DEFAULTS.barbarian, ...(raw.barbarian || {}) },
+      bots: { ...DEFAULTS.bots, ...(raw.bots || {}) },
       sleep: { ...DEFAULTS.sleep, ...(raw.sleep || {}) },
       sitter: { ...DEFAULTS.sitter, ...(raw.sitter || {}) },
       militia: { ...DEFAULTS.militia, ...(raw.militia || {}) },
+      church: { ...DEFAULTS.church, ...(raw.church || {}) },
       knightItems: { ...DEFAULTS.knightItems, ...(raw.knightItems || {}) },
       startBuildings: raw.startBuildings || DEFAULTS.startBuildings,
     };

@@ -2,12 +2,12 @@
 
 const { Op } = require('sequelize');
 const {
-  sequelize, Player, Village, Command, SupportStack, Report, LastAttack, BuildOrder, RecruitOrder, ResearchOrder, Transport, MarketOffer, TribeRelation,
+  sequelize, World, Player, Village, Command, SupportStack, Report, LastAttack, BuildOrder, RecruitOrder, ResearchOrder, Transport, MarketOffer, TribeRelation,
   Knight, ScavengeRun,
 } = require('../models');
 const registry = require('../game/registry');
 const combat = require('../game/combat');
-const { travelSeconds, distance } = require('../game/movement');
+const { travelSeconds, distance, arrivalAt } = require('../game/movement');
 const VillageService = require('./VillageService');
 const KnightService = require('./KnightService');
 const KnightSkillService = require('./KnightSkillService');
@@ -15,6 +15,7 @@ const knightSkills = require('../game/knightSkills');
 const AchievementService = require('./AchievementService');
 const DailyService = require('./DailyService');
 const GameError = require('./GameError');
+const FaithService = require('./FaithService');
 
 const RESOURCES = ['wood', 'stone', 'iron'];
 
@@ -33,6 +34,15 @@ function hasUnits(units) {
 
 function villageLabel(v) {
   return `${v.name} (${v.x}|${v.y})`;
+}
+
+// Attaques envoyées à la suite : écart minimal entre deux arrivées, celui de la précision des arrivées quand le serveur
+// la fixe, sinon 100 ms.
+const MAX_CHAINED = 50;
+const DEFAULT_CHAIN_GAP_MS = 100;
+function chainGapMs(world) {
+  const step = Number(world?.config?.arrivalStepMs);
+  return Number.isFinite(step) && step >= 1 ? step : DEFAULT_CHAIN_GAP_MS;
 }
 
 class CommandService {
@@ -108,10 +118,12 @@ class CommandService {
     }
 
     const seconds = travelSeconds(units, village, target, cfg, { withKnightSpeed: type === 'support' });
+    // Foi du village d'origine (mondes avec église) : force de l'attaque, quelle que soit la cible.
+    const faithValue = type === 'attack' ? await FaithService.factor(village, cfg, { t, buildings: state.buildings }) : 1;
     return {
-      type, units, target, catapultTarget: catapult, morale: moraleValue,
+      type, units, target, catapultTarget: catapult, morale: moraleValue, faith: faithValue,
       distance: distance(village, target), seconds,
-      arrivesAt: new Date(now.getTime() + seconds * 1000),
+      arrivesAt: arrivalAt(now.getTime() + seconds * 1000, cfg),
     };
   }
 
@@ -120,20 +132,41 @@ class CommandService {
   }
 
   static async send(villageId, order, { now } = {}) {
+    return (await CommandService.sendMany(villageId, [order], { now }))[0];
+  }
+
+  /**
+   * Plusieurs attaques à la suite depuis un village (« Ajouter une attaque supplémentaire » de GT), dans une seule
+   * transaction : chaque ordre arrive après le précédent, au moins `chainGapMs` plus tard (un ordre plus rapide part
+   * donc d'autant plus tard). Tout est refusé si l'un des ordres est invalide.
+   */
+  static async sendMany(villageId, orders, { now } = {}) {
+    if (!orders.length) throw new GameError('Aucune unité sélectionnée.');
+    if (orders.length > MAX_CHAINED) throw new GameError(`Au plus ${MAX_CHAINED} attaques à la fois.`);
     return VillageService.withVillage(villageId, async (ctx, t) => {
-      const plan = await CommandService.plan(ctx, order, t);
-      ctx.state.units = addUnits(ctx.state.units, plan.units, -1);
+      const gap = chainGapMs(ctx.world);
+      const created = [];
+      let previous = null;
+      for (const order of orders) {
+        const plan = await CommandService.plan(ctx, order, t);
+        ctx.state.units = addUnits(ctx.state.units, plan.units, -1);
+        let arrivesAt = plan.arrivesAt;
+        if (previous && arrivesAt.getTime() < previous + gap) arrivesAt = arrivalAt(previous + gap, ctx.cfg);
+        previous = arrivesAt.getTime();
+        created.push(await Command.create({
+          worldId: ctx.village.worldId,
+          type: plan.type,
+          originVillageId: ctx.village.id,
+          targetVillageId: plan.target.id,
+          units: plan.units,
+          catapultTarget: plan.catapultTarget,
+          // Départ décalé d'autant que l'arrivée : le retour garde la durée du trajet.
+          startsAt: new Date(Math.max(ctx.now.getTime(), arrivesAt.getTime() - plan.seconds * 1000)),
+          arrivesAt,
+        }, { transaction: t }));
+      }
       await ctx.village.update({ units: { ...ctx.state.units } }, { transaction: t });
-      return Command.create({
-        worldId: ctx.village.worldId,
-        type: plan.type,
-        originVillageId: ctx.village.id,
-        targetVillageId: plan.target.id,
-        units: plan.units,
-        catapultTarget: plan.catapultTarget,
-        startsAt: ctx.now,
-        arrivesAt: plan.arrivesAt,
-      }, { transaction: t });
+      return created;
     }, { now });
   }
 
@@ -167,7 +200,7 @@ class CommandService {
       const seconds = travelSeconds({ knight: 1 }, ctx.village, target.village, ctx.cfg);
       return Command.create({
         worldId: ctx.village.worldId, type: 'relocate', originVillageId: ctx.village.id, targetVillageId: target.village.id,
-        units: { knight: 1 }, startsAt: ctx.now, arrivesAt: new Date(ctx.now.getTime() + seconds * 1000),
+        units: { knight: 1 }, startsAt: ctx.now, arrivesAt: arrivalAt(ctx.now.getTime() + seconds * 1000, ctx.cfg),
       }, { transaction: t });
     }, { now });
   }
@@ -183,7 +216,7 @@ class CommandService {
       // Destination perdue ou déjà occupée entre-temps : le paladin rentre chez lui.
       return Command.create({
         worldId: cmd.worldId, type: 'return', originVillageId: origin.id, targetVillageId: target.id,
-        units: cmd.units, startsAt: at, arrivesAt: new Date(at.getTime() + (at - new Date(cmd.startsAt))),
+        units: cmd.units, startsAt: at, arrivesAt: arrivalAt(at.getTime() + (at - new Date(cmd.startsAt)), await CommandService.worldConfig(cmd, t)),
       }, { transaction: t });
     }
     const ctx = await VillageService.refresh(target.id, t, at);
@@ -200,11 +233,12 @@ class CommandService {
       if (!cmd || cmd.originVillageId !== villageId || cmd.type === 'return') throw new GameError('Ordre introuvable.', 404);
       const village = await Village.findByPk(villageId, { include: [{ association: Village.associations.World }], transaction: t });
       const cfg = village.World.getConfig();
-      const elapsed = now - new Date(cmd.startsAt);
+      // Nul pour une attaque à la suite pas encore partie (départ décalé, voir sendMany).
+      const elapsed = Math.max(0, now - new Date(cmd.startsAt));
       if (elapsed > cfg.commandCancelSeconds * 1000 || now >= new Date(cmd.arrivesAt)) {
         throw new GameError("Il est trop tard pour annuler cet ordre.");
       }
-      await cmd.update({ type: 'return', cancelled: true, startsAt: now, arrivesAt: new Date(now.getTime() + elapsed) }, { transaction: t });
+      await cmd.update({ type: 'return', cancelled: true, startsAt: now, arrivesAt: arrivalAt(now.getTime() + elapsed, cfg) }, { transaction: t });
     });
   }
 
@@ -234,7 +268,7 @@ class CommandService {
       targetVillageId: stack.villageId,
       units: stack.units,
       startsAt: now,
-      arrivesAt: new Date(now.getTime() + seconds * 1000),
+      arrivesAt: arrivalAt(now.getTime() + seconds * 1000, cfg),
     }, { transaction });
     await stack.destroy({ transaction });
   }
@@ -266,6 +300,11 @@ class CommandService {
   }
 
   // ---------------------------------------------------------------- Traitement des arrivées
+
+  /** Configuration du monde d'un ordre (précision des arrivées des retours qu'il crée). */
+  static async worldConfig(cmd, t) {
+    return (await World.findByPk(cmd.worldId, { transaction: t })).getConfig();
+  }
 
   /** Traite toutes les arrivées échues (troupes et marchands), voir EventService. */
   static async processDue(now, options) {
@@ -338,6 +377,9 @@ class CommandService {
       luck: (rng() * 2 - 1) * cfg.luck,
       nightFactor: defenderPlayer && cfg.isNight(at) ? cfg.night.defFactor : 1,
       catapultTarget: cmd.catapultTarget ? { building: cmd.catapultTarget, level: state.level(cmd.catapultTarget) } : null,
+      // Foi : l'attaque dépend de l'église du village d'origine, toute la défense (soutiens compris) de celle de la cible.
+      attackerFaith: await FaithService.factor(origin, cfg, { t }),
+      defenderFaith: await FaithService.factor(target, cfg, { t, buildings: state.buildings }),
     });
 
     // Pertes du défenseur : même proportion pour le village et chaque soutien.
@@ -409,6 +451,9 @@ class CommandService {
         survivors.snob -= 1;
         if (!survivors.snob) delete survivors.snob;
         state.loyalty = cfg.snob.loyaltyAfterConquest;
+        // L'église (et la première église) du village disparaît avec la conquête, comme sur GT.
+        delete state.buildings.church;
+        delete state.buildings.church_f;
       }
     }
 
@@ -449,7 +494,7 @@ class CommandService {
         units: survivors,
         loot: looted,
         startsAt: at,
-        arrivesAt: new Date(at.getTime() + (at - new Date(cmd.startsAt))),
+        arrivesAt: arrivalAt(at.getTime() + (at - new Date(cmd.startsAt)), cfg),
       }, { transaction: t });
     }
 
@@ -518,6 +563,7 @@ class CommandService {
       },
       attackerWins: result.hasBattle ? result.attackerWins : null,
       luck: result.luck, morale: result.morale, night: result.nightFactor > 1,
+      ...(cfg.hasFeature('church') ? { faith: { attacker: result.attackerFaith, defender: result.defenderFaith } } : {}),
       wall: { before: result.wallBefore, after: result.wallAfter },
       catapult: result.catapult ? { ...result.catapult, name: registry.building(result.catapult.building).name } : null,
       attackerItem: attackerItem ? registry.ITEMS.get(attackerItem).name : null,
@@ -630,7 +676,7 @@ class CommandService {
     ]);
     await Command.create({
       worldId: cmd.worldId, type: 'return', originVillageId: origin.id, targetVillageId: target.id,
-      units: cmd.units, loot: { wood: 0, stone: 0, iron: 0 }, startsAt: at, arrivesAt: new Date(at.getTime() + (at - new Date(cmd.startsAt))),
+      units: cmd.units, loot: { wood: 0, stone: 0, iron: 0 }, startsAt: at, arrivesAt: arrivalAt(at.getTime() + (at - new Date(cmd.startsAt)), await CommandService.worldConfig(cmd, t)),
     }, { transaction: t });
     const title = `${origin.Player.name} a rendu visite à ${villageLabel(target)}`;
     const data = { perspective: 'visit', visit: true, from: villageLabel(origin), village: villageLabel(target), units: cmd.units, sleeper: sleeper.name };
@@ -705,5 +751,8 @@ class CommandService {
 }
 
 CommandService.addUnits = addUnits;
+
+CommandService.chainGapMs = chainGapMs;
+CommandService.MAX_CHAINED = MAX_CHAINED;
 
 module.exports = CommandService;

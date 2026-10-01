@@ -2,10 +2,17 @@
 <%
   // Liste de tous les serveurs visibles : mondes officiels et serveurs privés (ouverts, ou sur code pour leur créateur
   // et leurs joueurs). Libellés communs avec l'accueil : src/web/worldLabels.js.
-  const qs = (o) => '/servers?' + new URLSearchParams({ type, tri: sort, ...(q ? { q } : {}), ...o }).toString();
+  const qs = (o) => '/servers?' + new URLSearchParams({ type, tri: sort, ordre: dir, ...(q ? { q } : {}), ...o }).toString();
   const typeTabs = segTabs([['all', 'Tous'], ['official', 'Officiels'], ['private', 'Privés']]
     .map(([t, label]) => [qs({ type: t }), `${label} (${totals[t]})`, type === t]));
-  const sortTabs = segTabs([['players', 'Plus peuplés'], ['recent', 'Plus récents']].map(([t, label]) => [qs({ tri: t }), label, sort === t]));
+  // En-tête triable : un clic trie la colonne dans son sens par défaut, un second inverse le sens.
+  const th = (key, label, cls = '') => {
+    const active = sort === key;
+    const next = active ? (dir === 'asc' ? 'desc' : 'asc') : sortDirs[key];
+    const aria = active ? ` aria-sort="${dir === 'asc' ? 'ascending' : 'descending'}"` : '';
+    const arrow = active ? icon(dir === 'asc' ? 'chevronUp' : 'chevronDown', 'size-3', 2.4) : '';
+    return `<th class="${cls}"${aria}><a href="${qs({ tri: key, ordre: next })}" class="inline-flex items-center gap-1 hover:text-gold-200${active ? ' text-gold-200' : ''}">${label}${arrow}</a></th>`;
+  };
   const playing = (r) => r.player && r.player.villageCount > 0;
   const state = (r) => {
     if (r.world.endedAt) return `<span class="${ui.tagMuted}">Terminé</span>`;
@@ -23,9 +30,8 @@
   <section class="<%= ui.panel %>">
     <%- panelHead(`Serveurs (${rows.length})`, typeTabs) %>
     <div class="flex flex-wrap items-center gap-2 border-b border-bronze-800 px-3 py-2">
-      <%- sortTabs %>
       <form method="get" action="/servers" class="flex items-center gap-1.5">
-        <input type="hidden" name="type" value="<%= type %>"><input type="hidden" name="tri" value="<%= sort %>">
+        <input type="hidden" name="type" value="<%= type %>"><input type="hidden" name="tri" value="<%= sort %>"><input type="hidden" name="ordre" value="<%= dir %>">
         <input name="q" value="<%= q %>" placeholder="Chercher un serveur" aria-label="Chercher un serveur par son nom" class="<%= ui.input %> h-7 w-48 text-sm">
         <button class="<%= btn('dark', 'sm') %>"><%- icon('search', 'size-3.5', 2.2) %>Chercher</button>
       </form>
@@ -43,7 +49,8 @@
       <div class="overflow-x-auto">
         <table class="<%= ui.table %> text-sm [&_td]:px-3 [&_td]:py-1.5 [&_th]:px-3">
           <thead><tr>
-            <th>Serveur</th><th class="text-right">Joueurs</th><th>Ouvert</th><th>Vitesse</th><th>Modules</th><th>Fin du monde</th><th>État</th><th></th>
+            <%- th('name', 'Serveur') %><%- th('players', 'Joueurs', 'text-right') %><%- th('recent', 'Ouvert') %><%- th('speed', 'Vitesse') %>
+            <%- th('modules', 'Modules') %><%- th('victory', 'Fin du monde') %><%- th('state', 'État') %><th></th>
           </tr></thead>
           <tbody>
           <% for (const r of rows) { const w = r.world; const cfg = w.getConfig(); const mods = worldModules(cfg); %>

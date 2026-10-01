@@ -24,7 +24,7 @@ class VictoryService {
     const villages = await Village.findAll({
       where: { worldId, playerId: { [Op.ne]: null }, ...where },
       attributes: ['points'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'isBot'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
       transaction: t,
     });
     const rows = new Map();

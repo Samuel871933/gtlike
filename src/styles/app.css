@@ -5,16 +5,17 @@
 @source "../../public/js";
 
 /*
-  Styles clairs (médiéval, Égypte) : ajustements communs aux fonds clairs, avec la variante `light:`. Déclarée avant les
+  Styles clairs (médiéval, Égypte, Basic) : ajustements communs aux fonds clairs, avec la variante `light:`. Déclarée avant les
   styles pour que leurs variantes propres (`egypt:`…) passent après elle dans le CSS et l'emportent à égalité.
 */
-@custom-variant light (&:where([data-game-style="medieval"], [data-game-style="medieval"] *, [data-game-style="egypt"], [data-game-style="egypt"] *));
+@custom-variant light (&:where([data-game-style="medieval"], [data-game-style="medieval"] *, [data-game-style="egypt"], [data-game-style="egypt"] *, [data-game-style="adarma"], [data-game-style="adarma"] *));
 
 /* Styles de jeu (peaux de l'interface en partie) : un fichier par style, voir game-styles/README.md. */
 @import "./game-styles/roman.css";
 @import "./game-styles/viking.css";
 @import "./game-styles/medieval.css";
 @import "./game-styles/egypt.css";
+@import "./game-styles/adarma.css";
 
 /*
   Style de jeu « Minimaliste » (src/web/gameLayouts.js) : interface serrée à la Guerre Tribale, quel que soit le thème.
@@ -38,6 +39,64 @@
 @utility spacing-normal {
   --spacing: 0.25rem;
 }
+
+/* Accueil et pages publiques : charbon, pierre, olive et terre cuite du village médiéval.
+   Le thème choisi par le joueur en partie conserve sa propre palette. */
+@layer theme {
+  html.lobby_style {
+    --color-night: #171914;
+    --color-night-deep: #10120f;
+    --color-halo: #323728;
+    --color-panel-hi: #292a23;
+    --color-panel-top: #22231e;
+    --color-panel-mid: #22231e;
+    --color-panel-lo: #1b1d19;
+    --color-thead: #303229;
+    --color-row-hover: #37392e;
+    --color-row-alt: #272921;
+    --color-head: #464a32;
+    --color-head-dark: #313624;
+    --color-action: #8e4c2b;
+    --color-action-hi: #97512c;
+    --color-action-line: #c18b57;
+    --color-action-deep: #512c1d;
+    --color-knob-hover: #35382e;
+    --color-bronze-500: #877a56;
+    --color-bronze-600: #736a4d;
+    --color-bronze-700: #524e3d;
+    --color-bronze-800: #3a3c32;
+    --color-gold-100: #f1d89f;
+    --color-gold-200: #e6c680;
+    --color-gold-300: #d6af68;
+    --color-gold-400: #cba35f;
+    --color-gold-500: #b58b4e;
+    --color-gold-600: #946e3c;
+    --color-gold-700: #74572f;
+    --color-gold-250: #ddba72;
+    --color-gold-shadow: #493322;
+    --color-title-shadow-2: #493322;
+  }
+}
+
+html.lobby_style input[type="checkbox"],
+html.lobby_style input[type="radio"] { accent-color: var(--color-action-hi); }
+
+/* Illustrations des succès : format lisible et fond propre à chaque palier. */
+.achievement-art {
+  --achievement-light: #32343a;
+  --achievement-dark: #111216;
+  background: radial-gradient(circle at 35% 28%, var(--achievement-light), var(--achievement-dark) 82%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), inset 0 -2px 5px rgb(0 0 0 / .36), 2px 2px 0 #000;
+}
+.achievement-art[data-achievement-tier="1"] { --achievement-light: #745038; --achievement-dark: #271a15; }
+.achievement-art[data-achievement-tier="2"] { --achievement-light: #9b6c3e; --achievement-dark: #382419; }
+.achievement-art[data-achievement-tier="3"] { --achievement-light: #8896a4; --achievement-dark: #2a303b; }
+.achievement-art[data-achievement-tier="4"] { --achievement-light: #aa853e; --achievement-dark: #3e2a11; }
+.achievement-art--main { width: 68px; height: 68px; }
+.achievement-art--compact { width: 42px; height: 42px; }
+.achievement-art--daily { width: 48px; height: 48px; }
+.achievement-art--report { width: 76px; height: 76px; }
+.achievement-art img { display: block; width: 88%; height: 88%; object-fit: contain; }
 /* Minimaliste : interface à plat, sans ombres portées ni filets intérieurs (encarts, boutons, pastilles…).
    La carte du monde et l'aperçu des styles (Compte) gardent leur rendu. Hors calque et !important : l'emporte sur les utilitaires shadow-* et sur
    les règles des rapports. Les champs perdent leur filet de focus : un contour le remplace. */
@@ -64,8 +123,10 @@
   plus ou moins opaque (--game-bg-veil) et se mélange à la texture (--game-bg-blend). Sur un fond sombre, un
   mélange overlay / soft-light d'un dégradé opaque presque noir efface la texture : les styles sombres utilisent
   donc un voile partiel en mélange normal, le style clair un voile complet en multiply.
+  .game-page-bg : le même fond dans un autre thème, en calque fixe (profil d'un joueur, voir views/player.ejs).
 */
-html.game_style body {
+html.game_style body,
+.game-page-bg {
   background-image:
     radial-gradient(ellipse at 50% -10%,
       color-mix(in srgb, var(--color-halo) var(--game-bg-veil, 100%), transparent),
@@ -78,8 +139,28 @@ html.game_style body {
   background-blend-mode: var(--game-bg-blend, normal);
 }
 
+/* Le panorama relie connexion, inscription et choix des mondes. Un voile léger garde les cartes lisibles. */
+.landing-hero {
+  background-color: #171914;
+  background-image:
+    linear-gradient(180deg, rgb(18 21 16 / .18), rgb(18 21 16 / .06) 42%, rgb(18 21 16 / .55)),
+    url('/img/lobby/worlds-eras.webp');
+  background-position: center;
+  background-size: cover;
+}
+@media (max-width: 640px) {
+  .landing-hero {
+    background-image:
+      linear-gradient(180deg, rgb(18 21 16 / .22), rgb(18 21 16 / .46) 380px, #171914 750px),
+      url('/img/lobby/worlds-eras.webp');
+    background-position: center top;
+    background-size: cover, auto 620px;
+    background-repeat: no-repeat;
+  }
+}
+
 /*
-  Uniquement la configuration Tailwind : palette et polices de la charte (maquette « GTLike », maquettes/GTLike.html).
+  Uniquement la configuration Tailwind : palette et polices de la charte (maquette « Adarma », maquettes/Adarma.html).
   Style « BD » : encre noire, rouge sang, bronze, aplats et ombres portées franches, sans arrondis.
   Les composants sont des chaînes de classes utilitaires (src/web/ui.js).
 */
@@ -410,18 +491,30 @@ html.game_style body {
 .village-design--viking.village-marker--4 { --village-image: url('/img/map/villages/viking/level-4.png'); }
 .village-design--viking.village-marker--5 { --village-image: url('/img/map/villages/viking/level-5.png'); }
 .village-design--viking.village-marker--6 { --village-image: url('/img/map/villages/viking/level-6.png'); }
-.village-design--rome-antique.village-marker--1 { --village-image: url('/img/map/villages/rome-antique/level-1.png?v=3'); }
-.village-design--rome-antique.village-marker--2 { --village-image: url('/img/map/villages/rome-antique/level-2.png?v=3'); }
-.village-design--rome-antique.village-marker--3 { --village-image: url('/img/map/villages/rome-antique/level-3.png?v=3'); }
-.village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png?v=3'); }
-.village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png?v=3'); }
-.village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png?v=3'); }
-.village-design--egyptien.village-marker--1 { --village-image: url('/img/map/villages/egyptien/level-1.png?v=1'); }
-.village-design--egyptien.village-marker--2 { --village-image: url('/img/map/villages/egyptien/level-2.png?v=1'); }
-.village-design--egyptien.village-marker--3 { --village-image: url('/img/map/villages/egyptien/level-3.png?v=1'); }
-.village-design--egyptien.village-marker--4 { --village-image: url('/img/map/villages/egyptien/level-4.png?v=1'); }
-.village-design--egyptien.village-marker--5 { --village-image: url('/img/map/villages/egyptien/level-5.png?v=2'); }
-.village-design--egyptien.village-marker--6 { --village-image: url('/img/map/villages/egyptien/level-6.png?v=1'); }
+.village-design--rome-antique.village-marker--1 { --village-image: url('/img/map/villages/rome-antique/level-1.png?v=5'); }
+.village-design--rome-antique.village-marker--2 { --village-image: url('/img/map/villages/rome-antique/level-2.png?v=5'); }
+.village-design--rome-antique.village-marker--3 { --village-image: url('/img/map/villages/rome-antique/level-3.png?v=5'); }
+.village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png?v=5'); }
+.village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png?v=5'); }
+.village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png?v=5'); }
+.village-design--egyptien.village-marker--1 { --village-image: url('/img/map/villages/egyptien/level-1.png?v=5'); }
+.village-design--egyptien.village-marker--2 { --village-image: url('/img/map/villages/egyptien/level-2.png?v=5'); }
+.village-design--egyptien.village-marker--3 { --village-image: url('/img/map/villages/egyptien/level-3.png?v=5'); }
+.village-design--egyptien.village-marker--4 { --village-image: url('/img/map/villages/egyptien/level-4.png?v=5'); }
+.village-design--egyptien.village-marker--5 { --village-image: url('/img/map/villages/egyptien/level-5.png?v=5'); }
+.village-design--egyptien.village-marker--6 { --village-image: url('/img/map/villages/egyptien/level-6.png?v=5'); }
+/* The Egyptian artwork has a wider silhouette than its PNG canvas. Fill the map tile
+   vertically while keeping the front gate and the sprite base inside the tile. */
+.village-design--egyptien .village-sprite { background-size: 100% 111%; background-position: center bottom; }
+.village-design--egyptien.village-marker--1 .village-sprite,
+.village-design--egyptien.village-marker--2 .village-sprite { background-size: 100% 100%; }
+.village-design--egyptien.village-marker--6 .village-sprite { background-size: 100% 104%; }
+.village-design--futuriste.village-marker--1 { --village-image: url('/img/map/villages/futuriste/level-1.png'); }
+.village-design--futuriste.village-marker--2 { --village-image: url('/img/map/villages/futuriste/level-2.png'); }
+.village-design--futuriste.village-marker--3 { --village-image: url('/img/map/villages/futuriste/level-3.png'); }
+.village-design--futuriste.village-marker--4 { --village-image: url('/img/map/villages/futuriste/level-4.png'); }
+.village-design--futuriste.village-marker--5 { --village-image: url('/img/map/villages/futuriste/level-5.png'); }
+.village-design--futuriste.village-marker--6 { --village-image: url('/img/map/villages/futuriste/level-6.png'); }
 .village-marker--current { --village-color: #fff; }
 .village-marker--own { --village-color: #f0c74b; }
 .village-marker--tribe { --village-color: #3159b8; }
@@ -433,6 +526,7 @@ html.game_style body {
 .village-marker--large { width: 92px; height: 92px; }
 .village-special { position: absolute; z-index: 3; top: 0; right: 1px; color: var(--color-gold-200); font-size: 13px; text-shadow: 0 1px 2px #000; }
 [data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }
+[data-game-style="viking"] .village-design--futuriste .village-sprite { filter: none; }
 
 /* Bannières narratives des rapports : le dégradé maintient le texte lisible sur les illustrations. */
 .report-hero {

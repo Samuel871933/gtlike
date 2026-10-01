@@ -74,6 +74,11 @@ test('pas d’attaque entre membres ; soutien réservé à la tribu si le monde 
   await TribeService.setRelation(players.Alice.id, 'OURS', 'ally');
   await CommandService.send(villages.Alice.id, { x: villages.Carol.x, y: villages.Carol.y, type: 'support', units: { spear: 1 } });
   assert.equal((await TribeService.relationsOf(tribe.id)).get((await reload('Carol')).tribeId), 'ally');
+  const publicProfile = await TribeService.profile(tribe.id);
+  assert.equal(Object.hasOwn(publicProfile, 'relations'), false, 'le profil public ne charge pas la diplomatie');
+  assert.equal(publicProfile.tribe.announcement, undefined, 'les annonces internes ne sont pas chargées');
+  assert.equal((await TribeService.dashboard(await reload('Alice'))).relations[0].type, 'ally');
+  await assert.rejects(TribeService.dashboard({ id: players.Carol.id, tribeId: tribe.id }), /pas membre/);
 });
 
 test('droits GT : le duc nomme barons et ducs, droits individuels, renvoi selon le titre', async () => {
@@ -193,9 +198,10 @@ test('ordres sur la carte : ses ordres et ceux des membres qui autorisent leur p
   assert.equal((await seen()).tribe.length, 0);
   await Command.create({ worldId, type: 'return', originVillageId: villages.Alice.id, targetVillageId: target,
     units: { axe: 1, spear: 1 }, startsAt, arrivesAt });
-  const targetOrders = (await MapOrderService.visible(await reload('Alice'), [target])).get(target);
-  const returning = targetOrders.own.find((o) => o.type === 'return');
-  assert.equal(returning.origin, villages.Alice.name);
+  // Le retour s'affiche sur le village où rentrent les troupes, avec le village d'où elles reviennent.
+  const homeOrders = (await MapOrderService.visible(await reload('Alice'), [villages.Alice.id])).get(villages.Alice.id);
+  const returning = homeOrders.own.find((o) => o.type === 'return');
+  assert.equal(returning.origin, villages.Bob.name);
   assert.match(returning.badge, /Unité la plus lente/);
   assert.match(returning.badge, /title="Retour"/);
   assert.match(returning.mapBadge, /title="Retour"/);
@@ -203,6 +209,6 @@ test('ordres sur la carte : ses ordres et ceux des membres qui autorisent leur p
   assert.doesNotMatch(returning.mapBadge, /flex-row-reverse/);
   assert.equal((returning.mapBadge.match(/size-\[18px\]/g) || []).length, 2);
   assert.match(returning.mapBadge, /bg-panel-top/);
-  const homeOrders = (await MapOrderService.visible(await reload('Alice'), [villages.Alice.id])).get(villages.Alice.id);
-  assert.ok(!homeOrders || !homeOrders.own.some((o) => o.type === 'return'));
+  const targetOrders = (await MapOrderService.visible(await reload('Alice'), [target])).get(target);
+  assert.ok(!targetOrders.own.some((o) => o.type === 'return'), 'pas sur le village attaqué');
 });

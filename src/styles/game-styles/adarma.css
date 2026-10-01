@@ -1,0 +1,152 @@
+/*
+  Style de jeu « Adarma » (style par défaut) : pierre ivoire claire inspirée du village médiéval.
+  L'olive structure les panneaux, l'ocre guide le regard et la terre cuite
+  marque les actions principales. Le fond reste léger derrière l'interface.
+*/
+
+@custom-variant adarma (&:where([data-game-style="adarma"], [data-game-style="adarma"] *));
+
+@layer theme {
+  [data-game-style="adarma"] {
+    --font-display: "Marcellus", Georgia, serif;
+    --game-image-village: url("/img/game-styles/adarma/village.svg");
+    --game-bg-texture: url("/img/game-styles/adarma/background-texture.webp");
+    --game-bg-blend: normal;
+    --game-bg-veil: 38%;
+
+    /* Surfaces claires, légèrement plus soutenues dans les tableaux et les champs. */
+    --color-night: #f3eddd;
+    --color-night-deep: #e8dfca;
+    --color-halo: #e2dfc9;
+    --color-panel-hi: #f7f2e6;
+    --color-panel-top: #f3ecdc;
+    --color-panel-mid: #eee5d2;
+    --color-panel-lo: #e8dec8;
+    --color-panel-edge: #cabea2;
+    --color-knob-hi: #f3ebd9;
+    --color-knob-lo: #e8ddc5;
+    --color-knob-on-hi: #647049;
+    --color-knob-on-lo: #4c5837;
+    --color-knob-hover: #fffaf0;
+    --color-well-hi: #fffaf0;
+    --color-well-lo: #e9dfc9;
+    --color-bar-hi: #e8dec9;
+    --color-vbar-hi: rgb(234 225 205 / .96);
+    --color-vbar-lo: rgb(215 205 179 / .96);
+    --color-core-hi: #fffaf0;
+    --color-core-lo: #e9dfc9;
+    --color-tile-hi: rgb(255 250 240 / .72);
+    --color-plate: rgb(247 241 227 / .9);
+    --color-plate-strong: rgb(247 241 227 / .96);
+    --color-grain: rgb(58 54 39 / .03);
+
+    /* Olive plus doux que sur l'accueil, avec assez de profondeur pour le texte crème. */
+    --color-head: #666f50;
+    --color-head-dark: #505a3f;
+    --color-thead: #e1dbc6;
+    --color-row-hover: #fff9eb;
+    --color-row-alt: #eae2cf;
+
+    /* Terre cuite pour les actions, avec un contraste lisible sur le texte clair. */
+    --color-action: #8e4c2b;
+    --color-action-hi: #97512c;
+    --color-action-line: #c18b57;
+    --color-action-deep: #512c1d;
+    --color-on-accent: #fff7e9;
+
+    /* Bordures pierre et liens ocre assez foncés pour le fond clair. */
+    --color-bronze-200: #3e3d2e;
+    --color-bronze-300: #4f4b35;
+    --color-bronze-400: #5e5840;
+    --color-bronze-500: #706647;
+    --color-bronze-600: #897b58;
+    --color-bronze-700: #aa9c76;
+    --color-bronze-800: #cbbd9b;
+    --color-bronze-900: #ddd0b4;
+    --color-bronze-950: #706647;
+    --color-gold-50: #242315;
+    --color-gold-100: #342c19;
+    --color-gold-200: #4e3a20;
+    --color-gold-250: #594324;
+    --color-gold-300: #634b28;
+    --color-gold-400: #71542d;
+    --color-gold-500: #87673a;
+    --color-gold-600: #a1804e;
+    --color-gold-700: #bda574;
+    --color-gold-ink: #fff7e9;
+    --color-gold-shadow: #d6c8a9;
+
+    /* Encre charbon lisible sur l'ivoire. */
+    --color-parchment-50: #202219;
+    --color-parchment-100: #292a20;
+    --color-parchment-200: #313329;
+    --color-parchment-300: #414336;
+    --color-parchment-350: #4d4f40;
+    --color-parchment-400: #595a4b;
+    --color-parchment-500: #68695a;
+    --color-parchment-600: #797a6a;
+    --color-parchment-700: #929180;
+
+    /* Les états gardent des couleurs distinctes sans prendre le dessus. */
+    --color-blood-100: #84361c;
+    --color-blood-200: #90301d;
+    --color-blood-300: #a03620;
+    --color-blood-350: #a53b24;
+    --color-blood-400: #b44427;
+    --color-blood-450: #9b5125;
+    --color-blood-500: #ab3b20;
+    --color-blood-shadow: #d6c8a9;
+    --color-olive-300: #3f5227;
+    --color-olive-500: #566a36;
+    --color-olive-700: #697a49;
+    --color-steel-300: #3e5a66;
+    --color-steel-500: #557381;
+    --color-wood: #84602f;
+    --color-clay: #a64e2d;
+    --color-iron: #596a70;
+    --color-pop: #566a36;
+
+    /* Reflets et blasons accordés aux en-têtes. */
+    --color-glint: rgb(255 255 255 / .3);
+    --color-glint-strong: rgb(255 255 255 / .46);
+    --color-glow: rgb(142 76 43 / .22);
+    --color-glow-soft: rgb(142 76 43 / .1);
+    --color-glow-select: rgb(142 76 43 / .3);
+    --color-crest: #8e4c2b;
+    --color-shield-edge: #342c19;
+    --color-shield-mark: #71542d;
+
+    /* Le plan du village reprend la pierre, le bois et les tuiles de la capture. */
+    --color-bld-marble: #c9b999;
+    --color-bld-marble-dk: #a69476;
+    --color-bld-stone: #9c8d72;
+    --color-bld-stone-dk: #786b56;
+    --color-bld-slate: #747260;
+    --color-bld-timber: #704b32;
+    --color-bld-timber-dk: #523621;
+    --color-bld-grain: #a48446;
+    --color-bld-grain-dk: #806535;
+    --color-bld-soot: #39362e;
+    --color-bld-fire: #d86a2e;
+    --color-bld-field: #857536;
+    --color-bld-field-lt: #ac9744;
+    --color-bld-rock: #817f70;
+    --color-bld-pit: #403d35;
+    --color-bld-clay: #ac6340;
+    --color-bld-clay-dk: #79452b;
+
+    --color-title-shadow: transparent;
+    --color-title-shadow-2: transparent;
+  }
+}
+
+/* Le thème garde ses textes sombres sur les panneaux clairs ; les aplats olive profonds reçoivent du texte crème. */
+[data-game-style="adarma"] :is(.bg-head, .bg-head-dark),
+[data-game-style="adarma"] [class~="hover:bg-head-dark"]:hover {
+  color: var(--color-on-accent);
+}
+[data-game-style="adarma"] :is(.bg-head, .bg-head-dark) > :is(.text-parchment-100, .text-parchment-300, .text-parchment-500, .text-gold-400):not(.bg-night),
+[data-game-style="adarma"] [class~="hover:bg-head-dark"]:hover > .text-gold-400:not(.bg-night),
+[data-game-style="adarma"] .bg-head nav a:not(.bg-night) {
+  color: var(--color-on-accent);
+}

@@ -9,9 +9,11 @@ const serverSettings = require('../../game/serverSettings');
 const MapService = require('../../services/MapService');
 const TribeService = require('../../services/TribeService');
 const AchievementService = require('../../services/AchievementService');
+const DailyService = require('../../services/DailyService');
 const GameError = require('../../services/GameError');
 const { MapPlacer } = require('../../game/MapPlacer');
 const { ah, flash, requireAuth } = require('../middleware');
+const { VICTORY_NAMES, worldModules } = require('../worldLabels');
 
 const router = express.Router();
 
@@ -40,7 +42,7 @@ async function victoryLocals(world, me = {}) {
 
 // Classements : types (menu de gauche) et nombre de lignes par page, comme sur Guerre Tribale.
 // `victory` : la fin du monde (dominance, runes…), dans le même cadre que les classements.
-const RANKING_TYPES = ['players', 'tribes', 'continent', 'kills', 'awards', 'victory'];
+const RANKING_TYPES = ['players', 'tribes', 'continent', 'kills', 'awards', 'daily', 'victory'];
 const RANKING_PAGE = 25;
 
 /**
@@ -54,7 +56,7 @@ async function rankingLocals(world, query, me = {}) {
   const kind = ['att', 'def', 'sup', 'all'].includes(query.kind) ? query.kind : 'all';
   if (type === 'victory') {
     return {
-      type, kind, killsOf: 'players', continentRanking: null, byTribe: true, rows: [], isMine: () => false,
+      type, kind, killsOf: 'players', continentRanking: null, daily: null, byTribe: true, rows: [], isMine: () => false,
       pager: { page: 1, pages: 1, offset: 0, total: 0, focus: -1 }, search: { q: '', rank: '', notFound: false },
       victory: await victoryLocals(world, me), world,
     };
@@ -68,6 +70,9 @@ async function rankingLocals(world, query, me = {}) {
   const killsOf = query.of === 'tribes' ? 'tribes' : 'players';
   if (type === 'kills') rows = killsOf === 'tribes' ? await MapService.tribeKillRanking(world.id, kind, ALL) : await MapService.killRanking(world.id, kind, ALL);
   if (type === 'awards') rows = await AchievementService.ranking(world.id, ALL);
+  // Record journalier : meilleure journée de chaque joueur dans la catégorie ?rec= (DailyService.RECORDS).
+  const rec = DailyService.RECORDS.some((r) => r.key === query.rec) ? query.rec : DailyService.RECORDS[0].key;
+  if (type === 'daily') rows = await DailyService.records(world.id, rec);
   if (type === 'continent') {
     const list = await MapService.continents(world.id);
     const k = list.includes(query.k) ? query.k : list[0];
@@ -92,6 +97,7 @@ async function rankingLocals(world, query, me = {}) {
   const offset = (page - 1) * RANKING_PAGE;
   return {
     world, type, kind, killsOf, continentRanking: continent, byTribe,
+    daily: type === 'daily' ? { rec, records: DailyService.RECORDS, mine: mine >= 0 ? rows[mine] : null } : null,
     rows: rows.slice(offset, offset + RANKING_PAGE),
     pager: { page, pages, offset, total: rows.length, focus: focus >= offset && focus < offset + RANKING_PAGE ? focus - offset : -1 },
     search: { q: String(query.q || ''), rank: Number.isFinite(rank) && rank > 0 ? rank : '', notFound: Boolean(q) && found < 0 },
@@ -158,27 +164,42 @@ router.post('/worlds/:slug/join', requireAuth, ah(async (req, res) => {
 
 /**
  * Tous les serveurs : mondes officiels et serveurs privés ouverts (plus les serveurs sur code du créateur et de leurs
- * joueurs). Filtre ?type= (all | official | private), tri ?tri= (players | recent), recherche ?q= sur le nom.
+ * joueurs). Filtre ?type= (all | official | private), tri par colonne ?tri= (clé de SERVER_SORTS) et ?ordre= (asc | desc,
+ * sens propre à la colonne par défaut), recherche ?q= sur le nom.
  */
 const SERVER_TYPES = ['all', 'official', 'private'];
-const SERVER_SORTS = ['players', 'recent'];
+// État : tu y joues, inscriptions ouvertes, fermé, terminé.
+const serverState = (r) => (r.world.endedAt ? 3 : r.player && r.player.villageCount > 0 ? 0 : r.world.isOpen ? 1 : 2);
+const SERVER_SORTS = {
+  name: { dir: 'asc', key: (r) => r.world.name.toLowerCase() },
+  players: { dir: 'desc', key: (r) => r.players },
+  recent: { dir: 'desc', key: (r) => new Date(r.world.createdAt).getTime() },
+  speed: { dir: 'desc', key: (r) => { const c = r.world.getConfig(); return c.speed * 1000 + c.unitSpeed; } },
+  modules: { dir: 'desc', key: (r) => worldModules(r.world.getConfig()).length },
+  victory: { dir: 'asc', key: (r) => VICTORY_NAMES[r.world.getConfig().victory.type] || '' },
+  state: { dir: 'asc', key: serverState },
+};
 router.get('/servers', requireAuth, ah(async (req, res) => {
   const type = SERVER_TYPES.includes(req.query.type) ? req.query.type : 'all';
-  const sort = SERVER_SORTS.includes(req.query.tri) ? req.query.tri : 'players';
+  const sort = Object.hasOwn(SERVER_SORTS, req.query.tri) ? req.query.tri : 'players';
+  const dir = ['asc', 'desc'].includes(req.query.ordre) ? req.query.ordre : SERVER_SORTS[sort].dir;
   const q = String(req.query.q || '').trim();
   const visible = (await WorldService.listForUser(req.user.id))
     .filter((w) => PrivateServerService.canAccess(w.world, { userId: req.user.id, isPlayer: Boolean(w.player) }));
   const counts = await WorldService.playerCounts(visible.map((w) => w.world.id));
+  const key = SERVER_SORTS[sort].key;
+  const cmp = (a, b) => { const x = key(a); const y = key(b); return typeof x === 'string' ? x.localeCompare(y, 'fr') : x - y; };
   const rows = visible
     .map((w) => ({ ...w, players: counts.get(w.world.id) || 0 }))
     .filter((r) => type === 'all' || (type === 'private') === r.world.isPrivate())
     .filter((r) => !q || r.world.name.toLowerCase().includes(q.toLowerCase()))
-    // Mondes en cours d'abord, puis le tri choisi.
-    .sort((a, b) => Boolean(a.world.endedAt) - Boolean(b.world.endedAt)
-      || (sort === 'players' ? b.players - a.players : 0)
+    // Mondes en cours d'abord (sauf tri par état), puis la colonne choisie, puis les plus récents.
+    .sort((a, b) => (sort === 'state' ? 0 : Boolean(a.world.endedAt) - Boolean(b.world.endedAt))
+      || (dir === 'asc' ? cmp(a, b) : cmp(b, a))
       || new Date(b.world.createdAt) - new Date(a.world.createdAt));
   const totals = { all: visible.length, official: visible.filter((w) => !w.world.isPrivate()).length, private: visible.filter((w) => w.world.isPrivate()).length };
-  res.render('servers', { rows, type, sort, q, totals, lobbyPage: 'servers' });
+  const sortDirs = Object.fromEntries(Object.entries(SERVER_SORTS).map(([k, v]) => [k, v.dir]));
+  res.render('servers', { rows, type, sort, dir, sortDirs, q, totals, lobbyPage: 'servers' });
 }));
 
 /** Création d'un serveur privé : nom, accès (ouvert ou sur code) et tous les réglages du monde. */

@@ -18,23 +18,24 @@
     ['Adversaires vaincus (tribus)', url({ type: 'kills', of: 'tribes', kind }), killsTribes],
     ['Adversaires vaincus (joueurs)', url({ type: 'kills', kind }), type === 'kills' && !killsTribes],
     ['Succès', url({ type: 'awards' }), type === 'awards'],
+    ['Record journalier', url({ type: 'daily', ...(daily ? { rec: daily.rec } : {}) }), type === 'daily'],
     // Fin du monde (comme « Dominance du monde » sur GT), nommée selon la condition de victoire du monde.
     [{ dominance: 'Dominance du monde', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège' }[world.getConfig().victory.type] || 'Fin du monde',
       url({ type: 'victory' }), type === 'victory'],
   ];
   const titles = {
-    players: 'Joueurs', tribes: 'Tribus', awards: 'Succès',
+    players: 'Joueurs', tribes: 'Tribus', awards: 'Succès', daily: 'Record journalier',
     kills: `Adversaires vaincus (${killsTribes ? 'tribus' : 'joueurs'})`,
     continent: c ? `Continent ${c.k || ''} · ${c.of === 'tribes' ? 'tribus' : 'joueurs'}` : 'Continent',
   };
   // Paramètres à garder dans la pagination et les formulaires « Aller à ».
-  const keep = { type, ...(type === 'kills' ? { kind, ...(killsTribes ? { of: 'tribes' } : {}) } : {}), ...(type === 'continent' && c ? { k: c.k || '', of: c.of } : {}) };
+  const keep = { type, ...(type === 'kills' ? { kind, ...(killsTribes ? { of: 'tribes' } : {}) } : {}), ...(type === 'continent' && c ? { k: c.k || '', of: c.of } : {}), ...(daily ? { rec: daily.rec } : {}) };
   const rankCell = (i) => i < 3
-    ? `<span class="${i === 0 ? ui.medallionGold : ui.medallion} size-7 font-display text-sm ${i === 0 ? 'text-night' : 'text-gold-300'}">${i + 1}</span>`
-    : `<span class="inline-flex w-7 justify-center text-parchment-400 tabular-nums">${num(i + 1)}</span>`;
-  const who = (p) => playerLink(vid, p, { cls: `${ui.linkPlain} font-semibold` });
-  const tribeTag = (tr) => tribeLink(vid, tr);
-  const tribeFull = (tr) => tribeLink(vid, tr, { name: true, tagCls: ui.tagGold });
+    ? `<span class="${i === 0 ? ui.medallionGold : ui.medallion} inline-flex! size-7 align-middle font-display text-sm ${i === 0 ? 'text-night' : 'text-gold-300'}">${i + 1}</span>`
+    : `<span class="inline-flex w-7 justify-center align-middle text-parchment-400 tabular-nums">${num(i + 1)}</span>`;
+  const who = (p) => playerLink(vid, p, { cls: `${ui.linkPlain} font-semibold`, avatar: true });
+  const tribeTag = (tr) => tribeLink(vid, tr, { avatar: true });
+  const tribeFull = (tr) => tribeLink(vid, tr, { name: true, tagCls: ui.tagGold, avatar: true });
   const perVillage = (points, villages) => (villages ? num(Math.round(points / villages)) : '—');
   const { page: pg, pages, offset, total, focus } = pager;
   const rowCls = (r, i) => (isMine(r) || i === focus ? ui.rowActive : '');
@@ -44,10 +45,12 @@
     continent: [c && c.of === 'tribes' ? 'Tribu' : 'Joueur', `Points sur ${c ? c.k : ''}`, 'Villages'],
     kills: killsTribes ? ['Tribu', 'Membres', 'Vaincus'] : ['Joueur', 'Tribu', 'Vaincus'],
     awards: ['Joueur', 'Succès', 'Points'],
+    daily: ['Joueur', 'Tribu', 'Score', 'Date'],
   }[type];
   const empty = {
     players: 'Aucun joueur sur ce monde.', tribes: 'Aucune tribu sur ce monde.', continent: 'Personne sur ce continent.',
     kills: "Personne n'a encore vaincu d'adversaire.", awards: "Aucun succès débloqué pour l'instant.",
+    daily: 'Aucun record dans cette catégorie pour l’instant.',
   }[type];
   const pagerLink = 'text-sm font-medium text-gold-400 no-underline hover:text-parchment-100';
 %>
@@ -82,7 +85,15 @@
   <section class="<%= ui.panel %> min-w-0">
     <%- panelHead(titles[type], type === 'continent' && c && c.list.length ? `<form method="get" class="flex items-center gap-2 text-sm"><input type="hidden" name="type" value="continent"><input type="hidden" name="of" value="${c.of}"><select name="k" class="${ui.inputSm}" onchange="this.form.submit()" aria-label="Continent">${c.list.map((k) => `<option value="${k}"${k === c.k ? ' selected' : ''}>${k}</option>`).join('')}</select><noscript><button class="${btn('dark', 'sm')}">Afficher</button></noscript></form>` : `<span class="text-[13px] text-parchment-300 tabular-nums">${num(total)} au classement</span>`) %>
     <% if (type === 'kills') { %>
-      <div class="border-b border-bronze-800 px-3 py-2"><%- segTabs(kills.map(([id, name]) => [url({ type: 'kills', kind: id, ...(killsTribes ? { of: 'tribes' } : {}) }), name, kind === id])) %></div>
+      <div class="border-b border-bronze-800 px-3 py-2"><%- segMenu(kills.map(([id, name]) => [url({ type: 'kills', kind: id, ...(killsTribes ? { of: 'tribes' } : {}) }), name, kind === id]), { label: 'Adversaires vaincus' }) %></div>
+    <% } %>
+    <% if (daily) { %>
+      <%# Record journalier : plus haut score obtenu en une journée (de 0:00:00 à 23:59:59, heure du serveur). %>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-bronze-800 px-3 py-2 text-sm">
+        <%- segMenu(daily.records.map((r) => [url({ type: 'daily', rec: r.key }), r.name.replace('Unités détruites en', 'En'), r.key === daily.rec]), { label: 'Catégorie de record' }) %>
+        <span class="text-parchment-500 md:order-last md:basis-full">Plus haut score obtenu en une journée, de 0:00 à 23:59.</span>
+        <% if (daily.mine) { %><span class="ml-auto text-parchment-300">Mon score : <span class="font-semibold text-gold-200 tabular-nums"><%= num(daily.mine.score) %></span> · <%= dayLabel(daily.mine.day, now) %></span><% } %>
+      </div>
     <% } %>
     <% if (search.notFound) { %><p class="border-b border-bronze-800 px-3 py-2 text-sm text-blood-450">Aucun résultat pour « <%= search.q %> ».</p><% } %>
     <% if (!rows.length) { %>
@@ -90,7 +101,7 @@
     <% } else { %>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %> [&_td]:py-1.5">
-        <thead><tr><th class="w-16">Rang</th><% cols.forEach((name, i) => { %><th class="<%= i > 0 && !/^Tribu$/.test(name) ? 'text-right' : '' %>"><%= name %></th><% }) %></tr></thead>
+        <thead><tr><th class="w-16">Rang</th><% cols.forEach((name, i) => { %><th class="<%= i > 0 && !/^(Tribu|Date)$/.test(name) ? 'text-right' : '' %>"><%= name %></th><% }) %></tr></thead>
         <tbody>
         <% rows.forEach((r, i) => { const n = offset + i; %>
           <tr class="<%= rowCls(r, i) %>">
@@ -115,6 +126,11 @@
               <td><%- tribeFull(r.tribe) %></td>
               <td class="text-right tabular-nums"><%= r.members %></td>
               <td class="text-right font-semibold tabular-nums"><%= num(r.score) %></td>
+            <% } else if (type === 'daily') { %>
+              <td><%- who(r.player) %></td>
+              <td><%- tribeTag(r.player.Tribe) %></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(r.score) %></td>
+              <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= dayLabel(r.day, now) %></td>
             <% } else if (type === 'kills') { %>
               <td><%- who(r.player) %></td>
               <td><%- tribeTag(r.player.Tribe) %></td>

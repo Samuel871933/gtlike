@@ -3,7 +3,7 @@
 const { Op } = require('sequelize');
 const { sequelize, Player, Village, Transport, MarketOffer, Report } = require('../models');
 const formulas = require('../game/formulas');
-const { distance } = require('../game/movement');
+const { distance, arrivalAt } = require('../game/movement');
 const VillageService = require('./VillageService');
 const GameError = require('./GameError');
 
@@ -94,7 +94,8 @@ class TradeService {
       resources,
       merchants,
       startsAt: now,
-      arrivesAt: new Date(now.getTime() + seconds * 1000),
+      // Arrondie à la précision des arrivées du monde, comme les troupes.
+      arrivesAt: arrivalAt(now.getTime() + seconds * 1000, cfg),
     }, { transaction: t });
   }
 
@@ -333,7 +334,7 @@ class TradeService {
       resources: {},
       merchants: tr.merchants,
       startsAt: at,
-      arrivesAt: new Date(at.getTime() + (at - new Date(tr.startsAt))),
+      arrivesAt: arrivalAt(at.getTime() + (at - new Date(tr.startsAt)), ctx.cfg),
     }, { transaction: t });
 
     const origin = await Village.findByPk(tr.originVillageId, { include: [Player], transaction: t });

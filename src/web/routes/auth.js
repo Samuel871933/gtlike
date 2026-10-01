@@ -19,7 +19,7 @@ function startSession(req, user) {
   });
 }
 
-router.get('/', (req, res) => res.redirect(req.user ? '/worlds' : '/login'));
+router.get('/', (req, res) => req.user ? res.redirect('/worlds') : res.render('login', { form: {}, error: null, notice: null }));
 
 router.get('/register', (req, res) => res.render('register', { form: {}, error: null }));
 

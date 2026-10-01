@@ -143,7 +143,7 @@ class AchievementService {
   static async ranking(worldId, limit = 100) {
     const rows = await PlayerAchievement.findAll({
       attributes: ['playerId', [fn('SUM', col('tier')), 'score'], [fn('COUNT', col('PlayerAchievement.id')), 'count']],
-      include: [{ model: Player, attributes: ['id', 'name', 'userId'], where: { worldId } }],
+      include: [{ model: Player, attributes: ['id', 'name', 'userId', 'isBot', 'avatar'], where: { worldId } }],
       group: ['playerId', 'Player.id'],
       raw: true,
       nest: true,
@@ -153,7 +153,7 @@ class AchievementService {
     const byPlayer = new Map(rows.map((r) => [r.Player.id, { player: r.Player, score: Number(r.score), count: Number(r.count) }]));
     for (const { playerId } of daily) {
       if (!byPlayer.has(playerId)) {
-        const p = await Player.findByPk(playerId, { attributes: ['id', 'name', 'userId'], raw: true });
+        const p = await Player.findByPk(playerId, { attributes: ['id', 'name', 'userId', 'isBot', 'avatar'], raw: true });
         byPlayer.set(playerId, { player: p, score: 0, count: 0 });
       }
       const row = byPlayer.get(playerId);

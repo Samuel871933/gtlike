@@ -6,14 +6,14 @@
 //   node scripts/seed-tribes.js                → monde « speed », 12 tribus
 //   node scripts/seed-tribes.js w1 5           → monde « w1 », 5 tribus
 //
-// Les vrais joueurs (hors comptes fictifs @bots.gtlike.local) deviennent ducs des premières tribus.
+// Les vrais joueurs (hors comptes fictifs @bots.adarma.local) deviennent ducs des premières tribus.
 // Chaque tribu a un duc, jusqu'à deux barons, un diplomate, ses sous-forums par défaut et quelques relations.
 
 const { Op } = require('sequelize');
 const { sequelize, World, Player, User, Tribe, TribeRelation } = require('../src/models');
 const TribeService = require('../src/services/TribeService');
 
-const BOT_DOMAIN = 'bots.gtlike.local';
+const BOT_DOMAIN = 'bots.adarma.local';
 const TRIBES = [
   ['OKLM', 'Ordre des Loups'], ['ReVo', 'La Révolte'], ['LTQS', 'Les Terres du Sud'], ['0KLM', 'Garde de Fer'],
   ['AEGIS', 'Aegis'], ['HELLO', 'Les Hérauts'], ['FT', 'Frères de Taverne'], ['L.G', 'Légion Grise'],

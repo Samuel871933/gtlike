@@ -1,6 +1,7 @@
 <%- include('partials/header', { title: tab === 'circular' ? 'Mail circulaire' : 'Messages' }) %>
 <% const m = `/village/${ctx.village.id}/messages`;
    const q = tab === 'inbox' ? inbox.search : '';
+   const pageHref = (n) => `${m}?page=${n}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
    // Colonne « Joueur » : l'autre participant, le groupe d'un courrier circulaire ou « Chat de groupe ».
    const who = (row) => {
      if (row.group) return `${icon('tribe', 'size-3.5', 2)}<span>${row.author && row.author.id !== ctx.village.playerId ? `${playerLink(ctx.village.id, row.author)} · ` : ''}${esc(row.group)}</span>`;
@@ -15,7 +16,7 @@
     <span class="inline-flex items-center gap-2 font-semibold text-parchment-100"><%- icon('messages', 'size-4', 2) %>Boîte de réception
       <% if (q) { %><span class="font-normal text-parchment-400">· recherche « <%= q %> » (<%= inbox.total %>) <a href="<%= m %>" class="<%= ui.link %> text-sm">effacer</a></span><% } %>
     </span>
-    <%- include('partials/pager', { page: inbox.page, pages: inbox.pages, href: (n) => `${m}?page=${n}${q ? `&q=${encodeURIComponent(q)}` : ''}` }) %>
+    <%- include('partials/pager', { page: inbox.page, pages: inbox.pages, href: pageHref }) %>
   </div>
   <% if (!inbox.rows.length) { %>
     <p class="px-4.5 py-4 text-parchment-500"><%= q ? 'Aucun message ne correspond à cette recherche.' : 'Aucun message.' %></p>
@@ -47,11 +48,7 @@
       <button class="<%= btn('danger', 'sm') %>" form="messages-select"><%- icon('trash', 'size-3.5', 2) %>Effacer</button>
     </div>
   <% } %>
-  <form method="post" action="<%= m %>/settings" class="flex flex-wrap items-center gap-2 border-t border-bronze-900 px-3 py-2.5 text-sm"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <label for="per-page" class="text-parchment-400">Messages par page :</label>
-    <input id="per-page" type="number" name="perPage" min="<%= perPageRange.min %>" max="<%= perPageRange.max %>" value="<%= perPage %>" class="<%= ui.inputSm %> w-20 text-right tabular-nums">
-    <button class="<%= btn('dark', 'sm') %>">Sauvegarder</button>
-  </form>
+  <%- include('partials/pagination', { list: 'messages', pagination: { ...inbox, perPage }, href: pageHref }) %>
 <% } else { %>
   <div class="flex items-center gap-2 border-b border-bronze-900 px-3 py-2 font-semibold text-parchment-100"><%- icon('tribe', 'size-4', 2) %>Mails circulaires envoyés</div>
   <% if (!circulars.length) { %>

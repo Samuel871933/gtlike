@@ -24,6 +24,7 @@ const GROUPS = [
     { key: 'features.archer', label: 'Archers et archers montés', type: 'bool', hint: 'Ajoute l’archer (caserne) et l’archer monté (écurie), et la défense contre les archers.' },
     { key: 'features.knight', label: 'Paladin', type: 'bool', hint: 'Ajoute la statue et le paladin, qui renforce les troupes qu’il accompagne.' },
     { key: 'knightSystem', label: 'Système du paladin', type: 'select', options: [['items', 'Armes (un paladin)'], ['skills', 'Compétences (10 max)']], hint: 'Armes : un seul paladin, qui trouve des armes au combat. Compétences : jusqu’à 10 paladins qui gagnent de l’expérience. Sans effet si le paladin est désactivé.' },
+    { key: 'features.church', label: 'Église', type: 'bool', hint: 'Ajoute l’église et la première église. Hors de la zone d’influence de ses églises, un village se bat à 50 % : ses attaques et sa défense (soutiens compris) sont deux fois plus faibles.' },
     { key: 'features.militia', label: 'Milice de la ferme', type: 'bool', hint: 'Défense d’urgence : 20 miliciens par niveau de ferme pendant 6 h, production réduite de moitié ; limitée aux joueurs de 2 villages au plus.' },
     { key: 'tech', label: 'Recherche à la forge', type: 'select', options: [['simple', 'Une fois par unité'], ['none', 'Aucune']], hint: 'Une fois par unité : chaque unité doit être recherchée à la forge avant d’être recrutée. Aucune : toutes les unités sont disponibles.' },
     { key: 'scavenging.active', label: 'Collecte', type: 'bool', hint: 'Envoyer des troupes ramasser des ressources autour du village, sans combat (4 niveaux de collecteurs).' },
@@ -35,6 +36,7 @@ const GROUPS = [
     { key: 'night.startHour', label: 'Début de la nuit (heure)', type: 'number', min: 0, max: 23, step: 1, hint: 'Heure du serveur. La nuit peut passer minuit (par exemple de 23 h à 7 h).' },
     { key: 'night.endHour', label: 'Fin de la nuit (heure)', type: 'number', min: 0, max: 23, step: 1 },
     { key: 'night.defFactor', label: 'Défense la nuit (×)', type: 'number', min: 1, max: 4, step: 0.5, hint: 'Multiplicateur de la défense pendant la nuit (×2 sur Guerre Tribale).' },
+    { key: 'arrivalStepMs', label: 'Précision des arrivées', type: 'select', options: [[1, 'À la milliseconde (comme Guerre Tribale)'], [10, 'Au centième de seconde (10 ms)'], [100, 'Au dixième de seconde (100 ms)'], [1000, 'À la seconde']], hint: 'Les arrivées des troupes et des marchands sont arrondies à la tranche supérieure : à 100 ms, une attaque qui arriverait à 12:00:00:926 arrive à 12:00:01:000. Plus la précision est grossière, plus il est facile de faire arriver deux ordres ensemble (ils passent alors dans l’ordre d’envoi).' },
     { key: 'commandCancelSeconds', label: 'Annulation d’un ordre (minutes)', type: 'number', min: 0, max: 30, step: 1, scale: 60, hint: 'Délai pendant lequel une attaque ou un soutien envoyé peut encore être rappelé. 0 : aucun rappel possible.' },
   ] },
   { title: 'Villages barbares', intro: 'Les villages sans propriétaire : premières cibles de pillage, puis de conquête. Ils ne recrutent jamais de troupes.', settings: [
@@ -42,6 +44,10 @@ const GROUPS = [
     { key: 'barbarian.growthPerDay', label: 'Croissance (points par jour)', type: 'number', min: 0, max: 1000, step: 10, hint: 'Points que chaque barbare gagne par jour en construisant (multipliés par la vitesse du monde).' },
     { key: 'barbarian.maxPoints', label: 'Points maximum', type: 'number', min: 100, max: 12000, step: 100, hint: 'Les barbares cessent de grandir à ce total.' },
     { key: 'barbarian.troops', label: 'Les villages abandonnés gardent leurs troupes', type: 'bool', hint: 'Quand un joueur quitte le monde, ses villages redeviennent barbares avec leur armée (comme sur Guerre Tribale), ou vides si décoché.' },
+  ] },
+  { title: 'Bots', intro: 'Des joueurs gérés par l’ordinateur, signalés « Bot » partout. Ils jouent avec les mêmes règles que vous (protection des débutants, mode sommeil, morale) et comptent dans les classements et la fin du monde.', settings: [
+    { key: 'bots.count', label: 'Nombre de bots', type: 'number', min: 0, max: 100, step: 1, hint: 'Bots présents sur le monde. Un bot qui perd tous ses villages recommence avec un nouveau village. 0 : aucun bot.' },
+    { key: 'bots.difficulty', label: 'Comportement des bots', type: 'select', options: [['peaceful', 'Paisibles'], ['normal', 'Normaux'], ['aggressive', 'Agressifs']], hint: 'Paisibles : se développent et pillent les barbares. Normaux : attaquent aussi les joueurs proches et conquièrent des villages barbares. Agressifs : attaquent souvent et conquièrent aussi les villages des joueurs.' },
   ] },
   { title: 'Joueurs et tribus', intro: 'La vie commune : tribus, absences, nobles et commerce.', settings: [
     { key: 'tribe.memberLimit', label: 'Membres par tribu', type: 'number', min: 1, max: 100, step: 1, hint: 'Une petite limite oblige à multiplier les tribus et les alliances.' },

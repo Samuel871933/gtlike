@@ -1,27 +1,52 @@
 <!doctype html>
-<%# En jeu, <html> porte le thème de jeu (src/web/gameStyles.js) et le style de jeu (src/web/gameLayouts.js) : la page d'accueil garde le style par défaut. %>
-<html lang="fr" class="h-full scheme-dark light:scheme-light<%= ctx && gameStyle ? ' game_style' : '' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %><%- ctx && gameLayout ? ` data-game-layout="${gameLayout.id}"` : '' %>>
+<%# En jeu, <html> porte le thème choisi ; les pages publiques partagent une palette neutre inspirée des quatre époques. %>
+<html lang="fr" class="h-full scheme-dark light:scheme-light<%= ctx && gameStyle ? ' game_style' : ' lobby_style' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %><%- ctx && gameLayout ? ` data-game-layout="${gameLayout.id}"` : '' %>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>GTLike</title>
+  <title><%= seo ? `${seo.title} | Adarma` : `${typeof title !== 'undefined' ? `${title} · ` : ''}Adarma` %></title>
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
+  <meta name="theme-color" content="#1b1715">
+  <% if (seo) { %>
+  <meta name="description" content="<%= seo.description %>">
+  <% if (siteUrl) { const canonicalUrl = siteUrl + seo.canonical; %>
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Adarma">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:title" content="<%= seo.title %> | Adarma">
+  <meta property="og:description" content="<%= seo.description %>">
+  <meta property="og:url" content="<%= canonicalUrl %>">
+  <meta property="og:image" content="<%= siteUrl %>/img/brand/adarma-logo-cream.png">
+  <meta property="og:image:alt" content="Logo Adarma">
+  <meta property="og:image:width" content="1839">
+  <meta property="og:image:height" content="362">
+  <meta name="twitter:card" content="summary">
+  <% if (seo.canonical === '/') { %>
+  <script type="application/ld+json"><%- JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Adarma', url: siteUrl + '/' }).replace(/</g, '\\u003c') %></script>
+  <% } %>
+  <% } %>
+  <% } else { %><meta name="robots" content="noindex, follow"><% } %>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <% const fontLinks = ctx && page === 'account' ? [...new Set(Object.values(GAME_STYLES).map((s) => s.fonts))] : [ctx && gameStyle ? gameStyle.fonts : GAME_STYLES.roman.fonts]; %>
+  <%# Profil d'un joueur : les polices de son thème en plus (voir views/player.ejs). %>
+  <% const fontLinks = ctx && page === 'account' ? [...new Set(Object.values(GAME_STYLES).map((s) => s.fonts))] : [...new Set([ctx && gameStyle ? gameStyle.fonts : GAME_STYLES.roman.fonts, ...(typeof profileStyle !== 'undefined' && profileStyle ? [profileStyle.fonts] : [])])]; %>
   <% for (const href of fontLinks) { %><link rel="stylesheet" href="<%= href %>"><% } %>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="relative flex min-h-full flex-col minimal:text-sm bg-night bg-radial-[ellipse_at_50%_-10%] from-halo via-panel-lo via-45% to-night font-sans text-[15px] leading-snug text-parchment-100 antialiased [font-synthesis-weight:none]">
+<%# Dégradé sans répétition : il s'arrête sur la couleur de fond (to-night), sans cassure sous la hauteur de l'écran. %>
+<body class="relative flex min-h-full flex-col minimal:text-sm bg-night bg-no-repeat bg-radial-[ellipse_at_50%_-10%] from-halo via-panel-lo via-45% to-night font-sans text-[15px] leading-snug text-parchment-100 antialiased [font-synthesis-weight:none]">
 <%# Grain de papier sur toute la page (maquette : trame de points clairs). %>
 <div class="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(var(--color-grain)_1px,transparent_1.2px)] bg-size-[4px_4px] mix-blend-screen" aria-hidden="true"></div>
 <%
-  // Logo : aplat parchemin, double ombre d'encre et de sang.
-  const logoText = (cls) => `<span class="font-logo font-bold tracking-[0.02em] ${ui.goldText} ${cls}">GTLIKE</span>`;
+  const logo = (cls, style = '') => `<img src="/img/brand/adarma-logo-cream.png" alt="Adarma" width="1839" height="362" class="block w-auto ${cls}"${style ? ` style="${style}"` : ''}>`;
   const navLink = 'flex shrink-0 items-center gap-[7px] border-r border-bronze-800 px-3.5 text-sm font-semibold tracking-[0.02em] whitespace-nowrap no-underline transition';
   // Onglet actif et survol : aplat rouge (couleur d'action dans les styles clairs), texte et icône clairs.
   // Égypte : barre noire au texte or, onglet actif or au texte noir.
-  const navOn = 'bg-blood-800 text-on-accent shadow-[inset_0_-3px_0_var(--color-gold-400)] light:bg-action light:shadow-[inset_0_-3px_0_var(--color-action-line)] light:[&>span:first-child]:text-on-accent egypt:bg-head egypt:text-parchment-100 egypt:shadow-[inset_0_-3px_0_var(--color-action)] egypt:[&>span:first-child]:text-parchment-100';
-  const navOff = 'text-parchment-300 hover:bg-blood-700 hover:text-on-accent light:hover:bg-action-hi light:hover:[&>span:first-child]:text-on-accent egypt:text-on-accent egypt:[&>span:first-child]:text-on-accent';
+  const navOn = 'bg-blood-800 text-on-accent shadow-[inset_0_-3px_0_var(--color-gold-400)] light:bg-action light:shadow-[inset_0_-3px_0_var(--color-action-line)] light:[&>span:first-child]:text-on-accent adarma:bg-action egypt:bg-head egypt:text-parchment-100 egypt:shadow-[inset_0_-3px_0_var(--color-action)] egypt:[&>span:first-child]:text-parchment-100';
+  const navOff = 'text-parchment-300 hover:bg-blood-700 hover:text-on-accent light:hover:bg-action-hi light:hover:[&>span:first-child]:text-on-accent adarma:hover:bg-action-hi egypt:text-on-accent egypt:[&>span:first-child]:text-on-accent';
 %>
 
 <% if (ctx) {
@@ -39,9 +64,9 @@
 <%# 1. Barre du haut : logo et monde, menu principal, joueur et réglages. %>
 <header class="sticky top-0 z-40 border-b-[3px] border-bronze-500 bg-night shadow-[0_2px_0_var(--color-head-dark),0_6px_0_rgba(0,0,0,0.6)] egypt:border-action-line egypt:bg-action">
 <div class="mx-auto flex min-h-12 w-full max-w-[1500px] minimal:max-w-[1120px] items-stretch">
-  <a href="<%= v %>" class="flex shrink-0 items-center gap-2.5 border-r-[3px] border-black bg-head-dark pr-6 pl-3 no-underline shadow-[inset_-1px_0_0_var(--color-bronze-500)] [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]" title="Aperçu du village">
-    <%- logoText('text-[22px] minimal:text-lg') %>
-    <span class="border border-bronze-500 bg-night px-[5px] py-px text-[11px] font-semibold tracking-[0.02em] text-gold-400 max-md:hidden"><%= ctx.world.name %></span>
+  <a href="<%= v %>" class="flex shrink-0 items-center gap-2.5 border-r-[3px] border-black <%= gameStyle.id === 'medieval' || gameStyle.id === 'egypt' ? 'bg-[#3b3d2e]' : 'bg-head-dark' %> pr-6 pl-3 no-underline shadow-[inset_-1px_0_0_var(--color-bronze-500)] [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]" title="Aperçu du village">
+    <%- logo('h-8 minimal:h-7', 'transform: translateY(-2px)') %>
+    <span class="border border-bronze-500 bg-night px-[5px] py-px text-[11px] font-semibold tracking-[0.02em] text-gold-400 max-md:hidden" style="transform: translateY(1px)"><%= ctx.world.name %></span>
   </a>
   <nav class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none]" aria-label="Menu principal">
     <%# Menus déroulants : Rapports, et Tribu quand le joueur en a une. %>
@@ -75,6 +100,9 @@
     menus.push(['tribe', player.Tribe ? `Tribu [${player.Tribe.tag}]` : 'Tribu', [
       [`${v}/tribe`, 'Aperçu', 0],
       [`${v}/tribe?tab=members`, 'Membres', 0],
+      // Droits et Invitations : seulement pour ceux qui ont le droit (comme les onglets de la page Tribu).
+      ...(tribeRights.has(player, 'baron') ? [[`${v}/tribe?tab=rights`, 'Droits', 0]] : []),
+      ...(tribeRights.has(player, 'invite') ? [[`${v}/tribe?tab=invites`, 'Invitations', 0]] : []),
       [`${v}/tribe?tab=diplomacy`, 'Diplomatie', 0],
       [`${v}/tribe?tab=forum`, 'Forum', tribeForumUnread],
       [`${v}/tribes/${player.tribeId}`, 'Page publique', 0],
@@ -163,14 +191,13 @@
 
 <main class="relative z-[2] mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] grow flex-col gap-3.5 px-2.5 pt-3.5 pb-10 minimal:gap-2.5 minimal:py-6">
 <% } else {
-  const w = typeof world !== 'undefined' && world ? world : null;
   const lobbyLink = (href, label, active) => `<a href="${href}" class="shrink-0 text-[13px] font-semibold tracking-[0.02em] no-underline transition ${active ? 'text-parchment-100' : 'text-gold-400 hover:text-parchment-100'}">${label}</a>`;
   const current = typeof lobbyPage !== 'undefined' ? lobbyPage : null;
 %>
 <%# En-tête hors partie : accueil, compte, pages publiques d'un monde. %>
 <header class="relative z-20 border-b-2 border-bronze-500 bg-night">
 <div class="mx-auto flex min-h-11 w-full max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-3.5 py-2">
-  <a href="<%= user ? '/worlds' : '/login' %>" class="no-underline"><%- logoText('text-lg') %></a>
+  <a href="<%= user ? '/worlds' : '/' %>" class="no-underline"><%- logo('h-7') %></a>
   <nav class="flex min-w-0 flex-wrap gap-x-4 gap-y-1" aria-label="Menu">
     <% if (user) { %>
       <%- lobbyLink('/worlds', 'Accueil', current === 'worlds') %>
@@ -178,13 +205,9 @@
       <%- lobbyLink('/rules', 'Règles', current === 'rules') %>
       <%- lobbyLink('/help', 'Aide', current === 'help') %>
       <%- lobbyLink('/forum', 'Forum', current === 'forum') %>
-      <% if (w) { %>
-        <%- lobbyLink(`/worlds/${w.slug}/ranking`, 'Classement', current === 'ranking') %>
-        <%- lobbyLink(`/worlds/${w.slug}/play`, 'Jouer', false) %>
-      <% } %>
       <%- lobbyLink('/account', 'Mon compte', current === 'account') %>
     <% } else { %>
-      <%- lobbyLink('/login', 'Accueil', current === 'login') %>
+      <%- lobbyLink('/', 'Accueil', current === 'login') %>
       <%- lobbyLink('/register', 'Inscription', current === 'register') %>
       <%- lobbyLink('/rules', 'Règles', current === 'rules') %>
       <%- lobbyLink('/help', 'Aide', current === 'help') %>

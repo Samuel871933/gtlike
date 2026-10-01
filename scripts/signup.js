@@ -5,7 +5,7 @@
 //
 //   node scripts/signup.js [monde] [nombre]      (par défaut : speed 100)
 //
-// Comptes : <nom>@bots.gtlike.local, mot de passe « motdepasse » (connexion avec le nom).
+// Comptes : <nom>@bots.adarma.local, mot de passe « motdepasse » (connexion avec le nom).
 
 const { Op } = require('sequelize');
 const { sequelize, World, Village } = require('../src/models');
@@ -26,7 +26,7 @@ async function main() {
   const started = Date.now();
   for (let i = 1; i <= count; i++) {
     const username = `Test${tag}_${i}`;
-    const user = await AuthService.register({ username, email: `${username.toLowerCase()}@bots.gtlike.local`, password: 'motdepasse' });
+    const user = await AuthService.register({ username, email: `${username.toLowerCase()}@bots.adarma.local`, password: 'motdepasse' });
     // Comme de vrais joueurs : la plupart choisissent une direction, les autres « au hasard ».
     const direction = MapPlacer.DIRECTIONS[Math.floor(Math.random() * MapPlacer.DIRECTIONS.length)];
     await WorldService.join(user, slug, { direction });
@@ -53,7 +53,7 @@ async function main() {
   console.log(`Distance au centre (${c}|${c}) : joueurs ${stats(players)} ; barbares ${stats(barbs)}.`);
   console.log(`Joueur le plus proche d'un nouveau joueur : min ${gaps[0].toFixed(1)}, médiane ${gaps[Math.floor(gaps.length / 2)].toFixed(1)} cases.`);
   console.log(`Zone couverte : x ${Math.min(...xs)}-${Math.max(...xs)}, y ${Math.min(...ys)}-${Math.max(...ys)}.`);
-  console.log(`Connexion : ${`Test${tag}_1`} / motdepasse. Nettoyage : comptes en ${'%@bots.gtlike.local'} créés après ${since.toISOString()}.`);
+  console.log(`Connexion : ${`Test${tag}_1`} / motdepasse. Nettoyage : comptes en ${'%@bots.adarma.local'} créés après ${since.toISOString()}.`);
 }
 
 if (require.main === module) {

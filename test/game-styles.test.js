@@ -10,11 +10,15 @@ const styles = path.join(__dirname, '..', 'src', 'styles');
 const read = (f) => fs.readFileSync(path.join(styles, f), 'utf8');
 const tokens = (css) => Object.fromEntries([...css.matchAll(/^\s*(--(?:color|font)-[\w-]+):\s*([^;]+);/gm)].map((m) => [m[1], m[2].trim()]));
 
-test('styles de jeu : médiéval par défaut, chaque style a son fichier et son fond de village', () => {
-  assert.equal(DEFAULT_GAME_STYLE, 'medieval');
-  assert.equal(gameStyleFor(null).id, 'medieval');
+test('styles de jeu : Adarma par défaut, chaque style a son fichier et son fond de village', () => {
+  assert.equal(DEFAULT_GAME_STYLE, 'adarma');
+  assert.equal(gameStyleFor(null).id, 'adarma');
   assert.equal(gameStyleFor({ gameStyle: 'roman' }).id, 'roman');
-  assert.equal(gameStyleFor({ gameStyle: 'inconnu' }).id, 'medieval');
+  assert.equal(gameStyleFor({ gameStyle: 'medieval' }).id, 'medieval');
+  // Anciens noms du style Adarma.
+  assert.equal(gameStyleFor({ gameStyle: 'basic' }).id, 'adarma');
+  assert.equal(gameStyleFor({ gameStyle: 'brume' }).id, 'adarma');
+  assert.equal(gameStyleFor({ gameStyle: 'inconnu' }).id, 'adarma');
   for (const id of Object.keys(GAME_STYLES)) {
     assert.match(read('app.css'), new RegExp(`@import "./game-styles/${id}.css";`));
     assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'img', 'game-styles', id, 'village.svg')), `${id} : village.svg`);
@@ -46,6 +50,17 @@ test('designs des villages : beige par défaut, 6 images et règles CSS pour cha
       assert.ok(css.includes(`/img/map/villages/${id}/level-${level}.png`), `${id} : règle CSS du niveau ${level}`);
     }
   }
+});
+
+test('design futuriste : les 6 sprites transparents gardent les dimensions de la carte', () => {
+  const sizes = [[224, 146], [265, 214], [304, 234], [307, 235], [332, 257], [325, 258]];
+  sizes.forEach(([width, height], index) => {
+    const image = fs.readFileSync(path.join(__dirname, '..', 'public', 'img', 'map', 'villages', 'futuriste', `level-${index + 1}.png`));
+    assert.equal(image.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+    assert.equal(image.readUInt32BE(16), width);
+    assert.equal(image.readUInt32BE(20), height);
+    assert.equal(image[25], 6, 'PNG RGBA, donc transparence disponible');
+  });
 });
 
 test('carte et mini-carte : aucun style ne redéfinit leurs couleurs', () => {

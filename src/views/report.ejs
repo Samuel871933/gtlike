@@ -84,7 +84,7 @@
         <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3.5 shadow-[3px_3px_0_#050505]">
           <h2 class="font-display text-lg font-semibold text-parchment-100"><%= d.name %><% if (d.tiers > 1) { %> <span class="<%= TIER_STYLES.text[d.tier] %>">(<%= TIER_STYLES.names[d.tier - 1] %> · niveau <%= d.tier %>)</span><% } %></h2>
           <div class="flex items-start gap-4">
-            <span class="<%= TIER_STYLES.medal %> <%= TIER_STYLES.border[tierIdx] %> size-16"><%- icon(ACHIEVEMENT_ICONS[d.key] || 'victory', 'size-8') %></span>
+            <span class="<%= TIER_STYLES.medal %> <%= TIER_STYLES.border[tierIdx] %> achievement-art achievement-art--report" data-achievement-tier="<%= tierIdx %>"><img src="<%= ACHIEVEMENT_IMAGES[d.key] %>" alt="" width="96" height="96"></span>
             <div class="flex min-w-0 flex-1 flex-col gap-2 text-[15px]">
               <p class="text-parchment-200"><%= d.description %></p>
               <% if (d.goal != null) { %><p class="text-parchment-400">Objectif atteint : <span class="font-semibold text-parchment-100 tabular-nums"><%= num(d.goal) %></span><%- d.next != null ? ` · palier suivant : <span class="font-semibold text-parchment-100 tabular-nums">${num(d.next)}</span>` : ' · palier maximal' %></p><% } %>
@@ -149,6 +149,10 @@
             <dd class="report-meter report-meter--<%= moraleTone %>" aria-hidden="true"><span style="width: <%= Math.min(100, Math.max(0, moralePercent)) %>%"></span></dd>
           </div>
           <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Bonus de nuit</dt><dd class="<%= ui.tileValue %>"><%= d.night ? 'oui' : 'non' %></dd></div>
+          <% if (d.faith) { %>
+            <%# Mondes avec église : force des troupes selon la foi (50 % hors de la zone d'une église). %>
+            <div class="<%= ui.tile %> sm:col-span-3"><dt class="<%= ui.tileLabel %>">Foi</dt><dd class="<%= ui.tileValue %>">Attaquant <span class="<%= d.faith.attacker < 1 ? 'text-blood-450' : '' %>"><%= Math.round(d.faith.attacker * 100) %> %</span> · défenseur <span class="<%= d.faith.defender < 1 ? 'text-blood-450' : '' %>"><%= Math.round(d.faith.defender * 100) %> %</span></dd></div>
+          <% } %>
         </dl>
       <% } %>
     </div>

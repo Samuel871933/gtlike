@@ -58,7 +58,7 @@ class AuthService {
     await PasswordReset.create({ userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + RESET_TTL_MS) });
     await Mailer.send({
       to: user.email,
-      subject: 'GTLike : réinitialisation du mot de passe',
+      subject: 'Adarma : réinitialisation du mot de passe',
       text: `Bonjour ${user.username},\n\nPour choisir un nouveau mot de passe, ouvre ce lien (valable une heure) :\n${baseUrl}/password/reset/${token}\n\nSi tu n'es pas à l'origine de cette demande, ignore ce message.`,
     });
   }

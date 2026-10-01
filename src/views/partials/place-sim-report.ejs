@@ -24,6 +24,9 @@
         <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Chance de l’attaquant</dt><dd class="<%= ui.tileValue %> report-stat--<%= luckTone %>"><%= luckPercent > 0 ? '+' : '' %><%= luckPercent.toFixed(1) %> %</dd><dd class="report-meter report-meter--luck report-meter--<%= luckTone %>" aria-hidden="true"><span style="left: <%= luckPercent < 0 ? 50 - Math.min(50, Math.abs(luckPercent) * 2) : 50 %>%; width: <%= Math.min(50, Math.abs(luckPercent) * 2) %>%"></span></dd></div>
         <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Moral de l’attaquant</dt><dd class="<%= ui.tileValue %> report-stat--<%= moraleTone %>"><%= moralePercent %> %</dd><dd class="report-meter report-meter--<%= moraleTone %>" aria-hidden="true"><span style="width: <%= moralePercent %>%"></span></dd></div>
         <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Bonus de nuit</dt><dd class="<%= ui.tileValue %>"><%= inp.night ? 'oui' : 'non' %></dd></div>
+        <% if (inp.attFaithless || inp.defFaithless) { %>
+          <div class="<%= ui.tile %> sm:col-span-3"><dt class="<%= ui.tileLabel %>">Foi</dt><dd class="<%= ui.tileValue %>">Attaquant <%= inp.attFaithless ? '50' : '100' %> % · défenseur <%= inp.defFaithless ? '50' : '100' %> %</dd></div>
+        <% } %>
       </dl>
     </div>
   </section>

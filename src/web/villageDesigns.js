@@ -18,6 +18,7 @@ const VILLAGE_DESIGNS = {
   viking: { id: 'viking', name: 'Camp viking', description: 'Longues maisons, palissades et forteresses des terres du Nord.' },
   'rome-antique': { id: 'rome-antique', name: 'Rome antique', description: 'Camps légionnaires, villas de pierre, temples et capitale impériale.' },
   egyptien: { id: 'egyptien', name: 'Égypte antique', description: 'Hameaux de terre crue, temples monumentaux et capitale pharaonique.' },
+  futuriste: { id: 'futuriste', name: 'Futuriste', description: 'Avant-poste modulaire, panneaux solaires et cité fortifiée de haute technologie.' },
 };
 
 const DEFAULT_VILLAGE_DESIGN = 'beige';

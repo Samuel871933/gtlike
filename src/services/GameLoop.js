@@ -10,10 +10,12 @@ const { World } = require('../models');
  * rafraîchissement du village à la lecture : la boucle n'est pas nécessaire à l'exactitude.
  */
 class GameLoop {
-  constructor(intervalMs, { barbarianEveryMs = 10 * 60000 } = {}) {
+  constructor(intervalMs, { barbarianEveryMs = 10 * 60000, imageSweepEveryMs = 60 * 60000 } = {}) {
     this.intervalMs = intervalMs;
     this.barbarianEveryMs = barbarianEveryMs;
+    this.imageSweepEveryMs = imageSweepEveryMs;
     this.lastBarbarianGrowth = 0;
+    this.lastImageSweep = 0;
     this.timer = null;
     this.running = false;
   }
@@ -34,6 +36,7 @@ class GameLoop {
       const now = new Date();
       // Les mouvements d'abord : un combat se calcule sur l'état du village à l'arrivée.
       await CommandService.processDue(now);
+      await require('./BotService').processDue(now);
       const ids = await VillageService.dueVillageIds(now);
       for (const id of ids) {
         await VillageService.withVillage(id, async () => {});
@@ -41,9 +44,15 @@ class GameLoop {
       if (now - this.lastBarbarianGrowth >= this.barbarianEveryMs) {
         this.lastBarbarianGrowth = now.getTime();
         await GameLoop.growBarbarians();
+        await GameLoop.ensureBots(now);
         await GameLoop.evaluateAchievements();
         await require('./DailyService').awardPending(now);
         await require('./VictoryService').checkAll(now);
+      }
+      // Images de profil qui ne sont plus référencées (premier passage au démarrage, puis toutes les heures).
+      if (now - this.lastImageSweep >= this.imageSweepEveryMs) {
+        this.lastImageSweep = now.getTime();
+        await require('./ImageService').sweepOrphans({ now: now.getTime() });
       }
     } catch (err) {
       console.error('[GameLoop]', err);
@@ -58,6 +67,12 @@ class GameLoop {
     const { Player } = require('../models');
     const players = await Player.findAll({ attributes: ['id'], raw: true });
     for (const { id } of players) await AchievementService.evaluate(id);
+  }
+
+  /** Complète les bots des mondes qui en demandent (config.bots.count). */
+  static async ensureBots(now) {
+    const BotService = require('./BotService');
+    for (const world of await World.findAll({ where: { endedAt: null } })) await BotService.ensureBots(world, { now });
   }
 
   /** Fait grandir les villages barbares de tous les mondes (la croissance est calculée au rafraîchissement). */

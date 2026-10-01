@@ -1,0 +1,14 @@
+<%# Pied de liste commun : réglage du nombre de lignes par page (si `list`, voir PaginationService) et numéros de page.
+    Paramètres : list (clé de PER_PAGE_LISTS, facultatif), pagination ({ page, pages, perPage }), href(n). %>
+<% const def = typeof list !== 'undefined' && list ? PER_PAGE_LISTS[list] : null; %>
+<div class="flex flex-wrap items-center justify-between gap-3 border-t border-bronze-900 px-3 py-2.5 text-sm">
+  <% if (def) { %>
+    <form method="post" action="/village/<%= ctx.village.id %>/per-page" class="flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="list" value="<%= list %>">
+      <label for="per-page-<%= list %>" class="text-parchment-400"><%= def.noun[0].toUpperCase() + def.noun.slice(1) %> par page :</label>
+      <input id="per-page-<%= list %>" type="number" name="perPage" min="<%= def.min %>" max="<%= def.max %>" value="<%= pagination.perPage %>" class="<%= ui.inputSm %> w-20 text-right tabular-nums">
+      <button class="<%= btn('dark', 'sm') %>">Sauvegarder</button>
+    </form>
+  <% } else { %><span></span><% } %>
+  <%- include('pager', { page: pagination.page, pages: pagination.pages, href }) %>
+</div>

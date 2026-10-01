@@ -1,6 +1,6 @@
 'use strict';
 
-// Outils de la maquette GTLike : rapports non lus par catégorie, recherche de la carte, modèles d'armée,
+// Outils de la maquette Adarma : rapports non lus par catégorie, recherche de la carte, modèles d'armée,
 // favoris et réinitialisation du mot de passe.
 
 process.env.SQLITE_STORAGE = ':memory:';

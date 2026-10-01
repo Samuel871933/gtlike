@@ -1,4 +1,4 @@
-# GTLike
+# Adarma
 
 Jeu de stratégie par navigateur et par mondes, inspiré de Guerre Tribale.
 Stack : Node.js, Express, Sequelize (SQLite en dev, PostgreSQL via `DATABASE_URL`), vues EJS, Tailwind CSS v4.
@@ -15,8 +15,13 @@ node scripts/seed-tribes.js [monde] [nombre]   # range les joueurs sans tribu da
 node scripts/seed-market.js [monde] [joueur]   # anime le marché autour d'un joueur : offres, acceptations, livraisons
 ```
 
+En production, renseigner `SITE_URL` avec l’origine publique du site (par exemple `https://adarma.example`).
+Cette valeur sert aux URL canoniques, aux aperçus de partage et à `/sitemap.xml` ; sans elle, ces éléments
+qui exigent une URL absolue ne sont pas publiés. Les pages de compte et de jeu portent `noindex`.
+Le favicon est découpé dans le logo PNG et décliné en PNG et ICO ; `python3 scripts/generate-favicon.py` régénère ces fichiers.
+
 Le style est uniquement en Tailwind, sans CSS maison : [src/styles/app.css](src/styles/app.css) ne contient que
-la configuration (`@theme` : palette et polices de la maquette `maquettes/GTLike.html`), et les
+la configuration (`@theme` : palette et polices de la maquette `maquettes/Adarma.html`), et les
 composants (panneaux, boutons, onglets, médaillons…) sont des chaînes de classes dans [src/web/ui.js](src/web/ui.js).
 Le CSS compilé (`public/css/app.css`) n'est pas versionné : `npm start` le recompile (Tailwind est en
 devDependencies, installer donc aussi les dépendances de développement pour construire).
@@ -25,7 +30,7 @@ Deux mondes sont créés au premier lancement (voir [scripts/seed.js](scripts/se
 et `speed` (vitesse 100, tous les modules, pour tester vite).
 `npm run populate` remplit un monde de test comme une vraie partie ([scripts/populate.js](scripts/populate.js)) :
 joueurs de 1 à ~40 villages (bâtiments, troupes et ressources cohérents), ~65 % en tribu avec diplomatie, villages barbares.
-Comptes fictifs : `<nom>@bots.gtlike.local`, mot de passe `motdepasse` (connexion avec le nom du joueur).
+Comptes fictifs : `<nom>@bots.adarma.local`, mot de passe `motdepasse` (connexion avec le nom du joueur).
 
 ## Organisation
 
@@ -62,7 +67,7 @@ maquettes/           Maquette de référence de l'interface (bundle HTML autonom
 
 ## Interface
 
-Organisation reprise de Guerre Tribale, habillage de la maquette `maquettes/GTLike.html` (style « BD » : encre
+Organisation reprise de Guerre Tribale, habillage de la maquette `maquettes/Adarma.html` (style « BD » : encre
 noire, rouge sang et bronze, aplats et ombres portées, polices Marcellus (titres), Cinzel (logo) et Barlow Semi Condensed ; casse normale et graisses moyennes, capitales réservées aux tags). En-tête collant :
 menu principal (Aperçu, Carte, Rapports, Messages, Tribu, Classement, Profil ; joueur et rang, compte,
 déconnexion), puis barre du village (changement de village, attaques entrantes, barre rapide des bâtiments favoris — étoile sur le plan du village, au quartier général et sur chaque page de bâtiment ; par défaut les bâtiments construits,
@@ -321,11 +326,13 @@ affichés dans « Réglages du monde ».
 
 ## Hors périmètre
 
-Aucune fonctionnalité premium (ni monnaie, ni échange, ni accélération). Pas d'église ni de tour de guet.
+Aucune fonctionnalité premium (ni monnaie, ni échange, ni accélération). Pas de tour de guet.
+
+L'église est un module de monde (`features.church`, case « Église » à la création d'un serveur) : église (niveaux 1 à 3, zone de 4, 6 puis 8 cases) et première église (6 cases, une par joueur, déjà construite dans le premier village, indestructible par les catapultes). Hors de la zone de ses églises, un village se bat à 50 % : en attaque depuis ce village, en défense de ce village (soutiens compris). L'église disparaît quand le village est conquis. Voir `src/game/faith.js`.
 
 ## Pas encore fait
 
 Pénalité de défense des villages de rune fraîchement conquis, succès quotidien de la collecte.
 
 Données sources et analyse des mondes FR : [research/ANALYSE_GUERRE_TRIBALE.md](research/ANALYSE_GUERRE_TRIBALE.md).
-# gtlike
+# adarma

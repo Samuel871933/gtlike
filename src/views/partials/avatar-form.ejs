@@ -1,0 +1,23 @@
+<%# Envoi ou suppression d'une image de profil (joueur ou tribu). Paramètres : action (URL du formulaire), avatar
+    (nom du fichier actuel, ou nul). L'image est réduite et convertie en WebP côté serveur. %>
+<div class="flex flex-col gap-2.5">
+  <form method="post" action="<%= action %>" enctype="multipart/form-data" class="flex flex-col items-start gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <%# Zone de dépôt : le champ fichier, transparent, couvre toute la zone (clic et glisser-déposer natifs) ; game.js
+        affiche le nom du fichier choisi et éclaire la zone pendant le survol. %>
+    <label class="relative flex w-full items-center gap-3 border-2 border-dashed border-bronze-700 bg-night px-4 py-3 transition-colors hover:border-bronze-500 has-focus-visible:border-gold-400 data-dragover:border-gold-400 data-dragover:bg-panel-lo" data-dropzone>
+      <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" required aria-label="Image" class="absolute inset-0 size-full cursor-pointer opacity-0">
+      <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span class="truncate text-sm text-parchment-100" data-dropzone-name>Glisser ou choisir un fichier</span>
+        <span class="text-xs text-parchment-600">JPEG, PNG, WebP ou GIF · 5 Mo max</span>
+      </span>
+      <span class="<%= btn('dark', 'sm') %> pointer-events-none shrink-0">Parcourir</span>
+    </label>
+    <button class="<%= btn('gold', 'sm') %>"><%= avatar ? 'Remplacer' : 'Envoyer' %></button>
+  </form>
+  <% if (avatar) { %>
+    <form method="post" action="<%= action %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="<%= btn('dark', 'sm') %>">Supprimer l'image</button>
+    </form>
+  <% } %>
+  <p class="text-xs text-parchment-600">L'image est réduite à <%= avatarSize.w %> × <%= avatarSize.h %> px au plus.</p>
+</div>

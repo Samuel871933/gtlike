@@ -11,10 +11,11 @@ En jeu, `<html>` porte la classe `game_style` et l'attribut `data-game-style="<i
 les vues n'utilisent que des classes Tailwind qui lisent ces jetons (`bg-panel-top`, `text-gold-400`,
 `fill-rel-own`…), donc redéfinir les jetons suffit à changer l'apparence.
 
-Styles disponibles : `medieval` (par défaut : clair, couleurs de Guerre Tribale), `roman` (les valeurs de `@theme`), `viking`
-et `egypt` (clair : pierre ocre, or et sépia, accordé à son fond de fresques).
+Styles disponibles : `adarma` (par défaut, aussi pour les nouveaux inscrits : clair, pierre ivoire, olive, ocre et terre
+cuite, accordés au village médiéval), `medieval` (clair, couleurs de Guerre Tribale), `roman` (les valeurs de `@theme`),
+`viking` et `egypt` (clair : pierre ocre, or et sépia, accordé à son fond de fresques).
 
-Les styles clairs (`medieval`, `egypt`) partagent la variante `light:` (déclarée dans `app.css`) pour les ajustements propres
+Les styles clairs (`adarma`, `medieval`, `egypt`) partagent la variante `light:` (déclarée dans `app.css`) pour les ajustements propres
 aux fonds clairs : `scheme-light`, onglet actif du menu en couleur d'action… Un nouveau style clair s'ajoute à la liste des
 sélecteurs de cette variante, sans toucher aux vues.
 `roman.css` répète les valeurs de `@theme` pour chaque jeton qu'un autre style redéfinit : ajouter un jeton à un style

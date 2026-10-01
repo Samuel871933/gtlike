@@ -13,10 +13,13 @@ function duration(seconds) {
   return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 }
 
-/** "aujourd'hui à 14:55:19", "demain à 03:00:00" ou "le 26/09 à 10:00:00" */
+/**
+ * "aujourd'hui à 14:55:19:926", "demain à 03:00:00:000" ou "le 26/09 à 10:00:00:512" : avec les millisecondes,
+ * comme sur Guerre Tribale (arrivées et combats se jouent à la milliseconde).
+ */
 function when(date, now = new Date()) {
   const d = new Date(date);
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}:${String(d.getMilliseconds()).padStart(3, '0')}`;
   const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((day(d) - day(now)) / 86400000);
   if (diff === 0) return `aujourd'hui à ${time}`;
@@ -24,7 +27,7 @@ function when(date, now = new Date()) {
   return `le ${pad(d.getDate())}/${pad(d.getMonth() + 1)} à ${time}`;
 }
 
-/** Version courte de when() : "Auj. 14:55:19", "Dem. 03:00:00", "26/09 10:00:00". */
+/** Version courte de when() : "Auj. 14:55:19:926", "Dem. 03:00:00:000", "26/09 10:00:00:512". */
 function whenShort(date, now = new Date()) {
   return when(date, now).replace("aujourd'hui à ", 'Auj. ').replace('demain à ', 'Dem. ').replace(/^le (\S+) à /, '$1 ');
 }
@@ -41,14 +44,13 @@ function resourcesWhen(state, cost, now = new Date()) {
   return Object.values(cost).some((c) => c > cap) ? "L'entrepôt est trop petit" : 'Ressources insuffisantes';
 }
 
-// Succès : icône de chaque succès (et succès quotidien), styles des paliers (rien, bois, bronze, argent, or).
-const ACHIEVEMENT_ICONS = {
-  points: 'ranking', topscorer: 'crown', continent: 'map', robber: 'coin', plunderer: 'attack', conqueror: 'flag', leader: 'sword',
-  hero: 'support', vandal: 'catapult', wallbreaker: 'wall', butcher: 'axe', kingslayer: 'crown', reinforcement: 'support',
-  counterspy: 'eye', warlord: 'attack', lucky: 'victory', unlucky: 'victory', merchant: 'market', croesus: 'coin',
-  brothers: 'tribe', paladin: 'helm', worldWinner: 'victory', phoenix: 'bolt',
-  dailyPlunderer: 'attack', dailyAttacker: 'sword', dailyDefender: 'wall', dailyConqueror: 'crown', dailyRobber: 'coin', dailySupporter: 'support',
-};
+// Illustrations des succès classiques et quotidiens, découpées dans une même planche.
+const ACHIEVEMENT_IMAGES = Object.fromEntries([
+  'points', 'topscorer', 'continent', 'robber', 'plunderer', 'conqueror', 'leader', 'hero', 'vandal', 'wallbreaker',
+  'butcher', 'kingslayer', 'reinforcement', 'counterspy', 'warlord', 'lucky', 'unlucky', 'merchant', 'croesus',
+  'brothers', 'paladin', 'worldWinner', 'phoenix', 'dailyPlunderer', 'dailyAttacker', 'dailyDefender',
+  'dailyConqueror', 'dailyRobber', 'dailySupporter',
+].map((key) => [key, `/img/achievements/${key}.webp`]));
 const TIER_STYLES = {
   medal: 'flex shrink-0 items-center justify-center border-2 bg-night shadow-[2px_2px_0_#000]',
   border: ['border-bronze-800 text-parchment-700', 'border-wood text-wood', 'border-bronze-300 text-bronze-200', 'border-iron text-iron', 'border-gold-400 text-gold-200'],
@@ -67,7 +69,10 @@ function buildingSpriteTier(id, level) {
   if (!thresholds) return 1;
   return level >= thresholds[1] ? 3 : level >= thresholds[0] ? 2 : 1;
 }
-const buildingSprite = (id, level) => `/img/village/medieval/tier-${buildingSpriteTier(id, level)}/${id === 'storage' ? 'storage-clean' : id}.png`;
+// Église et première église : une seule image, sans palier.
+const buildingSprite = (id, level) => (id === 'church' || id === 'church_f'
+  ? '/img/village/medieval/church.png'
+  : `/img/village/medieval/tier-${buildingSpriteTier(id, level)}/${id === 'storage' ? 'storage-clean' : id}.png`);
 /**
  * Visuel d'un bâtiment, composant commun à toute l'interface (listes, files, en-têtes, barre rapide…) : l'image du
  * plan du village au palier de `level` (ratio 8:7), grisée quand le bâtiment n'est pas construit (niveau 0).
@@ -246,6 +251,8 @@ function buildingStat(id, level, world) {
     case 'hide': return { label: 'Ressources cachées', value: num(formulas.hideCapacity(level)) };
     case 'wall': return { label: 'Bonus de défense', value: `+${pct(Math.pow(1.037, level) - 1)} · base ${num(20 + 50 * level)}` };
     case 'market': return { label: 'Marchands', value: num(formulas.merchantCount(level)) };
+    case 'church': return world ? { label: 'Zone d’influence', value: `${world.church.radius[Math.min(level, world.church.radius.length - 1)] || 0} cases` } : null;
+    case 'church_f': return world ? { label: 'Zone d’influence', value: `${world.church.firstRadius} cases` } : null;
     default: return null;
   }
 }
@@ -306,29 +313,77 @@ function shield(fill, { cls = 'w-4', emblem = '', glow = false } = {}) {
 }
 
 /**
- * Nom d'un joueur, avec lien vers son profil quand on est en jeu (`vid` : village courant ; sans village,
- * texte simple, les profils n'existant que dans le jeu). `p` nul : texte de remplacement (`none`).
+ * Miniature carrée de l'image de profil d'un joueur ou d'une tribu (`kind` : 'player' ou 'tribe'), recadrée au centre ;
+ * sans image, médaillon avec l'icône du profil ou de la tribu, pour garder l'alignement des listes.
+ * `size` : classes de taille (size-7 par défaut, dans les listes).
  */
-function playerLink(vid, p, { cls = ui.linkPlain, none = 'Barbares' } = {}) {
-  if (!p) return `<span class="text-parchment-500">${esc(none)}</span>`;
-  return vid ? `<a href="/village/${vid}/players/${p.id}" class="${cls}">${esc(p.name)}</a>` : `<span>${esc(p.name)}</span>`;
+function avatarThumb(kind, rec, { size = 'size-7', iconCls = 'size-3.5' } = {}) {
+  // Même médaillon que les rangs du classement (taille, cadre, ombre), l'image remplissant l'intérieur.
+  const inner = rec && rec.avatar
+    ? `<img src="${ImageService.url(rec.avatar)}" alt="" loading="lazy" decoding="async" class="size-full object-cover">`
+    : icon(kind === 'tribe' ? 'tribe' : 'profile', iconCls, 2);
+  return `<span class="${ui.medallion} ${size} overflow-hidden text-parchment-600" aria-hidden="true">${inner}</span>`;
 }
 
-/** Tribu : tag (et nom si `name`), avec lien vers sa page publique en jeu. */
-function tribeLink(vid, tr, { name = false, tagCls = ui.tagMuted, cls = ui.linkPlain } = {}) {
+/** Grande image de profil (pages de profil), réduite à la taille maximale gardée par ImageService. */
+function avatarImage(kind, rec, { cls = 'mx-auto' } = {}) {
+  if (!rec || !rec.avatar) return '';
+  const alt = kind === 'tribe' ? `Image de la tribu ${rec.name}` : `Image du profil de ${rec.name}`;
+  return `<img src="${ImageService.url(rec.avatar)}" alt="${esc(alt)}" width="${ImageService.MAX_WIDTH}" height="${ImageService.MAX_HEIGHT}" class="${cls} block h-auto w-auto max-w-full border-2 border-black" style="max-height:${ImageService.MAX_HEIGHT}px">`;
+}
+
+/**
+ * Nom d'un joueur, avec lien vers son profil quand on est en jeu (`vid` : village courant ; sans village,
+ * texte simple, les profils n'existant que dans le jeu). `p` nul : texte de remplacement (`none`).
+ * `avatar` : miniature de son image de profil devant le nom (listes de joueurs).
+ */
+function playerLink(vid, p, { cls = ui.linkPlain, none = 'Barbares', avatar = false } = {}) {
+  if (!p) return `<span class="text-parchment-500">${esc(none)}</span>`;
+  const name = vid ? `<a href="/village/${vid}/players/${p.id}" class="${cls}">${esc(p.name)}</a>` : `<span>${esc(p.name)}</span>`;
+  const label = p.isBot ? `${name} ${botTag()}` : name;
+  return avatar ? `<span class="inline-flex min-w-0 items-center gap-2 align-middle">${avatarThumb('player', p)}<span class="min-w-0">${label}</span></span>` : label;
+}
+
+/** Étiquette d'un joueur géré par l'ordinateur (voir BotService). */
+function botTag() {
+  return '<span class="inline-flex items-center border border-steel-500/60 bg-night px-1.5 py-px align-middle text-[11px] font-medium text-steel-300" title="Joueur géré par l’ordinateur">Bot</span>';
+}
+
+/**
+ * Tribu : tag (et nom si `name`), avec lien vers sa page publique en jeu. `avatar` : miniature de son image devant
+ * (listes de tribus).
+ */
+function tribeLink(vid, tr, { name = false, tagCls = ui.tagMuted, cls = ui.linkPlain, avatar = false } = {}) {
   if (!tr) return '<span class="text-parchment-700">—</span>';
-  const inner = `<span class="${tagCls}">${esc(tr.tag)}</span>${name ? `<span class="truncate">${esc(tr.name)}</span>` : ''}`;
+  // Avec la miniature, le tag prend la même hauteur que le médaillon.
+  const inner = `${avatar ? avatarThumb('tribe', tr) : ''}<span class="${tagCls}${avatar ? ' h-7 py-0' : ''}">${esc(tr.tag)}</span>${name ? `<span class="truncate">${esc(tr.name)}</span>` : ''}`;
   return vid
-    ? `<a href="/village/${vid}/tribes/${tr.id}" class="${cls} inline-flex min-w-0 items-center gap-2 font-semibold whitespace-nowrap">${inner}</a>`
-    : `<span class="inline-flex min-w-0 items-center gap-2 whitespace-nowrap">${inner}</span>`;
+    ? `<a href="/village/${vid}/tribes/${tr.id}" class="${cls} inline-flex min-w-0 items-center gap-2 align-middle font-semibold whitespace-nowrap">${inner}</a>`
+    : `<span class="inline-flex min-w-0 items-center gap-2 align-middle whitespace-nowrap">${inner}</span>`;
 }
 
 function num(n) {
   return Math.floor(n).toLocaleString('fr-FR');
 }
 
+/** Journée AAAA-MM-JJ (heure du serveur) : « aujourd'hui », « hier » ou « 27.09.2026 », comme sur GT. */
+function dayLabel(day, now = new Date()) {
+  if (!day) return '—';
+  const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (day === key(now)) return 'aujourd’hui';
+  if (day === key(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1))) return 'hier';
+  const [y, m, d] = day.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+const ImageService = require('../services/ImageService');
+
 module.exports = {
   ...require('./ui'),
+  // Taille maximale des images de profil (formulaire d'envoi) ; affichage : avatarThumb et avatarImage.
+  // Listes à nombre de lignes par page réglable (partials/pagination).
+  PER_PAGE_LISTS: require('../services/PaginationService').LISTS,
+  avatarSize: { w: ImageService.MAX_WIDTH, h: ImageService.MAX_HEIGHT },
   GAME_STYLES: require('./gameStyles').GAME_STYLES,
   VILLAGE_DESIGNS: require('./villageDesigns').VILLAGE_DESIGNS,
   GAME_LAYOUTS: require('./gameLayouts').GAME_LAYOUTS,
@@ -355,14 +410,18 @@ module.exports = {
   whenShort,
   resourcesWhen,
   num,
+  dayLabel,
   playerLink,
+  avatarThumb,
+  avatarImage,
+  botTag,
   tribeLink,
   continent,
   buildingName: (id) => registry.building(id).name,
   unitName: (id) => registry.unit(id).name,
   registry,
   tribeRights,
-  ACHIEVEMENT_ICONS,
+  ACHIEVEMENT_IMAGES,
   paceUnit,
   buildingSprite,
   ATTACK_RESULTS,

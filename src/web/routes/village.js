@@ -23,6 +23,8 @@ const FavoriteService = require('../../services/FavoriteService');
 const MarkerService = require('../../services/MarkerService');
 const mapView = require('../mapView');
 const TribeForumService = require('../../services/TribeForumService');
+const ImageService = require('../../services/ImageService');
+const PaginationService = require('../../services/PaginationService');
 const scavenging = require('../../game/scavenging');
 const knightSkills = require('../../game/knightSkills');
 const GameError = require('../../services/GameError');
@@ -357,6 +359,25 @@ function readOrder(req) {
   };
 }
 
+/**
+ * Attaques supplémentaires de la confirmation (champs extra_<n>_<unité>), dans l'ordre des lignes, même cible et
+ * même cible des catapultes que la première ; les lignes vides sont ignorées.
+ */
+function readExtraOrders(req, order) {
+  if (order.type !== 'attack') return [];
+  const rows = new Map();
+  for (const [key, value] of Object.entries(req.body)) {
+    const m = /^extra_(\d{1,3})_([a-z]+)$/.exec(key);
+    if (!m) continue;
+    if (!rows.has(+m[1])) rows.set(+m[1], {});
+    rows.get(+m[1])[m[2]] = value;
+  }
+  return [...rows.keys()].sort((a, b) => a - b)
+    .map((n) => CommandService.parseUnits(rows.get(n), req.ctx.cfg))
+    .filter((units) => Object.keys(units).length)
+    .map((units) => ({ ...order, units }));
+}
+
 /** Simulateur de combat : mêmes règles que les vrais combats (combat.resolve), sans rien envoyer. */
 function simulate(query, cfg) {
   const read = (prefix) => {
@@ -375,11 +396,16 @@ function simulate(query, cfg) {
     morale: clamp(query.morale, 30, 100, 100) / 100,
     luck: clamp(query.luck, -25, 25, 0) / 100,
     night: query.night === '1',
+    // Mondes avec église : troupes sans foi (hors zone d'une église), cases cochées dans le simulateur.
+    attFaithless: cfg.hasFeature('church') && query.attFaithless === '1',
+    defFaithless: cfg.hasFeature('church') && query.defFaithless === '1',
   };
   if (!Object.keys(input.attackers).length) return { input, result: null };
   const result = combat.resolve({
     attackers: input.attackers, defenders: input.defenders, wall: input.wall, morale: input.morale, luck: input.luck,
     nightFactor: input.night ? cfg.night.defFactor : 1,
+    attackerFaith: input.attFaithless ? cfg.church.faithless : 1,
+    defenderFaith: input.defFaithless ? cfg.church.faithless : 1,
   });
   return { input, result };
 }
@@ -452,14 +478,17 @@ router.post('/place/confirm', ah(async (req, res) => {
   // Troupes en tableau, comme sur Guerre Tribale : toutes les unités du monde, même à 0 ; butin possible (attaque).
   res.render('place-confirm', {
     page: 'place', plan, catapultTargets, worldUnits: registry.unitsFor(req.ctx.cfg), carry: combat.carryCapacity(plan.units),
+    // Attaques supplémentaires : troupes du village et écart entre deux arrivées.
+    available: req.ctx.state.units, chainGapMs: CommandService.chainGapMs(req.ctx.world), maxChained: CommandService.MAX_CHAINED,
   });
 }));
 
 router.post('/place/send', ah(async (req, res) => {
   const order = readOrder(req);
-  const cmd = await orUnwind(req, res, order, () => CommandService.send(req.ctx.village.id, order));
-  if (!cmd) return;
-  flash(req, 'success', cmd.type === 'attack' ? 'Attaque envoyée.' : 'Soutien envoyé.');
+  const orders = [order, ...readExtraOrders(req, order)];
+  const cmds = await orUnwind(req, res, order, () => CommandService.sendMany(req.ctx.village.id, orders));
+  if (!cmds) return;
+  flash(req, 'success', cmds.length > 1 ? `${cmds.length} attaques envoyées à la suite.` : order.type === 'attack' ? 'Attaque envoyée.' : 'Soutien envoyé.');
   res.redirect(`${base(req)}/place`);
 }));
 
@@ -486,11 +515,6 @@ router.post('/support/bulk-withdraw', ah(async (req, res) => {
 // Marché, agencé comme sur GT (sans le centre d'échange premium) : menu à gauche, en-tête marchands / transport /
 // ressources arrivantes et sortantes. « mine » : ancienne adresse de la création d'offres (liens des rapports).
 const MARKET_TABS = ['offers', 'create', 'mass', 'send', 'transports', 'merchants', 'own', 'request'];
-const MARKET_PER_PAGE = { default: 20, min: 5, max: 100 };
-const marketPerPage = (player) => {
-  const n = Math.floor(Number(player && player.marketPerPage));
-  return Number.isFinite(n) && n > 0 ? Math.min(MARKET_PER_PAGE.max, Math.max(MARKET_PER_PAGE.min, n)) : MARKET_PER_PAGE.default;
-};
 
 router.get('/market', ah(async (req, res) => {
   const asked = req.query.tab === 'mine' ? 'create' : req.query.tab;
@@ -516,10 +540,8 @@ router.get('/market', ah(async (req, res) => {
       filter: ['all', 'possible', 'tribe'].includes(req.query.filter) ? req.query.filter : 'all',
     };
     const all = await TradeService.listOffers(req.ctx, filters);
-    const perPage = marketPerPage(res.locals.player);
-    const pages = Math.max(1, Math.ceil(all.length / perPage));
-    const pageNumber = Math.min(pages, Math.max(1, Math.floor(Number(req.query.page)) || 1));
-    Object.assign(locals, { filters, offers: all.slice((pageNumber - 1) * perPage, pageNumber * perPage), total: all.length, pageNumber, pages, perPage, perPageRange: MARKET_PER_PAGE });
+    const pg = PaginationService.paginate(all.length, req.query.page, PaginationService.perPage(res.locals.player, 'market'));
+    Object.assign(locals, { filters, offers: all.slice(pg.offset, pg.offset + pg.perPage), total: all.length, pagination: pg });
   }
   if (tab === 'create') {
     // Préremplissage : la ressource qu'on a le plus contre celle qu'on a le moins (ou l'offre d'un rapport à recréer).
@@ -545,12 +567,14 @@ router.get('/market', ah(async (req, res) => {
   res.render('market', locals);
 }));
 
-router.post('/market/settings', ah(async (req, res) => {
-  const n = Math.floor(Number(req.body.perPage));
-  if (!Number.isFinite(n) || n < MARKET_PER_PAGE.min || n > MARKET_PER_PAGE.max) throw new GameError(`Entre ${MARKET_PER_PAGE.min} et ${MARKET_PER_PAGE.max} offres par page.`);
-  await Player.update({ marketPerPage: n }, { where: { id: me(req) } });
+// Nombre de lignes par page d'une liste (rapports, messages, offres du marché) : formulaire commun
+// (partials/pagination), retour sur la liste, à la première page.
+router.post('/per-page', ah(async (req, res) => {
+  await PaginationService.setPerPage(me(req), req.body.list, req.body.perPage);
   flash(req, 'success', 'Réglage enregistré.');
-  res.redirect(back(req, `${base(req)}/market`));
+  const url = new URL(back(req, base(req)), 'http://local');
+  url.searchParams.delete('page');
+  res.redirect(url.pathname + url.search);
 }));
 
 // Offres en masse : la même offre depuis plusieurs de tes villages (champ count_<id> par village).
@@ -637,7 +661,10 @@ router.get('/tribe', ah(async (req, res) => {
   }
   // Onglet Forum : ouvre directement le premier sous-forum, comme sur Guerre Tribale.
   if (req.query.tab === 'forum') return res.redirect(`${base(req)}/tribe/forum/${(await TribeForumService.firstSection(player.id)).id}`);
-  const tab = ['overview', 'properties', 'members', 'diplomacy'].includes(req.query.tab) ? req.query.tab : 'overview';
+  // Droits et Invitations : réservés aux barons / à ceux qui peuvent inviter (sinon l'aperçu).
+  const allowed = { rights: 'baron', invites: 'invite' };
+  const asked = ['overview', 'properties', 'members', 'rights', 'invites', 'diplomacy'].includes(req.query.tab) ? req.query.tab : 'overview';
+  const tab = allowed[asked] && !TribeService.can(player, allowed[asked]) ? 'overview' : asked;
   // Aperçu : fil des événements de la tribu, filtré (?cat=) et paginé (?page=), comme sur GT.
   const feed = tab === 'overview' ? await require('../../services/TribeEventService').list(player.tribeId, { category: req.query.cat, page: req.query.page }) : null;
   await renderTribe(res, player, tab, null, 200, { feed });
@@ -788,6 +815,11 @@ router.post('/tribe/invites/:inviteId/cancel', tribeAction((req) => TribeService
 router.post('/tribe/members/:playerId/kick', tribeAction((req) => TribeService.kick(me(req), req.params.playerId), 'Membre exclu.'));
 router.post('/tribe/members/:playerId/rights', tribeAction((req) => TribeService.setRights(me(req), req.params.playerId, req.body), 'Droits modifiés.'));
 router.post('/tribe/description', tribeAction((req) => TribeService.updateDescription(me(req), req.body.description), 'Description enregistrée.'));
+router.post('/tribe/avatar', tribeAction((req) => {
+  if (!req.file) throw new GameError('Choisissez une image.');
+  return TribeService.updateAvatar(me(req), req.file.buffer);
+}, 'Image de la tribu enregistrée.'));
+router.post('/tribe/avatar/delete', tribeAction((req) => TribeService.updateAvatar(me(req), null), 'Image de la tribu supprimée.'));
 router.post('/tribe/announcement', tribeAction((req) => TribeService.updateAnnouncement(me(req), req.body.announcement), 'Annonces internes enregistrées.'));
 router.post('/tribe/relations', tribeAction((req) => TribeService.setRelation(me(req), req.body.tag, req.body.type), 'Diplomatie mise à jour.'));
 router.post('/tribe/relations/:relationId/delete', tribeAction((req) => TribeService.removeRelation(me(req), req.params.relationId), 'Relation supprimée.'));
@@ -810,7 +842,12 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const canInvite = !isMe && TribeService.can(viewer, 'invite') && profile.player.tribeId !== viewer.tribeId;
   // `subject` et non `player` : `player` est le joueur connecté, utilisé par l'en-tête.
   const { player: subject, ...rest } = profile;
-  res.render('player', { ...rest, subject, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
+  // Le contenu du profil s'affiche dans le thème de jeu de son propriétaire (les bots, sans compte, ont le thème par
+  // défaut) ; l'en-tête et le pied de page gardent celui du visiteur.
+  const owner = subject.userId ? await require('../../models').User.findByPk(subject.userId, { attributes: ['gameStyle'] }) : null;
+  const ownerStyle = require('../gameStyles').gameStyleFor(owner);
+  const profileStyle = ownerStyle.id === res.locals.gameStyle?.id ? null : ownerStyle;
+  res.render('player', { ...rest, subject, profileStyle, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
 }));
 
 // Texte personnel du profil (réservé au titulaire du compte, pas au remplaçant).
@@ -819,6 +856,19 @@ router.post('/profile/text', ownerOnly, ah(async (req, res) => {
   if (text.length > 2000) throw new GameError('Le texte personnel est limité à 2 000 caractères.');
   await Player.update({ profileText: text || null }, { where: { id: me(req) } });
   flash(req, 'success', 'Profil mis à jour.');
+  res.redirect(`${base(req)}/players/${me(req)}`);
+}));
+
+// Image du profil (titulaire du compte seulement) : réduite et convertie en WebP, l'original n'est pas gardé.
+router.post('/profile/avatar', ownerOnly, ah(async (req, res) => {
+  if (!req.file) throw new GameError('Choisissez une image.');
+  await ImageService.replaceAvatar(await Player.findByPk(me(req)), 'player', req.file.buffer);
+  flash(req, 'success', 'Image du profil enregistrée.');
+  res.redirect(`${base(req)}/players/${me(req)}`);
+}));
+router.post('/profile/avatar/delete', ownerOnly, ah(async (req, res) => {
+  await ImageService.replaceAvatar(await Player.findByPk(me(req)), 'player', null);
+  flash(req, 'success', 'Image du profil supprimée.');
   res.redirect(`${base(req)}/players/${me(req)}`);
 }));
 
@@ -911,8 +961,9 @@ router.post('/villages/:villageId/note', ah(async (req, res) => {
 // Messagerie, organisée comme sur GT : boîte de réception, courriers circulaires envoyés, écrire un message.
 router.get('/messages', ah(async (req, res) => {
   const player = await Player.findByPk(me(req));
-  const inbox = await MessageService.inbox(player.id, { page: req.query.page, perPage: MessageService.perPage(player), search: req.query.q });
-  res.render('messages', { page: 'messages', tab: 'inbox', inbox, perPage: MessageService.perPage(player), perPageRange: MessageService.PER_PAGE });
+  const perPage = PaginationService.perPage(player, 'messages');
+  const inbox = await MessageService.inbox(player.id, { page: req.query.page, perPage, search: req.query.q });
+  res.render('messages', { page: 'messages', tab: 'inbox', inbox, perPage });
 }));
 
 router.get('/messages/circular', ah(async (req, res) => {
@@ -949,11 +1000,6 @@ router.post('/messages/delete', ah(async (req, res) => {
   res.redirect(back(req, `${base(req)}/messages`));
 }));
 
-router.post('/messages/settings', ah(async (req, res) => {
-  await MessageService.setPerPage(me(req), req.body.perPage);
-  flash(req, 'success', 'Réglage enregistré.');
-  res.redirect(`${base(req)}/messages`);
-}));
 
 router.get('/messages/:conversationId', ah(async (req, res) => {
   const conversation = await MessageService.read(me(req), req.params.conversationId);
@@ -1070,8 +1116,9 @@ router.post('/account/sleep/stop', ah(async (req, res) => {
 
 router.get('/reports', ah(async (req, res) => {
   const filter = ReportService.FILTERS.includes(req.query.filter) ? req.query.filter : 'all';
-  const data = await ReportService.list(me(req), { filter, page: req.query.page });
-  res.render('reports', { ...data, page: 'reports', pageNumber: data.page, filter });
+  const data = await ReportService.list(me(req), { filter, page: req.query.page, perPage: PaginationService.perPage(res.locals.player, 'reports') });
+  const { reports, ...pagination } = data;
+  res.render('reports', { reports, total: data.total, pagination, page: 'reports', filter });
 }));
 
 router.post('/reports/bulk', ah(async (req, res) => {
@@ -1119,7 +1166,7 @@ router.get('/victory', (req, res) => res.redirect(`${base(req)}/ranking?type=vic
 // Tailles proposées (comme sur Guerre Tribale) et calques de la carte, mémorisés sur le joueur (mapSettings).
 const MAP_SIZES = [4, 5, 7, 9, 11, 13, 15, 20, 30];
 const MINI_SIZES = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120];
-const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true, moves: true };
+const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true, moves: true, church: true };
 
 router.get('/map', ah(async (req, res) => {
   const { village, cfg } = req.ctx;
@@ -1167,6 +1214,8 @@ router.get('/map', ah(async (req, res) => {
     CommandService.overview(village.id),
   ]);
   const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => [c.target.x, c.target.y]);
+  // Mondes avec église : zones d'influence de ses églises (calque « Zones de foi ») : [x, y, rayon].
+  const churches = (await require('../../services/FaithService').churches(village.playerId, cfg)).map((c) => [c.x, c.y, c.radius]);
   // Infobulle : durée du trajet de chaque unité (minutes par case) ; menu : éclaireurs proposés pour « Espionner ».
   const paces = registry.unitsFor(cfg).map((u) => ({ id: u.id, name: u.name, minutes: u.minutesPerField(cfg) }));
   const spyCount = Math.min(req.ctx.state.units.spy || 0, 5);
@@ -1176,7 +1225,7 @@ router.get('/map', ah(async (req, res) => {
   res.render('map', {
     page: 'map', cx, cy, sel, displaySize, miniSize, mapSizes: MAP_SIZES, miniSizes: MINI_SIZES, layers,
     paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, markerColor: MarkerService.DEFAULT_COLOR, markForm,
-    mapBoot: { sector: mapView.SECTOR, sectors, mini: miniVillages, attacks, worldSize: cfg.mapSize, attackDots: res.locals.attackDots() },
+    mapBoot: { sector: mapView.SECTOR, sectors, mini: miniVillages, attacks, churches, worldSize: cfg.mapSize, attackDots: res.locals.attackDots() },
   });
 }));
 

@@ -24,16 +24,20 @@
         <% } %>
         <tr><td class="<%= label %>">Distance</td><td class="tabular-nums"><%= plan.distance.toFixed(1) %> cases</td></tr>
         <tr><td class="<%= label %>">Durée</td><td class="tabular-nums"><%= duration(plan.seconds) %></td></tr>
-        <tr><td class="<%= label %>">Arrivée</td><td class="tabular-nums" data-arrive-in="<%= plan.seconds * 1000 %>"><%= when(plan.arrivesAt, now) %></td></tr>
+        <tr><td class="<%= label %>">Arrivée</td><td class="tabular-nums" data-arrive-in="<%= plan.seconds * 1000 %>" data-arrival-step="<%= ctx.cfg.arrivalStepMs %>"><%= when(plan.arrivesAt, now) %></td></tr>
         <% if (isAttack) { %>
           <tr><td class="<%= label %>">Moral</td><td class="font-semibold tabular-nums"><%= Math.round(plan.morale * 100) %> %</td></tr>
+          <% if (ctx.cfg.hasFeature('church')) { %>
+            <%# Comme sur GT : force de l'attaque selon la foi du village d'origine (zone d'influence de vos églises). %>
+            <tr><td class="<%= label %>">Foi</td><td class="tabular-nums"><span class="font-semibold <%= plan.faith < 1 ? 'text-blood-450' : '' %>"><%= Math.round(plan.faith * 100) %> %</span> <span class="text-parchment-500"><%= plan.faith < 1 ? '· hors de la zone de vos églises' : '· dans la zone de vos églises' %></span></td></tr>
+          <% } %>
           <tr><td class="<%= label %>">Butin possible</td><td><span class="flex items-center gap-1.5 tabular-nums" title="Capacité de transport des troupes"><span><%- resourceIcon('storage') %></span><%= num(carry) %></span></td></tr>
         <% } %>
       </tbody>
     </table>
 
     <%# 2. Les troupes : toutes les unités du monde, celles qui ne partent pas en retrait. %>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto" data-multi-single>
       <table class="<%= ui.tableSm %> border border-bronze-800 [&_td]:px-1 [&_td]:text-center [&_th]:px-1">
         <thead><tr>
           <% for (const u of worldUnits) { const n = plan.units[u.id] || 0; %>
@@ -48,6 +52,50 @@
       </table>
     </div>
 
+    <%# Attaques supplémentaires (comme sur GT) : chaque ajout répartit les troupes restantes entre les lignes ; elles
+        partent à la suite et arrivent dans l'ordre, à chainGapMs d'écart au moins (multi-attack dans game.js). %>
+    <% if (isAttack) { const multiUnits = worldUnits.filter((u) => available[u.id] > 0); %>
+      <div class="flex flex-col gap-3" data-multi-attack data-gap="<%= chainGapMs %>" data-max="<%= maxChained %>"
+           data-units="<%= JSON.stringify(multiUnits.map((u) => u.id)) %>"
+           data-available="<%= JSON.stringify(Object.fromEntries(multiUnits.map((u) => [u.id, available[u.id] || 0]))) %>"
+           data-first="<%= JSON.stringify(plan.units) %>">
+        <button type="button" class="<%= ui.link %> flex cursor-pointer items-center gap-1.5 self-start" data-multi-add><%- icon('plus', 'size-3.5', 2.4) %>Ajouter une attaque supplémentaire</button>
+        <div class="flex flex-col gap-3" data-multi-panel hidden>
+          <div class="overflow-x-auto">
+            <%# Seules les unités présentes au village ont une colonne (comme sur GT). Le tableau prend la largeur de son
+                contenu et les champs rétrécissent quand il y a beaucoup de colonnes : pas de défilement latéral. %>
+            <table class="<%= ui.tableSm %> w-auto! max-w-full border border-bronze-800 [&_td]:px-1 [&_td]:text-center [&_th]:px-1">
+              <thead><tr>
+                <th class="text-left">Attaques</th>
+                <% for (const u of multiUnits) { %><th class="text-center" title="<%= u.name %>"><span class="flex justify-center"><%- unitIcon(u.id, 'size-4') %></span></th><% } %>
+              </tr></thead>
+              <tbody data-multi-rows>
+                <tr>
+                  <td class="text-left! whitespace-nowrap text-parchment-400">Troupes disponibles</td>
+                  <% for (const u of multiUnits) { const n = available[u.id] || 0; %><td class="tabular-nums <%= n ? 'text-parchment-100' : 'text-parchment-600' %>"><%= num(n) %></td><% } %>
+                </tr>
+                <tr>
+                  <td class="text-left! whitespace-nowrap font-semibold text-parchment-100">Attaque #1</td>
+                  <% for (const u of multiUnits) { const n = plan.units[u.id] || 0; %><td class="tabular-nums <%= n ? 'font-semibold text-parchment-100' : 'text-parchment-600' %>"><%= num(n) %></td><% } %>
+                </tr>
+              </tbody>
+              <tfoot><tr>
+                <td class="text-left! font-semibold text-parchment-300">Total</td>
+                <% for (const u of multiUnits) { %><td class="tabular-nums font-semibold" data-multi-total="<%= u.id %>"></td><% } %>
+              </tr></tfoot>
+            </table>
+          </div>
+          <p class="<%= ui.alertError %>" data-multi-error hidden>Pas assez d'unités disponibles.</p>
+        </div>
+        <template data-multi-row>
+          <tr>
+            <td class="text-left! whitespace-nowrap"><span class="flex items-center justify-between gap-2"><span class="font-semibold text-parchment-100" data-multi-label></span><button type="button" class="cursor-pointer text-blood-450 hover:text-parchment-100" data-multi-remove aria-label="Retirer cette attaque"><%- icon('close', 'size-3.5', 2.6) %></button></span></td>
+            <% for (const u of multiUnits) { %><td><input type="number" min="0" inputmode="numeric" data-unit="<%= u.id %>" class="<%= ui.inputSm %> w-full max-w-16 min-w-10 px-1.5! text-right tabular-nums" aria-label="<%= u.name %>"></td><% } %>
+          </tr>
+        </template>
+      </div>
+    <% } %>
+
     <% if (plan.catapultTarget) { %>
       <label class="<%= ui.label %>">Cible des catapultes
         <select name="catapultTarget" class="<%= ui.inputSm %> w-full sm:w-64">
@@ -61,7 +109,8 @@
     <%# 3. Envoi. %>
     <div class="flex flex-wrap items-center gap-2">
       <a href="/village/<%= vid %>/place?<%= new URLSearchParams({ x: t.x, y: t.y, ...plan.units }) %>" class="<%= btn('dark', 'sm') %>"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Modifier</a>
-      <button class="<%= btn(isAttack ? 'red' : 'olive', 'sm') %>"><%- icon(isAttack ? 'attack' : 'support', 'size-3.5', 2.2) %><%= isAttack ? 'Attaquer' : 'Soutenir' %></button>
+      <%# Focus sur le bouton : Entrée envoie l'ordre (et Entrée sur le formulaire précédent déclenche déjà Attaquer). %>
+      <button autofocus data-multi-submit class="<%= btn(isAttack ? 'red' : 'olive', 'sm') %>"><%- icon(isAttack ? 'attack' : 'support', 'size-3.5', 2.2) %><%= isAttack ? 'Attaquer' : 'Soutenir' %></button>
     </div>
   </form>
 </section>

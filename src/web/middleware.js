@@ -63,8 +63,10 @@ const loadVillage = ah(async (req, res, next) => {
   const { village: owned, asSitter } = await VillageService.assertAccess(Number(req.params.villageId), req.user.id);
   req.asSitter = asSitter;
   res.locals.asSitter = asSitter;
-  await CommandService.processDue(new Date());
-  req.ctx = await VillageService.withVillage(owned.id, async (ctx) => ctx);
+  // Même instant pour les arrivées résolues et l'état du village : une arrivée ne peut pas tomber entre les deux.
+  const now = new Date();
+  await CommandService.processDue(now);
+  req.ctx = await VillageService.withVillage(owned.id, async (ctx) => ctx, { now });
   res.locals.ctx = req.ctx;
   res.locals.unreadByFilter = await ReportService.unreadByFilter(owned.playerId);
   res.locals.unreadReports = res.locals.unreadByFilter.all;

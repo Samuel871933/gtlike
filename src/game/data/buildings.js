@@ -63,6 +63,24 @@ module.exports = [
     requires: {},
     description: 'Recrutement du paladin.',
   },
+  // Église (module `church`) : zone d'influence de 4, 6 puis 8 cases ; hors de toute zone de ses églises, un village se
+  // bat à 50 %. Une église par village, détruite quand le village est conquis (voir game/faith.js).
+  {
+    id: 'church', name: 'Église', minLevel: 0, maxLevel: 3, feature: 'church',
+    cost: { wood: 16000, stone: 20000, iron: 5000 }, factor: { wood: 1.26, stone: 1.28, iron: 1.26 },
+    pop: 5000, popFactor: 1.55, buildTime: 123320, buildTimeFactor: 1.2, points: 10,
+    requires: { main: 5, farm: 5 },
+    description: 'Lieu de foi des villages alentour : hors de la zone d’influence de vos églises, vos troupes ne se battent qu’à moitié de leur force.',
+  },
+  // Première église : déjà construite dans le premier village ; une seule par joueur, rayon de 6 cases, niveau 1 seulement,
+  // indestructible par les catapultes. Perdue avec son village, elle peut être reconstruite ailleurs à petit prix.
+  {
+    id: 'church_f', name: 'Première église', minLevel: 0, maxLevel: 1, feature: 'church',
+    cost: { wood: 160, stone: 200, iron: 50 }, factor: { wood: 1.26, stone: 1.28, iron: 1.26 },
+    pop: 5, popFactor: 1.55, buildTime: 5440, buildTimeFactor: 1.2, points: 10,
+    requires: {},
+    description: 'Église de votre premier village : une zone d’influence plus grande (6 cases), mais qui ne s’agrandit pas. Une seule par joueur.',
+  },
   {
     id: 'market', name: 'Marché', minLevel: 0, maxLevel: 25,
     cost: { wood: 100, stone: 100, iron: 100 }, factor: { wood: 1.26, stone: 1.275, iron: 1.26 },

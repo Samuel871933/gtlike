@@ -87,6 +87,8 @@ class VillageService {
 
     const awayUnits = await VillageService.awayUnits(villageId, t);
     const ctx = { village, world, cfg, state, buildOrders, recruitOrders, researchOrders, awayUnits, now };
+    // Mondes avec église : une seule première église par joueur (construite ou en chantier dans un autre village).
+    if (cfg.hasFeature('church') && village.playerId) ctx.firstChurchElsewhere = await VillageService.hasFirstChurchElsewhere(village, t);
     ctx.popUsed = () => state.popUsed(ctx.buildOrders, ctx.recruitOrders, ctx.awayUnits);
     return ctx;
   }
@@ -163,6 +165,11 @@ class VillageService {
     }
     option.missing = type.missingRequirements(state.buildings);
     for (const m of option.missing) option.blockers.push(`${registry.building(m.building).name} niveau ${m.level}`);
+    // Église : une seule par village (l'église ou la première église), une seule première église par joueur.
+    const queued = (id) => state.level(id) > 0 || ctx.buildOrders.some((o) => o.building === id && !o.demolish);
+    if (type.id === 'church' && queued('church_f')) option.blockers.push('Ce village a déjà une première église');
+    if (type.id === 'church_f' && queued('church')) option.blockers.push('Ce village a déjà une église');
+    if (type.id === 'church_f' && ctx.firstChurchElsewhere) option.blockers.push('Vous avez déjà une première église');
     if (ctx.buildOrders.some((o) => o.building === type.id && o.demolish)) option.blockers.push('Démolition en cours');
 
     option.cost = type.costFor(level);
@@ -180,6 +187,14 @@ class VillageService {
       option.availableAt = state.affordableAt(option.cost, ctx.now);
     }
     return option;
+  }
+
+  /** Le joueur a-t-il une première église (construite ou en chantier) dans un autre de ses villages ? */
+  static async hasFirstChurchElsewhere(village, t) {
+    const others = await Village.findAll({ where: { playerId: village.playerId, id: { [Op.ne]: village.id } }, attributes: ['id', 'buildings'], transaction: t });
+    if (others.some((v) => (v.buildings || {}).church_f > 0)) return true;
+    if (!others.length) return false;
+    return (await BuildOrder.count({ where: { building: 'church_f', demolish: false, villageId: { [Op.in]: others.map((v) => v.id) } }, transaction: t })) > 0;
   }
 
   /**
@@ -219,6 +234,12 @@ class VillageService {
       const type = registry.BUILDINGS.get(buildingId);
       if (!type || !type.isAvailableIn(ctx.cfg)) throw new GameError('Bâtiment inconnu.');
 
+      // Reconstruction de la première église (une par joueur) : verrou sur le joueur, puis nouvelle vérification, pour que
+      // deux villages ne la lancent pas en même temps.
+      if (type.id === 'church_f' && ctx.village.playerId) {
+        await Player.findByPk(ctx.village.playerId, { attributes: ['id'], transaction: t, lock: t.LOCK.UPDATE });
+        ctx.firstChurchElsewhere = await VillageService.hasFirstChurchElsewhere(ctx.village, t);
+      }
       const option = VillageService.buildOption(ctx, type);
       if (option.blockers.length) throw new GameError(option.blockers[0]);
       if (option.lacksResources) throw new GameError('Ressources insuffisantes.');

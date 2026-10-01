@@ -21,7 +21,7 @@
 <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-3.5 px-3.5 pt-4.5 pb-4.5">
   <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3.5">
     <div class="flex flex-col gap-[3px]">
-      <b class="mb-[3px] font-logo text-xs tracking-[0.02em] text-gold-400">GTLIKE</b>
+      <img src="/img/brand/adarma-logo-cream.png" alt="Adarma" width="1839" height="362" class="mb-[3px] block h-6 w-auto self-start">
       <span class="text-[13px] text-parchment-500">Jeu de stratégie par navigateur, par mondes.</span>
     </div>
     <div class="flex flex-col gap-[3px]">
@@ -30,7 +30,7 @@
         <a href="/worlds" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Mondes</a>
         <a href="/account" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Mon compte</a>
       <% } else { %>
-        <a href="/login" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Connexion</a>
+        <a href="/" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Accueil</a>
         <a href="/register" class="text-[13px] text-parchment-500 no-underline hover:text-parchment-100">Inscription</a>
       <% } %>
     </div>
@@ -46,7 +46,7 @@
     </div>
   </div>
   <div class="flex flex-wrap justify-between gap-2 border-t border-bronze-800 pt-2.5 text-xs text-parchment-700">
-    <span>© <%= now.getFullYear() %> GTLike · Monde persistant de stratégie</span>
+    <span>© <%= now.getFullYear() %> Adarma · Monde persistant de stratégie</span>
     <span class="tabular-nums">Heure du serveur : <span data-clock="<%= now.getTime() %>"><%= now.toLocaleString('fr-FR') %></span></span>
   </div>
 </div>
