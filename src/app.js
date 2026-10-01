@@ -36,7 +36,7 @@ function createApp() {
   });
   app.get('/sitemap.xml', (req, res) => {
     if (!config.siteUrl) return res.sendStatus(404);
-    const pages = ['/', '/register', '/rules', '/help'];
+    const pages = ['/', '/register', '/rules', '/help', '/mentions-legales', '/cgu', '/cgv', '/confidentialite', '/cookies'];
     res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((page) => `<url><loc>${config.siteUrl}${page}</loc></url>`).join('')}</urlset>`);
   });
   // Images de profil envoyées par les joueurs (WebP déjà réduits, noms changés à chaque envoi).
@@ -60,6 +60,11 @@ function createApp() {
       '/register': { title: 'Inscription gratuite au jeu de stratégie', description: 'Crée ton compte Adarma gratuitement. Construis ton village, gère tes ressources, rejoins une tribu et pars à la conquête de mondes persistants.', canonical: '/register' },
       '/rules': { title: 'Règles du jeu de stratégie', description: 'Consulte les règles d’Adarma : comptes, alliances, automatisation et respect des autres joueurs dans ce jeu de stratégie sur navigateur.', canonical: '/rules' },
       '/help': { title: 'Guide du jeu de stratégie et de gestion', description: 'Apprends à développer ton village, gérer les ressources, recruter des troupes, conquérir des territoires et jouer en tribu sur Adarma.', canonical: '/help' },
+      '/mentions-legales': { title: 'Mentions légales', description: 'Éditeur, directeur de la publication et hébergeur du jeu de stratégie Adarma.', canonical: '/mentions-legales' },
+      '/cgu': { title: 'Conditions générales d’utilisation', description: 'Les conditions d’utilisation du jeu Adarma : compte, règles, sanctions et suppression du compte.', canonical: '/cgu' },
+      '/cgv': { title: 'Conditions générales de vente', description: 'Les conditions de vente de la boutique Adarma : packs d’Adartons, articles cosmétiques et premium.', canonical: '/cgv' },
+      '/confidentialite': { title: 'Politique de confidentialité', description: 'Les données personnelles traitées par Adarma, leurs durées de conservation et vos droits.', canonical: '/confidentialite' },
+      '/cookies': { title: 'Cookies et stockage local', description: 'Les cookies et données de navigateur utilisés par Adarma, tous strictement nécessaires.', canonical: '/cookies' },
     };
     res.locals.seo = req.method === 'GET' && res.locals.ctx === null ? publicPages[req.path] || null : null;
     res.locals.siteUrl = config.siteUrl;
@@ -73,6 +78,8 @@ function createApp() {
   app.use(require('./web/routes/auth'));
   app.use(require('./web/routes/worlds'));
   app.use(require('./web/routes/forum'));
+  app.use(require('./web/routes/shop'));
+  app.use(require('./web/routes/legal'));
   app.use('/village/:villageId', require('./web/routes/village'));
 
   app.use((req, res) => res.status(404).render('error', { message: 'Page introuvable.' }));

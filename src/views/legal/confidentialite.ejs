@@ -1,0 +1,146 @@
+<%# Modèle de texte : à faire relire par un professionnel du droit avant la mise en production.
+    Les mentions entre crochets ([Raison sociale], [prestataire de paiement]…) sont à remplacer par les informations réelles de l'éditeur.
+    Données décrites d'après le code : AuthService (bcrypt, jetons de réinitialisation), AccountService.deleteAccount, ImageService,
+    session express-session dans src/app.js, clés localStorage de public/js. À mettre à jour à chaque nouveau traitement. %>
+<%- include('_start', {
+  title: 'Politique de confidentialité',
+  sub: 'Les données personnelles traitées par Adarma, pourquoi, combien de temps, et vos droits (RGPD).',
+  toc: [
+    ['responsable', 'Responsable du traitement'],
+    ['donnees', 'Données traitées'],
+    ['finalites', 'Finalités et bases légales'],
+    ['conservation', 'Durées de conservation'],
+    ['destinataires', 'Destinataires et sous-traitants'],
+    ['transferts', 'Transferts hors de l’Union européenne'],
+    ['securite', 'Sécurité'],
+    ['mineurs', 'Mineurs'],
+    ['droits', 'Vos droits'],
+    ['suppression', 'Suppression du compte'],
+    ['cookies', 'Cookies et stockage local'],
+    ['modification', 'Modification de cette politique'],
+  ],
+}) %>
+
+<h2 id="responsable">1. Responsable du traitement</h2>
+<p>Le responsable du traitement de vos données est [Raison sociale], [forme juridique], [adresse du siège], [RCS / SIRET] (« nous »). Pour toute question sur vos données ou pour exercer vos droits : [adresse e-mail de contact].</p>
+<p>Le Service n’affiche aucune publicité et n’utilise aucun outil de mesure d’audience ni aucun traceur publicitaire. Nous ne vendons ni ne louons vos données.</p>
+
+<h2 id="donnees">2. Données traitées</h2>
+<h3>Compte</h3>
+<ul>
+  <li><strong>Pseudo et adresse e-mail</strong>, fournis à l’inscription. Le pseudo est public ; l’adresse e-mail ne l’est jamais.</li>
+  <li><strong>Mot de passe</strong> : nous n’en conservons qu’une empreinte calculée avec l’algorithme bcrypt, qui ne permet pas de retrouver le mot de passe. Personne, pas même l’équipe, ne peut le lire.</li>
+  <li><strong>Préférences d’affichage</strong> : thème de jeu, design des villages sur la carte, densité de l’interface.</li>
+  <li><strong>Jetons de réinitialisation du mot de passe</strong> : lorsque vous demandez un nouveau mot de passe, un lien vous est envoyé par e-mail. Seule une empreinte (SHA-256) du jeton est enregistrée, avec sa date d’expiration (une heure) et sa date d’utilisation.</li>
+</ul>
+<h3>Jeu</h3>
+<ul>
+  <li><strong>Données de jeu</strong> sur chaque monde : joueur, villages, bâtiments, troupes, ordres, rapports, tribu et rôle, classements, succès, notes sur les villages, modèles d’armée, favoris et marquages de carte, réglages de carte, remplaçant désigné pour le mode vacances.</li>
+  <li><strong>Messages privés</strong> échangés avec d’autres joueurs.</li>
+  <li><strong>Messages des forums</strong> : forum de tribu (avec lectures, votes aux sondages et sections masquées) et forum général.</li>
+  <li><strong>Textes et images de profil</strong> du joueur et de la tribu. Une image envoyée est redressée, réduite (360 × 240 pixels au plus) et convertie au format WebP sans ses métadonnées (EXIF, position GPS) ; le fichier d’origine n’est jamais enregistré.</li>
+</ul>
+<h3>Boutique</h3>
+<ul>
+  <li><strong>Solde d’Adartons et historique des mouvements</strong> (achat d’un pack, achat d’un article, crédits), avec leur date et leur montant.</li>
+  <li><strong>Articles obtenus</strong> : article, portée (monde, compte ou serveur privé), monde concerné, dates de début et de fin, prix.</li>
+  <li><strong>Données de paiement</strong> : le paiement est traité par notre prestataire de paiement, [prestataire de paiement]. Nous ne recevons que la confirmation du paiement, son montant et ses références ; nous ne recevons ni ne conservons jamais votre numéro de carte.</li>
+</ul>
+<h3>Données techniques</h3>
+<ul>
+  <li><strong>Session</strong> : un cookie de session identifie votre navigateur ; la session correspondante, enregistrée sur nos serveurs, contient l’identifiant de votre compte une fois connecté et un jeton de protection des formulaires (CSRF). Voir la page <a href="/cookies">cookies</a>.</li>
+  <li><strong>Stockage local du navigateur</strong> : quelques choix d’affichage restent dans votre navigateur et ne nous sont pas transmis (voir la page <a href="/cookies">cookies</a>).</li>
+  <li><strong>Adresse IP</strong> : l’application n’enregistre pas votre adresse IP dans sa base de données. Elle est nécessairement connue de notre hébergeur pour acheminer les pages, et peut figurer dans ses journaux techniques pendant [durée de conservation des journaux de l’hébergeur]. Elle est aussi transmise à Google lors du chargement des polices de caractères (voir l’article <a href="#transferts">6</a>).</li>
+</ul>
+
+<h2 id="finalites">3. Finalités et bases légales</h2>
+<div class="overflow-x-auto">
+  <table class="<%= ui.table %> my-3 text-sm">
+    <thead><tr><th>Finalité</th><th>Données</th><th>Base légale (RGPD, art. 6)</th></tr></thead>
+    <tbody>
+      <tr><td>Créer et gérer votre compte, vous connecter</td><td>Pseudo, e-mail, empreinte du mot de passe, session</td><td>Exécution du contrat (CGU)</td></tr>
+      <tr><td>Faire fonctionner le jeu et la communication entre joueurs</td><td>Données de jeu, messages, forums, profils</td><td>Exécution du contrat (CGU)</td></tr>
+      <tr><td>Réinitialiser votre mot de passe</td><td>E-mail, jeton de réinitialisation</td><td>Exécution du contrat (CGU)</td></tr>
+      <tr><td>Vendre des Adartons et fournir les articles</td><td>Mouvements d’Adartons, articles, références de paiement</td><td>Exécution du contrat (CGV)</td></tr>
+      <tr><td>Tenir la comptabilité et répondre aux obligations fiscales</td><td>Pièces relatives aux achats</td><td>Obligation légale</td></tr>
+      <tr><td>Sécuriser le Service, protéger les formulaires, lutter contre la triche et les comptes multiples, faire respecter les règles</td><td>Session, données de jeu, messages signalés</td><td>Intérêt légitime : un jeu équitable et sûr</td></tr>
+      <tr><td>Garder la continuité des discussions des forums après la suppression d’un compte</td><td>Messages des forums, sans auteur</td><td>Intérêt légitime : la lisibilité des discussions de la communauté</td></tr>
+      <tr><td>Afficher les polices de caractères du jeu</td><td>Adresse IP, transmise à Google</td><td>Intérêt légitime : l’affichage du Service</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>Aucune décision automatisée produisant des effets juridiques à votre égard n’est prise sur la base de vos données. Les éventuelles sanctions pour triche sont décidées par un membre de l’équipe.</p>
+
+<h2 id="conservation">4. Durées de conservation</h2>
+<div class="overflow-x-auto">
+  <table class="<%= ui.table %> my-3 text-sm">
+    <thead><tr><th>Données</th><th>Durée</th></tr></thead>
+    <tbody>
+      <tr><td>Compte (pseudo, e-mail, empreinte du mot de passe, préférences, solde d’Adartons)</td><td>Jusqu’à la suppression du compte ; les comptes inactifs depuis [durée d’inactivité d’un compte] peuvent être supprimés après un e-mail de prévenance</td></tr>
+      <tr><td>Données de jeu d’un monde</td><td>Tant que vous jouez sur ce monde ; effacées lorsque vous quittez le monde ou supprimez votre compte (vos villages redeviennent alors barbares, sans lien avec vous) ; à la fin d’un monde, conservées [durée de conservation d’un monde terminé] pour l’historique et les classements</td></tr>
+      <tr><td>Images de profil</td><td>Jusqu’à leur remplacement ou leur retrait, ou jusqu’à ce que vous quittiez le monde</td></tr>
+      <tr><td>Messages privés</td><td>Tant qu’au moins un participant de la conversation l’a conservée ; une conversation sans plus aucun participant est effacée</td></tr>
+      <tr><td>Messages des forums</td><td>Tant que le forum existe ; après la suppression du compte, ils restent publiés sans lien avec vous (« Compte supprimé » sur le forum général, sans auteur sur les forums de tribu)</td></tr>
+      <tr><td>Jetons de réinitialisation du mot de passe</td><td>Valables une heure ; effacés à la suppression du compte</td></tr>
+      <tr><td>Session</td><td>30 jours au plus ; les sessions expirées sont effacées automatiquement, la déconnexion met fin à la session</td></tr>
+      <tr><td>Mouvements d’Adartons et articles achetés</td><td>Pendant la vie du compte, puis, pour les pièces relatives aux achats, 10 ans à compter de la clôture de l’exercice, en archivage à accès restreint (article L123-22 du Code de commerce)</td></tr>
+      <tr><td>Données identifiant l’auteur d’un contenu publié</td><td>[durée légale, à confirmer : 1 an, décret n° 2021-1362 du 20 octobre 2021]</td></tr>
+      <tr><td>Échanges avec le service client</td><td>3 ans à compter du dernier échange</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 id="destinataires">5. Destinataires et sous-traitants</h2>
+<p>Vos données sont accessibles aux seuls membres habilités de l’équipe, dans la limite de leurs missions. Les autres joueurs voient ce qui est public dans le jeu (pseudo, villages, classements, profils, messages des forums auxquels ils ont accès) et les messages privés que vous leur adressez.</p>
+<p>Nous faisons appel aux sous-traitants suivants, liés par contrat et tenus de protéger vos données :</p>
+<ul>
+  <li><strong>Hébergement</strong> : [Hébergeur : nom, adresse, téléphone] ;</li>
+  <li><strong>Paiement</strong> : [prestataire de paiement], qui traite les données de paiement en tant que responsable de traitement distinct pour ses propres obligations (lutte contre la fraude, réglementation bancaire) ;</li>
+  <li><strong>Envoi des e-mails</strong> (réinitialisation du mot de passe, confirmations d’achat) : [prestataire d’envoi d’e-mails] ;</li>
+  <li><strong>Polices de caractères</strong> : Google Fonts, service de Google, qui reçoit votre adresse IP lors du chargement des pages.</li>
+</ul>
+<p>Vos données peuvent enfin être communiquées aux autorités habilitées sur réquisition légale.</p>
+
+<h2 id="transferts">6. Transferts hors de l’Union européenne</h2>
+<p>Les polices de caractères du Service sont chargées depuis les serveurs de Google (fonts.googleapis.com et fonts.gstatic.com). Votre navigateur transmet alors à Google votre adresse IP et des informations techniques (navigateur, page d’origine). Google LLC est établie aux États-Unis ; ce transfert est encadré par la décision d’adéquation de la Commission européenne du 10 juillet 2023 (Data Privacy Framework), Google y étant certifiée. Google indique ne pas déposer de cookie pour ce service.</p>
+<p>[À compléter si l’hébergeur, le prestataire de paiement ou le prestataire d’envoi d’e-mails transfèrent des données hors de l’Union européenne, avec les garanties appropriées.]</p>
+
+<h2 id="securite">7. Sécurité</h2>
+<p>Nous prenons des mesures techniques et organisationnelles adaptées pour protéger vos données : mots de passe conservés sous forme d’empreinte bcrypt, jetons de réinitialisation conservés sous forme d’empreinte et à usage unique, cookie de session inaccessible aux scripts de la page (HttpOnly), limité au site (SameSite=Lax) et transmis uniquement en HTTPS en production, protection des formulaires contre les requêtes intersites (jeton CSRF), nouvel identifiant de session à chaque connexion, accès restreint aux serveurs. En cas de violation de données présentant un risque pour vous, nous en informons la CNIL et, le cas échéant, les personnes concernées.</p>
+
+<h2 id="mineurs">8. Mineurs</h2>
+<p>En France, un mineur de moins de 15 ans ne peut s’inscrire qu’avec l’accord conjoint du ou des titulaires de l’autorité parentale (article 45 de la loi n° 78-17 du 6 janvier 1978). Les titulaires de l’autorité parentale peuvent exercer les droits de leur enfant et demander la suppression de son compte à [adresse e-mail de contact]. Tout achat par un mineur suppose l’autorisation de son représentant légal.</p>
+
+<h2 id="droits">9. Vos droits</h2>
+<p>Conformément au RGPD et à la loi Informatique et Libertés, vous disposez des droits suivants sur vos données :</p>
+<ul>
+  <li><strong>droit d’accès</strong> : obtenir la confirmation que vos données sont traitées et en recevoir une copie ;</li>
+  <li><strong>droit de rectification</strong> : faire corriger des données inexactes ou incomplètes ;</li>
+  <li><strong>droit à l’effacement</strong> : faire supprimer vos données, dans les limites des obligations légales de conservation ; la suppression du compte est aussi possible directement (article <a href="#suppression">10</a>) ;</li>
+  <li><strong>droit à la portabilité</strong> : recevoir les données que vous nous avez fournies dans un format structuré et lisible par machine ;</li>
+  <li><strong>droit d’opposition</strong> : vous opposer, pour des raisons tenant à votre situation particulière, aux traitements fondés sur notre intérêt légitime ;</li>
+  <li><strong>droit à la limitation</strong> : demander le gel temporaire d’un traitement, par exemple pendant l’examen d’une contestation ;</li>
+  <li><strong>directives post mortem</strong> : définir des directives sur le sort de vos données après votre décès.</li>
+</ul>
+<p>Pour exercer ces droits, écrivez à [adresse e-mail de contact] depuis l’adresse e-mail de votre compte, en indiquant votre pseudo. Nous répondons dans un délai d’un mois, prolongeable de deux mois en cas de demande complexe. En cas de doute raisonnable sur votre identité, nous pouvons vous demander une information complémentaire.</p>
+<p>Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire une réclamation auprès de la Commission nationale de l’informatique et des libertés (CNIL), 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07, <a href="https://www.cnil.fr/fr/plaintes" rel="noopener">www.cnil.fr/fr/plaintes</a>.</p>
+
+<h2 id="suppression">10. Suppression du compte</h2>
+<p>Vous pouvez supprimer votre compte vous-même, à tout moment, depuis la page <a href="/account">Mon compte</a>, rubrique « Supprimer mon compte », en confirmant avec votre mot de passe. La suppression est immédiate :</p>
+<ul>
+  <li>votre joueur quitte tous les mondes ; vos villages redeviennent barbares ;</li>
+  <li>vos données de jeu (rapports, notes, modèles d’armée, favoris, marquages, invitations) et vos images de profil sont effacées ;</li>
+  <li>vos jetons de réinitialisation du mot de passe et votre compte (pseudo, e-mail, empreinte du mot de passe, préférences, solde d’Adartons) sont effacés ;</li>
+  <li>vous êtes retiré de vos conversations privées ; les messages que vous avez envoyés restent visibles par leurs destinataires, signés « Joueur supprimé » ;</li>
+  <li>vos messages des forums restent publiés, sans lien avec votre compte ;</li>
+  <li>les pièces relatives à vos achats sont conservées pour la durée légale, en archivage à accès restreint.</li>
+</ul>
+<p>Vous pouvez aussi quitter un seul monde, depuis la page Compte de ce monde : seules vos données de jeu de ce monde sont alors effacées.</p>
+
+<h2 id="cookies">11. Cookies et stockage local</h2>
+<p>Le Service n’utilise que des cookies et un stockage local strictement nécessaires, qui ne requièrent pas votre consentement. Leur liste figure sur la page <a href="/cookies">cookies</a>.</p>
+
+<h2 id="modification">12. Modification de cette politique</h2>
+<p>Cette politique peut évoluer, par exemple lors de l’ajout d’une fonction ou d’un prestataire. La date de dernière mise à jour figure en haut de la page ; en cas de changement important, vous en êtes informé dans le jeu ou par e-mail.</p>
+
+<%- include('_end') %>

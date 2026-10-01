@@ -8,6 +8,7 @@ const ReportService = require('../services/ReportService');
 const TribeForumService = require('../services/TribeForumService');
 const { gameStyleFor } = require('./gameStyles');
 const { villageDesignFor } = require('./villageDesigns');
+const ShopService = require('../services/ShopService');
 const { gameLayoutFor } = require('./gameLayouts');
 const { Op } = require('sequelize');
 const { User, Village, TribeInvite, Player, Tribe } = require('../models');
@@ -73,8 +74,11 @@ const loadVillage = ah(async (req, res, next) => {
   res.locals.incomingAttacks = await CommandService.incomingAttackCount(owned.playerId);
   const player = await Player.findByPk(owned.playerId, { include: [{ model: Tribe, attributes: ['id', 'tag'] }] });
   res.locals.player = player;
-  res.locals.gameStyle = gameStyleFor(req.user);
-  res.locals.villageDesign = villageDesignFor(req.user);
+  // Thème et design : le choix du compte, s'il le possède sur ce monde (boutique : compte, monde ou serveur entier).
+  const rights = await ShopService.rightsFor(req.user.id, owned.worldId);
+  res.locals.shopRights = rights;
+  res.locals.gameStyle = gameStyleFor(req.user, rights);
+  res.locals.villageDesign = villageDesignFor(req.user, rights);
   res.locals.gameLayout = gameLayoutFor(req.user);
   res.locals.playerRank = 1 + await Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } });
   res.locals.tribeInvites = await TribeInvite.count({ where: { playerId: owned.playerId } });

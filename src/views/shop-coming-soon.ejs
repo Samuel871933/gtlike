@@ -1,0 +1,14 @@
+<%- include('partials/header', { title: 'Paiement en construction' }) %>
+<%# Paiement pas encore disponible : page d'attente des boutons « Acheter » des packs d'Adartons. %>
+<div class="flex flex-col gap-3.5 pb-4">
+  <section class="<%= ui.panel %> flex flex-col items-center gap-3 px-6 py-8 text-center">
+    <span class="<%= ui.medallion %> size-14"><%- icon('workshop', 'size-7', 1.8) %></span>
+    <h1 class="m-0 font-display text-2xl font-semibold text-parchment-100">En construction</h1>
+    <p class="text-parchment-400">Le paiement n’est pas encore ouvert<% if (pack) { %> : le pack de <span class="font-semibold text-gold-200"><%= num(pack.adartons) %> Adartons</span> (<%= pack.price %>) sera bientôt disponible<% } %>. Aucun montant n’a été débité.</p>
+    <div class="flex flex-wrap justify-center gap-2">
+      <a href="/shop" class="<%= btn('gold', 'sm') %>">Retour à la boutique</a>
+      <a href="/worlds" class="<%= btn('dark', 'sm') %>">Accueil</a>
+    </div>
+  </section>
+</div>
+<%- include('partials/footer') %>

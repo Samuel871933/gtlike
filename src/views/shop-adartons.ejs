@@ -1,0 +1,21 @@
+<%- include('partials/header', { title: 'Acheter des Adartons' }) %>
+<%# Packs d'Adartons (game/shopCatalog.js PACKS) : pas encore de moyen de paiement, « Acheter » mène à une page En construction. %>
+<div class="flex flex-col gap-3.5 pb-4">
+  <a href="/shop" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boutique</a>
+  <%- include('partials/page-title', { kicker: 'Boutique', title: 'Acheter des Adartons', sub: 'Les Adartons servent à débloquer les articles de la boutique. Ils ne sont ni remboursables, ni convertibles en argent.' }) %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Packs', `<span class="text-[13px] text-parchment-500 tabular-nums">Solde : ${num(user.adartons)} Adartons</span>`) %>
+    <div class="grid gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+      <% for (const p of packs) { %>
+        <div class="flex flex-col items-center gap-2 border-2 border-black bg-panel-top px-3 py-4 text-center shadow-[inset_0_0_0_1px_var(--color-bronze-700),4px_4px_0_#050505]">
+          <span class="<%= ui.medallionGold %> size-12"><%- icon('adarton', 'size-6', 2) %></span>
+          <span class="font-display text-2xl font-semibold text-gold-200 tabular-nums"><%= num(p.adartons) %></span>
+          <span class="text-[13px] text-parchment-500">Adartons<% if (p.bonus) { %> · <span class="text-olive-300"><%= p.bonus %></span><% } %></span>
+          <a href="/shop/coming-soon?pack=<%= p.id %>" class="<%= btn('gold', 'sm', 'mt-1 w-full') %>">Acheter · <%= p.price %></a>
+        </div>
+      <% } %>
+    </div>
+    <p class="border-t border-bronze-900 px-4 py-2.5 text-[13px] text-parchment-500">Prix toutes taxes comprises. Voir les <a href="/cgv" class="<%= ui.link %>">conditions générales de vente</a>.</p>
+  </section>
+</div>
+<%- include('partials/footer') %>

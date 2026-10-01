@@ -1,0 +1,64 @@
+<%# Modèle de texte : à faire relire par un professionnel du droit avant la mise en production.
+    Liste établie d'après le code : cookie de session d'express-session (nom par défaut connect.sid, src/app.js),
+    clés localStorage de public/js/game.js et public/js/map.js. À mettre à jour si un cookie ou une clé est ajouté. %>
+<%- include('_start', {
+  title: 'Cookies et stockage local',
+  sub: 'Adarma n’utilise que des cookies strictement nécessaires : ni publicité, ni mesure d’audience.',
+  toc: [
+    ['principe', 'Ce qu’est un cookie'],
+    ['cookies', 'Cookies déposés'],
+    ['stockage', 'Stockage local du navigateur'],
+    ['tiers', 'Services tiers'],
+    ['consentement', 'Pourquoi pas de bandeau de consentement'],
+    ['gerer', 'Gérer ou supprimer ces données'],
+  ],
+}) %>
+
+<h2 id="principe">1. Ce qu’est un cookie</h2>
+<p>Un cookie est un petit fichier déposé par un site dans votre navigateur et renvoyé à ce site à chaque visite. Le stockage local (« localStorage ») est un espace comparable, propre au navigateur, que seules les pages du site peuvent lire et qui n’est pas transmis au serveur.</p>
+<p>L’article 82 de la loi Informatique et Libertés impose de recueillir votre consentement avant de déposer un cookie ou de lire une information sur votre appareil, sauf lorsque cette opération est strictement nécessaire au service que vous demandez.</p>
+
+<h2 id="cookies">2. Cookies déposés</h2>
+<p>Le Service dépose un seul cookie, qui lui est propre :</p>
+<div class="overflow-x-auto">
+  <table class="<%= ui.table %> my-3 text-sm">
+    <thead><tr><th>Nom</th><th>Émetteur</th><th>Finalité</th><th>Durée</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>connect.sid</code></td>
+        <td>Adarma</td>
+        <td>Cookie de session : maintient votre connexion d’une page à l’autre et protège les formulaires contre les requêtes intersites (jeton CSRF). Il ne contient qu’un identifiant aléatoire signé ; les données de session restent sur nos serveurs. Inaccessible aux scripts (HttpOnly), limité au site (SameSite=Lax), transmis uniquement en HTTPS en production.</td>
+        <td>30 jours</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>Ce cookie est déposé dès votre première visite, car tous les formulaires du site (connexion, inscription) sont protégés par un jeton lié à la session.</p>
+
+<h2 id="stockage">3. Stockage local du navigateur</h2>
+<p>Quelques choix d’affichage sont mémorisés dans le stockage local de votre navigateur, pour vous éviter de les refaire. Ils ne quittent pas votre appareil et ne nous sont pas transmis :</p>
+<div class="overflow-x-auto">
+  <table class="<%= ui.table %> my-3 text-sm">
+    <thead><tr><th>Clé</th><th>Finalité</th><th>Durée</th></tr></thead>
+    <tbody>
+      <tr><td><code>adarma:dismiss:…</code></td><td>Retient qu’un encart d’information a été masqué (« Masquer ce message »), pour ne pas le réafficher.</td><td>Jusqu’à ce que vous effaciez les données du site</td></tr>
+      <tr><td><code>adarma.quickOrders</code></td><td>Retient vos choix d’ordres rapides sur la carte.</td><td>Jusqu’à ce que vous effaciez les données du site</td></tr>
+      <tr><td><code>gtlike:dismiss:…</code>, <code>gtlike.quickOrders</code></td><td>Anciennes clés (le jeu portait auparavant un autre nom), seulement lues pour conserver vos choix ; elles ne sont plus écrites.</td><td>Jusqu’à ce que vous effaciez les données du site</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>Les autres préférences (thème de jeu, design des villages, densité de l’interface, réglages de la carte) sont enregistrées dans votre compte, sur nos serveurs.</p>
+
+<h2 id="tiers">4. Services tiers</h2>
+<p>Le Service ne contient aucun cookie publicitaire, aucun outil de mesure d’audience, aucun bouton de réseau social ni aucun autre traceur tiers.</p>
+<p>Les polices de caractères sont chargées depuis Google Fonts (fonts.googleapis.com et fonts.gstatic.com). Google indique ne pas déposer de cookie pour ce service, mais votre navigateur lui transmet votre adresse IP lors du chargement. Voir la <a href="/confidentialite#transferts">politique de confidentialité</a>.</p>
+<p>Lors d’un achat, vous serez redirigé vers la page de notre prestataire de paiement, [prestataire de paiement], qui peut déposer ses propres cookies nécessaires à la sécurité du paiement ; ils relèvent de sa propre politique.</p>
+
+<h2 id="consentement">5. Pourquoi pas de bandeau de consentement</h2>
+<p>Le cookie de session et les clés de stockage local listés ci-dessus sont strictement nécessaires au fonctionnement du Service ou à des choix que vous faites vous-même dans l’interface. Ils sont exemptés de consentement (article 82 de la loi Informatique et Libertés, lignes directrices de la CNIL du 17 septembre 2020). C’est pourquoi aucun bandeau ne vous est présenté. Si nous ajoutions un jour un traceur soumis à consentement, nous vous le demanderions au préalable.</p>
+
+<h2 id="gerer">6. Gérer ou supprimer ces données</h2>
+<p>Vous pouvez à tout moment supprimer les cookies et le stockage local du site depuis les réglages de votre navigateur (rubrique « Confidentialité », « Cookies et données de site »), ou les bloquer. Sans le cookie de session, vous ne pourrez plus vous connecter ni envoyer de formulaire ; sans le stockage local, les encarts masqués réapparaîtront et vos ordres rapides seront oubliés.</p>
+<p>Pour toute question : [adresse e-mail de contact].</p>
+
+<%- include('_end') %>

@@ -7,7 +7,8 @@
     - un fichier src/styles/game-styles/<id>.css qui redéfinit les jetons sous [data-game-style="<id>"] ;
     - ses images dans public/img/game-styles/<id>/.
   En jeu, <html> porte la classe `game_style` et l'attribut data-game-style="<id>".
-  Tous les styles sont gratuits pour l'instant ; le compte choisit le sien (User.gameStyle).
+  Le style par défaut est gratuit ; les autres s'achètent à la boutique (article « theme:<id> », voir
+  game/shopCatalog.js). Le compte choisit le sien (User.gameStyle), appliqué là où il le possède.
 */
 
 const GAME_STYLES = {
@@ -49,12 +50,16 @@ const DEFAULT_GAME_STYLE = 'adarma';
 /** Le style existe-t-il ? */
 const isGameStyle = (id) => Object.prototype.hasOwnProperty.call(GAME_STYLES, id);
 
-/** Style de jeu d'un compte : son choix s'il existe encore, sinon le style par défaut. */
-function gameStyleFor(user) {
+/**
+ * Style de jeu d'un compte : son choix s'il existe encore et, si `rights` est donné (droits de la boutique dans ce
+ * contexte, ShopService.rightsFor), s'il le possède ; sinon le style par défaut.
+ */
+function gameStyleFor(user, rights = null) {
   const id = user && user.gameStyle;
   // Les comptes qui avaient choisi Brume ou Basic, anciens noms du style Adarma, gardent leur thème.
   const resolvedId = id === 'brume' || id === 'basic' ? 'adarma' : id;
-  return GAME_STYLES[isGameStyle(resolvedId) ? resolvedId : DEFAULT_GAME_STYLE];
+  const ok = isGameStyle(resolvedId) && (!rights || rights.has(`theme:${resolvedId}`));
+  return GAME_STYLES[ok ? resolvedId : DEFAULT_GAME_STYLE];
 }
 
 module.exports = { GAME_STYLES, DEFAULT_GAME_STYLE, isGameStyle, gameStyleFor };

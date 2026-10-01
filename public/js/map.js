@@ -237,7 +237,8 @@
   function churchZones(x0, y0) {
     if (!boot.churches || !boot.churches.length) return '';
     const circles = boot.churches.map(([x, y, r]) => `<ellipse cx="${((x - x0 + 0.5) * tw).toFixed(1)}" cy="${((y - y0 + 0.5) * th).toFixed(1)}" rx="${(r * tw).toFixed(1)}" ry="${(r * th).toFixed(1)}"/>`).join('');
-    return `<svg class="pointer-events-none absolute inset-0 z-[4] hidden overflow-visible group-data-[layer-church]/map:block" width="100%" height="100%" aria-hidden="true"><g class="fill-gold-200/10 stroke-gold-200" stroke-width="2" stroke-dasharray="8 4">${circles}</g></svg>`;
+    // Couleur de carte (--color-map-label, la même dans tous les styles) sur un liseré sombre : lisible sur l'herbe.
+    return `<svg class="pointer-events-none absolute inset-0 z-[4] hidden overflow-visible group-data-[layer-church]/map:block" width="100%" height="100%" aria-hidden="true"><g class="fill-map-label/15 stroke-black/45" stroke-width="5">${circles}</g><g class="fill-none stroke-map-label" stroke-width="2.5" stroke-dasharray="10 5">${circles}</g></svg>`;
   }
 
   // Flèches des attaques en cours depuis ce village (calque « Mouvements de troupes »).

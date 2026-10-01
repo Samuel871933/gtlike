@@ -326,7 +326,17 @@ affichés dans « Réglages du monde ».
 
 ## Hors périmètre
 
-Aucune fonctionnalité premium (ni monnaie, ni échange, ni accélération). Pas de tour de guet.
+Pas de tour de guet, pas d'accélération payante ni d'échange premium.
+
+## Boutique
+
+Le jeu est gratuit ; une boutique facultative (`/shop`) vend des articles contre des **Adartons**, la monnaie du jeu (solde sur le compte, historique dans `AdartonTransactions`). Le paiement n'est pas encore branché : acheter des Adartons mène à une page « En construction » ; `node scripts/adartons.js <pseudo> <montant>` crédite un compte (tests, support).
+
+- Catalogue : `src/game/shopCatalog.js` (premium, pack « Tous les cosmétiques », un article par thème de jeu et par design de village ; Adarma et Beige restent gratuits).
+- Portées d'une offre : un monde (son joueur), tout le compte (tous les mondes), tout un serveur privé (acheté par son créateur, pour tous ses joueurs). Durée en jours, ou sans fin / jusqu'à la fin du monde.
+- Droits acquis : table `Entitlements`, lus par `ShopService.rightsFor(userId, worldId)`. Le premium donne `premium.buildQueueBonus` emplacements de file de construction en plus ; un thème ou un design ne s'applique que là où il est possédé.
+- Les comptes qui utilisaient un thème ou un design avant l'ouverture de la boutique le gardent (droit acquis, migration `20261001040000-shop`).
+- Pages légales : `/mentions-legales`, `/cgu`, `/cgv`, `/confidentialite`, `/cookies` (modèles à faire relire, champs entre crochets à compléter).
 
 L'église est un module de monde (`features.church`, case « Église » à la création d'un serveur) : église (niveaux 1 à 3, zone de 4, 6 puis 8 cases) et première église (6 cases, une par joueur, déjà construite dans le premier village, indestructible par les catapultes). Hors de la zone de ses églises, un village se bat à 50 % : en attaque depuis ce village, en défense de ce village (soutiens compris). L'église disparaît quand le village est conquis. Voir `src/game/faith.js`.
 

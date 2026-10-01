@@ -15,7 +15,7 @@
   const privateFeatures = [
     ['settings', 'Tes règles', 'Vitesse, unités, nuit, durée : tout se règle.'],
     ['lock', 'Entre amis', 'Ouvert à tous ou réservé à ceux qui ont le code.'],
-    ['coin', 'Gratuit', 'Aucune option payante, comme tout le jeu.'],
+    ['adarton', 'Gratuit', 'Le jeu est gratuit ; la boutique est facultative.'],
   ];
   const privateHref = typeof user !== 'undefined' && user ? '/servers/new' : '/register';
 %>
@@ -40,7 +40,7 @@
       <%# Vitrine : un village développé, tel qu'il apparaît en jeu (même décor et mêmes bâtiments que le plan). %>
       <%# Vitrine : prend la hauteur libre de la colonne (au moins 220 px), recadrée depuis le haut du village pour
           garder le quartier général ; la présentation garde sa hauteur naturelle. %>
-      <div class="relative flex min-h-[220px] flex-1 items-end overflow-hidden border-2 border-black bg-night shadow-[inset_0_0_0_2px_var(--color-head),5px_5px_0_#000]">
+      <div class="relative isolate flex min-h-[220px] flex-1 items-end overflow-hidden border-2 border-black bg-night shadow-[inset_0_0_0_2px_var(--color-head),5px_5px_0_#000]">
         <%- include('village-showcase', { cls: 'absolute! inset-x-0 top-0 w-full' }) %>
         <div class="absolute inset-x-2.5 bottom-2.5 z-[300] border border-bronze-500 bg-night/90 px-2.5 py-1.5 text-xs text-parchment-400">
           <span class="font-semibold text-gold-400">Ton village</span> · quartier général, caserne, forge et muraille : chaque bâtiment compte.

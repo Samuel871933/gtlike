@@ -1,0 +1,56 @@
+<%# Modèle de texte : à faire relire par un professionnel du droit avant la mise en production.
+    Les mentions entre crochets ([Raison sociale], [adresse du siège]…) sont à remplacer par les informations réelles de l'éditeur. %>
+<%- include('_start', {
+  title: 'Mentions légales',
+  sub: 'Qui édite et héberge Adarma (article 6 de la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l’économie numérique).',
+  toc: [
+    ['editeur', 'Éditeur du site'],
+    ['publication', 'Directeur de la publication'],
+    ['hebergeur', 'Hébergement'],
+    ['contact', 'Nous contacter'],
+    ['propriete', 'Propriété intellectuelle'],
+    ['contenus', 'Contenus publiés par les joueurs'],
+    ['donnees', 'Données personnelles et cookies'],
+    ['mediation', 'Médiation de la consommation'],
+    ['droit', 'Droit applicable'],
+  ],
+}) %>
+
+<h2 id="editeur">1. Éditeur du site</h2>
+<p>Le site et le jeu Adarma (ci-après « le Service ») sont édités par :</p>
+<ul>
+  <li><strong>[Raison sociale]</strong>, [forme juridique] au capital de [capital social] ;</li>
+  <li>siège social : [adresse du siège] ;</li>
+  <li>immatriculation : [RCS / SIRET] ;</li>
+  <li>numéro de TVA intracommunautaire : [numéro de TVA intracommunautaire] ;</li>
+  <li>adresse électronique : [adresse e-mail de contact].</li>
+</ul>
+
+<h2 id="publication">2. Directeur de la publication</h2>
+<p>Le directeur de la publication est [directeur de la publication], en sa qualité de représentant légal de [Raison sociale].</p>
+
+<h2 id="hebergeur">3. Hébergement</h2>
+<p>Le Service est hébergé par : [Hébergeur : nom, adresse, téléphone].</p>
+<p>Les données du jeu (comptes, mondes, messages, images de profil) sont stockées sur les serveurs de cet hébergeur.</p>
+
+<h2 id="contact">4. Nous contacter</h2>
+<p>Pour toute question sur le Service, sur votre compte, sur un achat ou sur vos données personnelles, écrivez à [adresse e-mail de contact]. Pour une question de jeu, l’<a href="/help">aide</a> et le <a href="/forum">forum</a> répondent souvent plus vite.</p>
+
+<h2 id="propriete">5. Propriété intellectuelle</h2>
+<p>Le nom Adarma, les logos, les illustrations (bâtiments, unités, cartes, thèmes de jeu et designs de village), les textes, les sons, l’interface et le code du Service sont la propriété de [Raison sociale] ou de ses partenaires et sont protégés par le Code de la propriété intellectuelle.</p>
+<p>Toute reproduction, représentation, adaptation ou extraction, totale ou partielle, sans autorisation écrite préalable est interdite, sauf dans les limites prévues par la loi (copie privée, courte citation). Les captures d’écran du jeu peuvent être partagées à des fins non commerciales, en citant Adarma.</p>
+
+<h2 id="contenus">6. Contenus publiés par les joueurs</h2>
+<p>Les joueurs peuvent publier des contenus : pseudos, noms de villages et de tribus, messages privés, messages des forums de tribu et du forum général, descriptions et images de profil. Ils en sont seuls responsables, dans le respect des <a href="/cgu">conditions générales d’utilisation</a> et des <a href="/rules">règles du jeu</a>.</p>
+<p>Pour signaler un contenu manifestement illicite, écrivez à [adresse e-mail de contact] en indiquant : la date du signalement, vos nom et coordonnées, l’adresse (URL) ou la description précise du contenu, les motifs pour lesquels il doit être retiré et, le cas échéant, la copie de votre demande à son auteur. Nous retirons promptement tout contenu manifestement illicite qui nous est signalé.</p>
+
+<h2 id="donnees">7. Données personnelles et cookies</h2>
+<p>Le traitement de vos données personnelles est décrit dans la <a href="/confidentialite">politique de confidentialité</a>. Le Service n’utilise que des cookies strictement nécessaires à son fonctionnement, détaillés sur la page <a href="/cookies">cookies</a>.</p>
+
+<h2 id="mediation">8. Médiation de la consommation</h2>
+<p>Conformément aux articles L612-1 et suivants du Code de la consommation, en cas de litige non résolu avec notre service client, vous pouvez recourir gratuitement au médiateur de la consommation suivant : [médiateur de la consommation]. Les modalités sont précisées dans les <a href="/cgv#reclamations">conditions générales de vente</a>.</p>
+
+<h2 id="droit">9. Droit applicable</h2>
+<p>Les présentes mentions légales sont régies par le droit français.</p>
+
+<%- include('_end') %>

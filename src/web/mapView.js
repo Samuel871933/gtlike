@@ -13,6 +13,7 @@ const { villageDesignFor, DEFAULT_VILLAGE_DESIGN } = require('./villageDesigns')
 const TribeService = require('../services/TribeService');
 const MarkerService = require('../services/MarkerService');
 const FavoriteService = require('../services/FavoriteService');
+const ShopService = require('../services/ShopService');
 const combat = require('../game/combat');
 
 const SECTOR = 20;
@@ -49,7 +50,7 @@ function kindOf(vc, v) {
 const markOf = (vc, v) => MarkerService.colorOf(vc.colors, v);
 
 /** Un village tel que l'affichent la case, l'infobulle et le menu d'actions. */
-function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), orders = new Map()) {
+function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), orders = new Map(), rights = new Map()) {
   const kind = kindOf(vc, v);
   const p = v.Player;
   const t = p && p.Tribe;
@@ -62,7 +63,8 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), 
     special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
     fav: vc.favIds.has(v.id),
     // Design (skin) choisi par le propriétaire pour ses villages, vu par tous ; les barbares gardent le design par défaut.
-    design: p && p.User ? villageDesignFor(p.User).id : DEFAULT_VILLAGE_DESIGN,
+    // Seulement s'il le possède sur ce monde (boutique) ; `rights` : droits par compte (ShopService.rightsByUser).
+    design: p && p.User ? villageDesignFor(p.User, rights.get(p.userId) || rights.server || null).id : DEFAULT_VILLAGE_DESIGN,
     mark: markOf(vc, v),
     // Morale de tes attaques contre ce joueur (rien contre les barbares et tes propres villages).
     morale: vc.moraleOf && p && kind !== 'own' && kind !== 'current' ? `${Math.round(vc.moraleOf(p.points) * 100)} %` : '',
@@ -89,10 +91,11 @@ async function sector(vc, sx, sy) {
     attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
     include: [{
       model: Player,
-      attributes: ['id', 'name', 'tribeId', 'points', 'villageCount', 'isBot'],
+      attributes: ['id', 'name', 'userId', 'tribeId', 'points', 'villageCount', 'isBot'],
       include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }, { model: User, attributes: ['villageDesign'] }],
     }],
   });
+  const rights = await ShopService.rightsByUser(villages.map((v) => v.Player && v.Player.userId), vc.village.worldId);
   // Points des tribus présentes (infobulle) : somme des points de leurs membres.
   const tribeIds = [...new Set(villages.map((v) => v.Player && v.Player.tribeId).filter(Boolean))];
   const tribePoints = new Map();
@@ -106,7 +109,7 @@ async function sector(vc, sx, sy) {
   const lastAttacks = new Map(attacks.map((a) => [a.villageId, a]));
   const notes = await VillageNoteService.visible(vc.player, villages.map((v) => v.id));
   const orders = await MapOrderService.visible(vc.player, villages.map((v) => v.id));
-  return { sx, sy, cells: villages.map((v) => cellOf(vc, v, tribePoints, lastAttacks, notes, orders)) };
+  return { sx, sy, cells: villages.map((v) => cellOf(vc, v, tribePoints, lastAttacks, notes, orders, rights)) };
 }
 
 /** Secteurs couvrant un rectangle de cases (bornes incluses). */

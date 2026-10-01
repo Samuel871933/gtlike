@@ -2,7 +2,7 @@
 <%
   // Quartier général, agencé comme sur Guerre Tribale : onglets Construction / Démolition, file en cours
   // (construction, durée, achèvement, annulation), puis tableau des bâtiments (besoins, bouton du niveau suivant).
-  // Pas de colonne « Accélération » : aucune option premium (voir README, Hors périmètre).
+  // Pas de colonne « Accélération » : la boutique ne vend pas d'accélération (le premium allonge seulement la file).
   const vid = ctx.village.id;
   const favs = new Set(favoriteBuildings(player, ctx));
   const tabHref = (t) => `/village/${vid}/main${t === 'demolition' ? '?tab=demolition' : ''}`;
@@ -35,7 +35,7 @@
   <%# File en cours (constructions et démolitions). %>
   <% if (ctx.buildOrders.length) { %>
     <section class="<%= ui.panel %> min-w-0">
-      <%- panelHead('Constructions en cours', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.cfg.buildQueueSlots}</span>`) %>
+      <%- panelHead('Constructions en cours', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueSlots}</span>`) %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
           <thead><tr><th>Construction</th><th>Durée</th><th class="max-sm:hidden">Achèvement</th><th class="text-right">Annulation</th></tr></thead>

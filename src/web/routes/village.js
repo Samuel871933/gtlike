@@ -845,7 +845,8 @@ router.get('/players/:playerId', ah(async (req, res) => {
   // Le contenu du profil s'affiche dans le thème de jeu de son propriétaire (les bots, sans compte, ont le thème par
   // défaut) ; l'en-tête et le pied de page gardent celui du visiteur.
   const owner = subject.userId ? await require('../../models').User.findByPk(subject.userId, { attributes: ['gameStyle'] }) : null;
-  const ownerStyle = require('../gameStyles').gameStyleFor(owner);
+  const ownerRights = await require('../../services/ShopService').rightsFor(subject.userId, subject.worldId);
+  const ownerStyle = require('../gameStyles').gameStyleFor(owner, ownerRights);
   const profileStyle = ownerStyle.id === res.locals.gameStyle?.id ? null : ownerStyle;
   res.render('player', { ...rest, subject, profileStyle, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
 }));
@@ -1045,6 +1046,7 @@ router.post('/account/game-style', ah(async (req, res) => {
   const { isGameStyle, GAME_STYLES } = require('../gameStyles');
   const id = String(req.body.style || '');
   if (!isGameStyle(id)) throw new GameError('Thème inconnu.');
+  if (!res.locals.shopRights.has(`theme:${id}`)) throw new GameError(`Le thème ${GAME_STYLES[id].name} se débloque à la boutique.`);
   await req.user.update({ gameStyle: id });
   flash(req, 'success', `Thème ${GAME_STYLES[id].name} appliqué.`);
   res.redirect(`${base(req)}/account`);
@@ -1065,6 +1067,7 @@ router.post('/account/village-design', ah(async (req, res) => {
   const { isVillageDesign, VILLAGE_DESIGNS } = require('../villageDesigns');
   const id = String(req.body.design || '');
   if (!isVillageDesign(id)) throw new GameError('Design de village inconnu.');
+  if (!res.locals.shopRights.has(`design:${id}`)) throw new GameError(`Le design ${VILLAGE_DESIGNS[id].name.toLowerCase()} se débloque à la boutique.`);
   await req.user.update({ villageDesign: id });
   flash(req, 'success', `Design ${VILLAGE_DESIGNS[id].name.toLowerCase()} appliqué à tes villages : tous les joueurs les voient ainsi.`);
   res.redirect(`${base(req)}/account#design-villages`);

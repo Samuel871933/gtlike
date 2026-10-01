@@ -1,0 +1,105 @@
+<%- include('partials/header', { title: item.name }) %>
+<%
+  // Achat d'un article, en étapes : 1. pour qui (un monde, tout le compte, tout mon serveur) ; 2. sur quel monde (portées
+  // monde et serveur) ; 3. combien de temps (s'il y a plusieurs durées) ; puis récapitulatif, renonciation et paiement en
+  // Adartons (ShopService.purchase). public/js/shop.js n'affiche que l'étape utile et tient le récapitulatif à jour ;
+  // sans script, tout reste visible et le serveur valide l'offre choisie.
+  const scopes = ['world', 'account', 'server'].map((id) => ({ id, offers: item.offers.filter((o) => o.scope === id) })).filter((s) => s.offers.length);
+  const lists = { world: targets.world, server: targets.server };
+  const blocked = (id) => (lists[id] ? !lists[id].length : false);
+  const presetWorld = targets.world.find((w) => w.slug === preset);
+  const presetServer = targets.server.find((w) => w.slug === preset);
+  // Portée proposée d'abord : le monde d'où l'on vient, sinon un monde si l'on joue, sinon le compte ; jamais le serveur d'office.
+  const startScope = (presetServer && scopes.some((s) => s.id === 'server') && 'server')
+    || (!blocked('world') && scopes.some((s) => s.id === 'world') && 'world')
+    || (scopes.some((s) => s.id === 'account') && 'account')
+    || scopes.find((s) => !blocked(s.id))?.id || scopes[0].id;
+  const scopeIcon = { world: 'map', account: 'profile', server: 'crown' };
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  const ownedEverywhere = item.kind !== 'premium' && rights.has(item.key);
+  const step = (n, title) => `<span class="flex items-center gap-2 font-display text-[17px] font-semibold text-parchment-100"><span class="flex size-6 items-center justify-center border-2 border-black bg-head text-[13px] text-on-accent">${n}</span>${title}</span>`;
+%>
+<div class="flex flex-col gap-3.5 pb-4">
+  <a href="/shop" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boutique</a>
+  <%- include('partials/page-title', { kicker: 'Boutique', title: item.name, sub: item.description }) %>
+
+  <% if (ownedEverywhere) { %>
+    <p class="<%= ui.alertInfo %>">Tu possèdes déjà cet article pour tout ton compte, sur tous les mondes : inutile de l’acheter à nouveau.</p>
+  <% } %>
+
+  <form method="post" action="/shop/buy" class="<%= ui.panel %>" data-shop-form data-balance="<%= user.adartons %>" data-item="<%= item.name %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="itemKey" value="<%= item.key %>">
+    <%- panelHead('Acheter', `<span class="text-[13px] text-parchment-500 tabular-nums">Ton solde : ${num(user.adartons)} Adartons</span>`) %>
+
+    <%# 1. Pour qui ? %>
+    <fieldset class="flex flex-col gap-2.5 border-b border-bronze-900 px-4 py-3.5">
+      <legend class="contents"><%- step(1, 'Pour qui ?') %></legend>
+      <div class="grid gap-2 <%= ['', '', 'sm:grid-cols-2', 'sm:grid-cols-3'][scopes.length] %>">
+        <% for (const s of scopes) { const off = blocked(s.id); const from = Math.min(...s.offers.map((o) => o.price)); %>
+          <label class="relative flex flex-col gap-1.5 border-2 border-black bg-night p-3 shadow-[inset_0_0_0_1px_var(--color-bronze-800)] has-checked:bg-thead has-checked:shadow-[inset_0_0_0_2px_var(--color-gold-400)] <%= off ? 'cursor-not-allowed opacity-55' : 'cursor-pointer hover:shadow-[inset_0_0_0_1px_var(--color-gold-400)]' %>">
+            <input type="radio" name="scope" value="<%= s.id %>" class="sr-only" <%= s.id === startScope && !off ? 'checked' : '' %> <%= off ? 'disabled' : '' %> data-scope>
+            <span class="flex items-center gap-2 text-gold-400"><%- icon(scopeIcon[s.id], 'size-4', 2.2) %><span class="font-display text-[16px] font-semibold text-parchment-100"><%= SCOPES[s.id].name %></span></span>
+            <span class="text-[13px] leading-snug text-parchment-400"><%= SCOPES[s.id].hint %></span>
+            <% if (off) { %>
+              <span class="mt-auto text-[13px] text-parchment-500"><%= s.id === 'world' ? 'Tu ne joues sur aucun monde en cours.' : 'Réservé aux créateurs d’un serveur privé.' %></span>
+            <% } else { %>
+              <span class="mt-auto flex items-center gap-1 text-sm text-parchment-300"><%= s.offers.length > 1 ? 'dès' : '' %> <span class="flex items-center gap-1 font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-3.5', 2) %><%= num(from) %></span></span>
+            <% } %>
+          </label>
+        <% } %>
+      </div>
+    </fieldset>
+
+    <%# 2 et 3, pour chaque portée : le monde concerné, puis la durée. Seule la portée choisie s'affiche (shop.js). %>
+    <% for (const s of scopes) { if (blocked(s.id)) continue; const needsWorld = Boolean(lists[s.id]); %>
+      <%# Rien à choisir (compte, durée unique) : bloc masqué, sa durée part quand même avec le formulaire. %>
+      <div class="flex flex-col gap-3.5 border-b border-bronze-900 px-4 py-3.5 <%= !needsWorld && s.offers.length === 1 ? 'hidden' : '' %>" data-scope-panel="<%= s.id %>">
+        <% if (needsWorld) { %>
+          <label class="flex flex-col gap-2">
+            <%- step(2, s.id === 'world' ? 'Sur quel monde ?' : 'Pour quel serveur ?') %>
+            <select name="<%= s.id === 'world' ? 'worldId' : 'serverId' %>" class="<%= ui.input %> w-full sm:w-80" data-target>
+              <% for (const w of lists[s.id]) { const pre = s.id === 'world' ? presetWorld : presetServer; %><option value="<%= w.id %>" <%= pre && pre.id === w.id ? 'selected' : '' %>><%= w.name %></option><% } %>
+            </select>
+          </label>
+        <% } %>
+        <%# Une seule durée (cosmétiques) : rien à choisir, elle figure dans le récapitulatif. %>
+        <fieldset class="flex flex-col gap-2 <%= s.offers.length > 1 ? '' : 'hidden' %>">
+          <legend class="contents"><%- step(needsWorld ? 3 : 2, 'Combien de temps ?') %></legend>
+          <div class="flex flex-wrap gap-2">
+            <% s.offers.forEach((o, i) => { %>
+              <label class="flex min-w-32 cursor-pointer flex-col items-start gap-0.5 border-2 border-black bg-night px-3 py-2 shadow-[inset_0_0_0_1px_var(--color-bronze-800)] has-checked:bg-thead has-checked:shadow-[inset_0_0_0_2px_var(--color-gold-400)] hover:shadow-[inset_0_0_0_1px_var(--color-gold-400)]">
+                <input type="radio" name="offerId" value="<%= o.id %>" class="sr-only" data-offer data-scope-of="<%= s.id %>" data-price="<%= o.price %>" data-duration="<%= durationLabel(o) %>" <%= s.id === startScope && i === 0 ? 'checked' : '' %>>
+                <span class="text-parchment-200"><%= cap(durationLabel(o)) %></span>
+                <span class="flex items-center gap-1 font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-3.5', 2) %><%= num(o.price) %></span>
+              </label>
+            <% }) %>
+          </div>
+        </fieldset>
+      </div>
+    <% } %>
+
+    <%# Récapitulatif et paiement. %>
+    <div class="flex flex-col gap-3 px-4 py-3.5">
+      <div class="flex flex-col gap-1 border border-bronze-800 bg-black/25 px-3.5 py-3" aria-live="polite">
+        <span class="text-[13px] text-parchment-500">Récapitulatif</span>
+        <span class="text-parchment-100" data-summary><%= item.name %></span>
+        <span class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+          <span class="text-parchment-400">Prix</span>
+          <span class="flex items-center gap-1 text-xl font-semibold text-gold-200 tabular-nums"><%- icon('adarton', 'size-4', 2) %><span data-total>—</span></span>
+        </span>
+        <span class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+          <span class="text-parchment-400">Solde après l’achat</span>
+          <span class="tabular-nums" data-after>—</span>
+        </span>
+        <span class="hidden text-sm text-blood-450" data-missing>Il te manque <span class="font-semibold tabular-nums" data-missing-amount></span> Adartons. <a href="/shop/adartons" class="<%= ui.link %>">Acheter des Adartons</a></span>
+      </div>
+      <label class="<%= ui.checkLabel %> items-start text-[13px] leading-snug text-parchment-400">
+        <input type="checkbox" name="waiver" value="1" required class="<%= ui.checkbox %> mt-0.5">
+        <span>Je veux l’article tout de suite et je renonce à mon droit de rétractation (contenu numérique fourni immédiatement). J’accepte les <a href="/cgv" class="<%= ui.link %>" target="_blank">conditions générales de vente</a>.</span>
+      </label>
+      <button class="<%= btn('gold') %> self-start" data-pay><%- icon('adarton', 'size-3.5', 2.2) %><span data-pay-label>Payer avec mes Adartons</span></button>
+    </div>
+  </form>
+</div>
+<script src="/js/shop.js" defer></script>
+<%- include('partials/footer') %>

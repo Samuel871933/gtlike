@@ -15,7 +15,42 @@ const User = sequelize.define('User', {
   villageDesign: { type: DataTypes.STRING(16), allowNull: true },
   // Style de jeu (densité de l'interface) (src/web/gameLayouts.js) : normal ou minimaliste ; nul = minimaliste (par défaut).
   gameLayout: { type: DataTypes.STRING(16), allowNull: true },
+  // Solde d'Adartons, la monnaie de la boutique (voir ShopService) ; chaque mouvement est inscrit dans AdartonTransactions.
+  adartons: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
 });
+
+/**
+ * Droit acquis à la boutique (voir ShopService et game/shopCatalog.js) : un article (`itemKey` : 'premium',
+ * 'theme:viking', 'design:noir', 'cosmetics:all') pour une portée :
+ *   - 'account' : le compte `userId`, sur tous les mondes ;
+ *   - 'world'   : le joueur du compte `userId` sur le monde `worldId` ;
+ *   - 'server'  : tous les joueurs du serveur privé `worldId` (acheté par son créateur, `userId`).
+ * `endsAt` nul : sans fin (compte) ou jusqu'à la fin du monde (monde, serveur). `source` : purchase, legacy, admin.
+ */
+const Entitlement = sequelize.define('Entitlement', {
+  userId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Users', key: 'id' }, onDelete: 'SET NULL', onUpdate: 'CASCADE' },
+  worldId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Worlds', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  scope: { type: DataTypes.STRING(8), allowNull: false },
+  itemKey: { type: DataTypes.STRING(48), allowNull: false },
+  offerId: { type: DataTypes.STRING(24), allowNull: true },
+  startsAt: { type: DataTypes.DATE, allowNull: false },
+  endsAt: { type: DataTypes.DATE, allowNull: true },
+  price: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  source: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'purchase' },
+}, { indexes: [{ fields: ['userId'] }, { fields: ['worldId'] }] });
+
+/**
+ * Mouvement d'Adartons d'un compte (achat d'un article, crédit d'un pack ou de l'administration) : historique, gardé
+ * (sans compte) après la suppression du compte, pour la comptabilité.
+ */
+const AdartonTransaction = sequelize.define('AdartonTransaction', {
+  userId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Users', key: 'id' }, onDelete: 'SET NULL', onUpdate: 'CASCADE' },
+  amount: { type: DataTypes.INTEGER, allowNull: false },
+  balanceAfter: { type: DataTypes.INTEGER, allowNull: false },
+  reason: { type: DataTypes.STRING(12), allowNull: false },
+  label: { type: DataTypes.STRING(160), allowNull: false },
+  entitlementId: { type: DataTypes.INTEGER, allowNull: true },
+}, { indexes: [{ fields: ['userId'] }] });
 
 /** Un monde (serveur) avec sa configuration propre. */
 const World = sequelize.define('World', {
@@ -648,9 +683,13 @@ const TribeForumVote = sequelize.define(
 TribeForumPoll.hasMany(TribeForumVote, { as: 'votes', foreignKey: { name: 'pollId', allowNull: false }, onDelete: 'CASCADE' });
 Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 
+// Boutique : droit acquis sur un monde (portées monde et serveur).
+Entitlement.belongsTo(World, { foreignKey: { name: 'worldId', allowNull: true }, onDelete: 'CASCADE' });
+
 module.exports = {
   sequelize, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
+  Entitlement, AdartonTransaction,
 };

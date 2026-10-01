@@ -105,6 +105,13 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
 
   // Thème de jeu : Adarma par défaut en jeu, choix enregistré sur le compte, page d'accueil jamais stylée.
   assert.match(after.html, /data-game-style="adarma"/);
+  // Thème payant pas encore possédé : refusé ; puis pack « Tous les cosmétiques » acheté pour le compte.
+  await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
+  assert.match((await http(joined.location)).html, /data-game-style="adarma"/);
+  const ShopService = require('../src/services/ShopService');
+  const bobUser = await require('../src/models').User.findOne({ where: { username: 'Bob' } });
+  await ShopService.credit(bobUser.id, 6000, 'Test');
+  await ShopService.purchase(bobUser.id, { itemKey: 'cosmetics:all', offerId: 'account', waiver: true });
   const styled = await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
   assert.equal(styled.status, 302);
   assert.match((await http(joined.location)).html, /class="h-full scheme-dark light:scheme-light game_style" data-game-style="viking"/);
@@ -566,6 +573,10 @@ test('profil d’un joueur : son contenu dans le thème de jeu de son propriéta
   };
   const owner = await join('Ysolde');
   const page = await owner.http(owner.at);
+  const ShopService = require('../src/services/ShopService');
+  const ysoldeUser = await require('../src/models').User.findOne({ where: { username: 'Ysolde' } });
+  await ShopService.credit(ysoldeUser.id, 1200, 'Test');
+  await ShopService.purchase(ysoldeUser.id, { itemKey: 'theme:egypt', offerId: 'account', waiver: true });
   await owner.http(`${owner.at}/account/game-style`, { method: 'POST', form: { style: 'egypt', _csrf: tokenOf(page.html) } });
   const { Player } = require('../src/models');
   const ysolde = await Player.findOne({ where: { name: 'Ysolde' } });
@@ -622,4 +633,52 @@ test('confirmation d’attaque : attaques supplémentaires envoyées à la suite
   assert.equal(cmds.length, 3);
   assert.deepEqual(cmds.map((c) => c.units.axe), [30, 30, 30]);
   assert.equal(+cmds[2].arrivesAt - +cmds[1].arrivesAt, 100);
+});
+
+test('pages légales : publiques, liées depuis le pied de page et l’inscription', async () => {
+  const anon = client();
+  const pages = ['/mentions-legales', '/cgu', '/cgv', '/confidentialite', '/cookies'];
+  for (const page of pages) {
+    const r = await anon(page);
+    assert.equal(r.status, 200, `${page} → ${r.status}`);
+    assert.match(r.html, /Dernière mise à jour : 1er octobre 2026/);
+    assert.match(r.html, /aria-label="Sommaire"/);
+  }
+  // Pied de page hors partie (visiteur) et en jeu.
+  const home = await anon('/rules');
+  for (const page of pages) assert.match(home.html, new RegExp(`<footer[\\s\\S]*href="${page}"`));
+  const reg = await anon('/register');
+  assert.match(reg.html, /En créant un compte, vous acceptez les <a href="\/cgu"/);
+  assert.match(reg.html, /href="\/confidentialite"/);
+
+  const http = client();
+  const form = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Legiste', email: 'legiste@example.com', password: 'motdepasse', _csrf: tokenOf(form.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const village = await http(joined.location);
+  assert.match(village.html, /Réglages du monde/);
+  for (const page of pages) assert.match(village.html, new RegExp(`<footer[\\s\\S]*href="${page}"`));
+});
+
+test('boutique : catalogue, offres, achat en Adartons, packs en construction, mes achats', async () => {
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Marchande', email: 'marchande@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  assert.equal((await http('/shop')).status, 200);
+  const item = await http('/shop/item/theme:roman');
+  assert.match(item.html, /name="waiver"/);
+  assert.equal((await http('/shop/item/inconnu')).status, 404);
+  assert.match((await http('/shop/adartons')).html, /\/shop\/coming-soon\?pack=pack-200/);
+  assert.match((await http('/shop/coming-soon?pack=pack-200')).html, /En construction/);
+  const { User } = require('../src/models');
+  const user = await User.findOne({ where: { username: 'Marchande' } });
+  await require('../src/services/ShopService').credit(user.id, 1500, 'Test');
+  const refused = await http('/shop/buy', { method: 'POST', form: { _csrf: tokenOf(item.html), itemKey: 'theme:roman', offerId: 'account' } });
+  assert.equal(refused.status, 302);
+  assert.equal((await user.reload()).adartons, 1500, 'sans renonciation : rien n’est débité');
+  const bought = await http('/shop/buy', { method: 'POST', form: { _csrf: tokenOf(item.html), itemKey: 'theme:roman', offerId: 'account', waiver: '1' } });
+  assert.equal(bought.location, '/shop/purchases');
+  assert.equal((await user.reload()).adartons, 300);
+  assert.match((await http('/shop/purchases')).html, /Thème Romain/);
 });

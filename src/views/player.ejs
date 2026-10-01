@@ -123,15 +123,35 @@
       </div>
     </section>
 
+    <%# Succès quotidiens, en tête des succès (ceux obtenus au moins une fois ; tous sur son propre profil) ; porte l'ancre #succes. %>
+    <% const shownDaily = isMe ? daily : daily.filter((d) => d.count); %>
+    <% if (shownDaily.length) { %>
+    <section class="<%= ui.panel %> scroll-mt-28" id="succes">
+      <%- panelHead('Succès quotidiens', `<span class="text-[13px] text-parchment-500">4 points chacun</span>`) %>
+      <ul class="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
+        <% for (const d of shownDaily) { %>
+          <li class="flex items-center gap-2.5 border px-2.5 py-2 <%= d.count ? 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/2' : 'border-bronze-900 bg-black/25' %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
+            <span class="<%= medal %> <%= d.count ? tierMedal[4] : tierMedal[0] %> achievement-art achievement-art--daily" data-achievement-tier="<%= d.count ? 4 : 0 %>"><img src="<%= achImage[d.def.key] %>" alt="" width="96" height="96"></span>
+            <span class="flex min-w-0 flex-col">
+              <span class="text-lg leading-none font-semibold tabular-nums <%= d.count ? 'text-gold-200' : 'text-parchment-600' %>"><%= d.count %></span>
+              <span class="truncate text-xs <%= d.count ? 'text-parchment-300' : 'text-parchment-500' %>"><%= d.def.name %></span>
+              <% if (d.last) { %><span class="truncate text-[11px] text-parchment-500">Dernier : <%= dayLabel(d.last, now) %></span><% } %>
+            </span>
+          </li>
+        <% } %>
+      </ul>
+    </section>
+    <% } %>
+
     <%# Succès obtenus, par catégorie ; les autres dans un volet repliable %>
-    <% let anchored = false;
+    <% let anchored = shownDaily.length > 0;
        for (const [group, title] of GROUPS) {
          const list = achievements.filter((a) => a.def.group === group);
          const won = list.filter((a) => a.tier).sort((a, b) => b.tier - a.tier);
          // Profil d'un autre joueur : seules les catégories où il a obtenu quelque chose, comme sur GT.
          if (!list.length || (!isMe && !won.length)) continue;
          const rest = list.filter((a) => !a.tier || a.tier < a.def.tiers.length);
-         // Ancre #succes (lien « Voir vos succès » des rapports) sur la première catégorie.
+         // Ancre #succes (lien « Voir vos succès » des rapports) sur la première section de succès.
          const anchor = anchored ? '' : ' id="succes"'; anchored = true; %>
       <section class="<%= ui.panel %> scroll-mt-28"<%- anchor %>>
         <%- panelHead(`Succès · ${title}`, `<span class="text-[13px] text-parchment-500 tabular-nums">${won.length} / ${list.length}</span>`) %>
@@ -168,25 +188,6 @@
       </section>
     <% } %>
 
-    <%# Succès quotidiens (ceux obtenus au moins une fois ; tous sur son propre profil) %>
-    <% const shownDaily = isMe ? daily : daily.filter((d) => d.count); %>
-    <% if (shownDaily.length) { %>
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Succès quotidiens', `<span class="text-[13px] text-parchment-500">4 points chacun</span>`) %>
-      <ul class="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
-        <% for (const d of shownDaily) { %>
-          <li class="flex items-center gap-2.5 border px-2.5 py-2 <%= d.count ? 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/2' : 'border-bronze-900 bg-black/25' %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
-            <span class="<%= medal %> <%= d.count ? tierMedal[4] : tierMedal[0] %> achievement-art achievement-art--daily" data-achievement-tier="<%= d.count ? 4 : 0 %>"><img src="<%= achImage[d.def.key] %>" alt="" width="96" height="96"></span>
-            <span class="flex min-w-0 flex-col">
-              <span class="text-lg leading-none font-semibold tabular-nums <%= d.count ? 'text-gold-200' : 'text-parchment-600' %>"><%= d.count %></span>
-              <span class="truncate text-xs <%= d.count ? 'text-parchment-300' : 'text-parchment-500' %>"><%= d.def.name %></span>
-              <% if (d.last) { %><span class="truncate text-[11px] text-parchment-500">Dernier : <%= dayLabel(d.last, now) %></span><% } %>
-            </span>
-          </li>
-        <% } %>
-      </ul>
-    </section>
-    <% } %>
   </div>
 </div>
 <% if (profileStyle) { %></div><% } %>

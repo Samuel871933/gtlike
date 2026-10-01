@@ -44,7 +44,7 @@
     ]],
     ['Construction et production', [
       ['Production de base', `${num(cfg.baseProduction)} / h`],
-      ['Emplacements de la file', String(cfg.buildQueueSlots)],
+      ['Emplacements de la file', `${cfg.buildQueueSlots} (${cfg.buildQueueSlots + cfg.premium.buildQueueBonus} avec le premium)`],
       ['Remboursement à l’annulation', `${Math.round(cfg.cancelRefund * 100)} %`],
       ['Recherche à la forge', cfg.tech === 'simple' ? 'Simple (une fois par unité)' : 'Aucune'],
     ]],

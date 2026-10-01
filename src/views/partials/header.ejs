@@ -58,7 +58,6 @@
     [`${v}/messages`, 'Messages', 'messages', page === 'messages', unreadMessages, `${ui.countBadge} bg-gold-400 text-night`],
     [`${v}/tribe`, 'Tribu', 'tribe', page === 'tribe', tribeInvites + tribeForumUnread, ui.countBadge],
     [`${v}/ranking`, 'Classement', 'ranking', page === 'ranking', 0, ui.countBadge],
-    [`${v}/players/${ctx.village.playerId}`, 'Profil', 'profile', page === 'profile', 0, ui.countBadge],
   ];
 %>
 <%# 1. Barre du haut : logo et monde, menu principal, joueur et réglages. %>
@@ -81,11 +80,14 @@
   </nav>
   <div class="flex shrink-0 items-center gap-2 border-l-[3px] border-black px-2.5 shadow-[inset_1px_0_0_var(--color-bronze-800)]">
     <% if (player) { %>
-      <a href="<%= v %>/ranking" class="flex flex-col items-end leading-[1.05] no-underline max-md:hidden" title="Votre classement sur <%= ctx.world.name %>">
-        <span class="text-[15px] font-semibold text-parchment-100 egypt:text-on-accent"><%= player.name %><% if (player.Tribe) { %> <span class="text-blood-600">[<%= player.Tribe.tag %>]</span><% } %></span>
-        <span class="text-[11px] text-parchment-500 tabular-nums egypt:text-gold-700">#<%= num(playerRank) %> · <%= num(player.points) %> pts</span>
+      <%# Pseudo : lien vers son profil (plus d'onglet « Profil » dans le menu) ; rang et points en dessous. %>
+      <a href="<%= v %>/players/<%= ctx.village.playerId %>" class="group flex min-w-0 flex-col items-end leading-[1.05] no-underline" title="Votre profil"<%- page === 'profile' ? ' aria-current="page"' : '' %>>
+        <span class="max-w-32 truncate text-[15px] font-semibold group-hover:text-gold-200 <%= page === 'profile' ? 'text-gold-200' : 'text-parchment-100 egypt:text-on-accent' %>"><%= player.name %></span>
+        <span class="text-[11px] text-parchment-500 tabular-nums max-md:hidden egypt:text-gold-700">#<%= num(playerRank) %> · <%= num(player.points) %> pts</span>
       </a>
     <% } %>
+    <%# Boutique (hors partie), avec ce monde présélectionné pour les achats « un monde ». %>
+    <a href="/shop?world=<%= encodeURIComponent(ctx.world.slug) %>" class="<%= ui.iconBtn %>" title="Boutique · <%= num(user ? user.adartons : 0) %> Adartons" aria-label="Boutique"><%- icon('adarton', 'size-4', 2.2) %></a>
     <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-4', 2.2) %></a>
     <%# Fausse déconnexion, comme sur Guerre Tribale : on quitte le monde et on revient au choix des mondes (la session reste ouverte). %>
     <a href="/worlds" class="<%= ui.iconBtn %>" title="Déconnexion : retour au choix des mondes" aria-label="Déconnexion"><%- icon('logout', 'size-4', 2.2) %></a>
@@ -205,6 +207,7 @@
       <%- lobbyLink('/rules', 'Règles', current === 'rules') %>
       <%- lobbyLink('/help', 'Aide', current === 'help') %>
       <%- lobbyLink('/forum', 'Forum', current === 'forum') %>
+      <%- lobbyLink('/shop', 'Boutique', current === 'shop') %>
       <%- lobbyLink('/account', 'Mon compte', current === 'account') %>
     <% } else { %>
       <%- lobbyLink('/', 'Accueil', current === 'login') %>

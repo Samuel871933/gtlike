@@ -1,0 +1,37 @@
+<%# Début commun des pages légales. Locals : title, sub, toc ([ancre, titre] des sections), legalPage (adresse courante). %>
+<%- include('../partials/header', { title, lobbyPage: 'legal' }) %>
+<%
+  const legalNav = [
+    ['/mentions-legales', 'Mentions légales'],
+    ['/cgu', 'Conditions d’utilisation'],
+    ['/cgv', 'Conditions de vente'],
+    ['/confidentialite', 'Confidentialité'],
+    ['/cookies', 'Cookies'],
+  ];
+%>
+<div class="flex flex-col gap-3.5 pb-4">
+  <%- include('../partials/page-title', { kicker: 'Adarma · Informations légales', title, sub }) %>
+  <div class="grid items-start gap-3.5 md:grid-cols-[250px_minmax(0,1fr)]">
+    <%# Sommaire de la page et accès aux autres pages légales (collant sur grand écran). %>
+    <aside class="flex flex-col gap-3.5 md:sticky md:top-3.5">
+      <nav class="<%= ui.panel %>" aria-label="Sommaire">
+        <%- panelHead('Sommaire') %>
+        <ol class="flex flex-col py-1.5 text-sm">
+          <% toc.forEach(([id, label], i) => { %>
+            <li><a href="#<%= id %>" class="flex gap-2 px-3 py-1 text-parchment-300 no-underline transition hover:bg-thead hover:text-parchment-100"><span class="w-5 shrink-0 tabular-nums text-gold-400"><%= i + 1 %>.</span><span><%= label %></span></a></li>
+          <% }) %>
+        </ol>
+      </nav>
+      <nav class="<%= ui.panel %>" aria-label="Pages légales">
+        <%- panelHead('Pages légales') %>
+        <ul class="flex flex-col py-1.5 text-sm">
+          <% for (const [href, label] of legalNav) { %>
+            <li><a href="<%= href %>" class="block px-3 py-1 no-underline transition hover:bg-thead <%= href === legalPage ? 'text-parchment-100 shadow-[inset_3px_0_0_var(--color-gold-400)]' : 'text-gold-400 hover:text-parchment-100' %>"<%- href === legalPage ? ' aria-current="page"' : '' %>><%= label %></a></li>
+          <% } %>
+        </ul>
+      </nav>
+    </aside>
+    <%# Texte long : largeur de lecture limitée, titres de section ancrés (sommaire ci-contre). %>
+    <article class="<%= ui.panel %> px-4 py-4 sm:px-6">
+      <div class="max-w-[78ch] text-[15px] leading-relaxed [&_a]:text-gold-400 [&_a]:no-underline [&_a:hover]:text-parchment-100 [&_h2]:mt-7 [&_h2]:mb-2 [&_h2]:scroll-mt-4 [&_h2]:border-b [&_h2]:border-bronze-800 [&_h2]:pb-1 [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-normal [&_h2]:text-gold-400 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:font-display [&_h3]:text-base [&_h3]:font-normal [&_h3]:text-parchment-100 [&_li]:my-1 [&_li]:text-parchment-300 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_p]:text-parchment-300 [&_strong]:font-semibold [&_strong]:text-parchment-100 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6">
+        <p class="text-sm !text-parchment-500">Dernière mise à jour : 1er octobre 2026</p>

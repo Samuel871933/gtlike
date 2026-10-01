@@ -1,0 +1,118 @@
+<%# Modèle de texte : à faire relire par un professionnel du droit avant la mise en production.
+    Les mentions entre crochets ([Raison sociale], [prestataire de paiement]…) sont à remplacer par les informations réelles de l'éditeur.
+    À tenir à jour avec le catalogue de la boutique (src/game/shopCatalog.js). %>
+<%- include('_start', {
+  title: 'Conditions générales de vente',
+  sub: 'Les conditions de vente des Adartons et des articles de la boutique Adarma.',
+  toc: [
+    ['objet', 'Objet et champ d’application'],
+    ['vendeur', 'Vendeur'],
+    ['adartons', 'Les Adartons'],
+    ['articles', 'Articles proposés'],
+    ['portee', 'Portée des articles'],
+    ['duree', 'Durée des articles'],
+    ['prix', 'Prix'],
+    ['commande', 'Commande'],
+    ['paiement', 'Paiement'],
+    ['fourniture', 'Fourniture des contenus'],
+    ['retractation', 'Droit de rétractation'],
+    ['fin-monde', 'Fin d’un monde et fermeture d’un serveur'],
+    ['renouvellement', 'Pas de renouvellement automatique'],
+    ['mineurs', 'Achats par des mineurs'],
+    ['garanties', 'Garanties légales'],
+    ['sanctions', 'Suspension, suppression du compte et achats'],
+    ['reclamations', 'Réclamations et médiation'],
+    ['droit', 'Droit applicable'],
+  ],
+}) %>
+
+<h2 id="objet">1. Objet et champ d’application</h2>
+<p>Les présentes conditions générales de vente (« CGV ») s’appliquent à tout achat effectué dans la boutique du jeu Adarma (le « Service ») par un consommateur titulaire d’un compte. Elles complètent les <a href="/cgu">conditions générales d’utilisation</a> (« CGU »).</p>
+<p>Le jeu est gratuit : la boutique est facultative et aucun achat n’est nécessaire pour jouer. Avant toute commande, vous devez accepter les présentes CGV ; la version applicable est celle en vigueur à la date de la commande.</p>
+
+<h2 id="vendeur">2. Vendeur</h2>
+<p>Les ventes sont conclues avec [Raison sociale], [forme juridique] au capital de [capital social], dont le siège est situé [adresse du siège], immatriculée sous le numéro [RCS / SIRET], TVA intracommunautaire [numéro de TVA intracommunautaire]. Service client : [adresse e-mail de contact].</p>
+
+<h2 id="adartons">3. Les Adartons</h2>
+<p>Les Adartons sont la monnaie virtuelle du Service. Ils s’achètent en packs, pour un prix en euros, et sont crédités sur le solde de votre compte.</p>
+<ul>
+  <li>Ils ne peuvent être dépensés que dans le jeu, pour obtenir les articles de la boutique.</li>
+  <li>Ils ne sont <strong>ni remboursables, ni convertibles en argent</strong> ou en tout autre bien, <strong>ni transférables</strong> entre comptes.</li>
+  <li>Ils n’ont aucune valeur en dehors du Service et ne constituent ni une monnaie électronique, ni un moyen de paiement.</li>
+  <li>Ils restent valables tant que votre compte existe et sont <strong>perdus en cas de suppression du compte</strong>, quelle qu’en soit la cause.</li>
+</ul>
+<p>Le solde et l’historique de vos mouvements d’Adartons sont consultables dans votre compte.</p>
+
+<h2 id="articles">4. Articles proposés</h2>
+<p>Les Adartons permettent d’obtenir deux familles d’articles, décrits sur leur fiche dans la boutique avant tout achat (contenu, portée, durée, prix en Adartons) :</p>
+<h3>Articles cosmétiques</h3>
+<ul>
+  <li>les <strong>thèmes de jeu</strong>, qui changent l’apparence de l’interface ;</li>
+  <li>les <strong>designs de village</strong>, qui changent l’apparence des villages sur la carte ;</li>
+  <li>un <strong>pack</strong> réunissant tous les articles cosmétiques.</li>
+</ul>
+<p>Les articles cosmétiques ne donnent aucun avantage dans le jeu.</p>
+<h3>Fonctions premium</h3>
+<p>Les fonctions premium apportent un confort de jeu pour une durée limitée. À ce jour, la seule fonction premium est une <strong>file de construction plus longue</strong>. D’autres fonctions pourront être ajoutées (par exemple un assistant de pillage ou un gestionnaire de compte) ; elles seront décrites dans la boutique avant leur mise en vente. Une fonction premium achetée porte sur les fonctions décrites au moment de l’achat.</p>
+
+<h2 id="portee">5. Portée des articles</h2>
+<p>Chaque article est vendu pour l’une des portées suivantes, indiquée avant l’achat :</p>
+<ul>
+  <li><strong>Un monde</strong> : l’article vaut sur un seul monde (ou serveur), pour votre seul joueur sur ce monde.</li>
+  <li><strong>Le compte</strong> : l’article vaut pour votre compte sur tous les mondes, officiels et privés, y compris ceux que vous rejoindrez plus tard.</li>
+  <li><strong>Un serveur privé</strong> : l’article est acheté par le créateur d’un serveur privé et vaut pour tous les joueurs de ce serveur, tant qu’ils y jouent. Les autres joueurs n’acquièrent aucun droit propre et ne peuvent en demander le remboursement.</li>
+</ul>
+
+<h2 id="duree">6. Durée des articles</h2>
+<ul>
+  <li>Les articles cosmétiques sont <strong>permanents</strong> lorsqu’ils portent sur le compte (tant que le compte existe) et valent <strong>pour la durée de vie du monde</strong> lorsqu’ils portent sur un monde ou sur un serveur privé.</li>
+  <li>Les fonctions premium valent pour <strong>un nombre de jours</strong> indiqué avant l’achat, décompté à partir de leur activation, ou <strong>pour la durée de vie du serveur</strong> lorsqu’elles portent sur un serveur privé.</li>
+</ul>
+<p>Un nouvel achat d’une fonction premium déjà active sur la même portée la prolonge : la nouvelle durée commence à la fin de la durée en cours.</p>
+
+<h2 id="prix">7. Prix</h2>
+<p>Les packs d’Adartons sont vendus en euros, toutes taxes comprises (TTC), au prix affiché dans la boutique au moment de la commande. Le prix des articles est exprimé en Adartons. Nous pouvons modifier les prix à tout moment ; le prix applicable est celui affiché lors de la validation de la commande. Aucuns frais de livraison ne s’appliquent.</p>
+
+<h2 id="commande">8. Commande</h2>
+<h3>Achat d’un pack d’Adartons</h3>
+<p>Vous choisissez un pack, vérifiez le récapitulatif (nombre d’Adartons, prix TTC), acceptez les présentes CGV, renoncez expressément à votre droit de rétractation (voir l’article <a href="#retractation">11</a>) puis validez par un bouton indiquant clairement l’obligation de payer. Le contrat est conclu au moment de la confirmation du paiement. Une confirmation de commande vous est adressée par e-mail ; elle reprend les informations de l’achat ainsi que votre accord et votre renoncement au droit de rétractation.</p>
+<h3>Achat d’un article avec des Adartons</h3>
+<p>Vous choisissez un article, sa portée et, le cas échéant, sa durée et le monde concerné, puis confirmez. Le prix en Adartons est débité de votre solde et l’article est activé immédiatement. Vérifiez bien le monde choisi : un article ne peut pas être déplacé vers un autre monde ou un autre compte.</p>
+
+<h2 id="paiement">9. Paiement</h2>
+<p>Le paiement est exigible à la commande. Il est traité par un prestataire de paiement tiers, [prestataire de paiement], sur une page sécurisée. Le Service ne reçoit et ne conserve jamais votre numéro de carte bancaire : il reçoit seulement du prestataire la confirmation du paiement et ses références.</p>
+<p>Les Adartons sont crédités dès la confirmation du paiement. En cas de refus du paiement, la commande est annulée. En cas d’opposition abusive ou de rétrofacturation injustifiée, les Adartons correspondants sont retirés du solde et le compte peut être suspendu.</p>
+
+<h2 id="fourniture">10. Fourniture des contenus</h2>
+<p>Les Adartons et les articles sont des contenus numériques fournis sans support matériel. Ils sont mis à disposition immédiatement après la confirmation du paiement (Adartons) ou de l’achat (articles). Si un contenu acheté n’est pas fourni, contactez-nous à [adresse e-mail de contact].</p>
+
+<h2 id="retractation">11. Droit de rétractation</h2>
+<p>Les Adartons et les articles sont fournis immédiatement après l’achat. Conformément à l’article L221-28, 13° du Code de la consommation, le droit de rétractation ne peut pas être exercé pour la fourniture d’un contenu numérique non fourni sur un support matériel dont l’exécution a commencé après votre accord préalable exprès et votre renoncement exprès à ce droit.</p>
+<p>Lors de l’achat, une case à cocher vous demande de consentir à la fourniture immédiate du contenu et de reconnaître que vous perdez ainsi votre droit de rétractation. Sans cette case cochée, la commande ne peut pas être validée. Ce consentement est rappelé dans la confirmation de commande.</p>
+
+<h2 id="fin-monde">12. Fin d’un monde et fermeture d’un serveur</h2>
+<p>Un monde a une durée de vie limitée (voir les <a href="/cgu#mondes">CGU</a>). Lorsqu’un monde se termine ou est fermé, y compris un serveur privé fermé par son créateur ou par nous, les droits liés à ce monde prennent fin : articles de portée « monde » ou « serveur privé », fonctions premium en cours sur ce monde. Cette fin ne donne lieu à <strong>aucun remboursement</strong>, en Adartons ou en euros. La durée prévisible d’un monde et ses conditions de victoire sont indiquées sur sa page « Réglages du monde » ; tenez-en compte avant d’acheter un article lié à un monde.</p>
+<p>Les articles de portée « compte » ne sont pas concernés et restent disponibles sur les autres mondes.</p>
+
+<h2 id="renouvellement">13. Pas de renouvellement automatique</h2>
+<p>Les fonctions premium sont achetées pour une durée limitée. Il n’existe <strong>aucun renouvellement automatique</strong> : à l’échéance, la fonction s’arrête. Vous pouvez la prolonger en effectuant un nouvel achat, avant ou après son échéance ; acheté avant l’échéance, la nouvelle durée s’ajoute à la durée restante. Aucun débit n’a lieu sans une action de votre part.</p>
+
+<h2 id="mineurs">14. Achats par des mineurs</h2>
+<p>Un mineur ne peut effectuer d’achat qu’avec l’autorisation préalable de son représentant légal, qui reste responsable de l’usage du moyen de paiement. Les représentants légaux peuvent nous contacter à [adresse e-mail de contact] pour toute question relative à un achat effectué par un mineur.</p>
+
+<h2 id="garanties">15. Garanties légales</h2>
+<p>Vous bénéficiez de la garantie légale de conformité des contenus numériques prévue aux articles L224-25-1 et suivants du Code de la consommation. En cas de défaut de conformité d’un contenu acheté (contenu non fourni, ne fonctionnant pas comme décrit), vous pouvez obtenir sa mise en conformité ou, à défaut, une réduction du prix ou la résolution du contrat, dans les conditions prévues par la loi. Signalez tout défaut à [adresse e-mail de contact].</p>
+<p>Les évolutions du jeu (équilibrage, nouveaux mondes, changements d’interface) ne constituent pas un défaut de conformité dès lors que l’article conserve les caractéristiques décrites lors de l’achat.</p>
+
+<h2 id="sanctions">16. Suspension, suppression du compte et achats</h2>
+<p>Si vous supprimez votre compte, votre solde d’Adartons et vos articles de portée « monde » ou « compte » sont perdus, sans remboursement. Les articles achetés pour un serveur privé restent acquis à ses joueurs jusqu’à la fin de ce serveur.</p>
+<p>En cas de suspension ou de suppression du compte prononcée à bon droit pour manquement aux CGU (notamment triche ou comptes multiples), les Adartons et articles ne sont pas remboursés. Pendant une suspension, la durée des fonctions premium continue de courir.</p>
+
+<h2 id="reclamations">17. Réclamations et médiation</h2>
+<p>Pour toute réclamation, écrivez à [adresse e-mail de contact] en indiquant votre pseudo et la date de l’achat. Nous vous répondons dans un délai de [délai de réponse, par exemple 15 jours].</p>
+<p>Si votre réclamation écrite n’a pas abouti, vous pouvez saisir gratuitement, dans un délai d’un an à compter de cette réclamation, le médiateur de la consommation suivant, conformément aux articles L612-1 et suivants du Code de la consommation : [médiateur de la consommation].</p>
+
+<h2 id="droit">18. Droit applicable</h2>
+<p>Les présentes CGV sont régies par le droit français. Elles ne privent pas le consommateur résidant dans un autre État membre de l’Union européenne de la protection que lui assurent les dispositions impératives de la loi de son pays de résidence. À défaut de solution amiable, le litige est porté devant les juridictions compétentes dans les conditions prévues par la loi.</p>
+
+<%- include('_end') %>

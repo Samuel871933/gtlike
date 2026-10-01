@@ -266,6 +266,9 @@ function buildingPath(id, world) {
 }
 
 function icon(name, cls = 'size-4', strokeWidth = 1.8) {
+  if (name === 'adarton') {
+    return `<img src="/img/shop/adarton.webp" width="384" height="384" class="${cls} shrink-0 object-contain" alt="" aria-hidden="true">`;
+  }
   return `<svg class="${cls} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.flag}</svg>`;
 }
 

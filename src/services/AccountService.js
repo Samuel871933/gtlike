@@ -146,6 +146,8 @@ AccountService.deleteAccount = async function deleteAccount(userId, password) {
     // Le forum garde ses messages, signés « Compte supprimé ».
     await ForumPost.update({ userId: null }, { where: { userId }, transaction: t });
     await ForumThread.update({ userId: null }, { where: { userId }, transaction: t });
+    // Boutique : solde et droits personnels perdus ; ce qu'il a offert à un de ses serveurs reste à ses joueurs.
+    await require('./ShopService').forgetUser(userId, t);
     await user.destroy({ transaction: t });
   });
 };

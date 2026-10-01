@@ -74,8 +74,9 @@ test('suppression du mur : les messages passent dans un sujet verrouillé de la 
   await migrator.up({ to: '20260929010000-tribe-events.js' });
   // Données en SQL brut : le schéma est celui d'avant les migrations suivantes (les modèles, eux, sont à jour).
   const world = await WorldService.createWorld({ slug: 'w1', name: 'Monde 1', config: {} });
-  const user = await AuthService.register({ username: 'Alice', email: 'a@example.com', password: 'motdepasse' });
   const now = new Date();
+  await qi.bulkInsert('Users', [{ username: 'Alice', email: 'a@example.com', passwordHash: 'x', createdAt: now, updatedAt: now }]);
+  const [[user]] = await sequelize.query('SELECT id FROM "Users" WHERE username = \'Alice\'');
   await qi.bulkInsert('Players', [{ name: 'Alice', worldId: world.id, userId: user.id, createdAt: now, updatedAt: now }]);
   const [[player]] = await sequelize.query('SELECT id FROM "Players" WHERE name = \'Alice\'');
   await qi.bulkInsert('Tribes', [{ name: 'Les Loups', tag: 'LUP', description: '', worldId: world.id, createdAt: now, updatedAt: now }]);

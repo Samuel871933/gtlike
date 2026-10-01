@@ -1,0 +1,62 @@
+<%- include('partials/header', { title: 'Mes achats' }) %>
+<%
+  // « Mes achats » : droits du compte (ShopService.history), y compris ceux offerts à ses serveurs, et mouvements d'Adartons.
+  const day = (d) => new Date(d).toLocaleDateString('fr-FR');
+  const status = (r) => {
+    if (r.active) return r.row.endsAt ? `jusqu’au ${day(r.row.endsAt)}` : (r.row.scope === 'account' ? 'pour toujours' : 'tant que le monde dure');
+    return new Date(r.row.startsAt) > now ? `à partir du ${day(r.row.startsAt)}` : `terminé le ${day(r.row.endsAt)}`;
+  };
+  const sourceName = { purchase: 'Achat', legacy: 'Droit acquis', admin: 'Offert' };
+%>
+<div class="flex flex-col gap-3.5 pb-4">
+  <a href="/shop" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-sm"><%- icon('arrowLeft', 'size-3.5', 2.2) %>Boutique</a>
+  <%- include('partials/page-title', { kicker: 'Boutique', title: 'Mes achats', sub: `Solde : ${num(user.adartons)} Adartons` }) %>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Articles', `<span class="text-[13px] text-parchment-500 tabular-nums">${rights.length}</span>`) %>
+    <% if (!rights.length) { %>
+      <p class="px-4.5 py-4 text-parchment-500">Aucun article pour l’instant. <a href="/shop" class="<%= ui.link %>">Voir la boutique</a></p>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Article</th><th>Portée</th><th>Validité</th><th>Origine</th><th class="text-right">Prix</th></tr></thead>
+          <tbody>
+          <% for (const r of rights) { %>
+            <tr class="<%= r.active ? '' : 'opacity-60' %>">
+              <td class="font-semibold text-parchment-100"><%= r.item ? r.item.name : r.row.itemKey %></td>
+              <td><%= SCOPES[r.row.scope] ? SCOPES[r.row.scope].name : r.row.scope %><% if (r.row.World) { %> <span class="text-parchment-500">· <%= r.row.World.name %></span><% } %></td>
+              <td class="whitespace-nowrap <%= r.active ? 'text-olive-300' : 'text-parchment-500' %>"><%= status(r) %></td>
+              <td class="text-parchment-400"><%= sourceName[r.row.source] || r.row.source %></td>
+              <td class="text-right tabular-nums"><%= r.row.price ? num(r.row.price) : '—' %></td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Historique des Adartons') %>
+    <% if (!transactions.length) { %>
+      <p class="px-4.5 py-4 text-parchment-500">Aucun mouvement.</p>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Date</th><th>Libellé</th><th class="text-right">Montant</th><th class="text-right">Solde</th></tr></thead>
+          <tbody>
+          <% for (const tr of transactions) { %>
+            <tr>
+              <td class="whitespace-nowrap text-parchment-400 tabular-nums"><%= day(tr.createdAt) %></td>
+              <td><%= tr.label %></td>
+              <td class="text-right font-semibold tabular-nums <%= tr.amount < 0 ? 'text-blood-450' : 'text-olive-300' %>"><%= tr.amount > 0 ? '+' : '' %><%= num(tr.amount) %></td>
+              <td class="text-right tabular-nums"><%= num(tr.balanceAfter) %></td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+</div>
+<%- include('partials/footer') %>

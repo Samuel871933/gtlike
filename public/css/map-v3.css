@@ -52,13 +52,15 @@
   background-position: center;
   background-size: contain;
   inset: var(--village-inset, 1px);
+  transform: scale(var(--village-scale, 1));
+  transform-origin: center bottom;
 }
 .village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.png'); --village-inset: 17%; }
 .village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.png'); --village-inset: 9%; }
-.village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.png'); }
-.village-marker--4 { --village-image: url('/img/map/villages/beige/level-4.png'); }
-.village-marker--5 { --village-image: url('/img/map/villages/beige/level-5.png'); }
-.village-marker--6 { --village-image: url('/img/map/villages/beige/level-6.png'); }
+.village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.png'); --village-scale: .9; }
+.village-marker--4 { --village-image: url('/img/map/villages/beige/level-4.png'); --village-scale: 1; }
+.village-marker--5 { --village-image: url('/img/map/villages/beige/level-5.png'); --village-scale: 1.12; }
+.village-marker--6 { --village-image: url('/img/map/villages/beige/level-6.png'); --village-scale: 1.25; }
 /* Designs des villages (src/web/villageDesigns.js) : skin choisi par le propriétaire, vu par tous (classe village-design--<id>).
    Beige par défaut ci-dessus ; les barbares n'ont pas de propriétaire et restent beiges. */
 .village-design--blanc-bleu.village-marker--1 { --village-image: url('/img/map/villages/blanc-bleu/level-1.png'); }
@@ -85,22 +87,35 @@
 .village-design--rome-antique.village-marker--4 { --village-image: url('/img/map/villages/rome-antique/level-4.png?v=5'); }
 .village-design--rome-antique.village-marker--5 { --village-image: url('/img/map/villages/rome-antique/level-5.png?v=5'); }
 .village-design--rome-antique.village-marker--6 { --village-image: url('/img/map/villages/rome-antique/level-6.png?v=5'); }
+.village-design--grece-antique.village-marker--1 { --village-image: url('/img/map/villages/grece-antique/level-1.png?v=1'); }
+.village-design--grece-antique.village-marker--2 { --village-image: url('/img/map/villages/grece-antique/level-2.png?v=1'); }
+.village-design--grece-antique.village-marker--3 { --village-image: url('/img/map/villages/grece-antique/level-3.png?v=1'); --village-scale: .99; }
+.village-design--grece-antique.village-marker--4 { --village-image: url('/img/map/villages/grece-antique/level-4.png?v=1'); }
+.village-design--grece-antique.village-marker--5 { --village-image: url('/img/map/villages/grece-antique/level-5.png?v=1'); --village-scale: 1.17; }
+.village-design--grece-antique.village-marker--6 { --village-image: url('/img/map/villages/grece-antique/level-6.png?v=1'); --village-scale: 1.29; }
+.village-design--arabo-musulman.village-marker--1 { --village-image: url('/img/map/villages/arabo-musulman/level-1.png?v=1'); }
+.village-design--arabo-musulman.village-marker--2 { --village-image: url('/img/map/villages/arabo-musulman/level-2.png?v=1'); }
+.village-design--arabo-musulman.village-marker--3 { --village-image: url('/img/map/villages/arabo-musulman/level-3.png?v=1'); --village-scale: 1; }
+.village-design--arabo-musulman.village-marker--4 { --village-image: url('/img/map/villages/arabo-musulman/level-4.png?v=1'); }
+.village-design--arabo-musulman.village-marker--5 { --village-image: url('/img/map/villages/arabo-musulman/level-5.png?v=1'); --village-scale: 1.16; }
+.village-design--arabo-musulman.village-marker--6 { --village-image: url('/img/map/villages/arabo-musulman/level-6.png?v=1'); --village-scale: 1.3; }
 .village-design--egyptien.village-marker--1 { --village-image: url('/img/map/villages/egyptien/level-1.png?v=5'); }
 .village-design--egyptien.village-marker--2 { --village-image: url('/img/map/villages/egyptien/level-2.png?v=5'); }
 .village-design--egyptien.village-marker--3 { --village-image: url('/img/map/villages/egyptien/level-3.png?v=5'); }
 .village-design--egyptien.village-marker--4 { --village-image: url('/img/map/villages/egyptien/level-4.png?v=5'); }
 .village-design--egyptien.village-marker--5 { --village-image: url('/img/map/villages/egyptien/level-5.png?v=5'); }
 .village-design--egyptien.village-marker--6 { --village-image: url('/img/map/villages/egyptien/level-6.png?v=5'); }
-.village-design--egyptien .village-sprite { background-size: 100% 111%; background-position: center bottom; }
-.village-design--egyptien.village-marker--1 .village-sprite,
-.village-design--egyptien.village-marker--2 .village-sprite { background-size: 100% 100%; }
-.village-design--egyptien.village-marker--6 .village-sprite { background-size: 100% 104%; }
-.village-design--futuriste.village-marker--1 { --village-image: url('/img/map/villages/futuriste/level-1.png'); }
-.village-design--futuriste.village-marker--2 { --village-image: url('/img/map/villages/futuriste/level-2.png'); }
-.village-design--futuriste.village-marker--3 { --village-image: url('/img/map/villages/futuriste/level-3.png'); }
-.village-design--futuriste.village-marker--4 { --village-image: url('/img/map/villages/futuriste/level-4.png'); }
-.village-design--futuriste.village-marker--5 { --village-image: url('/img/map/villages/futuriste/level-5.png'); }
-.village-design--futuriste.village-marker--6 { --village-image: url('/img/map/villages/futuriste/level-6.png'); }
+.village-design--egyptien.village-marker--3 { --village-scale: 1.1; }
+.village-design--egyptien.village-marker--4 { --village-scale: 1.17; }
+.village-design--egyptien.village-marker--5 { --village-scale: 1.16; }
+.village-design--egyptien.village-marker--6 { --village-scale: 1.22; }
+.village-design--egyptien .village-sprite { background-position: center bottom; }
+.village-design--futuriste.village-marker--1 { --village-image: url('/img/map/villages/futuriste/level-1.png'); --village-scale: 1.12; }
+.village-design--futuriste.village-marker--2 { --village-image: url('/img/map/villages/futuriste/level-2.png'); --village-scale: 1.13; }
+.village-design--futuriste.village-marker--3 { --village-image: url('/img/map/villages/futuriste/level-3.png'); --village-scale: 1.05; }
+.village-design--futuriste.village-marker--4 { --village-image: url('/img/map/villages/futuriste/level-4.png'); --village-scale: 1.17; }
+.village-design--futuriste.village-marker--5 { --village-image: url('/img/map/villages/futuriste/level-5.png'); --village-scale: 1.32; }
+.village-design--futuriste.village-marker--6 { --village-image: url('/img/map/villages/futuriste/level-6.png'); --village-scale: 1.43; }
 .village-marker { width: var(--tile-w, 53px); height: var(--tile-h, 38px); }
 .village-marker::after { display: none; }
 .village-relation-dot { position: absolute; z-index: 4; left: 1px; top: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }

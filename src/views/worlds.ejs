@@ -34,7 +34,7 @@
       `<span class="text-parchment-500">${a.startsWith('créé') ? 'Créé à l’instant' : `Ouvert ${esc(a)}`}</span>`,
     ];
     return `
-    <a href="${href}" class="group flex min-w-0 flex-col gap-0.5 border border-bronze-800 border-t-[3px] ${edge} bg-night px-2 py-1 text-parchment-100 no-underline shadow-[2px_2px_0_#000] transition hover:-translate-y-px hover:border-gold-400 hover:bg-thead hover:shadow-[3px_4px_0_#000]">
+    <a href="${href}" class="group relative flex min-w-0 flex-col gap-0.5 border border-bronze-800 border-t-[3px] ${edge} bg-night px-2 py-1 text-parchment-100 no-underline shadow-[2px_2px_0_#000] transition hover:z-50 hover:-translate-y-px hover:border-gold-400 hover:bg-thead hover:shadow-[3px_4px_0_#000] focus-within:z-50">
       <span class="flex min-w-0 items-center gap-1.5">
         <span class="min-w-0 flex-1 truncate font-display text-[15px] leading-tight font-semibold group-hover:text-gold-200">${esc(world.name)}</span>
         <span class="group/info relative flex shrink-0" tabindex="0" aria-label="Détails de ${esc(world.name)}">

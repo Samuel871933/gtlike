@@ -87,6 +87,13 @@ class VillageService {
 
     const awayUnits = await VillageService.awayUnits(villageId, t);
     const ctx = { village, world, cfg, state, buildOrders, recruitOrders, researchOrders, awayUnits, now };
+    // Premium du propriétaire (boutique) : file de construction plus longue.
+    ctx.buildQueueSlots = cfg.buildQueueSlots;
+    if (village.playerId) {
+      const owner = await Player.findByPk(village.playerId, { attributes: ['userId'], transaction: t });
+      if (owner && owner.userId && await require('./ShopService').hasPremium(owner.userId, village.worldId, { now, t })) ctx.buildQueueSlots += cfg.premium.buildQueueBonus;
+      ctx.premium = ctx.buildQueueSlots > cfg.buildQueueSlots;
+    }
     // Mondes avec église : une seule première église par joueur (construite ou en chantier dans un autre village).
     if (cfg.hasFeature('church') && village.playerId) ctx.firstChurchElsewhere = await VillageService.hasFirstChurchElsewhere(village, t);
     ctx.popUsed = () => state.popUsed(ctx.buildOrders, ctx.recruitOrders, ctx.awayUnits);
@@ -181,7 +188,7 @@ class VillageService {
     if (ctx.popUsed() + option.pop > state.farmCapacity()) {
       option.blockers.push('La ferme est trop petite');
     }
-    if (ctx.buildOrders.length >= cfg.buildQueueSlots) option.blockers.push('La file de construction est pleine');
+    if (ctx.buildOrders.length >= (ctx.buildQueueSlots ?? cfg.buildQueueSlots)) option.blockers.push('La file de construction est pleine');
     if (!state.canAfford(option.cost)) {
       option.lacksResources = true;
       option.availableAt = state.affordableAt(option.cost, ctx.now);
@@ -210,7 +217,7 @@ class VillageService {
     if (state.level('main') < cfg.demolishMainLevel) option.blockers.push(`Quartier général niveau ${cfg.demolishMainLevel}`);
     if ((village.loyalty ?? 100) < 100) option.blockers.push('Loyauté à 100 % requise');
     if (ctx.buildOrders.some((o) => o.building === type.id)) option.blockers.push('Chantier en cours sur ce bâtiment');
-    if (ctx.buildOrders.length >= cfg.buildQueueSlots) option.blockers.push('La file de construction est pleine');
+    if (ctx.buildOrders.length >= (ctx.buildQueueSlots ?? cfg.buildQueueSlots)) option.blockers.push('La file de construction est pleine');
     return option;
   }
 
