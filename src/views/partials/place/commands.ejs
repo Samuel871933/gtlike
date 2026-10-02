@@ -1,0 +1,150 @@
+<%# Point de ralliement, onglet « commands » (inclus par place.ejs, avec : vid, typeName, verbStyle, available, groups, tabs, villageHref, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView). %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Envoyer des troupes', tabs) %>
+  <% if (!units.length) { %>
+    <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Aucune troupe disponible dans ce village.</p></div>
+  <% } else { %>
+ <%# Comme sur GT : le formulaire, et les modèles de troupes dans une petite colonne à droite (au-dessus sur mobile). %>
+  <div class="grid lg:grid-cols-[minmax(0,1fr)_210px]">
+  <%- sideNav([
+    { heading: 'Modèles de troupes' },
+    ...quickTemplates.map((tpl) => ({
+      href: useHref(tpl), label: tpl.name, after: tpl.fixed ? icon('attack', 'size-3.5 shrink-0', 2.2) : '',
+      title: Object.keys(tpl.units).length ? unitsText(tpl.units) : 'Aucune troupe au village',
+    })),
+  ], { label: 'Modèles de troupes', at: 'lg', cls: 'border-b border-bronze-800 lg:order-last lg:border-b-0 lg:border-l' }) %>
+  <form method="post" action="/village/<%= vid %>/place/confirm" data-attack-on-enter data-travel="<%= JSON.stringify(pace) %>" data-arrival-step="<%= ctx.cfg.arrivalStepMs %>" data-from-x="<%= ctx.village.x %>" data-from-y="<%= ctx.village.y %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="grid gap-3 px-4.5 py-4 sm:grid-cols-2 2xl:grid-cols-4">
+      <% for (const [name, ids] of groups) { %>
+        <fieldset class="<%= ui.box %> flex min-w-0 flex-col gap-1 px-3 pt-1 pb-2.5">
+          <legend class="<%= ui.subLabel %> px-1.5"><%= name %></legend>
+          <% for (const id of ids) { const have = ctx.state.units[id] || 0; %>
+            <label class="flex min-h-[38px] items-center gap-2.5">
+              <span class="<%= have ? ui.medallion : ui.medallion + ' opacity-40' %> size-[30px]"><%- unitIcon(id, 'size-[15px]') %></span>
+              <span class="min-w-0 flex-1 truncate <%= have ? 'text-parchment-200' : 'text-parchment-600' %>"><%= unitName(id) %></span>
+              <input type="number" name="<%= id %>" min="0" max="<%= have %>" placeholder="0" value="<%= form.units[id] || '' %>" class="<%= ui.inputSm %> w-16 text-right tabular-nums" <%= have ? '' : 'disabled' %>>
+              <button type="button" class="min-w-10 cursor-pointer text-right text-[13px] font-semibold tabular-nums <%= have ? 'text-gold-400 hover:text-gold-200' : 'text-parchment-700' %>" data-fill="<%= id %>" data-max="<%= have %>">(<%= num(have) %>)</button>
+            </label>
+          <% } %>
+        </fieldset>
+      <% } %>
+    </div>
+    <div class="flex flex-wrap items-end justify-between gap-4 border-t border-bronze-900 bg-black/20 px-4.5 py-4">
+      <label class="<%= ui.label %>">Cible
+        <span class="flex items-center gap-1.5">
+          <input type="number" name="x" value="<%= form.x %>" placeholder="x" required class="<%= ui.input %> w-24 tabular-nums">
+          <span class="text-parchment-600">|</span>
+          <input type="number" name="y" value="<%= form.y %>" placeholder="y" required class="<%= ui.input %> w-24 tabular-nums">
+        </span>
+      </label>
+      <%# Durée et heure d'arrivée (unité la plus lente), recalculées par game.js à chaque saisie et chaque seconde. %>
+      <div class="flex min-h-[38px] flex-col justify-center gap-0.5 sm:mr-auto" data-travel-preview>
+        <span class="<%= ui.subLabel %>">Arrivée</span>
+        <span class="text-parchment-500 tabular-nums"><strong class="font-semibold text-gold-200" data-travel-arrival>—</strong> <span data-travel-duration></span></span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="submit" name="type" value="attack" data-attack-submit class="<%= btn('red') %>"><%- icon('attack', 'size-3.5', 2.2) %>Attaquer</button>
+        <button type="submit" name="type" value="support" class="<%= btn('olive') %>"><%- icon('support', 'size-3.5', 2.2) %>Soutenir</button>
+      </div>
+    </div>
+  </form>
+  </div>
+  <% } %>
+</section>
+
+<%# Modèles d'armée : réutilisés ici et dans les « Ordres rapides » de la carte. %>
+<section class="<%= ui.panel %>" id="modeles">
+  <%- panelHead("Modèles d'armée", `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${templates.length} / 20</span>`) %>
+  <% if (templates.length) { %>
+    <table class="<%= ui.table %>">
+      <thead><tr><th>Nom</th><th>Unités</th><th class="text-right">Actions</th></tr></thead>
+      <tbody>
+        <% for (const tpl of templates) { %>
+          <tr>
+            <td class="font-semibold"><%= tpl.name %></td>
+            <td class="text-parchment-300"><%- include('../units', { units: tpl.units, losses: null }) %></td>
+            <td class="text-right whitespace-nowrap">
+              <span class="inline-flex items-center gap-1.5">
+                <a href="<%= useHref(tpl) %>" class="<%= btn('dark', 'sm') %>">Utiliser</a>
+                <form method="post" action="/village/<%= vid %>/templates/<%= tpl.id %>/delete" class="flex"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="<%= btn('danger', 'sm', 'w-8 px-0') %>" title="Supprimer le modèle" aria-label="Supprimer le modèle"><%- icon('close', 'size-3', 3) %></button>
+                </form>
+              </span>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  <% } %>
+  <details class="group border-t border-bronze-800" <%= templates.length ? '' : 'open' %>>
+    <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('plus', 'size-3.5', 2.6) %>Nouveau modèle</summary>
+    <form method="post" action="/village/<%= vid %>/templates" class="flex flex-col gap-2.5 px-3 pb-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="<%= ui.label %> max-w-80">Nom<input name="name" maxlength="32" required placeholder="Pilleurs rapides" class="<%= ui.input %>"></label>
+      <div class="grid gap-1.5 sm:grid-cols-3 2xl:grid-cols-6">
+        <% for (const u of allUnits) { %>
+          <label class="flex items-center gap-2 border border-bronze-800 bg-night px-2 py-1">
+            <span class="text-gold-400"><%- unitIcon(u.id, 'size-3.5', 2) %></span>
+            <span class="min-w-0 flex-1 truncate text-sm"><%= u.name %></span>
+            <input type="number" name="<%= u.id %>" min="0" placeholder="0" class="<%= ui.inputSm %> w-16 text-right tabular-nums" aria-label="<%= u.name %>">
+          </label>
+        <% } %>
+      </div>
+      <button class="<%= btn('gold', 'md', 'self-start') %>">Enregistrer le modèle</button>
+    </form>
+  </details>
+</section>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Vos ordres', `<span class="${ui.headCount}">${outgoing.length}</span>`) %>
+  <div>
+    <% if (outgoing.length) { %><%- moveHead %><% } %>
+    <% if (!outgoing.length) { %><p class="<%= ui.empty %>">Aucun ordre.</p><% } %>
+    <% for (const c of outgoing) {
+         const canCancel = c.type !== 'return' && now - new Date(c.startsAt) < ctx.cfg.commandCancelSeconds * 1000; %>
+      <div class="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1.5 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0 hover:bg-row-hover sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]" data-unfold-row>
+        <div class="flex min-w-0 items-center gap-3">
+          <span class="inline-flex shrink-0" data-tip="ordre-<%= c.id %>"><%- include('../order-badge', { type: c.type, units: c.units, size: 'lg' }) %></span>
+          <span class="shrink-0 font-semibold <%= verbStyle[c.type] || verbStyle.support %>"><%= typeName[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></span>
+          <span class="hidden shrink-0 text-parchment-600 sm:inline"><%= c.type === 'return' ? 'depuis' : 'vers' %></span>
+          <a href="<%= villageHref(c.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.target.name %></a>
+          <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.target.x %>|<%= c.target.y %>)</span>
+          <%- include('../order-units', { id: `ordre-${c.id}`, units: c.units, part: 'toggle' }) %>
+        </div>
+        <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
+        <span class="text-right font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
+        <% if (canCancel) { %>
+          <form method="post" action="/village/<%= vid %>/command/<%= c.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= ui.iconBtnSm %>" title="Annuler l’ordre" aria-label="Annuler l’ordre"><%- icon('close', 'size-3', 2.6) %></button>
+          </form>
+        <% } else { %><span></span><% } %>
+        <span class="col-span-full text-[13px] text-parchment-500 sm:hidden"><%= whenShort(c.arrivesAt, now) %></span>
+        <%# Troupes de l'ordre, dépliées par la flèche : même tableau d'unités que les rapports et le simulateur. %>
+        <div id="ordre-<%= c.id %>" class="col-span-full sm:pl-[42px]" hidden><%- include('../order-units', { units: c.units, loot: c.type === 'return' ? c.loot : null, part: 'panel' }) %></div>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Arrivées', `<span class="${ui.headCount}">${incoming.length}</span>`) %>
+  <div>
+    <% if (incoming.length) { %><%- moveHead %><% } %>
+    <% if (!incoming.length) { %><p class="<%= ui.empty %>">Rien en approche.</p><% } %>
+    <% for (const c of incoming) { %>
+      <div class="grid min-h-[50px] grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]">
+        <div class="flex min-w-0 items-center gap-3">
+          <%- include('../order-badge', { type: c.type, units: c.type === 'attack' ? null : c.units, size: 'lg' }) %>
+          <span class="shrink-0 font-semibold <%= verbStyle[c.type] || verbStyle.support %>"><%= typeName[c.type] %></span>
+          <span class="hidden shrink-0 text-parchment-600 sm:inline">de</span>
+          <a href="<%= villageHref(c.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.origin.name %></a>
+          <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.origin.x %>|<%= c.origin.y %>)</span>
+          <% if (c.origin.Player) { %><span class="hidden truncate text-parchment-500 md:inline">· <%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
+        </div>
+        <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
+        <span class="text-right font-semibold tabular-nums <%= c.type === 'attack' ? 'text-blood-300' : 'text-gold-200' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration((new Date(c.arrivesAt) - now) / 1000) %></span>
+        <span></span>
+        <span class="col-span-full hidden flex-wrap gap-x-2 text-[13px] text-parchment-500 max-md:flex sm:pl-[42px]"><span class="sm:hidden"><%= whenShort(c.arrivesAt, now) %></span><% if (c.origin.Player) { %><span><%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %></span>
+      </div>
+    <% } %>
+  </div>
+</section>

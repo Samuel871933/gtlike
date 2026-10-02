@@ -1,0 +1,28 @@
+<%# Aperçu du village, titre de la cité (changement de village, repères) (inclus par overview.ejs, avec ses constantes). %>
+<%# Titre de la cité : changement de village et repères %>
+<div class="<%= ui.panel %> flex flex-wrap items-center justify-between gap-2.5 py-2.5 pr-3.5 pl-5">
+  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
+  <%# Le bloc du titre prend la place libre et rétrécit (titre tronqué, champ réduit) plutôt que de renvoyer les repères à la ligne. %>
+  <div class="flex min-w-0 flex-[1_1_16rem] items-center gap-3">
+    <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
+    <%# Renommer sur place : le crayon change le titre en champ (game.js, data-rename) ; Échap ou Annuler rétablit le titre. %>
+    <h1 class="m-0 min-w-0 truncate font-display text-xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:1px_1px_0_var(--color-title-shadow),2px_2px_0_var(--color-title-shadow-2)] sm:text-[22px]" title="<%= ctx.village.name %>" data-rename-title><%= ctx.village.name %></h1>
+    <form method="post" action="/village/<%= vid %>/rename" class="flex min-w-0 items-center gap-2" data-rename-form hidden><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input name="name" value="<%= ctx.village.name %>" maxlength="32" required aria-label="Nouveau nom du village"
+             class="field-sizing-content min-w-0 max-w-full border-0 border-b-2 border-gold-400 bg-night/40 px-2 py-0.5 leading-tight font-display text-xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:1px_1px_0_var(--color-title-shadow),2px_2px_0_var(--color-title-shadow-2)] sm:text-[22px] focus:border-gold-200 focus:outline-none">
+      <button class="<%= btn('gold', 'sm') %>">OK</button>
+      <button type="button" class="<%= btn('dark', 'sm') %>" data-rename-cancel>Annuler</button>
+    </form>
+    <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.6) %></a><% } %>
+    <button type="button" class="<%= ui.iconBtn %> size-[26px]" title="Renommer le village" aria-label="Renommer le village" data-rename-open><%- icon('edit', 'size-3.5', 2.2) %></button>
+    <span class="shrink-0 text-xs whitespace-nowrap text-parchment-500 tabular-nums"><%= idx + 1 %> / <%= myVillages.length %> village<%= myVillages.length > 1 ? 's' : '' %></span>
+  </div>
+  <div class="flex flex-wrap gap-1" data-overview-meta>
+    <% for (const [k, val, c] of meta) { %>
+      <div class="flex min-w-16 flex-col border border-bronze-800 border-t-2 bg-night px-2.5 py-[3px] <%= c %>">
+        <span class="text-[10px] tracking-[0.02em] text-parchment-500"><%= k %></span>
+        <span class="text-base font-semibold text-parchment-100 tabular-nums"><%= val %></span>
+      </div>
+    <% } %>
+  </div>
+</div>

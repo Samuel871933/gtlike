@@ -302,11 +302,6 @@ function orderBadge(type, units, size = 'md') {
 /** Icône raster commune aux ressources, au stockage et à la population. */
 const resourceIcon = (id, cls = 'size-8') => `<img src="${RESOURCE_ICONS[id] || RESOURCE_ICONS.storage}" class="${cls} min-h-8 min-w-8 shrink-0 object-contain" alt="" aria-hidden="true">`;
 
-/** Lauriers du logo. */
-function laurel(cls = 'size-[30px]') {
-  return `<svg class="${cls} shrink-0" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M11 27C5 22 4 14 8 6"/><path d="M21 27c6-5 7-13 3-21"/><path d="M7.5 10c-2.5-.2-3.6-2-3.6-2s2-1.4 3.9-.4M6.5 15c-2.6.3-4-1.3-4-1.3s1.7-1.8 3.8-1.1M7.4 20c-2.4.8-4.1-.5-4.1-.5s1.3-2 3.6-1.8M24.5 10c2.5-.2 3.6-2 3.6-2s-2-1.4-3.9-.4M25.5 15c2.6.3 4-1.3 4-1.3s-1.7-1.8-3.8-1.1M24.6 20c2.4.8 4.1-.5 4.1-.5s-1.3-2-3.6-1.8"/><path d="M13 27h6"/></svg>`;
-}
-
 /** Blason (écu) de village ; `fill` est une classe de couleur (fill-rel-own…) ; emblème : 'cross' (le sien), 'star' (spécial) ou rien. */
 function shield(fill, { cls = 'w-4', emblem = '', glow = false } = {}) {
   const e = emblem === 'cross' ? '<path class="stroke-shield-mark" d="M6 9h8M10 6v8" stroke-width="1.8" stroke-linecap="round"/>'
@@ -322,10 +317,11 @@ function shield(fill, { cls = 'w-4', emblem = '', glow = false } = {}) {
  */
 function avatarThumb(kind, rec, { size = 'size-7', iconCls = 'size-3.5' } = {}) {
   // Même médaillon que les rangs du classement (taille, cadre, ombre), l'image remplissant l'intérieur.
-  const inner = rec && rec.avatar
-    ? `<img src="${ImageService.url(rec.avatar)}" alt="" loading="lazy" decoding="async" class="size-full object-cover">`
-    : icon(kind === 'tribe' ? 'tribe' : 'profile', iconCls, 2);
-  return `<span class="${ui.medallion} ${size} overflow-hidden text-parchment-600" aria-hidden="true">${inner}</span>`;
+  const fallback = icon(kind === 'tribe' ? 'tribe' : 'profile', iconCls, 2);
+  const image = rec && rec.avatar
+    ? `<img src="${ImageService.url(rec.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" class="absolute inset-0 size-full object-cover">`
+    : '';
+  return `<span class="${ui.medallion} ${size} relative overflow-hidden text-parchment-600" aria-hidden="true">${fallback}${image}</span>`;
 }
 
 /** Grande image de profil (pages de profil), réduite à la taille maximale gardée par ImageService. */
@@ -400,7 +396,6 @@ module.exports = {
   unitIcon,
   orderBadge,
   resourceIcon,
-  laurel,
   shield,
   QUICKBAR,
   favoriteBuildings,

@@ -1,0 +1,35 @@
+<%# Compte, panneau « Mode sommeil » (inclus par account.ejs, avec sleep, vid, scheduled, shopLink). %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Mode sommeil', `<span class="text-gold-400">${icon('moon', 'size-4')}</span>`, { tag: 'h1' }) %>
+  <div class="<%= ui.panelBody %> gap-4">
+    <% if (!sleep.active) { %>
+      <p class="text-parchment-500">Le mode sommeil n'existe pas sur ce monde.</p>
+    <% } else { %>
+      <p class="text-parchment-400">
+        Pendant votre sommeil, les attaques qui arrivent sur vos villages deviennent de simples visites : pas de combat,
+        les troupes repartent. Vous ne pouvez pas attaquer pendant ce temps. Le sommeil commence <%= sleep.delayMinutes %> min
+        après l'activation, dure de <%= sleep.minHours %> à <%= sleep.maxHours %> h, et il faut rester éveillé
+        <%= sleep.minAwakeHours %> h entre deux sommeils.
+      </p>
+      <% if (scheduled) { %>
+        <div class="<%= ui.boxGold %> flex flex-wrap items-center gap-3 px-4 py-3">
+          <span class="<%= ui.medallionGold %> size-9"><%- icon('moon', 'size-4') %></span>
+          <span class="flex min-w-0 flex-1 flex-col">
+            <span class="<%= ui.kicker %>"><%= player.isAsleep(now) ? 'Sommeil en cours' : 'Sommeil programmé' %></span>
+            <span class="<%= ui.figure %>"><%= when(player.sleepStartsAt, now) %> → <%= when(player.sleepEndsAt, now) %></span>
+          </span>
+          <form method="post" action="/village/<%= vid %>/account/sleep/stop"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= btn('dark', 'sm') %>"><%= player.isAsleep(now) ? 'Me réveiller' : 'Annuler' %></button>
+          </form>
+        </div>
+      <% } else { %>
+        <form method="post" action="/village/<%= vid %>/account/sleep" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label class="<%= ui.label %>">Durée (heures)
+            <input type="number" name="hours" min="<%= sleep.minHours %>" max="<%= sleep.maxHours %>" step="any" value="<%= sleep.minHours %>" required class="<%= ui.input %> w-32 tabular-nums">
+          </label>
+          <button class="<%= btn('gold') %>"><%- icon('moon', 'size-3.5', 2.2) %>Activer</button>
+        </form>
+      <% } %>
+    <% } %>
+  </div>
+</section>

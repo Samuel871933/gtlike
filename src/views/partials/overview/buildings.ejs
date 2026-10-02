@@ -1,0 +1,35 @@
+<%# Aperçu du village, constructions en cours (inclus par overview.ejs, avec ses constantes). %>
+<%# Constructions %>
+<section class="<%= ui.panel %>" data-overview-live="buildings">
+  <%- panelHead('Constructions', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueSlots}</span>`) %>
+  <div class="flex flex-col">
+    <% if (!ctx.buildOrders.length) { %><p class="p-2.5 text-[13px] text-parchment-500">Aucun chantier. Les ouvriers attendent tes ordres.</p><% } %>
+    <% for (const o of ctx.buildOrders) { const running = new Date(o.startsAt) <= now; const start = new Date(o.startsAt).getTime(); const end = new Date(o.endsAt).getTime();
+         const pct = running ? Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100)) : 0; %>
+      <div class="border-b border-bronze-800 px-2.5 py-1.5 <%= running ? 'bg-row-hover/60' : '' %>">
+        <div class="flex items-center gap-2">
+          <div class="min-w-0 flex-1">
+            <div class="truncate font-semibold"><%= buildingName(o.building) %> <span class="<%= o.demolish ? 'text-blood-300' : 'text-gold-400' %>"><%= o.demolish ? `démolition → Niv. ${o.level}` : `→ Niv. ${o.level}` %></span></div>
+            <div class="text-[11px] text-parchment-500"><%= running ? 'En cours' : 'En file' %> · fin <%= whenShort(o.endsAt, now) %></div>
+          </div>
+          <% if (running) { %>
+            <span class="text-[15px] font-semibold text-parchment-100 tabular-nums" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span>
+          <% } else { %>
+            <span class="text-[15px] font-semibold text-parchment-500 tabular-nums"><%= duration((end - start) / 1000) %></span>
+          <% } %>
+<% if (running && !o.demolish) { const freeAt = end - ctx.cfg.freeFinishSeconds * 1000; %>
+                  <%# Terminer gratuitement : visible dès qu'il reste au plus 3 minutes (game.js l'affiche au bon moment). %>
+                  <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/finish" class="<%= now >= freeAt ? '' : 'hidden' %>" data-free-at="<%= freeAt %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button class="<%= btn('gold', 'sm') %>" title="Gratuit : moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes">Terminer</button>
+                  </form>
+          <% } %>
+          <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= ui.iconBtnSm %>" title="Annuler le chantier" aria-label="Annuler le chantier"><%- icon('close', 'size-[11px]', 3.4) %></button>
+          </form>
+        </div>
+        <% if (running) { %><span class="<%= ui.track %> mt-[5px] h-[5px]"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%" data-progress-start="<%= start %>" data-progress-end="<%= end %>"></span></span><% } %>
+      </div>
+    <% } %>
+    <% if (ctx.buildOrders.length) { %><p class="px-2.5 py-1.5 text-[11px] text-parchment-600">Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources. Moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes : « Terminer » est gratuit.</p><% } %>
+  </div>
+</section>

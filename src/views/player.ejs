@@ -13,8 +13,9 @@
   const tierText = TIER_STYLES.text;
   const GROUPS = [['progress', 'Étapes'], ['battle', 'Combat'], ['misc', 'Divers']];
   const mm = miniMap;
-  // Actions discrètes sous la fiche, comme le lien « Fiche du joueur » de GT.
-  const action = 'inline-flex items-center gap-1.5 font-semibold text-gold-400 no-underline hover:text-parchment-100';
+  // Même liste d'actions que sur la fiche d'un village : une ligne cliquable et un séparateur par action.
+  const action = 'flex w-full cursor-pointer items-center gap-2.5 border-b border-bronze-800 px-3 py-2 text-left font-semibold text-parchment-200 no-underline transition hover:bg-row-hover hover:text-parchment-50';
+  const actionIcon = (name) => `<span class="flex w-5 justify-center text-gold-400">${icon(name, 'size-4', 2)}</span>`;
   const stats = [
     ['Points', num(subject.points)],
     ['Rang', `${num(rank)}ᵉ`],
@@ -32,7 +33,7 @@
 <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
   <div class="flex min-w-0 flex-col gap-5">
     <section class="<%= ui.panel %>">
-      <%- panelHead(subject.Tribe ? `${subject.name} [${subject.Tribe.tag}]` : subject.name, `${subject.isBot ? botTag() : ''}${avatarThumb('player', subject)}`) %>
+      <%- panelHead(subject.Tribe ? `${subject.name} [${subject.Tribe.tag}]` : subject.name, `${subject.isBot ? botTag() : ''}${avatarThumb('player', { avatar: ownerPremium ? subject.avatar : null })}`) %>
       <% if (mm) { %>
         <a href="/village/<%= vid %>/map?x=<%= mm.cx %>&y=<%= mm.cy %>" class="block border-b-2 border-black bg-mini-bg" title="Voir sur la carte">
           <canvas class="block w-full" style="aspect-ratio:<%= mm.width %>/<%= mm.height %>" data-minimap="<%= JSON.stringify({ x0: mm.x0, y0: mm.y0, width: mm.width, height: mm.height, villages: mm.villages }) %>" role="img" aria-label="Villages de <%= subject.name %> sur la carte"></canvas>
@@ -49,19 +50,23 @@
           </tr>
         </tbody>
       </table>
-      <% if (!isMe) { %>
-        <div class="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-bronze-800 px-3 py-2 text-[13px]">
-          <% if (!subject.isBot) { %><a href="/village/<%= vid %>/messages/new?to=<%= encodeURIComponent(subject.name) %>" class="<%= action %>"><%- icon('messages', 'size-3.5', 2) %>Écrire un message</a><% } %>
+    </section>
+
+    <% if (!isMe) { %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Actions') %>
+        <div class="flex flex-col [&>*:last-child]:border-b-0 [&>form:last-child>button]:border-b-0">
+          <% if (!subject.isBot) { %><a href="/village/<%= vid %>/messages/new?to=<%= encodeURIComponent(subject.name) %>" class="<%= action %>"><%- actionIcon('messages') %>Écrire un message</a><% } %>
           <% if (canInvite && !subject.isBot) { %>
-            <form method="post" action="/village/<%= vid %>/tribe/invite" class="contents"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <form method="post" action="/village/<%= vid %>/tribe/invite"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <input type="hidden" name="name" value="<%= subject.name %>">
-              <button class="<%= action %> cursor-pointer"><%- icon('tribe', 'size-3.5', 2) %>Inviter dans ma tribu</button>
+              <button class="<%= action %>"><%- actionIcon('tribe') %>Inviter dans ma tribu</button>
             </form>
           <% } %>
-          <a href="/village/<%= vid %>/map?<%= new URLSearchParams({ mark: `player:${subject.id}`, label: subject.name }) %>#marquages" class="<%= action %>"><%- icon('flag', 'size-3.5', 2) %>Marquer sur la carte</a>
+          <a href="/village/<%= vid %>/map?<%= new URLSearchParams({ mark: `player:${subject.id}`, label: subject.name }) %>#marquages" class="<%= action %>"><%- actionIcon('flag') %>Marquer sur la carte</a>
         </div>
-      <% } %>
-    </section>
+      </section>
+    <% } %>
 
     <%# Villages, par ordre alphabétique %>
     <section class="<%= ui.panel %>">
@@ -85,33 +90,34 @@
 
   <div class="flex min-w-0 flex-col gap-5">
     <%# Image du profil (comme le blason de GT), masquée chez les autres joueurs s'ils n'en ont pas %>
-    <% if (subject.avatar || isMe) { %>
+    <% if (isMe || (ownerPremium && subject.avatar)) { %>
     <section class="<%= ui.panel %>" id="image">
       <%- panelHead('Image du profil') %>
       <div class="<%= ui.panelBody %>">
         <% if (subject.avatar) { %>
-          <%- avatarImage('player', subject) %>
+          <%- avatarImage('player', subject, { cls: ownerPremium ? 'mx-auto' : 'mx-auto grayscale opacity-50' }) %>
+          <% if (!ownerPremium) { %><p class="text-center text-[13px] text-parchment-500">Aperçu privé : cette image n’est plus visible par les autres joueurs sans premium.</p><% } %>
         <% } else { %>
           <p class="text-center text-parchment-500">Vous n'avez pas encore d'image de profil.</p>
         <% } %>
-        <% if (ctx.premium) { %>
+        <% if (isMe && ownerPremium) { %>
           <details class="border-t border-bronze-800 pt-3" <%= subject.avatar ? '' : 'open' %>>
             <summary class="flex cursor-pointer list-none items-center gap-2 font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('edit', 'size-3.5', 2.2) %>Modifier</summary>
             <div class="mt-2.5"><%- include('partials/avatar-form', { action: `/village/${vid}/profile/avatar`, avatar: subject.avatar }) %></div>
           </details>
-        <% } else { %>
-          <%# Sans premium (comme sur Guerre Tribale) : pas d'envoi ; une image déjà en place peut être supprimée. %>
-          <%- include('partials/premium-banner', {
-            href: `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`, cls: '-mx-3',
-            title: 'L’image de profil est réservée au premium.', detail: 'Mets ta propre image sur ton profil · dès 30 Adartons',
-          }) %>
-          <% if (subject.avatar) { %>
-            <form method="post" action="/village/<%= vid %>/profile/avatar/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button class="<%= btn('dark', 'sm') %>">Supprimer l'image</button>
-            </form>
-          <% } %>
+        <% } else if (isMe && subject.avatar) { %>
+          <form method="post" action="/village/<%= vid %>/profile/avatar/delete" class="border-t border-bronze-800 pt-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= btn('dark', 'sm') %>">Supprimer l'image</button>
+          </form>
         <% } %>
       </div>
+      <% if (isMe && !ownerPremium) { %>
+        <%# Sans premium : même bandeau pleine largeur et même fond que dans le quartier général. %>
+        <%- include('partials/premium-banner', {
+          href: `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`, highlight: true,
+          title: 'L’image de profil est réservée au premium.', detail: 'Mets ta propre image sur ton profil · dès 30 Adartons',
+        }) %>
+      <% } %>
     </section>
     <% } %>
 

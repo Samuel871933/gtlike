@@ -41,7 +41,7 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const ownerRights = await require('../../../services/ShopService').rightsFor(subject.userId, subject.worldId);
   const ownerStyle = require('../../gameStyles').gameStyleFor(owner, ownerRights);
   const profileStyle = ownerStyle.id === res.locals.gameStyle?.id ? null : ownerStyle;
-  res.render('player', { ...rest, subject, profileStyle, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
+  res.render('player', { ...rest, subject, profileStyle, ownerPremium: ownerRights.premium, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
 }));
 
 // Texte personnel du profil (réservé au titulaire du compte, pas au remplaçant).

@@ -1,0 +1,30 @@
+<%# Compte, panneau « Réglages tribu » (inclus par account.ejs, avec sleep, vid, scheduled, shopLink). %>
+<%# Réglages tribu : une ligne par élément partageable, colonnes « Partager avec la tribu » et « Afficher la tribu »
+    (liste TRIBE_SHARING de src/services/VillageNoteService.js). %>
+<section class="<%= ui.panel %>" id="reglages-tribu">
+  <%- panelHead('Réglages tribu') %>
+  <form method="post" action="/village/<%= vid %>/account/tribe-settings" data-tribe-sharing><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %>">
+        <thead><tr>
+          <th>Élément</th>
+          <th class="w-40 text-center">Partager avec la tribu<label class="mt-1 flex cursor-pointer items-center justify-center gap-1.5 text-[11px] font-normal text-parchment-300"><input type="checkbox" class="<%= ui.checkbox %>" data-tribe-select-all="share" aria-label="Tout sélectionner : partager avec la tribu">Tout sélectionner</label></th>
+          <th class="w-40 text-center">Afficher la tribu<label class="mt-1 flex cursor-pointer items-center justify-center gap-1.5 text-[11px] font-normal text-parchment-300"><input type="checkbox" class="<%= ui.checkbox %>" data-tribe-select-all="show" aria-label="Tout sélectionner : afficher la tribu">Tout sélectionner</label></th>
+        </tr></thead>
+        <tbody>
+          <% for (const item of tribeSharing) { %>
+            <tr>
+              <td><span class="font-semibold text-parchment-100"><%= item.label %></span><span class="block text-[13px] text-parchment-500"><%= item.text %></span></td>
+              <td class="text-center"><input type="checkbox" name="<%= item.share %>" value="1" class="<%= ui.checkbox %>" data-tribe-column="share" aria-label="<%= item.label %> : partager avec la tribu" <%= player[item.share] ? 'checked' : '' %>></td>
+              <td class="text-center"><input type="checkbox" name="<%= item.show %>" value="1" class="<%= ui.checkbox %>" data-tribe-column="show" aria-label="<%= item.label %> : afficher la tribu" <%= player[item.show] ? 'checked' : '' %>></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between gap-3 border-t border-bronze-900 px-3 py-2.5">
+      <span class="text-[13px] text-parchment-500"><%= player.tribeId ? '' : "Tu n'es dans aucune tribu : ces réglages serviront quand tu en rejoindras une." %></span>
+      <button class="<%= btn('dark', 'sm') %>">Enregistrer</button>
+    </div>
+  </form>
+</section>

@@ -117,16 +117,18 @@
             <thead><tr><th>Ordre</th><th>Heure d'arrivée</th><th class="text-right">Arrive dans</th></tr></thead>
             <tbody>
             <% for (const c of commands) { const left = (new Date(c.arrivesAt) - now) / 1000; %>
-              <tr>
+              <tr class="cursor-pointer" data-unfold-row>
                 <td>
                   <span class="flex min-w-0 items-center gap-2">
-                    <%- include('partials/order-badge', { type: c.type, units: c.units, size: 'sm' }) %>
+                    <span class="inline-flex shrink-0" data-tip="ordre-<%= c.id %>"><%- include('partials/order-badge', { type: c.type, units: c.units, size: 'sm' }) %></span>
                     <span class="truncate"><span class="text-parchment-400"><%= c.type === 'return' ? 'Retour vers' : `${verbs[c.type] || 'Ordre'} depuis` %></span> <a href="/village/<%= c.origin.id %>" class="<%= ui.linkPlain %> font-semibold"><%= c.origin.name %></a></span>
+                    <%- include('partials/order-units', { id: `ordre-${c.id}`, units: c.units, part: 'toggle' }) %>
                   </span>
                 </td>
                 <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= whenShort(c.arrivesAt, now) %></td>
                 <td class="text-right font-semibold whitespace-nowrap tabular-nums <%= left < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration(left) %></td>
               </tr>
+              <tr id="ordre-<%= c.id %>" hidden><td colspan="3" class="pt-0!"><%- include('partials/order-units', { units: c.units, loot: c.type === 'return' ? c.loot : null, part: 'panel' }) %></td></tr>
             <% } %>
             </tbody>
           </table>

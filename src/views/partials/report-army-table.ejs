@@ -1,5 +1,6 @@
-<div class="report-army-table-wrap">
-  <table class="report-army-table">
+<%# Tableau d'unités commun (rapports, simulateur, ordres). `fit` : largeur du contenu, sans le minimum d'un rapport. %>
+<div class="report-army-table-wrap<%= typeof fit !== 'undefined' && fit ? ' report-army-table-wrap--fit' : '' %>">
+  <table class="report-army-table<%= typeof fit !== 'undefined' && fit ? ' report-army-table--fit' : '' %>">
     <thead><tr><th class="report-army-table__corner" scope="col">Unités</th>
       <% for (const id of ids) { %><th class="report-army-table__unit" scope="col" title="<%= unitName(id) %>"><span><%- unitIcon(id, 'size-8') %></span><small><%= unitName(id) %></small></th><% } %>
     </tr></thead>

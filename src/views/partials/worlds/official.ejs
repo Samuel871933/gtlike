@@ -1,0 +1,97 @@
+<%# Mondes, mondes officiels (parties en cours, autres mondes, fiche du monde choisi) (inclus par worlds.ejs, avec ses helpers). %>
+<section class="<%= ui.lobbyCard %>" id="mondes">
+  <div class="border-b-2 border-bronze-500 bg-head px-3 py-2">
+    <div class="font-display text-[17px] font-semibold tracking-[0.02em]">Salve, <%= user.username %></div>
+    <form method="post" action="/logout" class="text-xs text-parchment-300"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      Pas <%= user.username %> ? <button class="<%= ui.link %> cursor-pointer">Se déconnecter</button>
+    </form>
+  </div>
+  <div class="flex flex-1 flex-col gap-2 px-3 py-2.5">
+    <% if (selected) { const { world, player } = selected; const cfg = world.getConfig(); const modules = modulesOf(cfg); %>
+      <%# Fiche du monde choisi %>
+      <a href="/worlds" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %>Retour</a>
+      <div class="<%= ui.kicker %>"><%= world.isPrivate() ? `Serveur privé · ${accessName(world).toLowerCase()} · ` : '' %><%= world.endedAt ? 'Monde terminé' : world.isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' %></div>
+      <div class="flex items-center justify-between border-2 border-black bg-night px-2.5 py-1.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700)]">
+        <div><div class="font-display text-base font-semibold tracking-[0.02em]"><%= world.name %></div><div class="text-xs text-parchment-500"><%= world.slug %></div></div>
+        <div class="text-right text-xs text-parchment-500"><%= player ? `${num(player.villageCount)} village(s)` : 'Pas encore inscrit' %><br><b class="text-parchment-100"><%= player ? `${num(player.points)} pts` : '—' %></b></div>
+      </div>
+      <%# Caractéristiques du monde, en liste compacte. %>
+      <%# Résumé des réglages qui comptent pour choisir ; la liste complète est sur la page Infos monde. %>
+      <% const dom = cfg.victory.dominance;
+         const facts = [
+           ['Ouvert', `${age(world)} (le ${new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })})`],
+           ['Vitesse', `×${cfg.speed} · unités ×${cfg.unitSpeed}`],
+           ['Modules', modules.length ? modules.join(', ') : 'classique'],
+           ['Carte', `${cfg.mapSize} × ${cfg.mapSize} · protection ${cfg.newbieDays} j`],
+           ['Combat', [cfg.moral ? 'morale' : 'sans morale', `chance ±${Math.round(cfg.luck * 100)} %`, cfg.night.active ? `nuit ${cfg.night.startHour} h-${cfg.night.endHour} h (×${cfg.night.defFactor})` : 'pas de bonus de nuit'].join(' · ')],
+           ['Tribus', `${cfg.tribe.memberLimit} membres max`],
+         ]; %>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 border border-bronze-800 bg-night px-2.5 py-1.5 text-[13px]">
+        <% for (const [k, v] of facts) { %><dt class="text-parchment-500"><%= k %></dt><dd class="font-semibold first-letter:uppercase"><%= v %></dd><% } %>
+        <dt class="text-parchment-500">Victoire</dt><dd><a href="/worlds/<%= world.slug %>/ranking?type=victory" class="<%= ui.link %>"><%= victoryNames[cfg.victory.type] %></a><% if (cfg.victory.type === 'dominance') { %> <span class="text-parchment-500">· <%= dom.endgamePercent %> % pendant <%= dom.holdDays %> j, après <%= dom.minWorldAgeDays %> j</span><% } %></dd>
+      </dl>
+      <a href="/worlds/<%= world.slug %>/info" class="<%= btn('dark', 'sm', 'w-full') %>"><%- icon('search', 'size-3.5', 2.2) %>Voir tous les paramètres du monde</a>
+      <%# Code d'accès d'un serveur sur code : montré à son créateur et à ses joueurs, pour qu'ils le partagent. %>
+      <% if (world.access === 'code' && (world.ownerUserId === user.id || player)) { %>
+        <div class="flex items-center justify-between gap-2 border border-dashed border-gold-400 bg-night px-2.5 py-1.5 text-[13px]">
+          <span class="text-parchment-500">Code d’accès à partager</span>
+          <span class="font-semibold tracking-[0.12em] text-gold-200 tabular-nums select-all"><%= world.joinCode %></span>
+        </div>
+      <% } %>
+      <% if (playing(selected)) { %>
+        <a class="<%= btn('gold', 'md', 'w-full') %>" href="/worlds/<%= world.slug %>/play">Entrer dans le monde</a>
+      <% } else if (world.isOpen && !world.endedAt) { %>
+        <form method="post" action="/worlds/<%= world.slug %>/join" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <% if (code) { %><input type="hidden" name="code" value="<%= code %>"><% } %>
+          <label class="<%= ui.label %>">Où commencer sur la carte ?
+            <select name="direction" class="<%= ui.input %> w-full">
+              <% for (const d of directions) { %><option value="<%= d %>"><%= directionNames[d] %></option><% } %>
+            </select>
+          </label>
+          <button class="<%= btn('gold', 'md', 'w-full') %>"><%= player ? 'Recommencer sur ce monde' : 'Rejoindre ce monde' %></button>
+        </form>
+      <% } else { %>
+        <p class="text-parchment-500">Inscriptions fermées.</p>
+      <% } %>
+    <% } else { %>
+      <div class="<%= ui.kicker %>">Mondes officiels · partie<%= current.length > 1 ? 's' : '' %> en cours</div>
+      <%# Parties en cours : un clic sur la tuile fait entrer dans le monde. %>
+      <% if (current.length) { %>
+        <div class="<%= tileGrid %>">
+          <% for (const w of current) { const c = w.campaign || {};
+               const rank = `<b class="font-semibold text-parchment-100 tabular-nums">#${c.rank ? num(c.rank) : '—'} · ${num(w.player.points)} pts</b>`;
+               const attack = c.nextAttackAt ? `<span class="text-blood-450">Attaque dans <b class="tabular-nums" data-countdown="${new Date(c.nextAttackAt).getTime()}">${duration((new Date(c.nextAttackAt) - now) / 1000)}</b></span>` : ''; %>
+            <%- worldTile(w.world, `/worlds/${w.world.slug}/play`, { edge: 'border-t-gold-400',
+              primary: attack || rank,
+              details: [c.village ? `Village : ${esc(c.village.name)}` : '', `Rang ${c.rank ? num(c.rank) : '—'} · ${num(w.player.points)} points`].filter(Boolean) }) %>
+          <% } %>
+        </div>
+      <% } else { %>
+        <p class="text-sm text-parchment-500">Aucune partie en cours : rejoins un monde officiel ci-dessous.</p>
+      <% } %>
+
+      <% if (sittings.length) { %>
+        <div class="<%= ui.kicker %> mt-1">Vous remplacez</div>
+        <% for (const { world, s } of sittings) { %>
+          <a href="/worlds/<%= world.slug %>/sit/<%= s.id %>" class="flex items-center justify-between gap-2 border border-bronze-800 border-l-[3px] border-l-gold-400 bg-panel-lo px-2.5 py-1 text-sm text-parchment-100 no-underline hover:bg-thead">
+            <span class="font-semibold"><%= s.name %></span><span class="text-xs text-parchment-500"><%= world.name %> · jouer</span>
+          </a>
+        <% } %>
+      <% } %>
+
+      <div class="<%= ui.kicker %> mt-1"><%= current.length ? 'Autres mondes officiels' : 'Rejoindre un monde officiel' %></div>
+      <%# Mondes ouverts, puis terminés : un clic ouvre la fiche du monde. %>
+      <% if (available.length || ended.length) { %>
+        <div class="<%= tileGrid %>">
+          <% for (const { world } of available) { %>
+            <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: isNew(world) ? smallTag('border border-action-line bg-action font-semibold uppercase text-on-accent', 'Nouveau') : '', primary: esc(subtitle(world)) }) %>
+          <% } %>
+          <% for (const { world } of ended) { %>
+            <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: smallTag(ui.tagMuted, 'Terminé'), primary: esc(subtitle(world)), edge: 'border-t-rel-barb' }) %>
+          <% } %>
+        </div>
+      <% } else { %><p class="text-sm text-parchment-500">Aucun autre monde officiel ouvert.</p><% } %>
+      <a href="/servers?type=official" class="<%= ui.link %> self-end text-[13px]">» Tous les mondes officiels</a>
+    <% } %>
+  </div>
+</section>

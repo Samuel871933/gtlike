@@ -5,7 +5,7 @@
 
   <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
   <div class="<%= ui.buildingGrid %>">
-    <div class="max-xl:hidden xl:sticky xl:top-24"><%- include('partials/building-illustration', { buildingId: 'snob' }) %></div>
+    <div class="<%= ui.buildingAside %>"><%- include('partials/building-illustration', { buildingId: 'snob' }) %></div>
     <div class="flex min-w-0 flex-col gap-5">
 
   <section class="<%= ui.panel %>">

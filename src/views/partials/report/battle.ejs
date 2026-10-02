@@ -1,0 +1,102 @@
+<%# Rapport, détail du combat (armées, butin, dégâts, espionnage) (inclus par report.ejs, avec : d, vid, withMilitia, order, kickers, isBattleReport, won, good, verdict, reportKinds, reportKind, partyRows, resourceOf, lot, actionLink, ownsVillage, spiedBuildings, buildingColumnSize, luckPercent, moralePercent, luckTone, moraleTone, impactTone). %>
+<% if (isBattleReport) { %>
+  <div class="grid gap-4">
+    <% for (const [label, side, medal] of [['Attaquant', d.attacker, ui.medallionRed], ['Défenseur', d.defender, ui.medallion]]) { %>
+      <section class="report-army-card min-w-0">
+        <h2 class="report-section-title"><%- icon(label === 'Attaquant' ? 'troops' : 'wall', 'size-4', 2) %><%= label %></h2>
+        <div class="report-army-card__body">
+          <div class="report-party">
+            <span class="<%= medal %> size-9"><%- icon(label === 'Attaquant' ? 'troops' : 'wall', 'size-4', 2) %></span>
+            <span class="flex min-w-0 flex-col">
+              <span class="report-party__player"><%- side.playerId ? playerLink(vid, { id: side.playerId, name: side.playerName }) : esc(side.playerName) %></span>
+              <span class="report-party__village"><%= side.village %></span>
+            </span>
+          </div>
+          <% if (label === 'Défenseur' && d.hideDefender) { %>
+            <p class="report-hidden-intel">Aucun de vos soldats n'est revenu : aucune information sur les troupes adverses.</p>
+          <% } else { %>
+            <%- include('../report-army-table', { ids: order, units: side.units, losses: side.losses }) %>
+          <% } %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+
+  <% const hasLoot = d.carry > 0 || (d.loot && (d.loot.wood + d.loot.stone + d.loot.iron) > 0);
+     const hasItems = d.attackerItem || (d.defenderItems && d.defenderItems.length); %>
+  <% if (hasLoot || hasItems || d.loyalty || d.catapult || d.wall) { %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Résultat') %>
+      <div class="<%= ui.panelBody %> gap-0 py-1">
+        <% if (hasLoot) { %>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
+            <span class="<%= ui.subLabel %> w-28">Butin</span>
+            <%- include('../cost', { cost: d.loot, have: null }) %>
+            <span class="text-sm text-parchment-500 tabular-nums">(<%= num(d.loot.wood + d.loot.stone + d.loot.iron) %> / <%= num(d.carry) %>)</span>
+          </div>
+        <% } %>
+        <% if (hasItems) { %>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
+            <span class="<%= ui.subLabel %> w-28">Armes de paladin</span>
+            <span><%= [d.attackerItem ? `attaque — ${d.attackerItem}` : null, d.defenderItems && d.defenderItems.length ? `défense — ${d.defenderItems.join(', ')}` : null].filter(Boolean).join(' · ') %></span>
+          </div>
+        <% } %>
+        <% if (d.wall) { const wallDamage = d.wall.before - d.wall.after; %>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
+            <span class="<%= ui.subLabel %> w-28">Muraille</span>
+            <span class="inline-flex items-center gap-2 text-sm"><%- buildingImg('wall', Math.max(1, d.wall.before), 'h-7 w-8') %><span>niveau <strong class="tabular-nums"><%= d.wall.before %></strong> → <strong class="<%= wallDamage > 0 ? impactTone : '' %> tabular-nums"><%= d.wall.after %></strong><% if (wallDamage > 0) { %> <span class="text-parchment-500">(<%= wallDamage %> niveau<%= wallDamage > 1 ? 'x' : '' %> détruit<%= wallDamage > 1 ? 's' : '' %>)</span><% } else { %> <span class="text-parchment-500">(intacte)</span><% } %></span></span>
+          </div>
+        <% } %>
+        <% if (d.catapult) { %>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
+            <span class="<%= ui.subLabel %> w-28">Bâtiment ciblé</span>
+            <span class="inline-flex items-center gap-2 text-sm"><%- buildingImg(d.catapult.building, Math.max(1, d.catapult.before), 'h-7 w-8') %><span><strong><%= d.catapult.name %></strong> : <% if (d.catapult.after < d.catapult.before) { %>niveau <strong class="tabular-nums"><%= d.catapult.before %></strong> → <strong class="<%= impactTone %> tabular-nums"><%= d.catapult.after %></strong> <span class="text-parchment-500">(<%= d.catapult.before - d.catapult.after %> niveau<%= d.catapult.before - d.catapult.after > 1 ? 'x' : '' %> détruit<%= d.catapult.before - d.catapult.after > 1 ? 's' : '' %>)</span><% } else { %>aucun niveau détruit<% } %></span></span>
+          </div>
+        <% } %>
+        <% if (d.loyalty) { %>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 py-2.5 last:border-b-0">
+            <span class="<%= ui.subLabel %> w-28">Loyauté</span>
+            <span class="text-sm">A baissé de <strong class="tabular-nums"><%= d.loyalty.before %></strong> à <strong class="<%= impactTone %> tabular-nums"><%= d.loyalty.after %></strong><% if (d.conquered) { %> <span class="font-semibold <%= impactTone %>">· Village <%= d.perspective === 'attacker' ? 'conquis' : 'perdu' %></span><% } %></span>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  <% } %>
+
+  <% if (d.perspective === 'attacker' && d.intel && Object.keys(d.intel).length) { %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Espionnage', `<span class="text-gold-400">${icon('eye', 'size-4')}</span>`) %>
+      <div class="<%= ui.panelBody %> report-intel gap-4">
+        <% if (d.intel.resources) { %>
+          <section class="report-intel__group" aria-labelledby="intel-resources">
+            <h3 id="intel-resources" class="<%= ui.subLabel %> mb-1 border-b border-bronze-800 bg-thead px-2 py-1">Ressources espionnées</h3>
+            <div class="<%= ui.box %> flex flex-wrap items-center gap-2 px-3 py-2"><%- include('../cost', { cost: d.intel.resources, have: null }) %></div>
+          </section>
+        <% } %>
+        <% if (spiedBuildings.length) { %>
+          <section class="report-intel__group" aria-labelledby="intel-buildings">
+            <h3 id="intel-buildings" class="<%= ui.subLabel %> mb-1 border-b border-bronze-800 bg-thead px-2 py-1">Bâtiments</h3>
+            <div class="report-intel__buildings">
+              <% for (const column of [spiedBuildings.slice(0, buildingColumnSize), spiedBuildings.slice(buildingColumnSize)]) { if (!column.length) continue; %>
+                <table class="<%= ui.tableSm %> bg-panel-lo">
+                  <thead><tr><th scope="col">Bâtiment</th><th scope="col">Niveau</th></tr></thead>
+                  <tbody>
+                    <% for (const [id, level] of column) { %>
+                      <tr><td><span class="report-intel__building-name"><%- buildingImg(id, Math.max(1, level), '', { lazy: true }) %><%= buildingName(id) %></span></td><td class="text-center font-semibold tabular-nums"><%= level %></td></tr>
+                    <% } %>
+                  </tbody>
+                </table>
+              <% } %>
+            </div>
+          </section>
+        <% } %>
+        <% if (d.intel.units) { %>
+          <section class="report-intel__group" aria-labelledby="intel-units">
+            <h3 id="intel-units" class="<%= ui.subLabel %> mb-1 border-b border-bronze-800 bg-thead px-2 py-1">Troupes détectées</h3>
+            <%- include('../report-army-table', { ids: order, units: d.intel.units, losses: null }) %>
+          </section>
+        <% } %>
+      </div>
+    </section>
+  <% } %>
+<% } %>

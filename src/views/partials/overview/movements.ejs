@@ -1,0 +1,49 @@
+<%# Aperçu du village, mouvements de troupes (inclus par overview.ejs, avec ses constantes). %>
+<%# Mouvements de troupes %>
+<section class="<%= ui.panel %>" data-overview-live="movements">
+  <%- panelHead('Mouvements de troupes', segTabs([[qs({ mv: 'all' }), `Tous (${outgoing.length + incoming.length})`, tab === 'all'], [qs({ mv: 'in' }), `Entrants (${incoming.length})`, tab === 'in'], [qs({ mv: 'out' }), `Sortants (${outgoing.length})`, tab === 'out']])) %>
+  <div class="overflow-x-auto">
+    <div class="min-w-[600px]">
+      <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] border-b-2 border-black bg-thead text-[11px] font-semibold tracking-[0.02em] text-gold-400">
+        <span class="border-r border-bronze-800 px-2.5 py-[5px]">Ordre</span><span class="border-r border-bronze-800 px-2.5 py-[5px]"><%= tab === 'in' ? 'Origine' : tab === 'out' ? 'Destination' : 'Origine / destination' %></span><span class="border-r border-bronze-800 px-2.5 py-[5px]">Arrivée</span><span class="px-2.5 py-[5px] text-right">Temps restant</span><span></span>
+      </div>
+      <% if (!moves.length) { %>
+        <p class="px-2.5 py-3 text-[13px] text-parchment-500"><%= tab === 'in' ? 'Aucune troupe en approche.' : tab === 'out' ? 'Aucun ordre en cours.' : 'Aucun mouvement de troupes.' %></p>
+      <% } %>
+      <% shown.forEach((m, i) => { const { c, dir } = m;
+           const other = dir === 'in' ? c.origin : c.target;
+           const left = (new Date(c.arrivesAt) - now) / 1000;
+           const sub = subOf(m);
+           const canCancel = dir === 'out' && c.type !== 'return' && now - new Date(c.startsAt) < ctx.cfg.commandCancelSeconds * 1000; %>
+        <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] items-center border-b border-bronze-800 <%= i % 2 ? 'bg-row-alt' : '' %> hover:bg-row-hover">
+          <div class="flex min-w-0 items-center gap-2 border-r border-bronze-900 px-2.5 py-[5px]">
+            <%- include('../order-badge', { type: c.type, units: dir === 'in' && c.type === 'attack' ? null : c.units }) %>
+            <div class="min-w-0">
+              <div class="truncate font-semibold <%= dir === 'in' && c.type === 'attack' ? 'text-blood-500' : '' %>"><%= dir === 'in' ? (c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant') : verbs[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></div>
+              <% if (sub) { %><div class="truncate text-[11px] text-parchment-500" title="<%= sub %>"><%- subOf(m, true) %></div><% } %>
+            </div>
+          </div>
+          <div class="min-w-0 truncate border-r border-bronze-900 px-2.5 py-[5px]">
+            <a href="/village/<%= vid %>/villages/<%= other.id %>" class="<%= ui.linkPlain %>"><%= other.name %></a>
+            <span class="font-semibold text-gold-400 tabular-nums">(<%= other.x %>|<%= other.y %>) <%= continent(other.x, other.y) %></span>
+          </div>
+          <span class="border-r border-bronze-900 px-2.5 py-[5px] text-parchment-500 tabular-nums"><%= whenShort(c.arrivesAt, now) %></span>
+          <span class="px-2.5 py-[5px] text-right text-[15px] font-semibold tabular-nums <%= left < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration(left) %></span>
+          <% if (canCancel) { %>
+            <form method="post" action="/village/<%= vid %>/command/<%= c.id %>/cancel" class="flex justify-center"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="<%= ui.iconBtnSm %>" title="Annuler l’ordre" aria-label="Annuler l’ordre"><%- icon('close', 'size-[11px]', 3.4) %></button>
+            </form>
+          <% } else { %><span></span><% } %>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+  <div class="flex flex-wrap items-center justify-between gap-3 px-2.5 py-2">
+    <% if (moves.length > shown.length) { %>
+      <a href="<%= qs({ mv: tab, tous: '1' }) %>" class="<%= ui.link %> text-[13px]">» Afficher les <%= moves.length - shown.length %> autres ordres</a>
+    <% } else { %><span></span><% } %>
+    <% if (ctx.state.level('place') > 0) { %>
+      <a href="/village/<%= vid %>/place" class="<%= ui.link %> text-[13px]">» Point de ralliement</a>
+    <% } %>
+  </div>
+</section>

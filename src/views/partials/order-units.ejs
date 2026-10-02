@@ -1,0 +1,15 @@
+<%# Détail d'un ordre en route (point de ralliement, page d'un village) : troupes, et butin rapporté pour un retour.
+    part 'toggle' : flèche à placer sur la ligne de l'ordre (la ligne entière déplie aussi, data-unfold-row) ;
+    part 'panel' : le détail (tableau d'unités commun, unités présentes seulement), caché jusqu'au clic. Le survol de
+    l'icône de l'ordre (data-tip) en montre une copie dans une bulle (game.js). Paramètres : id, units, loot, part. %>
+<% if (part === 'toggle') { const total = Object.values(units || {}).reduce((s, n) => s + n, 0); %>
+<button type="button" class="group/unfold inline-flex size-6 shrink-0 cursor-pointer items-center justify-center text-gold-400 transition hover:text-parchment-100" data-unfold="<%= id %>" aria-controls="<%= id %>" aria-expanded="false" title="Troupes (<%= num(total) %>)" aria-label="Voir les troupes (<%= num(total) %>)"><%- icon('chevronDown', 'size-4 transition group-aria-expanded/unfold:rotate-180', 2.4) %></button>
+<% } else { const hasLoot = loot && Object.values(loot).some((n) => n > 0); %>
+<div class="flex flex-col gap-2" data-order-detail>
+  <%# Seulement les unités de l'ordre (comme l'infobulle de GT), dans l'ordre du monde : pas de défilement latéral. %>
+  <%- include('report-army-table', { ids: registry.unitsFor(ctx.cfg).map((u) => u.id).filter((id) => units[id] > 0), units, losses: null, fit: true }) %>
+  <% if (hasLoot) { %>
+    <div class="flex flex-wrap items-center gap-2 text-sm"><span class="text-parchment-500">Butin :</span><%- include('cost', { cost: loot, have: null }) %></div>
+  <% } %>
+</div>
+<% } %>

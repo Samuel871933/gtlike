@@ -56,221 +56,22 @@
 %>
 <div class="flex flex-wrap items-start gap-3.5" data-overview-page>
   <div class="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5">
-    <%# Titre de la cité : changement de village et repères %>
-    <div class="<%= ui.panel %> flex flex-wrap items-center justify-between gap-2.5 py-2.5 pr-3.5 pl-5">
-      <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
-      <%# Le bloc du titre prend la place libre et rétrécit (titre tronqué, champ réduit) plutôt que de renvoyer les repères à la ligne. %>
-      <div class="flex min-w-0 flex-[1_1_16rem] items-center gap-3">
-        <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
-        <%# Renommer sur place : le crayon change le titre en champ (game.js, data-rename) ; Échap ou Annuler rétablit le titre. %>
-        <h1 class="m-0 min-w-0 truncate font-display text-xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:1px_1px_0_var(--color-title-shadow),2px_2px_0_var(--color-title-shadow-2)] sm:text-[22px]" title="<%= ctx.village.name %>" data-rename-title><%= ctx.village.name %></h1>
-        <form method="post" action="/village/<%= vid %>/rename" class="flex min-w-0 items-center gap-2" data-rename-form hidden><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <input name="name" value="<%= ctx.village.name %>" maxlength="32" required aria-label="Nouveau nom du village"
-                 class="field-sizing-content min-w-0 max-w-full border-0 border-b-2 border-gold-400 bg-night/40 px-2 py-0.5 leading-tight font-display text-xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:1px_1px_0_var(--color-title-shadow),2px_2px_0_var(--color-title-shadow-2)] sm:text-[22px] focus:border-gold-200 focus:outline-none">
-          <button class="<%= btn('gold', 'sm') %>">OK</button>
-          <button type="button" class="<%= btn('dark', 'sm') %>" data-rename-cancel>Annuler</button>
-        </form>
-        <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.6) %></a><% } %>
-        <button type="button" class="<%= ui.iconBtn %> size-[26px]" title="Renommer le village" aria-label="Renommer le village" data-rename-open><%- icon('edit', 'size-3.5', 2.2) %></button>
-        <span class="shrink-0 text-xs whitespace-nowrap text-parchment-500 tabular-nums"><%= idx + 1 %> / <%= myVillages.length %> village<%= myVillages.length > 1 ? 's' : '' %></span>
-      </div>
-      <div class="flex flex-wrap gap-1" data-overview-meta>
-        <% for (const [k, val, c] of meta) { %>
-          <div class="flex min-w-16 flex-col border border-bronze-800 border-t-2 bg-night px-2.5 py-[3px] <%= c %>">
-            <span class="text-[10px] tracking-[0.02em] text-parchment-500"><%= k %></span>
-            <span class="text-base font-semibold text-parchment-100 tabular-nums"><%= val %></span>
-          </div>
-        <% } %>
-      </div>
-    </div>
+    <%- include('partials/overview/title', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/city', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
 
-    <%# Vue de la cité %>
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Vue du village', `
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-parchment-300 max-sm:hidden">Clique un bâtiment · ${ctx.buildOrders.length} chantier${ctx.buildOrders.length > 1 ? 's' : ''}</span>
-          ${segTabs([[`/village/${vid}`, 'Plan', view !== 'list'], [`/village/${vid}?vue=liste`, 'Liste', view === 'list']])}
-        </div>`) %>
-      <%- include('partials/village-plan', { view }) %>
-    </section>
-
-    <%# Mouvements de troupes %>
-    <section class="<%= ui.panel %>" data-overview-live="movements">
-      <%- panelHead('Mouvements de troupes', segTabs([[qs({ mv: 'all' }), `Tous (${outgoing.length + incoming.length})`, tab === 'all'], [qs({ mv: 'in' }), `Entrants (${incoming.length})`, tab === 'in'], [qs({ mv: 'out' }), `Sortants (${outgoing.length})`, tab === 'out']])) %>
-      <div class="overflow-x-auto">
-        <div class="min-w-[600px]">
-          <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] border-b-2 border-black bg-thead text-[11px] font-semibold tracking-[0.02em] text-gold-400">
-            <span class="border-r border-bronze-800 px-2.5 py-[5px]">Ordre</span><span class="border-r border-bronze-800 px-2.5 py-[5px]"><%= tab === 'in' ? 'Origine' : tab === 'out' ? 'Destination' : 'Origine / destination' %></span><span class="border-r border-bronze-800 px-2.5 py-[5px]">Arrivée</span><span class="px-2.5 py-[5px] text-right">Temps restant</span><span></span>
-          </div>
-          <% if (!moves.length) { %>
-            <p class="px-2.5 py-3 text-[13px] text-parchment-500"><%= tab === 'in' ? 'Aucune troupe en approche.' : tab === 'out' ? 'Aucun ordre en cours.' : 'Aucun mouvement de troupes.' %></p>
-          <% } %>
-          <% shown.forEach((m, i) => { const { c, dir } = m;
-               const other = dir === 'in' ? c.origin : c.target;
-               const left = (new Date(c.arrivesAt) - now) / 1000;
-               const sub = subOf(m);
-               const canCancel = dir === 'out' && c.type !== 'return' && now - new Date(c.startsAt) < ctx.cfg.commandCancelSeconds * 1000; %>
-            <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] items-center border-b border-bronze-800 <%= i % 2 ? 'bg-row-alt' : '' %> hover:bg-row-hover">
-              <div class="flex min-w-0 items-center gap-2 border-r border-bronze-900 px-2.5 py-[5px]">
-                <%- include('partials/order-badge', { type: c.type, units: dir === 'in' && c.type === 'attack' ? null : c.units }) %>
-                <div class="min-w-0">
-                  <div class="truncate font-semibold <%= dir === 'in' && c.type === 'attack' ? 'text-blood-500' : '' %>"><%= dir === 'in' ? (c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant') : verbs[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></div>
-                  <% if (sub) { %><div class="truncate text-[11px] text-parchment-500" title="<%= sub %>"><%- subOf(m, true) %></div><% } %>
-                </div>
-              </div>
-              <div class="min-w-0 truncate border-r border-bronze-900 px-2.5 py-[5px]">
-                <a href="/village/<%= vid %>/villages/<%= other.id %>" class="<%= ui.linkPlain %>"><%= other.name %></a>
-                <span class="font-semibold text-gold-400 tabular-nums">(<%= other.x %>|<%= other.y %>) <%= continent(other.x, other.y) %></span>
-              </div>
-              <span class="border-r border-bronze-900 px-2.5 py-[5px] text-parchment-500 tabular-nums"><%= whenShort(c.arrivesAt, now) %></span>
-              <span class="px-2.5 py-[5px] text-right text-[15px] font-semibold tabular-nums <%= left < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration(left) %></span>
-              <% if (canCancel) { %>
-                <form method="post" action="/village/<%= vid %>/command/<%= c.id %>/cancel" class="flex justify-center"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                  <button class="<%= ui.iconBtnSm %>" title="Annuler l’ordre" aria-label="Annuler l’ordre"><%- icon('close', 'size-[11px]', 3.4) %></button>
-                </form>
-              <% } else { %><span></span><% } %>
-            </div>
-          <% }) %>
-        </div>
-      </div>
-      <div class="flex flex-wrap items-center justify-between gap-3 px-2.5 py-2">
-        <% if (moves.length > shown.length) { %>
-          <a href="<%= qs({ mv: tab, tous: '1' }) %>" class="<%= ui.link %> text-[13px]">» Afficher les <%= moves.length - shown.length %> autres ordres</a>
-        <% } else { %><span></span><% } %>
-        <% if (ctx.state.level('place') > 0) { %>
-          <a href="/village/<%= vid %>/place" class="<%= ui.link %> text-[13px]">» Point de ralliement</a>
-        <% } %>
-      </div>
-    </section>
+    <%- include('partials/overview/movements', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
   </div>
 
   <aside class="flex max-w-full flex-[1_1_280px] flex-col gap-3">
-    <%# Production %>
-    <section class="<%= ui.panel %>">
-      <%- panelHead('Production', '<span class="font-sans text-[11px] text-parchment-300">/ heure</span>') %>
-      <div class="flex flex-col gap-1.5 px-2.5 py-1.5">
-        <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; const pct = Math.min(100, (value / cap) * 100); %>
-          <div>
-            <div class="flex items-center gap-1.5">
-              <span><%- resourceIcon(r.id) %></span>
-              <span class="flex-1"><%= r.label %></span><span class="font-semibold tabular-nums"><%= num(prod[r.id]) %></span>
-            </div>
-            <div class="mt-[3px] h-1 border border-bronze-800 bg-night"><div class="h-full <%= pct >= 70 ? 'bg-blood-450' : 'bg-bronze-500' %>" style="width: <%= pct.toFixed(1) %>%"></div></div>
-          </div>
-        <% } %>
-        <div class="border-t border-dashed border-bronze-800 pt-1 text-[11px] text-parchment-500">
-          Entrepôt : <%= num(cap) %> par ressource ·
-          <% if (soonest.h <= 0) { %>
-            <span class="font-semibold text-blood-450">plein (<%= soonest.r.label.toLowerCase() %>)</span>
-          <% } else if (Number.isFinite(soonest.h)) { %>
-            plein dans <span class="font-semibold text-parchment-100"><%= hm(soonest.h) %></span> (<%= soonest.r.label.toLowerCase() %>)
-          <% } else { %>
-            aucune production
-          <% } %>
-        </div>
-      </div>
-    </section>
+    <%- include('partials/overview/production', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
 
-    <%# Constructions %>
-    <section class="<%= ui.panel %>" data-overview-live="buildings">
-      <%- panelHead('Constructions', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueSlots}</span>`) %>
-      <div class="flex flex-col">
-        <% if (!ctx.buildOrders.length) { %><p class="p-2.5 text-[13px] text-parchment-500">Aucun chantier. Les ouvriers attendent tes ordres.</p><% } %>
-        <% for (const o of ctx.buildOrders) { const running = new Date(o.startsAt) <= now; const start = new Date(o.startsAt).getTime(); const end = new Date(o.endsAt).getTime();
-             const pct = running ? Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100)) : 0; %>
-          <div class="border-b border-bronze-800 px-2.5 py-1.5 <%= running ? 'bg-row-hover/60' : '' %>">
-            <div class="flex items-center gap-2">
-              <div class="min-w-0 flex-1">
-                <div class="truncate font-semibold"><%= buildingName(o.building) %> <span class="<%= o.demolish ? 'text-blood-300' : 'text-gold-400' %>"><%= o.demolish ? `démolition → Niv. ${o.level}` : `→ Niv. ${o.level}` %></span></div>
-                <div class="text-[11px] text-parchment-500"><%= running ? 'En cours' : 'En file' %> · fin <%= whenShort(o.endsAt, now) %></div>
-              </div>
-              <% if (running) { %>
-                <span class="text-[15px] font-semibold text-parchment-100 tabular-nums" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span>
-              <% } else { %>
-                <span class="text-[15px] font-semibold text-parchment-500 tabular-nums"><%= duration((end - start) / 1000) %></span>
-              <% } %>
-<% if (running && !o.demolish) { const freeAt = end - ctx.cfg.freeFinishSeconds * 1000; %>
-                      <%# Terminer gratuitement : visible dès qu'il reste au plus 3 minutes (game.js l'affiche au bon moment). %>
-                      <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/finish" class="<%= now >= freeAt ? '' : 'hidden' %>" data-free-at="<%= freeAt %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                        <button class="<%= btn('gold', 'sm') %>" title="Gratuit : moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes">Terminer</button>
-                      </form>
-              <% } %>
-              <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button class="<%= ui.iconBtnSm %>" title="Annuler le chantier" aria-label="Annuler le chantier"><%- icon('close', 'size-[11px]', 3.4) %></button>
-              </form>
-            </div>
-            <% if (running) { %><span class="<%= ui.track %> mt-[5px] h-[5px]"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%" data-progress-start="<%= start %>" data-progress-end="<%= end %>"></span></span><% } %>
-          </div>
-        <% } %>
-        <% if (ctx.buildOrders.length) { %><p class="px-2.5 py-1.5 text-[11px] text-parchment-600">Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources. Moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes : « Terminer » est gratuit.</p><% } %>
-      </div>
-    </section>
+    <%- include('partials/overview/buildings', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
 
-    <%# Recrutements en cours %>
-    <div data-overview-live="recruitment" data-recruit-next="<%= Number.isFinite(nextUnitAt) ? nextUnitAt : '' %>">
-    <% if (ctx.recruitOrders.length) { %>
-      <section class="<%= ui.panel %>">
-        <%- panelHead('Recrutement') %>
-        <div class="flex flex-col">
-          <% for (const o of ctx.recruitOrders) { const running = new Date(o.startsAt) <= now; const end = new Date(o.endsAt).getTime(); %>
-            <a href="/village/<%= vid %>/recruit/<%= o.building %>" class="flex items-center gap-2 border-b border-bronze-800 px-2.5 py-1.5 text-parchment-100 no-underline hover:bg-row-hover">
-              <span class="text-gold-400"><%- unitIcon(o.unit, 'size-4', 2) %></span>
-              <span class="flex min-w-0 flex-1 flex-col">
-                <span class="truncate font-semibold"><span class="tabular-nums"><%= num(o.count - o.done) %></span> <%= unitName(o.unit) %></span>
-                <span class="text-[11px] text-parchment-500"><%= buildingName(o.building) %> · <%= running ? 'en cours' : 'en file' %></span>
-              </span>
-              <span class="text-[15px] font-semibold tabular-nums <%= running ? 'text-parchment-100' : 'text-parchment-500' %>"<%- running ? ` data-countdown="${end}"` : '' %>><%= duration(((running ? end - now : end - new Date(o.startsAt))) / 1000) %></span>
-            </a>
-          <% } %>
-        </div>
-      </section>
-    <% } %>
-    </div>
+    <%- include('partials/overview/recruits', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
 
-    <%# Troupes %>
-    <section class="<%= ui.panel %>" data-overview-live="troops">
-      <%- panelHead('Troupes', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${num(unitCount)} au village</span>`) %>
-      <div class="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 px-2.5 py-1.5">
-        <% if (!units.length) { %><p class="col-span-3 py-0.5 text-[13px] text-parchment-500">Aucune unité au village.</p><% } %>
-        <% for (const [label, list] of troopGroups) { %>
-          <% if (label) { %><p class="<%= ui.subLabel %> col-span-3 mt-2 border-t border-bronze-800 pt-1.5"><%= label %></p><% } %>
-          <% for (const [id, n] of list) { %>
-            <span class="flex justify-center text-gold-400" title="<%= roleOf(id) %>"><%- unitIcon(id, 'size-4', 2) %></span>
-            <span class="text-right font-semibold text-parchment-100 tabular-nums"><%= num(n) %></span>
-            <span class="truncate py-[3px] text-parchment-200" title="<%= unitName(id) %> · <%= roleOf(id) %>"><%= unitName(id) %></span>
-          <% } %>
-        <% } %>
-      </div>
-      <div class="flex flex-col gap-1.5 border-t border-bronze-800 px-2.5 py-2">
-        <a href="<%= recruitHref %>" class="<%= btn('dark', 'md', 'w-full') %>">Recruter des unités</a>
-        <% if (ctx.state.level('place') > 0) { %><a href="/village/<%= vid %>/place?tab=troops" class="<%= ui.link %> self-center text-[13px]">» Détail des troupes</a><% } %>
-      </div>
-    </section>
+    <%- include('partials/overview/troops', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
 
-    <%# Arme du paladin %>
-    <% if (item) { %>
-      <section class="<%= ui.panel %>">
-        <%- panelHead('Paladin', ctx.state.level('statue') > 0 ? `<a href="/village/${vid}/recruit/statue" class="${ui.link} font-sans text-xs">Modifier</a>` : '') %>
-        <div class="flex flex-col">
-          <div class="flex items-center gap-2 border-b border-bronze-900 px-2.5 py-[5px]">
-            <span class="size-2 shrink-0 rotate-45 border border-black bg-gold-200"></span>
-            <div class="min-w-0 flex-1"><div class="font-semibold"><%= item.name %></div><div class="text-[11px] text-parchment-500">Arme équipée</div></div>
-          </div>
-          <% const effects = [];
-             if (item.unit) { effects.push([`${unitName(item.unit)} : attaque`, `+${Math.round(item.attack * 100)} %`, 'bg-blood-600'], [`${unitName(item.unit)} : défense`, `+${Math.round(item.defense * 100)} %`, 'bg-rel-barb']); }
-             if (item.spy) effects.push(['Compte comme éclaireur', '', 'bg-steel-500']);
-             if (item.siege) for (const [u, m] of Object.entries(item.siege)) effects.push([unitName(u), `+${Math.round(m * 100)} %`, 'bg-blood-450']);
-             if (item.loyalty) effects.push(['Loyauté (minimum)', `−${item.loyalty}`, 'bg-olive-500']); %>
-          <% for (const [name, val, c] of effects) { %>
-            <div class="flex items-center gap-2 border-b border-bronze-900 px-2.5 py-[5px]">
-              <span class="size-2 shrink-0 rotate-45 border border-black <%= c %>"></span>
-              <span class="min-w-0 flex-1 font-semibold"><%= name %></span>
-              <span class="text-xs text-gold-400 tabular-nums"><%= val %></span>
-            </div>
-          <% } %>
-        </div>
-      </section>
-    <% } %>
+    <%- include('partials/overview/knight-item', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
   </aside>
 </div>
 <%- include('partials/footer') %>

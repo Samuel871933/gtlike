@@ -1,0 +1,25 @@
+<%# Aperçu du village, arme du paladin (inclus par overview.ejs, avec ses constantes). %>
+<%# Arme du paladin %>
+<% if (item) { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Paladin', ctx.state.level('statue') > 0 ? `<a href="/village/${vid}/recruit/statue" class="${ui.link} font-sans text-xs">Modifier</a>` : '') %>
+    <div class="flex flex-col">
+      <div class="flex items-center gap-2 border-b border-bronze-900 px-2.5 py-[5px]">
+        <span class="size-2 shrink-0 rotate-45 border border-black bg-gold-200"></span>
+        <div class="min-w-0 flex-1"><div class="font-semibold"><%= item.name %></div><div class="text-[11px] text-parchment-500">Arme équipée</div></div>
+      </div>
+      <% const effects = [];
+         if (item.unit) { effects.push([`${unitName(item.unit)} : attaque`, `+${Math.round(item.attack * 100)} %`, 'bg-blood-600'], [`${unitName(item.unit)} : défense`, `+${Math.round(item.defense * 100)} %`, 'bg-rel-barb']); }
+         if (item.spy) effects.push(['Compte comme éclaireur', '', 'bg-steel-500']);
+         if (item.siege) for (const [u, m] of Object.entries(item.siege)) effects.push([unitName(u), `+${Math.round(m * 100)} %`, 'bg-blood-450']);
+         if (item.loyalty) effects.push(['Loyauté (minimum)', `−${item.loyalty}`, 'bg-olive-500']); %>
+      <% for (const [name, val, c] of effects) { %>
+        <div class="flex items-center gap-2 border-b border-bronze-900 px-2.5 py-[5px]">
+          <span class="size-2 shrink-0 rotate-45 border border-black <%= c %>"></span>
+          <span class="min-w-0 flex-1 font-semibold"><%= name %></span>
+          <span class="text-xs text-gold-400 tabular-nums"><%= val %></span>
+        </div>
+      <% } %>
+    </div>
+  </section>
+<% } %>

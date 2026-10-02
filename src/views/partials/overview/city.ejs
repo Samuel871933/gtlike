@@ -1,0 +1,10 @@
+<%# Aperçu du village, vue de la cité (inclus par overview.ejs, avec ses constantes). %>
+<%# Vue de la cité %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Vue du village', `
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-parchment-300 max-sm:hidden">Clique un bâtiment · ${ctx.buildOrders.length} chantier${ctx.buildOrders.length > 1 ? 's' : ''}</span>
+      ${segTabs([[`/village/${vid}`, 'Plan', view !== 'list'], [`/village/${vid}?vue=liste`, 'Liste', view === 'list']])}
+    </div>`) %>
+  <%- include('../village-plan', { view }) %>
+</section>

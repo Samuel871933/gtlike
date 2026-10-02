@@ -1,8 +1,8 @@
 <%- include('partials/header', { title: 'Connexion', hero: true, lobbyPage: 'login' }) %>
-<%- include('partials/landing-hero-start', { cta: { href: '/register', label: 'Jouer gratuitement' } }) %>
+<%- include('partials/landing-hero-start', { cta: { href: '/register', label: 'Jouer gratuitement' }, lobbyPage: 'login' }) %>
 <div class="<%= ui.lobbyCard %>">
   <h2 class="<%= ui.lobbyCardHead %>">Connexion</h2>
-  <div class="flex flex-1 flex-col gap-2.5 p-3.5">
+  <div class="<%= ui.authBody %>">
     <% if (typeof notice !== 'undefined' && notice) { %><div class="<%= ui.alertSuccess %>"><%= notice %></div><% } %>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
     <form method="post" action="/login" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">

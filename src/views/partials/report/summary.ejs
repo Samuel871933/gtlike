@@ -1,0 +1,86 @@
+<%# Rapport, résumé selon le type (annonce, collecte, succès, commerce, soutien, combat) (inclus par report.ejs, avec : d, vid, withMilitia, order, kickers, isBattleReport, won, good, verdict, reportKinds, reportKind, partyRows, resourceOf, lot, actionLink, ownsVillage, spiedBuildings, buildingColumnSize, luckPercent, moralePercent, luckTone, moraleTone, impactTone). %>
+<% if (d.perspective === 'world') { %>
+  <p class="<%= ui.alertInfo %>"><%= d.text %></p>
+<% } else if (d.perspective === 'scavenge') { %>
+  <div class="<%= ui.box %> flex flex-col gap-3 p-3.5">
+    <p><span class="text-parchment-500">Village</span> <span class="font-semibold"><%= d.village %></span></p>
+    <%- include('../units', { units: d.units, losses: null, iconSize: 'size-8' }) %>
+    <div class="flex flex-wrap items-center gap-3"><span class="<%= ui.subLabel %>">Butin</span><%- include('../cost', { cost: d.received, have: null }) %></div>
+  </div>
+  <p class="text-xs text-parchment-600">Ce qui dépasse la capacité de l'entrepôt est perdu.</p>
+<% } else if (d.perspective === 'award') { const tierIdx = d.tiers > 1 ? d.tier : 4; %>
+  <%# Succès, comme l'encadré « Accomplissement reçu » de GT : icône, objectif atteint, lien, palier à droite. %>
+  <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3.5 shadow-[3px_3px_0_#050505]">
+    <h2 class="font-display text-lg font-semibold text-parchment-100"><%= d.name %><% if (d.tiers > 1) { %> <span class="<%= TIER_STYLES.text[d.tier] %>">(<%= TIER_STYLES.names[d.tier - 1] %> · niveau <%= d.tier %>)</span><% } %></h2>
+    <div class="flex items-start gap-4">
+      <span class="<%= TIER_STYLES.medal %> <%= TIER_STYLES.border[tierIdx] %> achievement-art achievement-art--report" data-achievement-tier="<%= tierIdx %>"><img src="<%= ACHIEVEMENT_IMAGES[d.key] %>" alt="" width="96" height="96"></span>
+      <div class="flex min-w-0 flex-1 flex-col gap-2 text-[15px]">
+        <p class="text-parchment-200"><%= d.description %></p>
+        <% if (d.goal != null) { %><p class="text-parchment-400">Objectif atteint : <span class="font-semibold text-parchment-100 tabular-nums"><%= num(d.goal) %></span><%- d.next != null ? ` · palier suivant : <span class="font-semibold text-parchment-100 tabular-nums">${num(d.next)}</span>` : ' · palier maximal' %></p><% } %>
+        <a href="/village/<%= vid %>/players/<%= ctx.village.playerId %>#succes" class="<%= actionLink %> self-start">Voir vos succès</a>
+      </div>
+      <span class="flex shrink-0 flex-col items-center gap-1 max-sm:hidden" title="Palier <%= TIER_STYLES.names[tierIdx - 1].toLowerCase() %>">
+        <span class="<%= TIER_STYLES.medal %> <%= TIER_STYLES.border[tierIdx] %> size-14 font-display text-xl font-semibold"><%= d.tiers > 1 ? d.tier : '★' %></span>
+        <span class="text-xs font-semibold <%= TIER_STYLES.text[tierIdx] %>"><%= d.daily ? 'Du jour' : TIER_STYLES.names[tierIdx - 1] %></span>
+      </span>
+    </div>
+  </div>
+<% } else if (d.perspective === 'visit') { %>
+  <p class="<%= ui.box %> flex items-center gap-3 px-4 py-3 text-parchment-300"><span class="text-gold-400"><%- icon('moon', 'size-4') %></span><%= d.sleeper %> était en mode sommeil : aucun combat, les troupes sont reparties.</p>
+  <p><span class="text-parchment-500">De</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p>
+  <%- include('../units', { units: d.units, losses: null, iconSize: 'size-8' }) %>
+<% } else if (d.perspective === 'trade' && d.kind === 'offer') { const arrived = new Date(d.arrivesAt) <= now; %>
+  <%# Offre acceptée : Vendeur / Acheteur, ce qui a été vendu et payé, arrivée du paiement, « Re-créer l'offre ». %>
+  <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3 shadow-[3px_3px_0_#050505]">
+    <div class="overflow-x-auto"><table class="<%= ui.table %>"><tbody><%- partyRows('Vendeur', d.seller) %><%- partyRows('Acheteur', d.buyer) %></tbody></table></div>
+    <div class="<%= ui.box %> flex flex-col gap-1.5 self-start px-3 py-2.5 text-[15px]">
+      <p class="flex flex-wrap items-center gap-x-2"><span class="font-semibold text-parchment-100"><%= d.seller.playerName %></span> <span class="text-parchment-400">a vendu :</span> <%- lot(d.lots, d.sell) %></p>
+      <p class="flex flex-wrap items-center gap-x-2"><span class="font-semibold text-parchment-100"><%= d.buyer.playerName %></span> <span class="text-parchment-400">a payé :</span> <%- lot(d.lots, d.buy) %></p>
+    </div>
+    <p class="text-parchment-300">Les biens échangés ont bien été embarqués et <%= arrived ? 'sont arrivés' : 'arriveront' %> <span class="tabular-nums"><%= when(d.arrivesAt, now) %></span>.</p>
+    <% const home = ownsVillage(d.seller.villageId) ? d.seller.villageId : vid; %>
+    <a href="/village/<%= home %>/market?tab=mine&amp;sellResource=<%= d.sell.resource %>&amp;sellAmount=<%= d.sell.amount %>&amp;buyResource=<%= d.buy.resource %>&amp;buyAmount=<%= d.buy.amount %>&amp;count=<%= d.lots %>" class="<%= actionLink %> self-start"><%- icon('market', 'size-3.5', 2) %>Re-créer l'offre</a>
+  </div>
+<% } else if (d.perspective === 'trade' && d.kind === 'delivery') { %>
+  <%# Livraison : De / À, puis les ressources livrées. %>
+  <div class="flex flex-col gap-3 border-2 border-black bg-panel-lo p-3 shadow-[3px_3px_0_#050505]">
+    <div class="overflow-x-auto"><table class="<%= ui.table %>"><tbody><%- partyRows('De', d.sender) %><%- partyRows('À', d.recipient) %></tbody></table></div>
+    <div class="flex flex-col gap-1.5">
+      <span class="font-semibold text-parchment-100">Ressources :</span>
+      <span class="flex flex-wrap items-center gap-x-4 gap-y-1 font-semibold tabular-nums">
+        <% for (const r of RESOURCES.filter((x) => d.received[x.id] > 0)) { %>
+          <span class="inline-flex items-center gap-1.5" title="<%= r.label %>"><span><%- resourceIcon(r.id) %></span><%= num(d.received[r.id]) %></span>
+        <% } %>
+      </span>
+    </div>
+    <p class="text-xs text-parchment-600">Ce qui dépasse la capacité de l'entrepôt est perdu.</p>
+  </div>
+<% } else if (d.perspective === 'trade') { %>
+  <%# Anciens rapports de commerce (avant les parties joueur / village). %>
+  <p><span class="text-parchment-500">De</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p>
+  <div class="<%= ui.box %> flex flex-col gap-2 p-3.5">
+    <% if (d.sent) { %><div class="flex flex-wrap items-center gap-3"><span class="<%= ui.subLabel %> w-16">Envoyé</span><%- include('../cost', { cost: d.sent, have: null }) %></div><% } %>
+    <% if (d.received) { %><div class="flex flex-wrap items-center gap-3"><span class="<%= ui.subLabel %> w-16">Reçu</span><%- include('../cost', { cost: d.received, have: null }) %></div><% } %>
+  </div>
+<% } else if (d.perspective === 'support') { %>
+  <% if (d.from) { %><p><span class="text-parchment-500">Depuis</span> <span class="font-semibold"><%= d.from %></span> <span class="text-parchment-500">vers</span> <span class="font-semibold"><%= d.village %></span></p><% } %>
+  <%- include('../units', { units: d.units, losses: d.losses || null, iconSize: 'size-8' }) %>
+<% } else { %>
+  <dl class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div class="<%= ui.tile %>">
+      <dt class="<%= ui.tileLabel %>">Chance de l’attaquant</dt>
+      <dd class="<%= ui.tileValue %> report-stat--<%= luckTone %>"><%= luckPercent > 0 ? '+' : '' %><%= luckPercent.toFixed(1) %> %</dd>
+      <dd class="report-meter report-meter--luck report-meter--<%= luckTone %>" aria-hidden="true"><span style="left: <%= luckPercent < 0 ? 50 - Math.min(50, Math.abs(luckPercent) * 2) : 50 %>%; width: <%= Math.min(50, Math.abs(luckPercent) * 2) %>%"></span></dd>
+    </div>
+    <div class="<%= ui.tile %>">
+      <dt class="<%= ui.tileLabel %>">Moral de l’attaquant</dt>
+      <dd class="<%= ui.tileValue %> report-stat--<%= moraleTone %>"><%= moralePercent %> %</dd>
+      <dd class="report-meter report-meter--<%= moraleTone %>" aria-hidden="true"><span style="width: <%= Math.min(100, Math.max(0, moralePercent)) %>%"></span></dd>
+    </div>
+    <div class="<%= ui.tile %>"><dt class="<%= ui.tileLabel %>">Bonus de nuit</dt><dd class="<%= ui.tileValue %>"><%= d.night ? 'oui' : 'non' %></dd></div>
+    <% if (d.faith) { %>
+      <%# Mondes avec église : force des troupes selon la foi (50 % hors de la zone d'une église). %>
+      <div class="<%= ui.tile %> sm:col-span-3"><dt class="<%= ui.tileLabel %>">Foi</dt><dd class="<%= ui.tileValue %>">Attaquant <span class="<%= d.faith.attacker < 1 ? 'text-blood-450' : '' %>"><%= Math.round(d.faith.attacker * 100) %> %</span> · défenseur <span class="<%= d.faith.defender < 1 ? 'text-blood-450' : '' %>"><%= Math.round(d.faith.defender * 100) %> %</span></dd></div>
+    <% } %>
+  </dl>
+<% } %>

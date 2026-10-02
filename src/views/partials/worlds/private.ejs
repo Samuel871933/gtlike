@@ -1,0 +1,48 @@
+<%# Mondes, serveurs privés (les siens, les plus peuplés, rejoindre ou créer) (inclus par worlds.ejs, avec ses helpers). %>
+<section class="<%= ui.lobbyCard %>">
+  <h2 class="<%= ui.lobbyCardHead %>">Serveurs privés</h2>
+  <div class="flex flex-col gap-2 px-3 py-2.5">
+    <% if (myServers.length) { %>
+      <div class="<%= ui.kicker %>">Tes serveurs</div>
+      <div class="<%= tileGrid %>">
+        <% for (const w of myServers) { %>
+          <%- worldTile(w.world, playing(w) ? `/worlds/${w.world.slug}/play` : `/worlds?w=${w.world.slug}`, {
+            edge: playing(w) ? 'border-t-gold-400' : 'border-t-steel-500',
+            tag: smallTag(w.world.access === 'code' ? ui.tagMuted : ui.tagGold, accessName(w.world)),
+            primary: playing(w) ? `<b class="font-semibold text-parchment-100 tabular-nums">${num(w.player.points)} pts</b>` : 'Pas encore inscrit',
+            details: [w.world.ownerUserId === user.id ? 'Ton serveur' : '', `Accès : ${accessName(w.world).toLowerCase()}`].filter(Boolean),
+          }) %>
+        <% } %>
+      </div>
+    <% } %>
+
+    <div class="<%= ui.kicker %><%= myServers.length ? ' mt-1' : '' %>">Serveurs publics les plus peuplés</div>
+    <% if (publicServers.length) { %>
+      <div class="<%= tileGrid %>">
+        <% for (const { world, players } of publicServers) { %>
+          <%- worldTile(world, `/worlds?w=${world.slug}`, { edge: 'border-t-steel-500',
+            primary: `<b class="font-semibold text-parchment-100 tabular-nums">${num(players)} joueur${players > 1 ? 's' : ''}</b>` }) %>
+        <% } %>
+      </div>
+    <% } else { %>
+      <p class="border border-dashed border-bronze-700 bg-night/60 px-2.5 py-2 text-sm text-parchment-500">Aucun serveur privé ouvert pour l’instant : crée le premier !</p>
+    <% } %>
+    <a href="/servers?type=private" class="<%= ui.link %> self-end text-[13px]">» Tous les serveurs privés</a>
+
+    <div class="<%= ui.kicker %> mt-1">Rejoindre ou créer</div>
+    <div class="grid gap-2 sm:grid-cols-2">
+      <form method="post" action="/servers/join" class="flex min-w-0 items-center gap-2 border border-bronze-800 bg-night px-2 py-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <span class="<%= ui.medallion %> size-7"><%- icon('lock', 'size-3.5', 2.2) %></span>
+        <input name="code" required maxlength="12" autocomplete="off" placeholder="Code d’accès" aria-label="Code d’accès d’un serveur privé" class="<%= ui.input %> h-8 min-w-0 flex-1 uppercase tracking-[0.08em] placeholder:tracking-normal placeholder:normal-case">
+        <button class="<%= btn('dark', 'sm') %>">Rejoindre</button>
+      </form>
+      <a href="/servers/new" class="group flex min-w-0 items-center gap-2 border border-bronze-800 bg-night px-2 py-1.5 text-parchment-100 no-underline shadow-[2px_2px_0_#000] transition hover:-translate-y-px hover:border-gold-400 hover:bg-thead">
+        <span class="<%= ui.medallion %> size-7"><%- icon('plus', 'size-3.5', 2.2) %></span>
+        <span class="flex min-w-0 flex-col">
+          <span class="truncate font-display text-[15px] leading-tight font-semibold group-hover:text-gold-200">Créer un serveur</span>
+          <span class="truncate text-xs text-parchment-500">Vitesse, unités, nuit, durée… (<%= maxOwned %> max)</span>
+        </span>
+      </a>
+    </div>
+  </div>
+</section>

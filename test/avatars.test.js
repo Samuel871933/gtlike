@@ -74,7 +74,7 @@ test('images de profil : réduites en WebP, original non gardé, remplacées et 
   const alice = await Player.findOne({ where: { name: 'Alice' } });
   assert.match((await http(`/village/${vid}/players/${alice.id}`)).html, /L’image de profil est réservée au premium/);
   const { Entitlement } = require('../src/models');
-  await Entitlement.create({ scope: 'account', userId: alice.userId, itemKey: 'premium', startsAt: new Date(Date.now() - 60000), source: 'gift' });
+  const premiumRight = await Entitlement.create({ scope: 'account', userId: alice.userId, itemKey: 'premium', startsAt: new Date(Date.now() - 60000), source: 'gift' });
 
   // Sans jeton CSRF : refusé, rien n'est écrit.
   assert.equal((await http(`/village/${vid}/profile/avatar`, { method: 'POST', body: upload(null, big) })).status, 403);
@@ -95,6 +95,25 @@ test('images de profil : réduites en WebP, original non gardé, remplacées et 
   const served = await fetch(`${base}/uploads/avatars/${player.avatar}`);
   assert.equal(served.headers.get('content-type'), 'image/webp');
   assert.match((await http(`/village/${vid}/players/${player.id}`)).html, new RegExp(player.avatar));
+
+  // À l'expiration du premium, seul le propriétaire garde un aperçu grisé et le bouton de suppression.
+  const visitor = client();
+  const visitorReg = await visitor('/register');
+  await visitor('/register', { method: 'POST', form: { username: 'Bob', email: 'bob@example.com', password: 'motdepasse', _csrf: tokenOf(visitorReg.html) } });
+  const visitorWorlds = await visitor('/worlds');
+  const visitorJoined = await visitor('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(visitorWorlds.html) } });
+  await premiumRight.update({ endsAt: new Date(Date.now() - 1000) });
+  const ownProfile = (await http(`/village/${vid}/players/${player.id}`)).html;
+  assert.match(ownProfile, /grayscale opacity-50/);
+  assert.match(ownProfile, /Aperçu privé/);
+  assert.ok(ownProfile.indexOf('/profile/avatar/delete') < ownProfile.indexOf('L’image de profil est réservée au premium'));
+  const publicProfile = (await visitor(`${visitorJoined.location}/players/${player.id}`)).html;
+  assert.doesNotMatch(publicProfile, new RegExp(player.avatar));
+  assert.doesNotMatch(publicProfile, /<section[^>]+id="image"/);
+  assert.equal((await fetch(`${base}/uploads/avatars/${player.avatar}`)).status, 404);
+  assert.equal((await http(`/uploads/avatars/${player.avatar}`)).status, 200);
+  await premiumRight.update({ endsAt: null });
+  assert.match((await visitor(`${visitorJoined.location}/players/${player.id}`)).html, new RegExp(player.avatar));
 
   // Remplacement : l'ancien fichier disparaît.
   await http(`/village/${vid}/profile/avatar`, { method: 'POST', body: upload(csrf, big) });

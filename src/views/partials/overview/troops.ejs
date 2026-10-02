@@ -1,0 +1,20 @@
+<%# Aperçu du village, troupes (inclus par overview.ejs, avec ses constantes). %>
+<%# Troupes %>
+<section class="<%= ui.panel %>" data-overview-live="troops">
+  <%- panelHead('Troupes', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${num(unitCount)} au village</span>`) %>
+  <div class="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 px-2.5 py-1.5">
+    <% if (!units.length) { %><p class="col-span-3 py-0.5 text-[13px] text-parchment-500">Aucune unité au village.</p><% } %>
+    <% for (const [label, list] of troopGroups) { %>
+      <% if (label) { %><p class="<%= ui.subLabel %> col-span-3 mt-2 border-t border-bronze-800 pt-1.5"><%= label %></p><% } %>
+      <% for (const [id, n] of list) { %>
+        <span class="flex justify-center text-gold-400" title="<%= roleOf(id) %>"><%- unitIcon(id, 'size-4', 2) %></span>
+        <span class="text-right font-semibold text-parchment-100 tabular-nums"><%= num(n) %></span>
+        <span class="truncate py-[3px] text-parchment-200" title="<%= unitName(id) %> · <%= roleOf(id) %>"><%= unitName(id) %></span>
+      <% } %>
+    <% } %>
+  </div>
+  <div class="flex flex-col gap-1.5 border-t border-bronze-800 px-2.5 py-2">
+    <a href="<%= recruitHref %>" class="<%= btn('dark', 'md', 'w-full') %>">Recruter des unités</a>
+    <% if (ctx.state.level('place') > 0) { %><a href="/village/<%= vid %>/place?tab=troops" class="<%= ui.link %> self-center text-[13px]">» Détail des troupes</a><% } %>
+  </div>
+</section>

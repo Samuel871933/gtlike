@@ -7,12 +7,13 @@ const multer = require('multer');
 const session = require('express-session');
 const SequelizeStore = require('connect-session-sequelize')(session.Store);
 const config = require('./config');
-const { sequelize } = require('./models');
+const { sequelize, Player } = require('./models');
 const helpers = require('./web/helpers');
 const { loadUser, errorHandler } = require('./web/middleware');
 const csrf = require('./web/csrf');
 const { cacheHeaders } = require('./web/assets');
 const ImageService = require('./services/ImageService');
+const ShopService = require('./services/ShopService');
 const GameError = require('./services/GameError');
 
 const avatarParser = multer({ storage: multer.memoryStorage(), limits: { fileSize: ImageService.MAX_BYTES, files: 1, fields: 4 } }).single('image');
@@ -60,8 +61,6 @@ function createApp() {
     const pages = ['/', '/register', '/rules', '/help', '/mentions-legales', '/cgu', '/cgv', '/confidentialite', '/cookies'];
     res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((page) => `<url><loc>${config.siteUrl}${page}</loc></url>`).join('')}</urlset>`);
   });
-  // Images de profil envoyées par les joueurs (WebP déjà réduits, noms changés à chaque envoi).
-  app.use('/uploads/avatars', express.static(ImageService.DIR, { maxAge: '30d', immutable: true }));
   // Terrain de la carte, partagé avec le serveur (src/game/terrain.js).
   app.get('/js/terrain.js', (req, res) => res.sendFile(path.join(__dirname, 'game', 'terrain.js'), { cacheControl: false }));
   app.use(express.urlencoded({ extended: false }));
@@ -72,6 +71,25 @@ function createApp() {
     saveUninitialized: false,
     cookie: { httpOnly: true, sameSite: 'lax', secure: config.isProduction, maxAge: 30 * 86400000 },
   }));
+
+  // Une ancienne image de joueur reste en place à l'expiration du premium, pour que son propriétaire puisse
+  // l'apercevoir ou la supprimer. Elle n'est plus publique tant que le premium n'est pas réactivé.
+  app.get('/uploads/avatars/:name', async (req, res, next) => {
+    const match = /^player-(\d+)-[0-9a-f]{8}\.webp$/.exec(req.params.name);
+    if (!match) return next();
+    try {
+      const player = await Player.findByPk(Number(match[1]), { attributes: ['avatar', 'userId', 'worldId'] });
+      if (!player || player.avatar !== req.params.name) return res.sendStatus(404);
+      const isOwner = req.session.userId && req.session.userId === player.userId;
+      if (!isOwner && !(await ShopService.rightsFor(player.userId, player.worldId)).premium) return res.sendStatus(404);
+      res.set('Cache-Control', 'private, no-store');
+      return res.sendFile(req.params.name, { root: ImageService.DIR, cacheControl: false });
+    } catch (err) {
+      return next(err);
+    }
+  });
+  // Images de tribu publiques ; les images de joueur passent obligatoirement par le contrôle ci-dessus.
+  app.use('/uploads/avatars', express.static(ImageService.DIR, { maxAge: '30d', immutable: true }));
 
   app.use((req, res, next) => {
     Object.assign(res.locals, helpers, { now: new Date(), ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null, playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, asSitter: false, happyPopup: null });

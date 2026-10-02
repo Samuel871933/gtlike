@@ -693,6 +693,13 @@ html.game_style body,
 .report-army-table thead { background: var(--color-thead); }
 .report-army-table__corner,
 .report-army-table__label { position: sticky; left: 0; z-index: 2; width: 82px; background: var(--color-thead); color: var(--color-gold-200); text-align: left!important; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+/* Variante ajustée (troupes d'un ordre) : largeur du contenu, colonnes de taille égale. */
+.report-army-table-wrap--fit { width: fit-content; max-width: 100%; }
+.report-army-table--fit { width: auto; min-width: 0; table-layout: auto; }
+.report-army-table--fit .report-army-table__unit { min-width: 68px; }
+/* Libellés de lignes (Unités, Quantité, Pertes) : écartés du bord gauche du tableau. */
+.report-army-table .report-army-table__corner,
+.report-army-table .report-army-table__label { padding-left: .65rem; }
 .report-army-table__unit { height: 54px; color: var(--color-gold-300); }
 .report-army-table__unit span { display: flex; justify-content: center; color: var(--color-gold-400); }
 .report-army-table__unit small { display: block; max-width: 54px; margin: .1rem auto 0; overflow: hidden; font-size: .55rem; font-weight: 700; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }

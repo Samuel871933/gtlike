@@ -2,7 +2,7 @@
 <%- include('partials/landing-hero-start', { cta: { href: '#inscription', label: 'Jouer gratuitement' }, login: true }) %>
 <div class="<%= ui.lobbyCard %>">
   <h1 class="<%= ui.lobbyCardHead %>" id="inscription">Créer un compte</h1>
-  <div class="flex flex-1 flex-col gap-2.5 p-3.5">
+  <div class="<%= ui.authBody %>">
     <p class="text-sm text-parchment-300">Un compte, tous les mondes.</p>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
     <form method="post" action="/register" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">

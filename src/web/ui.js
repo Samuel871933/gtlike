@@ -62,9 +62,6 @@ const ui = {
   // Encart de la colonne de droite de l'accueil (connexion, parties en cours, mondes, serveurs privés).
   lobbyCard: 'flex min-w-0 flex-col border-2 border-black bg-panel-top shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]',
   lobbyCardHead: 'border-b-2 border-bronze-500 bg-head px-3 py-2 font-display text-[17px] font-semibold tracking-[0.02em]',
-  muted: 'text-parchment-500',
-  faint: 'text-parchment-600',
-  num: 'font-semibold tabular-nums',
   link: 'font-medium text-gold-400 no-underline transition hover:text-parchment-100',
   linkPlain: 'text-parchment-100 no-underline transition hover:text-gold-400',
   sectionLabel: 'flex items-center gap-2.5 text-sm font-semibold text-gold-400 after:h-0.5 after:flex-1 after:bg-linear-to-r after:from-bronze-500 after:to-transparent',
@@ -89,7 +86,6 @@ const ui = {
   box: 'border border-bronze-800 bg-panel-lo shadow-[1px_1px_0_#000]',
   boxGold: 'border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top',
   boxGoldV: 'border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-500),3px_3px_0_#050505]',
-  boxDashed: 'border border-dashed border-bronze-700',
   tile: 'border border-bronze-800 border-t-2 border-t-bronze-500 bg-night px-2.5 py-1',
   tileLabel: 'text-xs text-parchment-500',
   tileValue: 'text-base font-semibold tabular-nums text-parchment-100',
@@ -99,7 +95,6 @@ const ui = {
   countBadge: 'flex h-4 min-w-4 items-center justify-center border border-black bg-blood-600 px-1 text-[11px] font-semibold tracking-normal text-on-accent shadow-[1px_1px_0_#000]',
   levelBadge: 'flex h-4 min-w-6 items-center justify-center border border-gold-400 bg-night px-1 text-[11px] font-semibold text-gold-400',
   tagRed: 'inline-flex items-center border border-black bg-blood-600 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-on-accent uppercase shadow-[1px_1px_0_#000]',
-  tagSolidRed: 'inline-flex items-center border border-black bg-blood-800 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-on-accent uppercase',
   tagOlive: 'inline-flex items-center border border-black bg-olive-700 px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-100 uppercase',
   tagGold: 'inline-flex items-center border border-gold-400 bg-night px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-gold-400 uppercase',
   tagMuted: 'inline-flex items-center border border-bronze-700 bg-night px-1.5 py-px text-[11px] font-semibold tracking-[0.04em] text-parchment-500 uppercase',
@@ -133,6 +128,10 @@ const ui = {
   tableScroll: 'overflow-x-auto border-t border-bronze-900',
   // Page de bâtiment en deux colonnes : illustration et infos à gauche, contenu à droite.
   buildingGrid: 'grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]',
+  // Sa colonne de gauche : grande illustration, collée en haut au défilement (vignette dans l'en-tête sous xl).
+  buildingAside: 'max-xl:hidden xl:sticky xl:top-24',
+  // Corps des formulaires de l'accueil (connexion, inscription, mot de passe oublié).
+  authBody: 'flex flex-1 flex-col gap-2.5 p-3.5',
 
   // Menu latéral (sideNav) : en-tête de groupe en gras sur bande sombre ; lien en poids normal ; lien actif à trait doré.
   sideHead: 'block border-b-2 border-bronze-700 bg-black/15 px-3 py-1.5 text-[13px] font-bold text-parchment-100',
@@ -147,9 +146,6 @@ const ui = {
   alertError: 'border-2 border-black border-l-4 border-l-blood-600 bg-blood-900/60 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505] minimal:text-sm',
   alertSuccess: 'border-2 border-black border-l-4 border-l-olive-500 bg-olive-700/30 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505] minimal:text-sm',
   alertInfo: 'border-2 border-black border-l-4 border-l-bronze-500 bg-panel-top px-3 py-2 text-[15px] text-parchment-300 shadow-[3px_3px_0_#050505] minimal:text-sm',
-
-  // Grand titre (logo, héros) : aplat parchemin, double ombre d'encre et de sang.
-  goldText: 'text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),3px_3px_0_var(--color-title-shadow-2)]',
 
   // Liste déroulante (<details>) : panneau flottant.
   popover: 'absolute z-30 mt-1 border-2 border-black bg-panel-top p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000]',

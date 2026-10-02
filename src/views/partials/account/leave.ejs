@@ -1,0 +1,16 @@
+<%# Compte, panneau « Quitter ce monde » (inclus par account.ejs, avec sleep, vid, scheduled, shopLink). %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Quitter ce monde') %>
+  <div class="<%= ui.panelBody %> gap-4">
+    <p class="text-parchment-400">
+      Vos villages redeviennent barbares (avec leurs troupes), vos troupes et marchands à l'extérieur, vos offres et vos
+      rapports sont supprimés. Si vous fondez une tribu, elle passe à un autre membre. Vous pourrez revenir plus tard avec un nouveau départ.
+    </p>
+    <form method="post" action="/village/<%= vid %>/account/leave-world" class="flex flex-wrap items-end gap-2" data-confirm="Quitter définitivement ce monde ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="<%= ui.label %> min-w-0 flex-1 sm:flex-none">Mot de passe
+        <input type="password" name="password" required class="<%= ui.input %> w-full sm:w-64">
+      </label>
+      <button class="<%= btn('red') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter ce monde</button>
+    </form>
+  </div>
+</section>

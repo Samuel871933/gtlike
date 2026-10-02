@@ -1,0 +1,37 @@
+<%# Point de ralliement, onglet « troops » (inclus par place.ejs, avec : vid, typeName, verbStyle, available, groups, tabs, villageHref, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView). %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Troupes', tabs) %>
+  <form method="get" class="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+    <input type="hidden" name="tab" value="troops">
+    <label for="troop-view" class="<%= ui.subLabel %>">Affichage</label>
+    <select id="troop-view" name="view" class="<%= ui.inputSm %> w-auto" data-autosubmit>
+      <option value="summary" <%= troopView === 'summary' ? 'selected' : '' %>>Récapitulatif des troupes</option>
+      <option value="units" <%= troopView === 'units' ? 'selected' : '' %>>Liste par unité</option>
+    </select>
+  </form>
+</section>
+
+<% if (troopView === 'units') { %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Unités par type') %>
+  <% const unitRows = allUnits.filter((u) => (ctx.state.units[u.id] || 0) + (ctx.awayUnits[u.id] || 0) > 0); %>
+  <% if (!unitRows.length) { %><p class="px-3 py-3 text-sm text-parchment-500">Aucune unité.</p><% } else { %>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead class="bg-thead"><tr class="border-b border-bronze-700/50"><th scope="col" class="px-2 py-1 text-left font-medium text-gold-400">Unité</th><th scope="col" class="px-2 py-1 text-right font-medium text-gold-400">Village</th><th scope="col" class="px-2 py-1 text-right font-medium text-gold-400">Dehors</th><th scope="col" class="px-2 py-1 text-right font-medium text-gold-400">Total</th></tr></thead>
+        <tbody>
+          <% for (const u of unitRows) { const home = ctx.state.units[u.id] || 0; const away = ctx.awayUnits[u.id] || 0; %>
+            <tr class="border-b border-bronze-700/30 last:border-b-0">
+              <th scope="row" class="px-2 py-1 text-left font-medium"><span class="inline-flex items-center gap-1.5"><%- unitIcon(u.id, 'size-7') %><%= u.name %></span></th>
+              <td class="px-2 py-1 text-right font-semibold tabular-nums"><%= num(home) %></td>
+              <td class="px-2 py-1 text-right tabular-nums text-parchment-500"><%= num(away) %></td>
+              <td class="px-2 py-1 text-right font-semibold text-gold-200 tabular-nums"><%= num(home + away) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+<% } %>
+<%- include('../place-troops-summary', { vid, typeName, villageHref }) %>

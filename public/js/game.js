@@ -180,7 +180,7 @@
       }
       max = Math.max(0, max);
       button.dataset.max = String(max);
-      button.textContent = `max ${max.toLocaleString('fr-FR')}`;
+      button.textContent = `(${max})`; // même forme que le rendu du serveur : (1708)
       const input = form.querySelector(`input[name="${id}"]`);
       if (input) input.max = String(max);
     }
@@ -240,17 +240,61 @@
   }
   if (document.querySelector('form[data-travel], [data-arrive-in]')) requestAnimationFrame(arrivalFrame);
 
-  // Confirmation des actions irréversibles.
+  // Confirmation des actions irréversibles (form[data-confirm] : suppressions, renvoi d'unités, départ…).
   document.addEventListener('submit', (e) => {
     const message = e.target.dataset.confirm;
     if (message && !window.confirm(message)) e.preventDefault();
   });
 
-  // Case « Tout » des listes à sélection multiple.
+  // Bouton « déplier » (data-unfold="id") : montre ou cache le bloc lié (détail d'un ordre en route…). Une ligne
+  // data-unfold-row se déplie aussi d'un clic n'importe où, sauf sur ses liens, boutons et champs.
+  document.addEventListener('click', (e) => {
+    let toggle = e.target.closest('[data-unfold]');
+    if (!toggle) {
+      const row = e.target.closest('[data-unfold-row]');
+      if (!row || e.target.closest('a, button, input, select, textarea, label, form')) return;
+      toggle = row.querySelector('[data-unfold]');
+    }
+    const panel = toggle && document.getElementById(toggle.dataset.unfold);
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    toggle.setAttribute('aria-expanded', String(!panel.hidden));
+  });
+
+  // Bulle au survol (data-tip="id") : copie du détail lié ([data-order-detail] du bloc, même caché), en position fixe
+  // pour ne pas être coupée par un tableau qui défile. Pas au toucher : le clic sur la ligne déplie le détail.
+  const tipBox = document.createElement('div');
+  tipBox.className = 'pointer-events-none fixed z-50 max-w-[calc(100vw-16px)] border-2 border-black bg-panel-top p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]';
+  tipBox.hidden = true;
+  document.body.append(tipBox);
+  document.addEventListener('pointerover', (e) => {
+    const el = e.target.closest('[data-tip]');
+    const src = el && e.pointerType !== 'touch' && document.getElementById(el.dataset.tip);
+    if (!src) return;
+    // L'infobulle du navigateur ferait doublon avec la bulle.
+    el.querySelectorAll('[title]').forEach((t) => t.removeAttribute('title'));
+    tipBox.innerHTML = (src.querySelector('[data-order-detail]') || src).outerHTML;
+    tipBox.hidden = false;
+    const r = el.getBoundingClientRect();
+    const left = Math.min(r.left, window.innerWidth - tipBox.offsetWidth - 8);
+    const below = r.bottom + 6 + tipBox.offsetHeight <= window.innerHeight;
+    tipBox.style.left = `${Math.max(8, left)}px`;
+    tipBox.style.top = `${below ? r.bottom + 6 : r.top - tipBox.offsetHeight - 6}px`;
+  });
+  document.addEventListener('pointerout', (e) => {
+    const el = e.target.closest('[data-tip]');
+    if (el && !el.contains(e.relatedTarget)) tipBox.hidden = true;
+  });
+
+  // Case « Tout » des listes à sélection multiple : data-check-all coche les cases « ids » de son formulaire,
+  // data-select-all="id" celles reliées au formulaire id par l'attribut form (tableaux hors du formulaire).
   document.addEventListener('change', (e) => {
-    if (!e.target.matches('[data-check-all]')) return;
-    const form = e.target.closest('form');
-    form.querySelectorAll('input[type="checkbox"][name="ids"]').forEach((box) => { box.checked = e.target.checked; });
+    const box = e.target;
+    if (box.matches('[data-check-all]')) {
+      box.closest('form').querySelectorAll('input[type="checkbox"][name="ids"]').forEach((b) => { b.checked = box.checked; });
+    } else if (box.matches('[data-select-all]')) {
+      document.querySelectorAll(`[form="${box.dataset.selectAll}"][data-select-item]`).forEach((b) => { b.checked = box.checked; });
+    }
   });
 
   // Renommer le village sur place : le titre devient un champ ; Annuler ou Échap le rétablit.
@@ -292,6 +336,16 @@
     if (link.closest('[data-scavenge-selection]')) document.querySelectorAll('[data-scavenge-preview]').forEach(scavengePreview);
     const recruit = link.closest('form[data-recruit]');
     if (recruit) recruitTotal(recruit);
+  });
+
+  // Point de ralliement : Entrée choisit « Attaquer » même après un clic sur un bouton de remplissage max.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing || !(e.target instanceof Element)) return;
+    const form = e.target.closest('form[data-attack-on-enter]');
+    const attack = form && form.querySelector('[data-attack-submit]');
+    if (!attack || e.target.closest('button[type="submit"]')) return;
+    e.preventDefault();
+    if (!e.repeat) form.requestSubmit(attack);
   });
 
   // Plan du village : le survol d'un bâtiment affiche son encart (coût, Améliorer) sous le plan ; le clic ouvre sa page.
@@ -400,18 +454,6 @@
   // Cases qui envoient leur formulaire dès qu'on les coche (forum : exclure les forums en sourdine).
   document.addEventListener('change', (e) => {
     if (e.target.matches('[data-autosubmit]')) e.target.form.submit();
-  });
-
-  // Formulaires à confirmer (suppression d'un message du forum…).
-  document.addEventListener('submit', (e) => {
-    const form = e.target.closest('form[data-confirm]');
-    if (form && !window.confirm(form.dataset.confirm)) e.preventDefault();
-  });
-
-  // « Sélectionner tout » : coche les cases liées au formulaire indiqué (boîte de réception).
-  document.addEventListener('change', (e) => {
-    const all = e.target.closest('[data-select-all]');
-    if (all) document.querySelectorAll(`[form="${all.dataset.selectAll}"][data-select-item]`).forEach((box) => { box.checked = all.checked; });
   });
 
   // Réglages tribu : chaque en-tête commande seulement les cases de sa colonne.

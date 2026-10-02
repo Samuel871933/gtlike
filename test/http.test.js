@@ -609,7 +609,7 @@ test('profil d’un joueur : son contenu dans le thème de jeu de son propriéta
   assert.match(profile, /family=El\+Messiri/, 'polices du thème chargées');
 });
 
-test('carte : un secteur rechargé après une arrivée montre le retour sur son village, sans attendre la boucle de jeu', async () => {
+test('carte : un secteur rechargé après une arrivée montre le retour sur le village attaqué, sans attendre la boucle de jeu', async () => {
   const { Village, Command } = require('../src/models');
   const CommandService = require('../src/services/CommandService');
   const mapView = require('../src/web/mapView');
@@ -624,9 +624,12 @@ test('carte : un secteur rechargé après une arrivée montre le retour sur son 
   const cmd = await CommandService.send(home.id, { x: barb.x, y: barb.y, type: 'attack', units: { axe: 30 } });
   // L'attaque est arrivée, mais la boucle de jeu n'est pas passée.
   await cmd.update({ startsAt: new Date(Date.now() - 60000), arrivesAt: new Date(Date.now() - 1000) });
-  const sector = await http(`${joined.location}/map/sector?sx=${Math.floor(home.x / mapView.SECTOR)}&sy=${Math.floor(home.y / mapView.SECTOR)}`);
-  const orders = JSON.parse(sector.html).cells.find((c) => c.id === home.id).orders.own;
+  const sectorOf = async (v) => JSON.parse((await http(`${joined.location}/map/sector?sx=${Math.floor(v.x / mapView.SECTOR)}&sy=${Math.floor(v.y / mapView.SECTOR)}`)).html);
+  // Le retour s'affiche sur le village attaqué (d'où les troupes reviennent), avec le village où elles rentrent.
+  const orders = (await sectorOf(barb)).cells.find((c) => c.id === barb.id).orders.own;
   assert.deepEqual(orders.map((o) => o.type), ['return']);
+  assert.deepEqual([orders[0].x, orders[0].y], [home.x, home.y]);
+  assert.ok(!((await sectorOf(home)).cells.find((c) => c.id === home.id).orders?.own || []).length, 'rien sur le village d’origine');
   assert.equal(await Command.count({ where: { id: cmd.id } }), 0, 'attaque résolue');
 });
 

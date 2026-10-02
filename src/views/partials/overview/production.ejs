@@ -1,0 +1,26 @@
+<%# Aperçu du village, production (inclus par overview.ejs, avec ses constantes). %>
+<%# Production %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Production', '<span class="font-sans text-[11px] text-parchment-300">/ heure</span>') %>
+  <div class="flex flex-col gap-1.5 px-2.5 py-1.5">
+    <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; const pct = Math.min(100, (value / cap) * 100); %>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span><%- resourceIcon(r.id) %></span>
+          <span class="flex-1"><%= r.label %></span><span class="font-semibold tabular-nums"><%= num(prod[r.id]) %></span>
+        </div>
+        <div class="mt-[3px] h-1 border border-bronze-800 bg-night"><div class="h-full <%= pct >= 70 ? 'bg-blood-450' : 'bg-bronze-500' %>" style="width: <%= pct.toFixed(1) %>%"></div></div>
+      </div>
+    <% } %>
+    <div class="border-t border-dashed border-bronze-800 pt-1 text-[11px] text-parchment-500">
+      Entrepôt : <%= num(cap) %> par ressource ·
+      <% if (soonest.h <= 0) { %>
+        <span class="font-semibold text-blood-450">plein (<%= soonest.r.label.toLowerCase() %>)</span>
+      <% } else if (Number.isFinite(soonest.h)) { %>
+        plein dans <span class="font-semibold text-parchment-100"><%= hm(soonest.h) %></span> (<%= soonest.r.label.toLowerCase() %>)
+      <% } else { %>
+        aucune production
+      <% } %>
+    </div>
+  </div>
+</section>

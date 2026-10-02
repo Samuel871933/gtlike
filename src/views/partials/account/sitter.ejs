@@ -1,0 +1,52 @@
+<%# Compte, panneau « Mode vacances (remplaçant) » (inclus par account.ejs, avec sleep, vid, scheduled, shopLink). %>
+<section class="<%= ui.panel %> min-w-0 lg:row-span-2">
+  <%- panelHead('Mode vacances (remplaçant)', '') %>
+  <div class="<%= ui.panelBody %> gap-4">
+    <p class="text-parchment-400">
+      Pendant une absence, un joueur de ce monde peut jouer vos villages à votre place. Il ne peut pas modifier
+      ces réglages ni vous faire quitter votre tribu. Vous pouvez retirer son accès à tout moment.
+    </p>
+    <% if (!ctx.cfg.sitter.allow) { %>
+      <p class="text-parchment-500">Les remplaçants ne sont pas autorisés sur ce monde.</p>
+    <% } else if (sitter) { %>
+      <div class="<%= ui.box %> flex flex-wrap items-center gap-3 px-4 py-3">
+        <span class="<%= player.sitterAcceptedAt ? ui.medallionOlive : ui.medallion %> size-9"><%- icon(player.sitterAcceptedAt ? 'check' : 'clock', 'size-4', 2) %></span>
+        <span class="min-w-48 flex-1 text-parchment-300">
+          <% if (player.sitterAcceptedAt) { %><strong class="text-parchment-100"><%= sitter.name %></strong> vous remplace depuis <%= when(player.sitterAcceptedAt, now) %>.
+          <% } else { %>Demande envoyée à <strong class="text-parchment-100"><%= sitter.name %></strong>, en attente d'acceptation.<% } %>
+        </span>
+        <form method="post" action="/village/<%= vid %>/account/sitter/revoke"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="<%= btn('danger', 'sm') %>"><%= player.sitterAcceptedAt ? 'Retirer l’accès' : 'Annuler la demande' %></button>
+        </form>
+      </div>
+    <% } else { %>
+      <form method="post" action="/village/<%= vid %>/account/sitter" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="<%= ui.label %> min-w-0 flex-1 sm:flex-none">Pseudo du remplaçant
+          <input name="name" required class="<%= ui.input %> w-full sm:w-64">
+        </label>
+        <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer la demande</button>
+      </form>
+    <% } %>
+
+    <% if (sitting.length) { %>
+      <p class="<%= ui.sectionLabel %> mt-2">Comptes que l'on vous confie</p>
+      <ul class="flex flex-col gap-2">
+        <% for (const o of sitting) { %>
+          <li class="<%= ui.box %> flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+            <span class="min-w-40 flex-1 font-semibold text-parchment-100"><%= o.name %> <span class="font-normal text-parchment-500"><%= o.sitterAcceptedAt ? '· vous le remplacez' : '· demande en attente' %></span></span>
+            <div class="flex items-center gap-2">
+              <% if (!o.sitterAcceptedAt) { %>
+                <form method="post" action="/village/<%= vid %>/account/sitting/<%= o.id %>/accept"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('gold', 'sm') %>">Accepter</button></form>
+              <% } else { %>
+                <a href="/worlds/<%= ctx.world.slug %>/sit/<%= o.id %>" class="<%= btn('dark', 'sm') %>">Jouer</a>
+              <% } %>
+              <form method="post" action="/village/<%= vid %>/account/sitting/<%= o.id %>/resign"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="<%= btn('danger', 'sm') %>"><%= o.sitterAcceptedAt ? 'Arrêter' : 'Refuser' %></button>
+              </form>
+            </div>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </div>
+</section>

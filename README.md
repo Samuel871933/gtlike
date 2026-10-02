@@ -10,6 +10,8 @@ npm start          # compile le CSS puis lance le serveur
 npm test
 npm run migrate    # applique les migrations (obligatoire en production)
 npm run migrate -- status | down | create nom-de-la-migration
+npm run snapshot -- data/snapshot             # HTML figé de ~40 pages d'une partie de test (avant une refactorisation)
+npm run snapshot -- --compare data/snapshot   # après : liste les pages dont l'affichage a changé
 npm run populate   # monde « speed » : 1000 joueurs fictifs, tribus, barbares (-- <monde> <nombre> [--reset])
 node scripts/seed-tribes.js [monde] [nombre]   # range les joueurs sans tribu dans des tribus de test (speed, 12)
 node scripts/seed-market.js [monde] [joueur]   # anime le marché autour d'un joueur : offres, acceptations, livraisons
@@ -70,7 +72,8 @@ migrations/          Une migration par changement de schéma ; ne jamais modifie
 src/styles/          Point d'entrée Tailwind (@theme) et styles de jeu (game-styles/ : romain, viking)
 src/web/             Routes Express, middlewares, helpers de vue, composants (ui.js), styles de jeu (gameStyles.js)
 src/web/routes/village/  Pages d'un village, un routeur par thème (bâtiments, ralliement, marché, tribu, rapports…)
-src/views/partials/market|tribe|recruit/  Un partial par onglet des grandes pages (le fichier parent garde l'en-tête et ses helpers)
+src/views/partials/<page>/  Un partial par onglet ou panneau des grandes pages (marché, tribu, recrutement, ralliement,
+                     compte, mondes, rapport, aperçu) ; le fichier parent garde l'en-tête et ses helpers
 src/views/           Pages EJS
 public/              JS client (game.js : ressources, comptes à rebours… ; map.js : carte ; minimap.js : rendu commun des mini-cartes), images (accueil, fonds de village par style)
 maquettes/           Maquette de référence de l'interface (bundle HTML autonome)
