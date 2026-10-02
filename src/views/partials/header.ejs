@@ -4,7 +4,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><%= seo ? `${seo.title} | Adarma` : `${typeof title !== 'undefined' ? `${title} · ` : ''}Adarma` %></title>
+  <%# Attaques en approche en tête du titre de l'onglet, « (3) Arrivant · Adarma » (mis à jour par game.js). %>
+  <title><%= seo ? `${seo.title} | Adarma` : `${incomingAttacks ? `(${incomingAttacks}) ` : ''}${typeof title !== 'undefined' ? `${title} · ` : ''}Adarma` %></title>
   <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png?v=2">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
@@ -72,7 +73,9 @@
     <% for (const [href, label, ic, active, badge, badgeCls] of navItems) { const menu = ic === 'reports' || (ic === 'tribe' && player && player.tribeId) ? ic : null; %>
       <a href="<%= href %>" class="<%= navLink %> <%= active ? navOn : navOff %>"<%- active ? ' aria-current="page"' : '' %><%- menu ? ` data-menu-toggle="${menu}" aria-haspopup="true" aria-expanded="false"` : '' %>>
         <span class="text-gold-400"><%- icon(ic, 'size-4', 2.2) %></span><%= label %>
-        <% if (badge) { %><span class="<%= badgeCls %>"><%= badge %></span><% } %>
+        <%# Rapports et messages non lus : relus toutes les 20 s par game.js (data-live-count), même à zéro (masqués). %>
+        <% const live = ic === 'reports' || ic === 'messages' ? ic : null; %>
+        <% if (badge || live) { %><span class="<%= badgeCls %>"<%- live ? ` data-live-count="${live}"` : '' %><%- badge ? '' : ' hidden' %>><%= badge %></span><% } %>
         <%# Couleur du texte de l'onglet (claire sur l'onglet actif ou survolé, quel que soit le style de jeu). %>
         <% if (menu) { %><span class="opacity-70"><%- icon('chevronDown', 'size-3', 3) %></span><% } %>
       </a>
@@ -122,7 +125,7 @@
       <% for (const [href, label, n] of items) { %>
         <a href="<%= href %>" class="flex items-center justify-between border-b border-bronze-800 px-2.5 py-1.5 font-semibold no-underline last:border-b-0 hover:bg-head-dark hover:text-parchment-100 <%= n || id === 'tribe' ? 'text-parchment-100' : 'text-parchment-500' %>">
           <span class="flex items-center gap-1.5"><span class="size-[5px] rotate-45 bg-bronze-500"></span><%= label %></span>
-          <span class="text-xs text-gold-400 tabular-nums"><%= n || '' %></span>
+          <span class="text-xs text-gold-400 tabular-nums"<%- id === 'reports' ? ` data-live-count="reports:${href.split('filter=')[1]}"` : '' %>><%= n || '' %></span>
         </a>
       <% } %>
     </div>
@@ -170,9 +173,6 @@
         <% } %>
       </div>
       <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.6) %></a><% } %>
-      <% if (incomingAttacks) { %>
-        <a href="/village/<%= ctx.village.id %>/place?tab=troops" class="<%= ui.tagRed %> h-[26px] gap-1 no-underline" title="Attaques en approche"><%- icon('attack', 'size-3', 2.6) %><%= incomingAttacks %></a>
-      <% } %>
     </div>
     <%- include('quickbar') %>
   </div>
@@ -190,6 +190,9 @@
     <a href="<%= bld('farm') %>" class="<%= chip %>" title="Population utilisée / capacité de la ferme">
       <span><%- resourceIcon('pop', 'size-5') %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(ctx.popUsed()) %>/<%= num(ctx.state.farmCapacity()) %></span>
     </a>
+    <%# Attaques en approche de tous les villages du compte : vers l'aperçu Arrivant. game.js relit le compte toutes les
+        30 s (data-incoming-alerts) : compteur, titre de l'onglet et son d'une nouvelle attaque. %>
+    <a href="/village/<%= ctx.village.id %>/incomings?type=attacks" class="flex shrink-0 items-center gap-1.5 border-2 border-black bg-blood-600 px-2.5 text-[15px] font-semibold text-on-accent no-underline shadow-[2px_2px_0_#000] transition hover:bg-blood-500" title="Attaques en approche" data-incoming-alerts="/village/<%= ctx.village.id %>/alerts" data-world="<%= ctx.village.worldId %>" <%= incomingAttacks ? '' : 'hidden' %>><%- icon('attack', 'size-[18px]', 2.4) %><span class="tabular-nums" data-incoming-count><%= incomingAttacks %></span></a>
   </div>
 </div>
 </div>
@@ -262,6 +265,14 @@
     <a href="/village/<%= ctx.village.id %>/account" class="<%= ui.link %> ml-auto">Gérer</a>
   </div>
 <% } %>
+<%# Modèle des notifications affichées par game.js après une action sans rechargement (window.adarmaToast). %>
+<template id="toast-template">
+  <div class="fixed top-[108px] right-3.5 minimal:top-[86px] z-[70] flex max-w-[340px] items-center gap-2.5 border-2 border-black bg-panel-top px-3 py-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000] transition-opacity duration-500 max-sm:inset-x-3.5 max-sm:max-w-none" role="status" data-toast>
+    <span class="size-2.5 shrink-0 rotate-45 border border-black bg-olive-500" data-toast-dot></span>
+    <span class="font-semibold" data-toast-text></span>
+    <button type="button" class="ml-auto shrink-0 cursor-pointer text-parchment-500 hover:text-parchment-100" data-toast-close aria-label="Fermer"><%- icon('close', 'size-3.5', 3) %></button>
+  </div>
+</template>
 <% if (flash) { const bad = flash.type === 'error'; %>
   <%# Notification (maquette : encart en haut à droite) ; game.js la ferme après quelques secondes. %>
   <div class="fixed top-[108px] right-3.5 minimal:top-[86px] z-[70] flex max-w-[340px] items-center gap-2.5 border-2 border-black bg-panel-top px-3 py-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000] transition-opacity duration-500 max-sm:inset-x-3.5 max-sm:max-w-none" role="<%= bad ? 'alert' : 'status' %>" data-toast>

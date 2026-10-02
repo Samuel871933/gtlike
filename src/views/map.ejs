@@ -44,7 +44,9 @@
         <div class="flex">
           <div class="map-viewport relative cursor-grab overflow-hidden bg-map-edge touch-none active:cursor-grabbing" style="width:calc(var(--tile-w) * <%= displaySize %>);height:calc(var(--tile-h) * <%= displaySize %>)" data-map-viewport>
             <div class="absolute top-0 left-0 will-change-transform" data-map-plane></div>
-            <div class="pointer-events-none absolute inset-0 shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]"></div>
+            <div class="map-vignette pointer-events-none absolute inset-0 shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]"></div>
+            <%# Niveau de zoom (molette en tenant la carte), affiché seulement quand on a zoomé (map.js). %>
+            <span class="map-controls pointer-events-none absolute bottom-1 left-9 z-10 border border-black bg-night/80 px-1.5 py-px text-xs font-semibold text-gold-200 tabular-nums" data-map-zoom hidden></span>
             <%# Règles des coordonnées, posées sur les bords de la carte (elles ne lui prennent pas de place), fond transparent. %>
             <div class="pointer-events-none absolute inset-x-0 top-0 z-[8] h-5 overflow-hidden bg-black/35" data-map-ruler-x></div>
             <div class="pointer-events-none absolute top-5 bottom-0 left-0 z-[8] w-8 overflow-hidden bg-black/35" data-map-ruler-y></div>
@@ -143,7 +145,7 @@
             <% for (const [k, label] of [['markers', 'Marquages'], ['moves', 'Mouvements de troupes'], ...(ctx.cfg.hasFeature('church') ? [['church', 'Zones de foi (églises)']] : []), ['influence', 'Influence de ta tribu'], ['enemy', 'Zones ennemies'], ['nobarb', 'Masquer les barbares'], ['grid', 'Quadrillage (5 cases)'], ['borders', 'Frontières de continent']]) { %>
               <button type="button" class="group flex cursor-pointer items-center justify-between border-b border-bronze-900 px-3 py-1.5 text-left text-parchment-400 last:border-b-0 hover:bg-thead aria-pressed:text-parchment-100" data-map-layer="<%= k %>" aria-pressed="<%= layers[k] ? 'true' : 'false' %>">
                 <span><%= label %></span>
-                <span class="spacing-normal relative h-4 w-8 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700)] group-aria-pressed:bg-blood-800"><span class="absolute top-px left-px size-2.5 border border-black bg-parchment-300 transition-[left] group-aria-pressed:left-[17px]"></span></span>
+                <span class="spacing-normal relative h-4 w-8 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700)] group-aria-pressed:bg-action"><span class="absolute top-px left-px size-2.5 border border-black bg-parchment-300 transition-[left] group-aria-pressed:left-[17px]"></span></span>
               </button>
             <% } %>
           </div>
@@ -190,14 +192,14 @@
         <input type="hidden" name="x" value="<%= cx %>"><input type="hidden" name="y" value="<%= cy %>">
         <div class="grid grid-cols-4 border-2 border-black">
           <% for (const [k, label] of [['player', 'Joueur'], ['village', 'Village'], ['tribe', 'Tribu'], ['coords', 'Coord.']]) { %>
-            <label class="cursor-pointer border-r border-black bg-night px-0.5 py-1 text-center text-xs font-semibold text-parchment-500 last:border-r-0 hover:text-parchment-100 has-checked:bg-blood-800 has-checked:text-on-accent">
+            <label class="cursor-pointer border-r border-black bg-night px-0.5 py-1 text-center text-xs font-semibold text-parchment-500 last:border-r-0 hover:text-parchment-100 has-checked:bg-head-dark has-checked:text-on-accent">
               <input type="radio" name="find" value="<%= k %>" class="sr-only" <%= search.find === k ? 'checked' : '' %>><%= label %>
             </label>
           <% } %>
         </div>
         <div class="flex">
           <input name="q" value="<%= search.q %>" placeholder="Nom, tag ou 500|500" aria-label="Rechercher" class="<%= ui.input %> min-w-0 flex-1">
-          <button class="flex w-[34px] shrink-0 cursor-pointer items-center justify-center border-2 border-l-0 border-black bg-blood-800 text-on-accent hover:bg-blood-600" aria-label="Lancer la recherche"><%- icon('search', 'size-4', 2.6) %></button>
+          <button class="flex w-[34px] shrink-0 cursor-pointer items-center justify-center border-2 border-l-0 border-black bg-action text-on-accent hover:bg-action-hi" aria-label="Lancer la recherche"><%- icon('search', 'size-4', 2.6) %></button>
         </div>
         <% if (search.results) { %>
           <% if (!search.results.length) { %>
@@ -207,11 +209,11 @@
               <% for (const r of search.results) { %>
                 <li class="flex items-center justify-between gap-2 border-b border-bronze-800 px-2 py-1 last:border-b-0 hover:bg-thead">
                   <span class="flex min-w-0 flex-col">
-                    <% if (r.x != null) { %><a href="<%= r.villageId ? `/village/${vid}/villages/${r.villageId}` : `${link(r.x, r.y)}&sx=${r.x}&sy=${r.y}` %>" class="<%= ui.linkPlain %> truncate font-semibold"><%= r.label %></a><% } else { %><span class="truncate font-semibold"><%= r.label %></span><% } %>
+                    <% if (r.villageId) { %><%- villageLink(vid, { id: r.villageId, name: r.label, x: r.x, y: r.y }, { k: false, coordsCls: 'text-xs text-gold-400', truncate: true }) %><% } else if (r.x != null) { %><a href="<%= `${link(r.x, r.y)}&sx=${r.x}&sy=${r.y}` %>" class="<%= ui.linkPlain %> truncate font-semibold"><%= r.label %></a><% } else { %><span class="truncate font-semibold"><%= r.label %></span><% } %>
                     <span class="truncate text-[11px] text-parchment-500"><%= r.sub %></span>
                   </span>
                   <span class="shrink-0 text-xs text-gold-400 tabular-nums">
-                    <% if (r.playerId) { %><a href="/village/<%= vid %>/players/<%= r.playerId %>" class="<%= ui.link %>">Profil</a><% } else if (r.tribeId) { %><a href="/village/<%= vid %>/tribes/<%= r.tribeId %>" class="<%= ui.link %>">Tribu</a><% } else if (r.villageId) { %><a href="/village/<%= vid %>/villages/<%= r.villageId %>" class="<%= ui.link %>"><%= r.x %>|<%= r.y %></a><% } %>
+                    <% if (r.playerId) { %><a href="/village/<%= vid %>/players/<%= r.playerId %>" class="<%= ui.link %>">Profil</a><% } else if (r.tribeId) { %><a href="/village/<%= vid %>/tribes/<%= r.tribeId %>" class="<%= ui.link %>">Tribu</a><% } %>
                   </span>
                 </li>
               <% } %>
@@ -234,7 +236,7 @@
           <% for (const [k, label] of [['attack', 'Attaque'], ['support', 'Soutien'], ['spy', 'Espionnage']]) { %>
             <label class="flex cursor-pointer items-center gap-1.5 font-semibold">
               <input type="checkbox" class="peer sr-only" data-quick-action="<%= k %>" checked>
-              <span class="flex size-4 items-center justify-center border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-500)] peer-focus-visible:outline-2 peer-focus-visible:outline-gold-200 after:size-2 after:bg-transparent peer-checked:after:bg-blood-600"></span><%= label %>
+              <span class="flex size-4 items-center justify-center border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-500)] peer-focus-visible:outline-2 peer-focus-visible:outline-gold-200 after:size-2 after:bg-transparent peer-checked:after:bg-action"></span><%= label %>
             </label>
           <% } %>
         </div>
@@ -251,11 +253,10 @@
           <% for (const f of favorites) { const fv = f.Village; %>
             <li class="flex items-center justify-between gap-2 border-b border-bronze-800 px-2.5 py-1 last:border-b-0 hover:bg-thead">
               <span class="flex min-w-0 flex-col">
-                <a href="/village/<%= vid %>/villages/<%= fv.id %>" class="<%= ui.linkPlain %> truncate font-semibold"><span class="text-gold-200">★</span> <%= fv.name %></a>
+                <span class="flex min-w-0 items-baseline gap-1"><span class="text-gold-200">★</span><%- villageLink(vid, fv, { k: false, coordsCls: 'text-xs font-semibold text-gold-400', truncate: true }) %></span>
                 <span class="truncate text-[11px] text-parchment-500"><%- fv.Player ? playerLink(vid, fv.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) : 'Barbares' %> · <%= num(fv.points) %> pts</span>
               </span>
               <span class="flex shrink-0 items-center gap-2">
-                <span class="text-xs font-semibold text-gold-400 tabular-nums"><%= fv.x %>|<%= fv.y %></span>
                 <form method="post" action="/village/<%= vid %>/favorites/<%= fv.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <button class="<%= ui.iconBtnSm %>" title="Retirer des favoris" aria-label="Retirer des favoris"><%- icon('close', 'size-[11px]', 3.4) %></button>
                 </form>

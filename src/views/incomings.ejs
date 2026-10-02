@@ -1,0 +1,146 @@
+<%- include('partials/header', { title: 'Arrivant' }) %>
+<%
+  // Aperçu « Arrivant » de Guerre Tribale : attaques et soutiens qui arrivent sur tous les villages du compte, triables
+  // et filtrables, avec les actions groupées (étiqueter, renommer, ignorer) sur les cases cochées.
+  // qs(patch) : adresse de l'aperçu avec ces filtres changés (voir routes/village/incomings.js).
+  const vid = ctx.village.id;
+  const overviewTabs = segMenu([
+    ['combined', 'Combiné'], ['prod', 'Production'], ['units', 'Troupes'], ['buildings', 'Bâtiments'],
+  ].map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, false]).concat([[`/village/${vid}/incomings`, 'Arrivant', true]]), { label: 'Aperçu' });
+  // Onglets Tous / Attaques / Soutiens (mêmes classes que segTabs) ; les nombres [data-count] sont tenus à jour par
+  // game.js (arrivées, actions, relecture régulière).
+  const countSpan = (key, n) => `<span class="tabular-nums" data-count="${key}">${n}</span>`;
+  const typeTabs = `<nav class="${ui.seg}">${[['all', 'Tous'], ['attacks', 'Attaques'], ['supports', 'Soutiens']].map(([type, label]) => {
+    const on = filters.type === type;
+    return `<a href="${esc(qs({ type }))}" class="${on ? ui.segOn : ui.segOff}"${on ? ' aria-current="page"' : ''}>${label} (${countSpan(type, counts[type])})</a>`;
+  }).join('')}</nav>`;
+  // En-tête triable : un clic trie, un second inverse l'ordre.
+  const th = 'border-r border-bronze-800 last:border-r-0';
+  const td = 'border-r border-bronze-900 last:border-r-0';
+  const sortHead = (key, label, cls = '') => {
+    const on = filters.sort === key;
+    const dir = on && filters.dir === 'asc' ? 'desc' : 'asc';
+    return `<th class="${th} ${cls}"${on ? ` aria-sort="${filters.dir === 'asc' ? 'ascending' : 'descending'}"` : ''}><a href="${esc(qs({ sort: key, dir }))}" class="inline-flex items-center gap-1 no-underline ${on ? 'text-gold-200' : 'text-gold-400 hover:text-parchment-100'}">${esc(label)}${on ? `<span aria-hidden="true">${filters.dir === 'asc' ? '▲' : '▼'}</span>` : ''}</a></th>`;
+  };
+  const targetVillage = filters.target && myVillages.find((v) => v.id === filters.target);
+  const originTotal = filters.origin && totals.origins.find((t) => t.key === filters.origin);
+  const playerTotal = filters.player && totals.players.find((t) => t.key === filters.player);
+  // Totaux : une colonne par critère, toutes les lignes (la colonne défile au-delà d'une dizaine) ; chaque ligne filtre
+  // la liste, un second clic retire le filtre.
+  // Barre d'actions groupées, en haut et en bas de la liste.
+  const actions = (border) => `<div class="flex flex-wrap items-center gap-2 ${border} border-bronze-800 px-3 py-2.5">
+      <label class="mr-2 inline-flex cursor-pointer items-center gap-2 text-sm text-parchment-300"><input type="checkbox" class="${ui.checkbox}" data-select-all="incomings-bulk">Tout sélectionner</label>
+      <button name="action" value="label" form="incomings-bulk" class="${btn('gold', 'sm')}" title="Nommer les ordres sélectionnés d’après l’unité la plus lente probable (leur nom actuel est remplacé)">Étiqueter</button>
+      <button name="action" value="${filters.ignored ? 'unignore' : 'ignore'}" form="incomings-bulk" class="${btn('dark', 'sm')}">${filters.ignored ? 'Ne plus ignorer' : 'Ignorer'}</button>
+      <button name="action" value="support" form="incomings-bulk" class="${btn('olive', 'sm')} sm:ml-auto">${icon('support', 'size-3.5', 2.2)}Demander du soutien</button>
+    </div>`;
+  const totalList = (title, list, key) => {
+    // Chargement progressif : 30 lignes, puis les suivantes en faisant défiler la colonne.
+    const l = lazy(`total_${key}`, list, { chunk: 30 });
+    const items = l.items.map((t) => {
+      const on = filters[key] === t.key;
+      const where = t.label.x != null ? ` <span class="text-gold-400 tabular-nums">(${t.label.x}|${t.label.y})</span>` : '';
+      const n = `<span class="ml-auto shrink-0 font-semibold tabular-nums ${t.attacks ? 'text-blood-450' : 'text-parchment-300'}" title="${t.attacks} attaque(s), ${t.supports} soutien(s)" data-total="${key}:${t.key}">${t.attacks + t.supports}</span>`;
+      return `<li><a href="${esc(qs({ [key]: on ? null : t.key }))}" class="flex items-center gap-2 border-b border-bronze-900 px-3 py-1 text-[13px] no-underline last:border-b-0 ${on ? ui.rowActive : 'text-parchment-200 hover:bg-row-hover'}"><span class="min-w-0 truncate">${esc(t.label.name)}${where}</span>${n}</a></li>`;
+    }).join('');
+    return `<div class="min-w-0"><p class="${ui.subLabel} border-b border-bronze-800 px-3 py-1.5">${esc(title)} <span class="text-parchment-500">(${list.length})</span></p><ul class="max-h-72 overflow-y-auto" data-lazy-list="total_${key}">${items}${lazyMore(l, { tag: 'li', label: 'lignes' })}</ul></div>`;
+  };
+%>
+<div class="flex flex-col gap-5">
+  <h1 class="<%= ui.h1 %>">Aperçus des villages</h1>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Arrivant', `<span class="flex flex-wrap items-center gap-3"><span class="${ui.headCount}" title="Ordres de cette liste">${countSpan('total', total)}</span>${overviewTabs}</span>`) %>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-bronze-800 px-3 py-2">
+      <%- typeTabs %>
+      <form method="get" action="/village/<%= vid %>/incomings" class="flex flex-wrap items-center gap-2">
+        <% for (const [k, v] of Object.entries({ type: filters.type !== 'all' ? filters.type : '', ignored: filters.ignored ? '1' : '', target: filters.target || '', sort: filters.sort !== 'arrival' ? filters.sort : '', dir: filters.dir !== 'asc' ? filters.dir : '' })) { if (v) { %><input type="hidden" name="<%= k %>" value="<%= v %>"><% } } %>
+        <input type="search" name="q" value="<%= filters.q %>" maxlength="64" placeholder="Chercher dans les noms" aria-label="Chercher dans les noms des ordres" class="<%= ui.inputSm %> w-52">
+        <button class="<%= btn('dark', 'sm') %>">Filtrer</button>
+      </form>
+    </div>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-bronze-800 px-3 py-2 text-[13px] text-parchment-400">
+      <a href="<%= qs({ ignored: !filters.ignored }) %>" class="<%= ui.link %>"><%- filters.ignored ? 'Masquer les ordres ignorés' : `Afficher les ordres ignorés (${countSpan('ignored', counts.ignored)})` %></a>
+      <% if (targetVillage) { %>
+        <span>Village visé : <%- villageLink(vid, targetVillage, { own: true }) %> · <a href="<%= qs({ target: null }) %>" class="<%= ui.link %>">tous les villages</a></span>
+      <% } %>
+      <% if (originTotal) { %><span>Origine : <%- villageLink(vid, { id: originTotal.key, ...originTotal.label }) %> · <a href="<%= qs({ origin: null }) %>" class="<%= ui.link %>">toutes</a></span><% } %>
+      <% if (playerTotal) { %><span>Joueur : <strong class="font-semibold text-parchment-100"><%= playerTotal.label.name %></strong> · <a href="<%= qs({ player: null }) %>" class="<%= ui.link %>">tous</a></span><% } %>
+      <% if (filters.q) { %><span>Recherche : « <%= filters.q %> » · <a href="<%= qs({ q: '' }) %>" class="<%= ui.link %>">effacer</a></span><% } %>
+    </div>
+
+    <% if (!rows.length) { %>
+      <p class="<%= ui.empty %>"><%= counts.all || counts.ignored ? 'Aucun ordre ne correspond à ces filtres.' : 'Aucune troupe en approche de vos villages.' %></p>
+    <% } else { %>
+    <%# data-page-ids : tous les ordres de la page, y compris les lignes pas encore chargées (« Tout sélectionner »). %>
+    <form method="post" action="/village/<%= vid %>/incomings" id="incomings-bulk" data-page-ids="<%= pageIds.join(',') %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+    <%# Renommer sur place : un seul formulaire pour toute la liste, déplacé par game.js sur la ligne du crayon cliqué. %>
+    <template id="incoming-rename">
+      <form method="post" data-action="/village/<%= vid %>/incomings/:id/rename" class="flex min-w-0 items-center gap-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="1">
+        <input name="name" maxlength="64" aria-label="Nouveau nom de l’ordre" class="<%= ui.inputSm %> h-7 w-44 min-w-0">
+        <button class="<%= btn('gold', 'sm') %> h-7 px-2">OK</button>
+        <button type="button" class="<%= btn('dark', 'sm') %> h-7 px-2" data-inline-cancel>Annuler</button>
+      </form>
+    </template>
+    <%- actions('border-b') %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %> min-w-[860px] text-[13px] whitespace-nowrap [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+        <thead><tr>
+          <th class="<%= th %> w-8 text-center"><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="incomings-bulk" aria-label="Tout sélectionner"></th>
+          <%- sortHead('name', 'Ordre') %>
+          <%- sortHead('target', 'Destination') %>
+          <%- sortHead('origin', 'Origine') %>
+          <%- sortHead('player', 'Joueur') %>
+          <%- sortHead('distance', 'Distance', 'text-right') %>
+          <%- sortHead('arrival', 'Arrivée') %>
+          <th class="<%= th %> text-right">Arrive dans</th>
+        </tr></thead>
+        <%# Fonds alternés en CSS : les lignes chargées ensuite ou remplacées après une action gardent l'alternance. %>
+        <% const lr = lazy('incomings', rows) %>
+        <tbody class="[&>tr:nth-child(even)]:bg-row-alt" data-lazy-list="incomings">
+        <%- include('partials/incomings/rows', { rows: lr.items, vid, qs, td }) %>
+        <%- lazyMore(lr, { colspan: 8, label: 'ordres' }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- actions('border-t') %>
+    <%# Pages : « Tout sélectionner » et les actions ne portent que sur la page affichée. %>
+    <%- include('partials/pagination', { list: 'incomings', pagination, href: (n) => qs({ page: n }) }) %>
+    <% } %>
+  </section>
+
+  <% if (counts.all) { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Totaux', `<span class="font-sans text-[13px] text-parchment-300">cliquer pour filtrer la liste</span>`) %>
+    <div class="grid divide-bronze-800 md:grid-cols-3 md:divide-x max-md:[&>div+div]:border-t max-md:[&>div+div]:border-bronze-800">
+      <%- totalList('Par joueur', totals.players, 'player') %>
+      <%- totalList('Par village d’origine', totals.origins, 'origin') %>
+      <%- totalList('Par village visé', totals.targets, 'target') %>
+    </div>
+  </section>
+  <% } %>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Alertes') %>
+    <div class="flex flex-col gap-2 p-3 text-[13px] text-parchment-400">
+      <p>Le nombre d’attaques en approche s’affiche dans l’en-tête et dans le titre de l’onglet, mis à jour toutes les 20 secondes sur toutes les pages du jeu.</p>
+      <label class="<%= ui.checkLabel %>"><input type="checkbox" class="<%= ui.checkbox %>" data-attack-sound-toggle> Jouer un son à chaque nouvelle attaque (sur cet appareil)</label>
+      <button type="button" class="<%= ui.link %> cursor-pointer self-start" data-attack-sound-test>» Écouter le son</button>
+    </div>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Format des étiquettes') %>
+    <form method="post" action="/village/<%= vid %>/incomings/format" class="flex flex-col gap-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <p class="text-[13px] text-parchment-400">« Étiqueter » renomme les ordres sélectionnés (leur nom actuel est remplacé) en supposant, comme sur Guerre Tribale, qu’ils viennent d’être lancés : l’unité retenue est la plus rapide dont le trajet dure au moins le temps restant. Étiquetez dès que l’attaque apparaît : plus tard, le temps restant a diminué et l’unité estimée sera trop rapide (des cavaliers légers étiquetés à mi-chemin passent pour des éclaireurs).</p>
+      <div class="flex flex-wrap items-end gap-2">
+        <label class="<%= ui.label %> min-w-0 flex-1 basis-72">Format<input name="format" value="<%= labelFormat %>" maxlength="120" placeholder="<%= defaultFormat %>" class="<%= ui.input %>"></label>
+        <button class="<%= btn('dark', 'md') %>">Enregistrer</button>
+      </div>
+      <p class="flex flex-wrap gap-1.5 text-[13px] text-parchment-500">Variables :
+        <% for (const v of variables) { %><code class="<%= ui.chip %> font-mono text-xs">%<%= v %>%</code><% } %>
+      </p>
+    </form>
+  </section>
+</div>
+<%- include('partials/footer') %>

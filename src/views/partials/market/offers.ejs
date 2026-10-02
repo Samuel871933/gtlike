@@ -33,14 +33,15 @@
           <div class="<%= ui.tableScroll %>">
             <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
               <thead><tr><th>Recevoir</th><th>Pour</th><th>Joueur</th><th>Durée</th><th class="text-center">Ratio</th><th>Disponibilité</th><th class="text-right">Accepter</th></tr></thead>
-              <tbody>
-              <% for (const { offer: o, seconds, max, ratio } of offers) { %>
+              <% const lo = lazy('offers', offers) %>
+              <tbody data-lazy-list="offers">
+              <% for (const { offer: o, seconds, max, ratio } of lo.items) { %>
                 <tr>
                   <td><%- amount(o.sellResource, o.sellAmount) %></td>
                   <td><%- amount(o.buyResource, o.buyAmount) %></td>
                   <td>
                     <span class="block font-semibold whitespace-nowrap"><%- playerLink(vid, o.village.Player) %></span>
-                    <a href="/village/<%= vid %>/villages/<%= o.village.id %>" class="<%= ui.linkPlain %> block text-[12px] whitespace-nowrap text-parchment-500"><%= o.village.name %> (<%= o.village.x %>|<%= o.village.y %>)</a>
+                    <span class="block text-[12px] whitespace-nowrap"><%- villageLink(vid, o.village, { cls: `${ui.linkPlain} text-parchment-500`, nameCls: '', coordsCls: '', k: false }) %></span>
                   </td>
                   <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= duration(seconds) %></td>
                   <td class="text-center"><span class="inline-flex items-center gap-1 px-1.5 py-0.5 font-semibold tabular-nums <%= ratio >= 1 ? 'bg-gold-400/35 text-parchment-50' : 'text-parchment-300' %>" title="Ce que tu reçois pour 1 donné"><%- icon('market', 'size-3.5', 2) %><%= (Math.round(ratio * 100) / 100).toLocaleString('fr-FR') %></span></td>
@@ -54,6 +55,7 @@
                   </td>
                 </tr>
               <% } %>
+              <%- lazyMore(lo, { colspan: 7, label: 'offres' }) %>
               </tbody>
             </table>
           </div>

@@ -29,6 +29,7 @@ test.before(async () => {
   await sequelize.sync({ force: true });
   await WorldService.createWorld({ slug: 'w1', name: 'Monde 1', config: { newbieDays: 0 } });
   await WorldService.createWorld({ slug: 'w2', name: 'Monde 2', config: { newbieDays: 0, arrivalStepMs: 1000 } });
+  await WorldService.createWorld({ slug: 'w3', name: 'Monde 3', config: { newbieDays: 0, arrivalStepMs: 1 } });
 });
 test.after(() => sequelize.close());
 
@@ -73,4 +74,21 @@ test('attaques à la suite : écart de la précision des arrivées fixée par le
   ], { now: T0 });
   assert.equal(+cmds[1].arrivesAt - +cmds[0].arrivesAt, 1000);
   assert.equal(+cmds[0].arrivesAt % 1000, 0);
+});
+
+test('jamais deux ordres d’un village à moins de 10 ms sur la même cible, même envoyés séparément', async () => {
+  const { village, barb } = await attacker('w3', 'Chloe');
+  const target = { x: barb.x, y: barb.y, type: 'attack' };
+  const chained = await CommandService.sendMany(village.id, [
+    { ...target, units: { axe: 10 } },
+    { ...target, units: { axe: 10 } },
+  ], { now: T0 });
+  assert.equal(+chained[1].arrivesAt - +chained[0].arrivesAt, 10, 'monde à la milliseconde : 10 ms au moins');
+  // Deux envois séparés au même instant : le second passe 10 ms après le dernier ordre en route.
+  const again = await CommandService.send(village.id, { ...target, units: { axe: 10 } }, { now: T0 });
+  assert.equal(+again.arrivesAt - +chained[1].arrivesAt, 10);
+  const between = await CommandService.send(village.id, { ...target, units: { axe: 10 } }, { now: new Date(+T0 + 5) });
+  const all = (await Command.findAll({ where: { originVillageId: village.id } })).map((c) => +c.arrivesAt).sort((x, y) => x - y);
+  assert.ok(all.every((t, i) => i === 0 || t - all[i - 1] >= 10), 'toutes les arrivées à 10 ms au moins');
+  assert.ok(+between.arrivesAt >= +again.arrivesAt + 10);
 });

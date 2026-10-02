@@ -69,8 +69,19 @@
     finally { refreshingOverview = false; }
   }
 
+  // Au-delà de 50 comptes à rebours (aperçu Arrivant), un observateur retient ceux qui sont à l'écran : les autres
+  // ne sont pas réécrits chaque seconde. Les comptes ajoutés en cours de route (aperçu du village) sont observés aussi.
+  const onScreen = new Set();
+  const observed = new WeakSet();
+  const watch = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) onScreen.add(e.target); else onScreen.delete(e.target); });
+  }, { rootMargin: '200px 0px' }) : null;
+
   function tick() {
     const now = serverNow();
+    const countdowns = document.querySelectorAll('[data-countdown]');
+    const many = watch && countdowns.length > 50;
+    if (many) countdowns.forEach((el) => { if (!observed.has(el)) { observed.add(el); watch.observe(el); } });
 
     document.querySelectorAll('[data-res]').forEach((el) => {
       const start = Number(el.dataset.res);
@@ -91,11 +102,23 @@
       else el.style.width = pct;
     });
 
-    document.querySelectorAll('[data-countdown]').forEach((el) => {
+    countdowns.forEach((el) => {
       const left = Math.ceil((Number(el.dataset.countdown) - now) / 1000);
-      el.textContent = fmt(Math.max(0, left));
-      // Comptes à rebours sans rechargement à la fin (popup de l'happy hour).
-      if (left <= 0 && el.hasAttribute('data-countdown-noreload')) return;
+      // Longues listes (aperçu Arrivant, 1 000 lignes) : seuls les comptes à rebours visibles sont réécrits.
+      if (!many || onScreen.has(el) || left <= 0) {
+        const text = fmt(Math.max(0, left));
+        if (el.textContent !== text) el.textContent = text;
+      }
+      // Comptes à rebours sans rechargement à la fin (popup de l'happy hour ; aperçu Arrivant : la ligne de l'ordre
+      // arrivé est retirée de la liste).
+      if (left <= 0 && el.hasAttribute('data-countdown-noreload')) {
+        const row = el.closest('[data-arrived-row]');
+        if (row) {
+          document.dispatchEvent(new CustomEvent('incoming:arrived', { detail: row }));
+          row.remove();
+        }
+        return;
+      }
       if (left <= 0) {
         if (isOverview) refreshOverview();
         else if (!reloading) {
@@ -297,24 +320,61 @@
     }
   });
 
-  // Renommer le village sur place : le titre devient un champ ; Annuler ou Échap le rétablit.
-  function renameMode(on) {
-    const form = document.querySelector('[data-rename-form]');
+  // Renommer sur place (village, ordres de l'aperçu Arrivant) : le titre devient un champ ; Annuler ou Échap le
+  // rétablit. Plusieurs sur une page : chacun dans son conteneur [data-rename-scope].
+  function renameMode(from, on) {
+    const scope = from.closest('[data-rename-scope]') || document;
+    const form = scope.querySelector('[data-rename-form]');
     if (!form) return;
-    const title = document.querySelector('[data-rename-title]');
-    const open = document.querySelector('[data-rename-open]');
+    const title = scope.querySelector('[data-rename-title]');
+    const open = scope.querySelector('[data-rename-open]');
     const input = form.querySelector('input[name="name"]');
     title.hidden = on;
     open.hidden = on;
     form.hidden = !on;
-    if (on) { input.focus(); input.select(); } else { input.value = title.textContent.trim(); }
+    if (on) { input.focus(); input.select(); } else { input.value = input.defaultValue; }
   }
   document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-rename-open]')) renameMode(true);
-    else if (e.target.closest('[data-rename-cancel]')) renameMode(false);
+    const open = e.target.closest('[data-rename-open]');
+    const cancel = e.target.closest('[data-rename-cancel]');
+    if (open) renameMode(open, true);
+    else if (cancel) renameMode(cancel, false);
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && e.target.closest('[data-rename-form]')) renameMode(false);
+    if (e.key === 'Escape' && e.target.closest('[data-rename-form]')) renameMode(e.target, false);
+  });
+
+  // Renommer une ligne d'une longue liste (aperçu Arrivant) : un seul <template id="incoming-rename">, cloné sur la
+  // ligne du crayon ; le nom et le crayon sont masqués le temps de la saisie, Annuler ou Échap les rétablit.
+  let inlineOpen = null;
+  function closeInline() {
+    if (!inlineOpen) return;
+    inlineOpen.form.remove();
+    inlineOpen.hidden.forEach((el) => { el.hidden = false; });
+    inlineOpen = null;
+  }
+  document.addEventListener('click', (e) => {
+    const pen = e.target.closest('[data-inline-rename]');
+    if (e.target.closest('[data-inline-cancel]')) { closeInline(); return; }
+    if (!pen) return;
+    const tpl = document.getElementById('incoming-rename');
+    if (!tpl) return;
+    closeInline();
+    const form = tpl.content.firstElementChild.cloneNode(true);
+    form.action = form.dataset.action.replace(':id', pen.dataset.inlineRename);
+    const input = form.querySelector('input[name="name"]');
+    input.value = pen.dataset.name;
+    input.placeholder = pen.dataset.default;
+    const title = pen.previousElementSibling;
+    const hidden = [pen, title].filter(Boolean);
+    hidden.forEach((el) => { el.hidden = true; });
+    pen.after(form);
+    inlineOpen = { form, hidden };
+    input.focus();
+    input.select();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && inlineOpen && inlineOpen.form.contains(e.target)) closeInline();
   });
 
   // Flèches village précédent / suivant : même page, autre village.
@@ -446,6 +506,20 @@
   document.querySelectorAll('[data-toast]').forEach((toast) => {
     setTimeout(() => closeToast(toast), toast.getAttribute('role') === 'alert' ? 8000 : 4500);
   });
+  // Notification après une action sans rechargement (AJAX) : même encart que les messages du serveur.
+  window.adarmaToast = (message, bad = false) => {
+    const tpl = document.getElementById('toast-template');
+    if (!tpl) return;
+    document.querySelectorAll('[data-toast]').forEach((t) => t.remove());
+    const toast = tpl.content.firstElementChild.cloneNode(true);
+    toast.querySelector('[data-toast-text]').textContent = message;
+    if (bad) {
+      toast.setAttribute('role', 'alert');
+      toast.querySelector('[data-toast-dot]').classList.replace('bg-olive-500', 'bg-blood-600');
+    }
+    document.body.append(toast);
+    setTimeout(() => closeToast(toast), bad ? 8000 : 4500);
+  };
   document.addEventListener('click', (e) => {
     const close = e.target.closest('[data-toast-close]');
     if (close) closeToast(close.closest('[data-toast]'));
@@ -621,4 +695,244 @@
     update();
   });
   update();
+})();
+
+// Alertes d'attaques (en-tête de chaque page du jeu) : le nombre d'attaques en approche est relu toutes les 20 s (avec les rapports et messages non lus), dans
+// le compteur rouge et en tête du titre de l'onglet ; une nouvelle attaque (identifiant plus grand que le dernier vu,
+// partagé entre les onglets) joue un son si le joueur l'a activé sur cet appareil (aperçu Arrivant).
+(() => {
+  const badge = document.querySelector('[data-incoming-alerts]');
+  const toggle = document.querySelector('[data-attack-sound-toggle]');
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* stockage indisponible */ } },
+  };
+  const SOUND = 'adarma.attackSound';
+  let audio = null;
+  function beep() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      [[880, 0], [660, 0.18], [880, 0.36]].forEach(([freq, at]) => {
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, audio.currentTime + at);
+        gain.gain.exponentialRampToValueAtTime(0.12, audio.currentTime + at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + at + 0.15);
+        osc.connect(gain).connect(audio.destination);
+        osc.start(audio.currentTime + at);
+        osc.stop(audio.currentTime + at + 0.16);
+      });
+    } catch { /* pas de son disponible */ }
+  }
+  // Les navigateurs n'autorisent le son qu'après un geste du joueur : le premier clic prépare le contexte audio.
+  document.addEventListener('click', () => {
+    if (store.get(SOUND) !== '1' || audio) return;
+    try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { /* pas de son */ }
+  }, { once: true });
+
+  if (toggle) {
+    toggle.checked = store.get(SOUND) === '1';
+    toggle.addEventListener('change', () => { store.set(SOUND, toggle.checked ? '1' : '0'); if (toggle.checked) beep(); });
+  }
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-attack-sound-test]')) beep(); });
+
+  if (!badge) return;
+  const LAST = `adarma.attacks.lastId.${badge.dataset.world}`;
+  const count = badge.querySelector('[data-incoming-count]');
+  function show(n) {
+    count.textContent = n;
+    badge.hidden = !n;
+    document.title = (n ? `(${n}) ` : '') + document.title.replace(/^\(\d+\) /, '');
+  }
+  async function poll() {
+    try {
+      const res = await fetch(badge.dataset.incomingAlerts, { cache: 'no-store', credentials: 'same-origin', headers: { accept: 'application/json' } });
+      if (!res.ok) return;
+      const { attacks, lastId, reports, messages } = await res.json();
+      show(attacks);
+      // Rapports et messages non lus : pastilles du menu, et nombres du menu déroulant Rapports.
+      const setCount = (key, n, hideZero) => document.querySelectorAll(`[data-live-count="${key}"]`).forEach((el) => {
+        el.textContent = n ? String(n) : '';
+        if (hideZero) el.hidden = !n;
+      });
+      if (reports) {
+        setCount('reports', reports.all, true);
+        for (const [f, n] of Object.entries(reports)) setCount(`reports:${f}`, n, false);
+      }
+      if (messages != null) setCount('messages', messages, true);
+      // Première lecture sur cet appareil : rien à signaler, on retient seulement le dernier identifiant.
+      const stored = store.get(LAST);
+      if (stored === null || lastId > Number(stored)) {
+        store.set(LAST, String(lastId));
+        if (stored !== null && store.get(SOUND) === '1') beep();
+      }
+    } catch { /* hors ligne : on réessaie au prochain tour */ }
+  }
+  poll();
+  setInterval(poll, 20000);
+})();
+
+// Longues listes (voir web/lazyLists.js) : le paquet suivant d'une liste [data-lazy-list] est demandé à l'approche de sa
+// marque [data-lazy-more], et ses lignes remplacent la marque (elles apportent la marque du paquet d'après).
+// Les cases à cocher suivent « Tout sélectionner » : les lignes chargées ensuite arrivent cochées ; un formulaire
+// [data-page-ids] (ordres de toute la page) envoie aussi les lignes pas encore chargées quand tout est sélectionné.
+(() => {
+  const loading = new WeakSet();
+  const watch = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) load(e.target); });
+  }, { rootMargin: '1200px 0px' }) : null;
+  const observe = (root) => root.querySelectorAll('[data-lazy-more]').forEach((m) => (watch ? watch.observe(m) : load(m)));
+
+  // Formulaire d'une case de liste, et sa case « Tout sélectionner » (data-select-all="id" ou data-check-all dedans).
+  const formOf = (box) => (box.form || (box.getAttribute('form') && document.getElementById(box.getAttribute('form'))));
+  const selectAllChecked = (form) => Boolean(form) && [...document.querySelectorAll(`[data-select-all="${form.id}"]`), ...form.querySelectorAll('[data-check-all]')]
+    .some((b) => b.checked);
+
+  async function load(marker) {
+    if (loading.has(marker) || !marker.isConnected) return;
+    loading.add(marker);
+    watch?.unobserve(marker);
+    const list = marker.closest('[data-lazy-list]');
+    try {
+      const res = await fetch(marker.dataset.lazyMore, { credentials: 'same-origin', cache: 'no-store' });
+      if (!res.ok) throw new Error(String(res.status));
+      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      const fresh = doc.querySelector(`[data-lazy-list="${list.dataset.lazyList}"]`);
+      if (!fresh) throw new Error('liste absente');
+      const nodes = [...fresh.children].map((n) => document.importNode(n, true));
+      for (const n of nodes) {
+        n.querySelectorAll('input[type="checkbox"]').forEach((box) => { if (selectAllChecked(formOf(box) || box.closest('form'))) box.checked = true; });
+      }
+      marker.replaceWith(...nodes);
+      nodes.forEach((n) => { if (n.matches('[data-lazy-more]')) observe(n.parentElement); });
+      list.dispatchEvent(new CustomEvent('lazy:loaded', { bubbles: true, detail: { nodes } }));
+    } catch {
+      // Échec (hors ligne…) : un clic sur la marque relance le chargement.
+      loading.delete(marker);
+      marker.textContent = 'Chargement impossible : cliquer pour réessayer.';
+      marker.addEventListener('click', () => load(marker), { once: true });
+    }
+  }
+  observe(document);
+  // Listes remplacées en direct (aperçu du village rafraîchi) : leurs marques sont observées aussi.
+  new MutationObserver((records) => {
+    for (const r of records) {
+      r.addedNodes.forEach((n) => { if (n.nodeType === 1 && !n.matches('[data-lazy-more]') && n.querySelector('[data-lazy-more]')) observe(n); });
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // « Tout sélectionner » en double (haut et bas d'une liste) : les cases restent d'accord.
+  document.addEventListener('change', (e) => {
+    const box = e.target.closest('[data-select-all]');
+    if (box) document.querySelectorAll(`[data-select-all="${box.dataset.selectAll}"]`).forEach((b) => { b.checked = box.checked; });
+  });
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!form.matches('[data-page-ids]')) return;
+    form.querySelectorAll('input[data-unloaded]').forEach((i) => i.remove());
+    if (!selectAllChecked(form)) return;
+    const name = form.dataset.pageIdsName || 'ids';
+    const present = new Set([...document.querySelectorAll(`input[type="checkbox"][name="${name}"]`)].filter((b) => formOf(b) === form).map((b) => b.value));
+    for (const id of form.dataset.pageIds.split(',').filter(Boolean)) {
+      if (present.has(id)) continue;
+      const input = document.createElement('input');
+      Object.assign(input, { type: 'hidden', name, value: id });
+      input.dataset.unloaded = '';
+      form.append(input);
+    }
+  }, true);
+})();
+
+// Aperçu Arrivant : actions sans rechargement (on garde sa place dans la liste). Étiqueter, ignorer et renommer envoient
+// le formulaire en AJAX avec les filtres de la page (`view`) et les ordres affichés (`shown`) ; le serveur renvoie les
+// lignes à jour, qui remplacent les anciennes, et les ordres sortis de la liste (ignorés…), retirés. Une erreur
+// s'affiche en notification. Sans JavaScript, le formulaire part normalement.
+(() => {
+  const list = document.querySelector('[data-lazy-list="incomings"]');
+  if (!list) return;
+  const shownIds = () => [...list.querySelectorAll('tr[data-row-id]')].map((tr) => tr.dataset.rowId).join(',');
+
+  // Compteurs : onglets, liste, ignorés ([data-count]), colonnes des totaux ([data-total="player:12"]) et compteur rouge
+  // de l'en-tête. Une arrivée les fait baisser aussitôt ; la page relit les vrais nombres toutes les 15 s et après
+  // chaque action (attaques arrivées sur des lignes pas encore chargées, nouvelles attaques…).
+  const bump = (el, by) => { if (el) el.textContent = String(Math.max(0, Number(el.textContent) + by)); };
+  document.addEventListener('incoming:arrived', ({ detail: tr }) => {
+    const ignored = tr.dataset.ignored === '1';
+    if (ignored) bump(document.querySelector('[data-count="ignored"]'), -1);
+    else {
+      bump(document.querySelector('[data-count="all"]'), -1);
+      bump(document.querySelector(`[data-count="${tr.dataset.type === 'attack' ? 'attacks' : 'supports'}"]`), -1);
+    }
+    bump(document.querySelector('[data-count="total"]'), -1);
+    for (const key of ['player', 'origin', 'target']) bump(document.querySelector(`[data-total="${key}:${tr.dataset[key]}"]`), -1);
+    if (tr.dataset.type === 'attack') {
+      const header = document.querySelector('[data-incoming-count]');
+      bump(header, -1);
+      if (header) {
+        const n = Number(header.textContent);
+        header.closest('[data-incoming-alerts]').hidden = !n;
+        document.title = (n ? `(${n}) ` : '') + document.title.replace(/^\(\d+\) /, '');
+      }
+    }
+  });
+  async function resync() {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('format', 'counts');
+      const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { accept: 'application/json' } });
+      if (!res.ok) return;
+      const { counts, total, totals } = await res.json();
+      for (const [key, n] of Object.entries({ ...counts, total })) {
+        const el = document.querySelector(`[data-count="${key}"]`);
+        if (el) el.textContent = String(n);
+      }
+      document.querySelectorAll('[data-total]').forEach((el) => {
+        const [key, id] = el.dataset.total.split(':');
+        el.textContent = String((totals[key] && totals[key][id]) || 0);
+      });
+    } catch { /* hors ligne : prochain essai dans 15 s */ }
+  }
+  setInterval(resync, 15000);
+  function apply({ rows = {}, removed = [] }) {
+    for (const [id, html] of Object.entries(rows)) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = `<table><tbody>${html}</tbody></table>`;
+      const fresh = tpl.content.querySelector('tr');
+      list.querySelector(`tr[data-row-id="${id}"]`)?.replaceWith(fresh);
+    }
+    removed.forEach((id) => list.querySelector(`tr[data-row-id="${id}"]`)?.remove());
+    document.querySelectorAll('[data-select-all="incomings-bulk"]').forEach((b) => { b.checked = false; });
+  }
+  async function send(form, body) {
+    body.set('view', window.location.search.slice(1));
+    body.set('shown', shownIds());
+    // getAttribute : form.action est masqué par les boutons nommés « action » (Étiqueter, Ignorer…).
+    const res = await fetch(form.getAttribute('action'), { method: 'POST', body, credentials: 'same-origin', headers: { accept: 'application/json' } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Action impossible.');
+    apply(data);
+    window.adarmaToast?.(data.message);
+    resync();
+  }
+  document.addEventListener('submit', async (e) => {
+    const form = e.target;
+    const bulk = form.id === 'incomings-bulk' && ['label', 'ignore', 'unignore'].includes(e.submitter?.value);
+    const rename = form.closest('tr[data-row-id]') && /\/rename$/.test(form.getAttribute('action') || '');
+    if (!bulk && !rename) return;
+    e.preventDefault();
+    // Le formulaire est lu avant de désactiver les boutons : un bouton désactivé (celui cliqué) n'est pas envoyé.
+    const body = new URLSearchParams(new FormData(form, e.submitter));
+    const buttons = [...document.querySelectorAll('button')].filter((b) => b.form === form);
+    buttons.forEach((b) => { b.disabled = true; });
+    try {
+      await send(form, body);
+    } catch (err) {
+      window.adarmaToast?.(err.message, true);
+    } finally {
+      buttons.forEach((b) => { b.disabled = false; });
+    }
+  });
 })();

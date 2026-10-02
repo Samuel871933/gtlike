@@ -6,7 +6,6 @@
   const available = new Set(allUnits.map((u) => u.id));
   const groups = UNIT_GROUPS.map(([name, ids]) => [name, ids.filter((id) => available.has(id))]).filter(([, ids]) => ids.length);
   const tabs = include('partials/place-tabs', { placeTab: tab });
-  const villageHref = (v) => `/village/${vid}/villages/${v.id}`;
   // Lien qui pré-remplit le formulaire avec un modèle d'armée (en gardant la cible saisie).
   const useHref = (tpl) => `/village/${vid}/place?${new URLSearchParams({ x: form.x, y: form.y, ...tpl.units })}`;
   // Modèle fixe « Toutes les troupes » (comme sur GT) : toutes les unités présentes au village, avant les modèles du joueur.
@@ -20,15 +19,15 @@
 <%- include('partials/building-header', { buildingId: 'place', illustration: 'wide' }) %>
 
 <% if (tab === 'commands') { %>
-  <%- include('partials/place/commands', { vid, typeName, verbStyle, available, groups, tabs, villageHref, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView }) %>
+  <%- include('partials/place/commands', { vid, typeName, verbStyle, available, groups, tabs, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView }) %>
 <% } %>
 
 <% if (tab === 'troops') { %>
-  <%- include('partials/place/troops', { vid, typeName, verbStyle, available, groups, tabs, villageHref, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView }) %>
+  <%- include('partials/place/troops', { vid, typeName, verbStyle, available, groups, tabs, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView }) %>
 <% } %>
 
 <% if (tab === 'sim') { %>
-  <%- include('partials/place/sim', { vid, typeName, verbStyle, available, groups, tabs, villageHref, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView }) %>
+  <%- include('partials/place/sim', { vid, typeName, verbStyle, available, groups, tabs, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView }) %>
 <% } %>
 </div>
 <%- include('partials/footer') %>

@@ -7,7 +7,7 @@
             <tbody>
             <% for (const v of villages) { const mv = moving.get(v.village.id); %>
               <tr class="<%= v.village.id === vid ? ui.rowActive : '' %>">
-                <td><a href="/village/<%= v.village.id %>/market?tab=merchants" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                <td><%- villageLink(vid, v.village, { href: `/village/${v.village.id}/market?tab=merchants`, coordsCls: 'text-parchment-500', k: false }) %></td>
                 <% if (!v.market) { %>
                   <td colspan="5" class="text-right text-parchment-500">Pas de marché</td>
                 <% } else { %>

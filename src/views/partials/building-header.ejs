@@ -2,7 +2,7 @@
 <% const bType = registry.building(buildingId); const bLevel = ctx.state.level(buildingId); const stat = buildingStat(buildingId, bLevel, ctx.cfg);
    const nextStat = bLevel < bType.maxLevel ? buildingStat(buildingId, bLevel + 1, ctx.cfg) : null; %>
 <section class="<%= ui.panel %>">
-  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
+  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-action)_0_8px,var(--color-action-deep)_8px_16px)]" aria-hidden="true"></div>
   <div class="flex flex-col gap-3 py-2.5 pr-3.5 pl-5 sm:flex-row sm:items-center sm:gap-5">
     <div class="flex min-w-0 flex-1 items-center gap-3.5">
       <%# Illustration du bâtiment (image du plan du village) ; `illustration: false` quand la page l'affiche en grand,

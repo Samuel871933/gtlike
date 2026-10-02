@@ -108,7 +108,7 @@ const ui = {
   // Boutons-icônes carrés (flèches, fermer, annuler).
   iconBtn: 'inline-flex size-[30px] minimal:size-6 shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-panel-hi text-parchment-300 shadow-[inset_0_0_0_1px_var(--color-bronze-700),2px_2px_0_#000] transition hover:bg-head-dark hover:text-parchment-100 disabled:cursor-not-allowed disabled:opacity-40',
   // Bouton-icône actif (page courante, action principale).
-  iconBtnOn: 'inline-flex size-[30px] minimal:size-6 shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-800 text-on-accent shadow-[inset_0_0_0_1px_var(--color-gold-400),2px_2px_0_#000] transition hover:bg-blood-700',
+  iconBtnOn: 'inline-flex size-[30px] minimal:size-6 shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-action text-on-accent shadow-[inset_0_0_0_1px_var(--color-gold-400),2px_2px_0_#000] transition hover:bg-action-hi',
   iconBtnSm: 'inline-flex size-[22px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-900 text-on-accent shadow-[1px_1px_0_#000] transition hover:bg-blood-600',
 
   // Onglets segmentés (VUE VILLAGE / LISTE, SORTANTS / ENTRANTS…), posés sur un bandeau rouge.
@@ -143,7 +143,7 @@ const ui = {
   fill: 'block h-full border-r-2 border-gold-400 bg-[repeating-linear-gradient(135deg,var(--color-action)_0_5px,var(--color-action-deep)_5px_10px)]',
 
   // Messages
-  alertError: 'border-2 border-black border-l-4 border-l-blood-600 bg-blood-900/60 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505] minimal:text-sm',
+  alertError: 'border-2 border-black border-l-4 border-l-blood-600 bg-blood-900/60 light:bg-blood-500/12 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505] minimal:text-sm',
   alertSuccess: 'border-2 border-black border-l-4 border-l-olive-500 bg-olive-700/30 px-3 py-2 text-[15px] text-parchment-100 shadow-[3px_3px_0_#050505] minimal:text-sm',
   alertInfo: 'border-2 border-black border-l-4 border-l-bronze-500 bg-panel-top px-3 py-2 text-[15px] text-parchment-300 shadow-[3px_3px_0_#050505] minimal:text-sm',
 

@@ -10,22 +10,28 @@
       <% if (!moves.length) { %>
         <p class="px-2.5 py-3 text-[13px] text-parchment-500"><%= tab === 'in' ? 'Aucune troupe en approche.' : tab === 'out' ? 'Aucun ordre en cours.' : 'Aucun mouvement de troupes.' %></p>
       <% } %>
-      <% shown.forEach((m, i) => { const { c, dir } = m;
+      <%# Fonds alternés en CSS, chargement progressif (lazyLists) quand tous les ordres sont affichés. %>
+      <% const lm = lazy('moves', shown) %>
+      <div class="[&>div:nth-child(even)]:bg-row-alt" data-lazy-list="moves">
+      <% lm.items.forEach((m) => { const { c, dir } = m;
            const other = dir === 'in' ? c.origin : c.target;
            const left = (new Date(c.arrivesAt) - now) / 1000;
            const sub = subOf(m);
            const canCancel = dir === 'out' && c.type !== 'return' && now - new Date(c.startsAt) < ctx.cfg.commandCancelSeconds * 1000; %>
-        <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] items-center border-b border-bronze-800 <%= i % 2 ? 'bg-row-alt' : '' %> hover:bg-row-hover">
+        <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] items-center border-b border-bronze-800 hover:bg-row-hover">
           <div class="flex min-w-0 items-center gap-2 border-r border-bronze-900 px-2.5 py-[5px]">
-            <%- include('../order-badge', { type: c.type, units: dir === 'in' && c.type === 'attack' ? null : c.units }) %>
-            <div class="min-w-0">
-              <div class="truncate font-semibold <%= dir === 'in' && c.type === 'attack' ? 'text-blood-500' : '' %>"><%= dir === 'in' ? (c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant') : verbs[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></div>
+            <%- dir === 'in' ? incomingBadge(c) : include('../order-badge', { type: c.type, units: c.units }) %>
+            <div class="min-w-0 <%= dir === 'in' && c.incomingIgnored ? 'opacity-55' : '' %>">
+              <% if (dir === 'in') { %>
+                <a href="/village/<%= vid %>/incomings/<%= c.id %>" class="flex min-w-0 items-center gap-1.5 font-semibold no-underline hover:underline <%= c.type === 'attack' ? 'text-blood-500' : 'text-parchment-100' %>" title="<%= c.incomingNote || '' %>"><span class="truncate"><%= c.incomingName || (c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant') %></span><% if (c.incomingNote) { %><span class="shrink-0 text-gold-400" aria-label="Note"><%- icon('edit', 'size-3', 2.2) %></span><% } %></a>
+              <% } else { %>
+              <div class="truncate font-semibold"><%= verbs[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></div>
+              <% } %>
               <% if (sub) { %><div class="truncate text-[11px] text-parchment-500" title="<%= sub %>"><%- subOf(m, true) %></div><% } %>
             </div>
           </div>
           <div class="min-w-0 truncate border-r border-bronze-900 px-2.5 py-[5px]">
-            <a href="/village/<%= vid %>/villages/<%= other.id %>" class="<%= ui.linkPlain %>"><%= other.name %></a>
-            <span class="font-semibold text-gold-400 tabular-nums">(<%= other.x %>|<%= other.y %>) <%= continent(other.x, other.y) %></span>
+            <%- villageLink(vid, other, { nameCls: '', coordsCls: 'font-semibold text-gold-400' }) %>
           </div>
           <span class="border-r border-bronze-900 px-2.5 py-[5px] text-parchment-500 tabular-nums"><%= whenShort(c.arrivesAt, now) %></span>
           <span class="px-2.5 py-[5px] text-right text-[15px] font-semibold tabular-nums <%= left < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>"><%= duration(left) %></span>
@@ -36,6 +42,8 @@
           <% } else { %><span></span><% } %>
         </div>
       <% }) %>
+      <%- lazyMore(lm, { tag: 'div', label: 'ordres' }) %>
+      </div>
     </div>
   </div>
   <div class="flex flex-wrap items-center justify-between gap-3 px-2.5 py-2">

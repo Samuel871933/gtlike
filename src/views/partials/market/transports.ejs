@@ -12,8 +12,7 @@
                     <span class="flex min-w-0 items-center gap-2">
                       <span class="shrink-0 font-semibold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
                       <span class="shrink-0 text-parchment-600"><%= delivery ? 'vers' : 'depuis' %></span>
-                      <a href="<%= villageHref(tr.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.target.name %></a>
-                      <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.target.x %>|<%= tr.target.y %>)</span>
+                      <%- villageLink(vid, tr.target, { nameCls: 'font-medium', coordsCls: 'text-parchment-600', k: false, truncate: true }) %>
                     </span>
                     <span class="text-[13px] text-parchment-500"><%= tr.merchants %> marchand(s) · <%= whenShort(tr.arrivesAt, now) %></span>
                   </span>
@@ -35,8 +34,7 @@
                   <span class="flex min-w-0 flex-1 flex-col">
                     <span class="flex min-w-0 items-center gap-2">
                       <span class="shrink-0 text-parchment-600">de</span>
-                      <a href="<%= villageHref(tr.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.origin.name %></a>
-                      <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.origin.x %>|<%= tr.origin.y %>)</span>
+                      <%- villageLink(vid, tr.origin, { nameCls: 'font-medium', coordsCls: 'text-parchment-600', k: false, truncate: true }) %>
                     </span>
                     <span class="text-[13px] text-parchment-500"><% if (tr.origin.Player) { %><%- playerLink(vid, tr.origin.Player, { cls: ui.link }) %> · <% } %><%= whenShort(tr.arrivesAt, now) %></span>
                   </span>

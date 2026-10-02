@@ -98,14 +98,16 @@ html.lobby_style input[type="radio"] { accent-color: var(--color-action-hi); }
 .achievement-art--report { width: 76px; height: 76px; }
 .achievement-art img { display: block; width: 88%; height: 88%; object-fit: contain; }
 /* Minimaliste : interface à plat, sans ombres portées ni filets intérieurs (encarts, boutons, pastilles…).
-   La carte du monde et l'aperçu des styles (Compte) gardent leur rendu. Hors calque et !important : l'emporte sur les utilitaires shadow-* et sur
-   les règles des rapports. Les champs perdent leur filet de focus : un contour le remplace. */
-[data-game-layout="minimal"] :not(.map-frame, .map-frame *, [data-layout-preview] *) {
+   Le dessin de la carte (terrain et villages : [data-map-plane], filet intérieur .map-viewport, voile des bords
+   .map-vignette) et l'aperçu des styles (Compte) gardent leur rendu ; le cadre de la carte et l'interface posée dessus
+   (infobulle, actions rapides, menu, flèches) sont à plat comme le reste. Hors calque et !important : l'emporte sur les utilitaires shadow-* et sur les règles des
+   rapports. Les champs perdent leur filet de focus : un contour le remplace. */
+[data-game-layout="minimal"] :not(.map-viewport, .map-vignette, [data-map-plane] *, [data-layout-preview] *) {
   box-shadow: none !important;
 }
 /* Minimaliste : traits fins. Les bordures de 2 et 3 px passent à 1 px ; les filets d'accent à gauche (border-l-4,
    border-l-[3px]) restent. Même exclusions, plus les éléments dessinés au pixel (spacing-normal : plan, interrupteurs). */
-[data-game-layout="minimal"] :not(.map-frame, .map-frame *, [data-layout-preview] *, .spacing-normal, .spacing-normal *) {
+[data-game-layout="minimal"] :not(.map-frame, .map-viewport, [data-map-plane] *, [data-layout-preview] *, .spacing-normal, .spacing-normal *) {
   &:is(.border-2, .border-\[3px\]) { border-width: 1px; }
   &:is(.border-t-2, .border-t-\[3px\]) { border-top-width: 1px; }
   &:is(.border-b-2, .border-b-\[3px\]) { border-bottom-width: 1px; }
@@ -124,8 +126,20 @@ html.lobby_style input[type="radio"] { accent-color: var(--color-action-hi); }
   mélange overlay / soft-light d'un dégradé opaque presque noir efface la texture : les styles sombres utilisent
   donc un voile partiel en mélange normal, le style clair un voile complet en multiply.
   .game-page-bg : le même fond dans un autre thème, en calque fixe (profil d'un joueur, voir views/player.ejs).
+  Le fond est un calque fixe (body::before) plutôt qu'un background-attachment: fixed sur le body : celui-ci obligeait
+  le navigateur à repeindre toute la page à chaque défilement (très lent sur les longues listes, 1 000 attaques…).
 */
-html.game_style body,
+html.game_style { background-color: var(--color-night); }
+html.game_style body { background: none; }
+html.game_style body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--color-night);
+}
+html.game_style body::before,
 .game-page-bg {
   background-image:
     radial-gradient(ellipse at 50% -10%,
@@ -135,7 +149,6 @@ html.game_style body,
     var(--game-bg-texture);
   background-position: center, center;
   background-size: cover, cover;
-  background-attachment: fixed, fixed;
   background-blend-mode: var(--game-bg-blend, normal);
 }
 

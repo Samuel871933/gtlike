@@ -1,0 +1,26 @@
+<%- include('partials/header', { title: 'Demande de soutien' }) %>
+<%
+  // Demande de soutien : texte proposé à partir des attaques choisies (modifiable), envoyé à toute la tribu.
+  const vid = ctx.village.id;
+%>
+<div class="flex flex-col gap-5">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="<%= ui.h1 %>">Demande de soutien</h1>
+    <a href="/village/<%= vid %>/incomings" class="<%= ui.link %> text-[13px]">» Aperçu Arrivant</a>
+  </div>
+  <section class="<%= ui.panel %>">
+    <%- panelHead(`${cmds.length} attaque${cmds.length > 1 ? 's' : ''}`) %>
+    <% if (!inTribe) { %>
+      <p class="<%= ui.empty %>">Vous n’êtes dans aucune tribu : la demande de soutien est envoyée aux membres de votre tribu. Vous pouvez copier ce texte et l’envoyer à d’autres joueurs depuis la messagerie.</p>
+    <% } %>
+    <form method="post" action="/village/<%= vid %>/incomings/support" class="flex flex-col gap-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="<%= ui.label %>">Objet<input name="subject" value="<%= subject %>" maxlength="100" required class="<%= ui.input %>"></label>
+      <label class="<%= ui.label %>">Message<textarea name="body" rows="<%= Math.min(24, body.split('\n').length + 2) %>" maxlength="5000" required class="<%= ui.textarea %> w-full font-mono text-[13px]"><%= body %></textarea></label>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-xs text-parchment-500">Envoyé à toute la tribu, dans la messagerie.</span>
+        <% if (inTribe) { %><button class="<%= btn('olive', 'md') %>"><%- icon('support', 'size-3.5', 2.2) %>Envoyer à la tribu</button><% } %>
+      </div>
+    </form>
+  </section>
+</div>
+<%- include('partials/footer') %>

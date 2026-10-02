@@ -15,7 +15,6 @@
   const flowLine = (list) => (RESOURCES.some((r) => list[r.id] > 0)
     ? RESOURCES.filter((r) => list[r.id] > 0).map((r) => amount(r.id, list[r.id])).join(' ')
     : '<span class="text-parchment-500">—</span>');
-  const villageHref = (v) => `/village/${vid}/villages/${v.id}`;
   const count = (n) => `<span class="${ui.headCount}">${n}</span>`;
   const infoTile = 'flex items-center gap-2 border border-bronze-800 bg-night px-2.5 py-1.5 text-sm';
   // Rangée de boutons radio de ressources (formulaires Je veux / J'offre) ; `off` : ressource désactivée.
@@ -43,7 +42,7 @@
 
 <%# Onglet choisi (le menu limite ?tab= à ces valeurs) ; ses helpers lui sont passés, un include ne voit pas les const d'ici. %>
 <% if (['offers', 'create', 'mass', 'send', 'transports', 'merchants', 'own', 'request'].includes(tab)) { %>
-  <%- include(`partials/market/${tab}`, { m, vid, res, resIcon, amount, flowLine, villageHref, count, infoTile, radios, limitTags }) %>
+  <%- include(`partials/market/${tab}`, { m, vid, res, resIcon, amount, flowLine, count, infoTile, radios, limitTags }) %>
 <% } %>
     </div>
   </div>

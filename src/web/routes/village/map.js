@@ -80,7 +80,7 @@ router.get('/map', ah(async (req, res) => {
   res.render('map', {
     page: 'map', cx, cy, sel, displaySize, miniSize, mapSizes: MAP_SIZES, miniSizes: MINI_SIZES, layers,
     paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, markerColor: MarkerService.DEFAULT_COLOR, markForm,
-    mapBoot: { sector: mapView.SECTOR, sectors, mini: miniVillages, attacks, churches, worldSize: cfg.mapSize, attackDots: res.locals.attackDots() },
+    mapBoot: { sector: mapView.SECTOR, sectors, mini: miniVillages, attacks, churches, worldSize: cfg.mapSize, attackDots: res.locals.attackDots(), attackIcon: res.locals.icon('attack', 'size-[10px]', 3) },
   });
 }));
 

@@ -1,4 +1,4 @@
-<%# Point de ralliement, onglet « commands » (inclus par place.ejs, avec : vid, typeName, verbStyle, available, groups, tabs, villageHref, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView). %>
+<%# Point de ralliement, onglet « commands » (inclus par place.ejs, avec : vid, typeName, verbStyle, available, groups, tabs, useHref, allTroops, quickTemplates, unitsText, moveHead, troopView). %>
 <section class="<%= ui.panel %>">
   <%- panelHead('Envoyer des troupes', tabs) %>
   <% if (!units.length) { %>
@@ -99,15 +99,16 @@
   <div>
     <% if (outgoing.length) { %><%- moveHead %><% } %>
     <% if (!outgoing.length) { %><p class="<%= ui.empty %>">Aucun ordre.</p><% } %>
-    <% for (const c of outgoing) {
+    <% const lo = lazy('place-out', outgoing) %>
+    <div data-lazy-list="place-out">
+    <% for (const c of lo.items) {
          const canCancel = c.type !== 'return' && now - new Date(c.startsAt) < ctx.cfg.commandCancelSeconds * 1000; %>
       <div class="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1.5 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0 hover:bg-row-hover sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]" data-unfold-row>
         <div class="flex min-w-0 items-center gap-3">
           <span class="inline-flex shrink-0" data-tip="ordre-<%= c.id %>"><%- include('../order-badge', { type: c.type, units: c.units, size: 'lg' }) %></span>
           <span class="shrink-0 font-semibold <%= verbStyle[c.type] || verbStyle.support %>"><%= typeName[c.type] %><%= c.cancelled ? ' (annulé)' : '' %></span>
           <span class="hidden shrink-0 text-parchment-600 sm:inline"><%= c.type === 'return' ? 'depuis' : 'vers' %></span>
-          <a href="<%= villageHref(c.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.target.name %></a>
-          <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.target.x %>|<%= c.target.y %>)</span>
+          <%- villageLink(vid, c.target, { nameCls: 'font-medium', coordsCls: 'text-parchment-600', k: false, truncate: true }) %>
           <%- include('../order-units', { id: `ordre-${c.id}`, units: c.units, part: 'toggle' }) %>
         </div>
         <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
@@ -122,22 +123,26 @@
         <div id="ordre-<%= c.id %>" class="col-span-full sm:pl-[42px]" hidden><%- include('../order-units', { units: c.units, loot: c.type === 'return' ? c.loot : null, part: 'panel' }) %></div>
       </div>
     <% } %>
+    <%- lazyMore(lo, { tag: 'div', label: 'ordres' }) %>
+    </div>
   </div>
 </section>
 
 <section class="<%= ui.panel %>">
-  <%- panelHead('Arrivées', `<span class="${ui.headCount}">${incoming.length}</span>`) %>
+  <%- panelHead('Arrivées', `<span class="flex items-center gap-3">${incoming.length ? `<a href="/village/${vid}/incomings?target=${vid}" class="${btn('dark', 'sm')}">Aperçu Arrivant</a>` : ''}<span class="${ui.headCount}">${incoming.length}</span></span>`) %>
   <div>
     <% if (incoming.length) { %><%- moveHead %><% } %>
     <% if (!incoming.length) { %><p class="<%= ui.empty %>">Rien en approche.</p><% } %>
-    <% for (const c of incoming) { %>
-      <div class="grid min-h-[50px] grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_150px_110px_40px]">
+    <% const li = lazy('place-in', incoming) %>
+    <div data-lazy-list="place-in">
+    <% for (const c of li.items) { %>
+      <div class="grid min-h-[50px] grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-x-4 gap-y-1 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_150px_110px_40px] <%= c.incomingIgnored ? 'opacity-55' : '' %>">
         <div class="flex min-w-0 items-center gap-3">
-          <%- include('../order-badge', { type: c.type, units: c.type === 'attack' ? null : c.units, size: 'lg' }) %>
-          <span class="shrink-0 font-semibold <%= verbStyle[c.type] || verbStyle.support %>"><%= typeName[c.type] %></span>
+          <%- incomingBadge(c, 'lg') %>
+          <a href="/village/<%= vid %>/incomings/<%= c.id %>" class="max-w-56 shrink-0 truncate font-semibold no-underline hover:underline <%= verbStyle[c.type] || verbStyle.support %>" title="<%= c.incomingNote ? `${incomingName(c)} — ${c.incomingNote}` : incomingName(c) %>"><%= incomingName(c) %></a>
+          <% if (c.incomingNote) { %><span class="shrink-0 text-gold-400" title="<%= c.incomingNote %>" aria-label="Note"><%- icon('edit', 'size-3.5', 2.2) %></span><% } %>
           <span class="hidden shrink-0 text-parchment-600 sm:inline">de</span>
-          <a href="<%= villageHref(c.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= c.origin.name %></a>
-          <span class="shrink-0 text-parchment-600 tabular-nums">(<%= c.origin.x %>|<%= c.origin.y %>)</span>
+          <%- villageLink(vid, c.origin, { nameCls: 'font-medium', coordsCls: 'text-parchment-600', k: false, truncate: true }) %>
           <% if (c.origin.Player) { %><span class="hidden truncate text-parchment-500 md:inline">· <%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %>
         </div>
         <span class="hidden text-parchment-400 tabular-nums sm:block" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></span>
@@ -146,5 +151,7 @@
         <span class="col-span-full hidden flex-wrap gap-x-2 text-[13px] text-parchment-500 max-md:flex sm:pl-[42px]"><span class="sm:hidden"><%= whenShort(c.arrivesAt, now) %></span><% if (c.origin.Player) { %><span><%- playerLink(vid, c.origin.Player, { cls: 'text-parchment-500 no-underline hover:text-gold-400' }) %></span><% } %></span>
       </div>
     <% } %>
+    <%- lazyMore(li, { tag: 'div', label: 'arrivées' }) %>
+    </div>
   </div>
 </section>

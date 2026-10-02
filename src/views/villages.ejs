@@ -3,9 +3,9 @@
   // Aperçus des villages de Guerre Tribale : un onglet par vue, une ligne par village. Le nom d'un village mène à son
   // aperçu ; les pastilles, chiffres et marchands mènent au bâtiment concerné de ce village.
   const vid = ctx.village.id;
-  const tabs = segTabs([
+  const tabs = segMenu([
     ['combined', 'Combiné'], ['prod', 'Production'], ['units', 'Troupes'], ['buildings', 'Bâtiments'],
-  ].map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, mode === m]));
+  ].map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, mode === m]).concat([[`/village/${vid}/incomings`, 'Arrivant', false]]), { label: 'Aperçu' });
   const units = registry.unitsFor(ctx.cfg);
   const buildings = registry.buildingsFor(ctx.cfg);
   const at = (r, path = '') => `/village/${r.village.id}${path}`;
@@ -15,9 +15,11 @@
   const clock = (d) => whenShort(d, ctx.now);
 
   // Colonne « Village » : nom (et attaques en approche), coordonnées et continent en dessous pour rester étroite.
-  const villageCell = (r) => `<span class="flex items-center gap-1.5"><a href="${at(r)}" class="${ui.linkPlain} block max-w-44 truncate font-semibold" title="${esc(r.village.name)}">${esc(r.village.name)}</a>`
-    + (r.incomingAttacks ? `<a href="${at(r, '/place?tab=troops')}" class="${ui.tagRed} gap-1 no-underline" title="Attaques en approche">${icon('attack', 'size-3', 2.6)}${r.incomingAttacks}</a>` : '')
-    + `</span><span class="block text-xs text-gold-400 tabular-nums">${r.village.x}|${r.village.y} ${continent(r.village.x, r.village.y)}</span>`;
+  // Nom et coordonnées forment un seul lien vers l'aperçu du village (comme villageLink, sur deux lignes ici).
+  const villageCell = (r) => `<span class="flex items-start gap-1.5"><a href="${at(r)}" class="${ui.linkPlain} block min-w-0" title="${esc(r.village.name)} (${r.village.x}|${r.village.y})">`
+    + `<span class="block max-w-44 truncate font-semibold">${esc(r.village.name)}</span><span class="block text-xs font-semibold tabular-nums">${r.village.x}|${r.village.y} ${continent(r.village.x, r.village.y)}</span></a>`
+    + (r.incomingAttacks ? `<a href="/village/${vid}/incomings?type=attacks&target=${r.village.id}" class="${ui.tagRed} gap-1 no-underline" title="Attaques en approche">${icon('attack', 'size-3', 2.6)}${r.incomingAttacks}</a>` : '')
+    + `</span>`;
   // En-têtes : visuel du bâtiment (image du plan du village) et icône de l'unité.
   const bImg = (id) => buildingImg(id, 1, 'mx-auto h-6 w-7 max-w-none');
   const uImg = (id) => `<span class="inline-flex">${unitIcon(id, 'size-5 min-h-5 min-w-5')}</span>`;
@@ -33,6 +35,8 @@
     return busy ? { cls: 'bg-[#4fa33a]', title: busy } : { cls: 'bg-bronze-700', title: 'Aucune activité' };
   };
 
+  // Chargement progressif des comptes à beaucoup de villages (lazyLists) ; les totaux portent sur tous.
+  const lv = lazy('villages', rows);
   const full = (r, id) => r.resources[id] >= r.storage * 0.9;
   const sum = (key, id) => rows.reduce((n, r) => n + (r[key][id] || 0), 0);
 %>
@@ -51,8 +55,8 @@
             <% for (const u of units) { %><th class="<%= th %> text-center" title="<%= u.name %>"><%- uImg(u.id) %></th><% } %>
             <th class="<%= th %> text-center" title="Marchands disponibles"><%- bImg('market') %></th>
           </tr></thead>
-          <tbody>
-          <% for (const r of rows) { %>
+          <tbody data-lazy-list="villages">
+          <% for (const r of lv.items) { %>
             <tr>
               <td class="<%= td %>"><%- villageCell(r) %></td>
               <% for (const id of ACTIVITY) { const a = activity(r, id); %>
@@ -66,6 +70,7 @@
               <td class="<%= td %> text-center tabular-nums"><% if (r.merchants.total) { %><a href="<%= at(r, '/market') %>" class="<%= ui.link %>"><%= r.merchants.free %>/<%= r.merchants.total %></a><% } else { %><span class="<%= zero %>">—</span><% } %></td>
             </tr>
           <% } %>
+          <%- lazyMore(lv, { colspan: 99, label: 'villages' }) %>
           </tbody>
         <% } else if (mode === 'prod') { %>
           <thead><tr>
@@ -73,8 +78,8 @@
             <th class="<%= th %>">Ressources</th><th class="<%= th %> text-right">Entrepôt</th>
             <th class="<%= th %> text-center">Marchands</th><th class="<%= th %> text-right">Ferme</th><th class="<%= th %>">Constructions</th>
           </tr></thead>
-          <tbody>
-          <% for (const r of rows) { %>
+          <tbody data-lazy-list="villages">
+          <% for (const r of lv.items) { %>
             <tr>
               <td class="<%= td %>"><%- villageCell(r) %></td>
               <td class="<%= td %> text-right font-semibold tabular-nums"><%= num(r.points) %></td>
@@ -96,6 +101,7 @@
               </td>
             </tr>
           <% } %>
+          <%- lazyMore(lv, { colspan: 99, label: 'villages' }) %>
           </tbody>
           <% if (rows.length > 1) { %>
             <tfoot><tr class="border-t-2 border-black bg-thead font-semibold">
@@ -108,8 +114,8 @@
             <th class="<%= th %>">Village</th><th class="<%= th %>"></th>
             <% for (const u of units) { %><th class="<%= th %> text-center" title="<%= u.name %>"><%- uImg(u.id) %></th><% } %>
           </tr></thead>
-          <tbody>
-          <% for (const r of rows) { %>
+          <tbody data-lazy-list="villages">
+          <% for (const r of lv.items) { %>
             <tr>
               <td class="<%= td %>" rowspan="2"><%- villageCell(r) %></td>
               <td class="<%= td %> text-parchment-500">Au village</td>
@@ -120,6 +126,7 @@
               <% for (const u of units) { const n = r.away[u.id] || 0; %><td class="<%= td %> text-center tabular-nums <%= n ? '' : zero %>"><%= num(n) %></td><% } %>
             </tr>
           <% } %>
+          <%- lazyMore(lv, { colspan: 99, label: 'villages' }) %>
           </tbody>
           <% if (rows.length > 1) { %>
             <tfoot><tr class="border-t-2 border-black bg-thead font-semibold">
@@ -132,8 +139,8 @@
             <th class="<%= th %>">Village</th><th class="<%= th %> text-right">Points</th>
             <% for (const b of buildings) { %><th class="<%= th %> text-center" title="<%= b.name %>"><%- bImg(b.id) %></th><% } %>
           </tr></thead>
-          <tbody>
-          <% for (const r of rows) { %>
+          <tbody data-lazy-list="villages">
+          <% for (const r of lv.items) { %>
             <tr>
               <td class="<%= td %>"><%- villageCell(r) %></td>
               <td class="<%= td %> text-right font-semibold tabular-nums"><%= num(r.points) %></td>
@@ -144,6 +151,7 @@
               <% } %>
             </tr>
           <% } %>
+          <%- lazyMore(lv, { colspan: 99, label: 'villages' }) %>
           </tbody>
         <% } %>
       </table>

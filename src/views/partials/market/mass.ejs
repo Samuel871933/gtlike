@@ -20,7 +20,7 @@
               <tbody>
               <% for (const v of villages) { %>
                 <tr>
-                  <td><a href="/village/<%= v.village.id %>/market?tab=mass" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                  <td><%- villageLink(vid, v.village, { href: `/village/${v.village.id}/market?tab=mass`, coordsCls: 'text-parchment-500', k: false }) %></td>
                   <% for (const r of RESOURCES) { %><td class="text-right tabular-nums <%= v.resources[r.id] >= v.storage ? 'text-blood-450' : '' %>"><%= num(v.resources[r.id]) %></td><% } %>
                   <td class="text-right tabular-nums"><%= v.market ? `${v.merchants.free}/${v.merchants.total}` : '—' %></td>
                   <td class="text-right"><% if (v.market) { %><input type="number" name="count_<%= v.village.id %>" min="0" placeholder="0" class="<%= ui.inputSm %> w-20 text-right tabular-nums" aria-label="Offres depuis <%= v.village.name %>"><% } else { %><span class="text-[12px] text-parchment-500">Pas de marché</span><% } %></td>

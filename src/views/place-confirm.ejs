@@ -15,7 +15,7 @@
       <thead><tr><th colspan="2" class="text-left"><span class="flex items-center gap-1.5"><span class="<%= isAttack ? 'text-blood-450' : 'text-olive-300' %>"><%- icon(isAttack ? 'attack' : 'support', 'size-3.5', 2.2) %></span>Ordre</span></th></tr></thead>
       <tbody>
         <tr><td class="<%= label %>">Destination</td><td>
-          <a href="/village/<%= vid %>/villages/<%= t.id %>" class="<%= ui.link %>"><%= t.name %> <span class="tabular-nums">(<%= t.x %>|<%= t.y %>)</span> <%= continent(t.x, t.y) %></a>
+          <%- villageLink(vid, t, { cls: ui.link, nameCls: '', coordsCls: '' }) %>
         </td></tr>
         <% if (t.Player) { %>
           <tr><td class="<%= label %>">Joueur</td><td>

@@ -1,7 +1,7 @@
 <%# Aperçu du village, titre de la cité (changement de village, repères) (inclus par overview.ejs, avec ses constantes). %>
 <%# Titre de la cité : changement de village et repères %>
 <div class="<%= ui.panel %> flex flex-wrap items-center justify-between gap-2.5 py-2.5 pr-3.5 pl-5">
-  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-blood-800)_0_8px,var(--color-blood-900)_8px_16px)]" aria-hidden="true"></div>
+  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-action)_0_8px,var(--color-action-deep)_8px_16px)]" aria-hidden="true"></div>
   <%# Le bloc du titre prend la place libre et rétrécit (titre tronqué, champ réduit) plutôt que de renvoyer les repères à la ligne. %>
   <div class="flex min-w-0 flex-[1_1_16rem] items-center gap-3">
     <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>

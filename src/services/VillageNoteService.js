@@ -48,7 +48,7 @@ class VillageNoteService {
 const TRIBE_SHARING = [
   {
     id: 'villageNotes', label: 'Notes de village', share: 'shareVillageNotes', show: 'showTribeNotes',
-    text: "Sur la carte (icône et infobulle) et dans l'aperçu du village.",
+    text: "Sur la carte (icône et infobulle) et dans l'aperçu du village, avec les noms et notes de vos attaques entrantes.",
   },
   {
     id: 'tribeOrders', label: 'Ordres de troupes', share: 'shareTribeOrders', show: 'showTribeOrders',

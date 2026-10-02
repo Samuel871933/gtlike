@@ -1,0 +1,86 @@
+<%- include('partials/header', { title: name }) %>
+<%
+  // Page d'un ordre entrant (info_command de Guerre Tribale) : ce que le défenseur sait (origine, cible, arrivée), le
+  // tableau des temps de trajet par unité pour deviner la plus lente, le nom, la note et l'option « ignorer ».
+  const vid = ctx.village.id;
+  const c = cmd;
+  const owner = c.origin.Player;
+  const arrives = new Date(c.arrivesAt).getTime();
+  const slack = 1 + (ctx.cfg.arrivalStepMs || 1) / 1000;
+  const typeLabel = c.type === 'attack' ? 'Attaque entrante' : 'Soutien entrant';
+  const row = 'grid grid-cols-[130px_minmax(0,1fr)] items-baseline gap-3 border-b border-bronze-900 px-3 py-2 last:border-b-0 max-sm:grid-cols-1 max-sm:gap-0.5';
+  const dt = 'text-[13px] text-parchment-500';
+%>
+<div class="flex flex-col gap-5">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="<%= ui.h1 %> flex min-w-0 items-center gap-3"><%- incomingBadge(c, 'lg') %><span class="min-w-0 truncate"><%= name %></span></h1>
+    <span class="flex flex-wrap items-center gap-3">
+      <% if (c.type === 'attack') { %><a href="/village/<%= vid %>/incomings/support?ids=<%= c.id %>" class="<%= btn('olive', 'sm') %>"><%- icon('support', 'size-3.5', 2.2) %>Demander du soutien</a><% } %>
+      <a href="/village/<%= vid %>/incomings" class="<%= ui.link %> text-[13px]">» Aperçu Arrivant</a>
+    </span>
+  </div>
+
+  <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+    <section class="<%= ui.panel %>">
+      <%- panelHead(typeLabel, c.incomingIgnored ? `<span class="${ui.tagMuted}">Ignoré</span>` : '') %>
+      <dl>
+        <div class="<%= row %>"><dt class="<%= dt %>">Joueur</dt><dd><%- playerLink(vid, owner, { cls: ui.link }) %><% if (owner && owner.Tribe) { %> <a href="/village/<%= vid %>/tribes/<%= owner.Tribe.id %>" class="<%= ui.link %>">[<%= owner.Tribe.tag %>]</a><% } %></dd></div>
+        <div class="<%= row %>"><dt class="<%= dt %>">Origine</dt><dd><%- villageLink(vid, c.origin) %></dd></div>
+        <div class="<%= row %>"><dt class="<%= dt %>">Destination</dt><dd><%- villageLink(vid, c.target, { own: true }) %></dd></div>
+        <div class="<%= row %>"><dt class="<%= dt %>">Distance</dt><dd class="tabular-nums"><%= distance.toFixed(1).replace('.', ',') %> cases</dd></div>
+        <div class="<%= row %>"><dt class="<%= dt %>">Arrivée</dt><dd class="tabular-nums"><%= when(c.arrivesAt, now) %></dd></div>
+        <div class="<%= row %>"><dt class="<%= dt %>">Arrive dans</dt><dd class="text-[17px] font-semibold tabular-nums <%= remaining < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= arrives %>"><%= duration(remaining) %></dd></div>
+        <% if (guess) { %>
+          <div class="<%= row %>"><dt class="<%= dt %>">Unité probable</dt><dd>
+            <span class="inline-flex items-center gap-1.5 font-semibold text-gold-200"><%- unitIcon(guess.unit, 'size-4') %><%= unitName(guess.unit) %></span>
+            <span class="block text-[13px] text-parchment-500">Si l’ordre vient d’être lancé : envoyé <%= whenShort(arrives - guess.seconds * 1000, now) %>, retour estimé <%= whenShort(arrives + guess.seconds * 1000, now) %>.</span>
+          </dd></div>
+        <% } %>
+      </dl>
+      <div class="flex flex-col gap-2.5 border-t border-bronze-800 bg-black/20 p-3">
+        <form method="post" action="/village/<%= vid %>/incomings/<%= c.id %>/rename" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label class="<%= ui.label %> min-w-0 flex-1 basis-56">Nom de l’ordre<input name="name" value="<%= c.incomingName || '' %>" maxlength="64" placeholder="<%= c.type === 'attack' ? 'Attaque' : 'Soutien' %>" class="<%= ui.input %>"></label>
+          <button class="<%= btn('dark', 'md') %>">Renommer</button>
+          <button name="action" value="label" class="<%= btn('gold', 'md') %>" title="Nommer l’ordre d’après l’unité probable, avec votre format d’étiquette">Étiqueter</button>
+        </form>
+        <form method="post" action="/village/<%= vid %>/incomings/<%= c.id %>/ignore"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="ignored" value="<%= c.incomingIgnored ? '0' : '1' %>">
+          <button class="<%= ui.link %> cursor-pointer text-[13px]"><%= c.incomingIgnored ? '» Ne plus ignorer cet ordre' : '» Ignorer cet ordre (masqué de l’aperçu Arrivant)' %></button>
+        </form>
+      </div>
+    </section>
+
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Note') %>
+      <form method="post" action="/village/<%= vid %>/incomings/<%= c.id %>/note" class="flex flex-col gap-2 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <textarea name="note" rows="5" maxlength="<%= 500 %>" class="<%= ui.textarea %> w-full" aria-label="Note sur cet ordre" placeholder="Noble probable, soutien demandé à…, snipe prévu à…"><%= c.incomingNote || '' %></textarea>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs text-parchment-500"><%= player && player.shareVillageNotes ? 'Visible par votre tribu (vous partagez vos notes).' : 'Visible de vous seul.' %></span>
+          <button class="<%= btn('dark', 'sm') %>">Enregistrer</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Temps de trajet par unité') %>
+    <p class="<%= ui.panelNote %> border-b border-bronze-800">Les unités dont le trajet est plus court que le temps restant ne peuvent pas être dans cet ordre. Parmi les autres, la plus rapide est la plus probable si l’ordre vient d’être lancé ; une unité plus lente l’est s’il a été lancé plus tôt.</p>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %> min-w-[560px] text-[14px] [&_td]:py-1.5 [&_th]:py-1.5">
+        <thead><tr><th>Unités</th><th class="text-right">Durée</th><th>Envoi supposé</th><th>Retour estimé</th><th></th></tr></thead>
+        <tbody>
+        <% for (const g of table) { const possible = g.reachable && g.seconds + slack >= remaining; const isGuess = guess && g.seconds === guess.seconds; %>
+          <tr class="<%= isGuess ? ui.rowActive : '' %> <%= possible ? '' : 'text-parchment-600' %>">
+            <td><span class="flex flex-wrap items-center gap-x-3 gap-y-1"><% for (const id of g.units) { %><span class="inline-flex items-center gap-1.5 <%= possible ? '' : 'opacity-50' %>"><%- unitIcon(id, 'size-4') %><%= unitName(id) %></span><% } %></span></td>
+            <td class="text-right tabular-nums"><%= duration(g.seconds) %></td>
+            <td class="tabular-nums"><%= possible ? whenShort(arrives - g.seconds * 1000, now) : '—' %></td>
+            <td class="tabular-nums"><%= possible ? whenShort(arrives + g.seconds * 1000, now) : '—' %></td>
+            <td class="text-[13px]"><%= !g.reachable ? 'Hors de portée' : isGuess ? 'Probable' : possible ? '' : 'Impossible' %></td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<%- include('partials/footer') %>

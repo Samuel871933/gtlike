@@ -20,7 +20,7 @@
             <span class="absolute -right-1.5 -bottom-1 <%= ui.levelBadge %>"><%= k.level %></span>
           </span>
           <div class="flex min-w-48 flex-1 flex-col gap-2">
-            <p class="text-parchment-400">Village d'attache : <span class="font-semibold text-parchment-100"><%= k.home.name %></span> <span class="text-parchment-600 tabular-nums">(<%= k.home.x %>|<%= k.home.y %>)</span></p>
+            <p class="text-parchment-400">Village d'attache : <%- villageLink(ctx.village.id, k.home, { own: true, coordsCls: 'text-parchment-600', k: false }) %></p>
             <div class="flex flex-col gap-1">
               <div class="flex justify-between gap-2 text-xs text-parchment-500"><span>Expérience</span><span class="tabular-nums"><%= num(k.xp) %><%= next ? ` / ${num(next)}` : ' · niveau maximal' %></span></div>
               <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= pct %>%"></span></span>

@@ -101,6 +101,14 @@
     --color-blood-400: #b0301c;
     --color-blood-450: #a8520c;
     --color-blood-500: #b02a18;
+    /* Rouges foncés (navigation active, attaque, suppression, bandes) : le rouge du style assombri, pas celui du
+       style sombre par défaut. */
+    --color-blood-600: #9e2616;
+    --color-blood-650: #922314;
+    --color-blood-700: #862012;
+    --color-blood-800: #711b0f;
+    --color-blood-850: #61170d;
+    --color-blood-900: #4f130b;
     --color-blood-shadow: #d8bd82;
 
     /* Vert (succès, retours) et acier (soutiens), foncés pour le texte */

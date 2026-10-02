@@ -241,9 +241,13 @@ const Player = sequelize.define(
     shareVillageNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // Offres par page de la recherche du marché (nulle : valeur par défaut).
     marketPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    // Ordres par page de l'aperçu Arrivant (nul : valeur par défaut).
+    incomingsPerPage: { type: DataTypes.INTEGER, allowNull: true },
     showTribeNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     shareTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     showTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    // Format du bouton « Étiqueter » de l'aperçu Arrivant (%unit%, %coords%…, voir game/incomingLabel.js) ; nul = par défaut.
+    incomingLabelFormat: { type: DataTypes.STRING(120), allowNull: true },
     // Mode sommeil : les attaques qui arrivent dans cet intervalle deviennent des visites.
     sleepStartsAt: { type: DataTypes.DATE, allowNull: true },
     sleepEndsAt: { type: DataTypes.DATE, allowNull: true },
@@ -393,6 +397,10 @@ const Command = sequelize.define(
     cancelled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     startsAt: { type: DataTypes.DATE, allowNull: false },
     arrivesAt: { type: DataTypes.DATE, allowNull: false },
+    // Côté défenseur (attaque ou soutien entrant, voir IncomingService) : nom donné ou étiquette, note, ordre ignoré.
+    incomingName: { type: DataTypes.STRING(64), allowNull: true },
+    incomingNote: { type: DataTypes.TEXT, allowNull: true },
+    incomingIgnored: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { indexes: [{ fields: ['arrivesAt'] }, { fields: ['originVillageId'] }, { fields: ['targetVillageId'] }] },
 );

@@ -5,7 +5,8 @@
 // Le décor (herbe, forêts, collines, lacs) ne transite pas : il est calculé par le navigateur.
 
 const { Op, fn, col } = require('sequelize');
-const { Player, Village, Tribe, User, LastAttack } = require('../models');
+const { Op: SqlOp } = require('sequelize');
+const { Player, Village, Tribe, User, LastAttack, Command } = require('../models');
 const VillageNoteService = require('../services/VillageNoteService');
 const MapOrderService = require('../services/MapOrderService');
 const { whenShort } = require('./helpers');
@@ -25,17 +26,30 @@ const num = (n) => Math.floor(n).toLocaleString('fr-FR');
 /** Contexte de lecture de la carte pour le village courant : relations, marquages, favoris, morale. */
 async function viewContext(village, cfg) {
   const player = await Player.findByPk(village.playerId);
-  const [relations, markers, favorites] = await Promise.all([
+  const [relations, markers, favorites, attacked] = await Promise.all([
     TribeService.relationsOf(player.tribeId),
     MarkerService.list(player.id, village.worldId),
     FavoriteService.list(player.id),
+    attackedVillages(player.id),
   ]);
   return {
-    village, player, relations, markers, favorites,
+    village, player, relations, markers, favorites, attacked,
     colors: MarkerService.colorMaps(markers),
     favIds: new Set(favorites.map((f) => f.villageId)),
     moraleOf: cfg.moral ? (points) => combat.morale(player.points, points, true) : null,
   };
+}
+
+/** Villages du joueur visés par des attaques en cours : Map id → nombre d'attaques (icône sur la case de la carte). */
+async function attackedVillages(playerId) {
+  const own = await Village.findAll({ where: { playerId }, attributes: ['id'], raw: true });
+  if (!own.length) return new Map();
+  const rows = await Command.findAll({
+    where: { type: 'attack', targetVillageId: { [SqlOp.in]: own.map((v) => v.id) } },
+    attributes: ['targetVillageId', [Command.sequelize.fn('COUNT', Command.sequelize.col('id')), 'n']],
+    group: ['targetVillageId'], raw: true,
+  });
+  return new Map(rows.map((r) => [r.targetVillageId, Number(r.n)]));
 }
 
 function kindOf(vc, v) {
@@ -74,6 +88,8 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), 
     note: notes.has(v.id),
     notes: (notes.get(v.id) || []).map((n) => ({ author: n.mine ? '' : n.author, text: n.text.length > 280 ? `${n.text.slice(0, 279)}…` : n.text })),
     orders: orders.get(v.id) || { own: [], tribe: [] },
+    // Tes villages visés par des attaques : nombre d'attaques en approche (icône sur la case, comme sur GT).
+    incoming: (vc.attacked && vc.attacked.get(v.id)) || 0,
   };
 }
 

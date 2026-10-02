@@ -36,13 +36,27 @@ function villageLabel(v) {
   return `${v.name} (${v.x}|${v.y})`;
 }
 
-// Attaques envoyées à la suite : écart minimal entre deux arrivées, celui de la précision des arrivées quand le serveur
-// la fixe, sinon 100 ms.
+// Écart minimal entre deux arrivées d'un même village sur une même cible (attaques à la suite, ou envoyées l'une après
+// l'autre) : la précision des arrivées quand le serveur la fixe, sinon 100 ms ; jamais moins de 10 ms, pour que deux
+// ordres d'un village n'arrivent pas à la même milliseconde.
 const MAX_CHAINED = 50;
 const DEFAULT_CHAIN_GAP_MS = 100;
+const MIN_CHAIN_GAP_MS = 10;
 function chainGapMs(world) {
   const step = Number(world?.config?.arrivalStepMs);
-  return Number.isFinite(step) && step >= 1 ? step : DEFAULT_CHAIN_GAP_MS;
+  return Math.max(MIN_CHAIN_GAP_MS, Number.isFinite(step) && step >= 1 ? step : DEFAULT_CHAIN_GAP_MS);
+}
+
+/**
+ * Première arrivée possible à partir de `ms` qui reste à `gap` au moins de chaque arrivée de `taken` (triées), à la
+ * précision du monde : un ordre trop proche d'un autre est repoussé juste après lui.
+ */
+function freeArrival(ms, taken, gap, cfg) {
+  let at = arrivalAt(ms, cfg).getTime();
+  for (const other of taken) {
+    if (Math.abs(at - other) < gap) at = arrivalAt(other + gap, cfg).getTime();
+  }
+  return new Date(at);
 }
 
 class CommandService {
@@ -138,7 +152,8 @@ class CommandService {
   /**
    * Plusieurs attaques à la suite depuis un village (« Ajouter une attaque supplémentaire » de GT), dans une seule
    * transaction : chaque ordre arrive après le précédent, au moins `chainGapMs` plus tard (un ordre plus rapide part
-   * donc d'autant plus tard). Tout est refusé si l'un des ordres est invalide.
+   * donc d'autant plus tard). Chaque arrivée reste aussi à `chainGapMs` des ordres déjà en route du même village vers
+   * la même cible. Tout est refusé si l'un des ordres est invalide.
    */
   static async sendMany(villageId, orders, { now } = {}) {
     if (!orders.length) throw new GameError('Aucune unité sélectionnée.');
@@ -147,11 +162,23 @@ class CommandService {
       const gap = chainGapMs(ctx.world);
       const created = [];
       let previous = null;
+      // Arrivées déjà prises par ce village, par cible (ordres en route, puis ceux de cet envoi).
+      const taken = new Map();
       for (const order of orders) {
         const plan = await CommandService.plan(ctx, order, t);
         ctx.state.units = addUnits(ctx.state.units, plan.units, -1);
-        let arrivesAt = plan.arrivesAt;
-        if (previous && arrivesAt.getTime() < previous + gap) arrivesAt = arrivalAt(previous + gap, ctx.cfg);
+        if (!taken.has(plan.target.id)) {
+          const going = await Command.findAll({
+            where: { originVillageId: ctx.village.id, targetVillageId: plan.target.id, type: { [Op.in]: ['attack', 'support'] } },
+            attributes: ['arrivesAt'], raw: true, transaction: t,
+          });
+          taken.set(plan.target.id, going.map((c) => new Date(c.arrivesAt).getTime()));
+        }
+        const slots = taken.get(plan.target.id);
+        let ms = plan.arrivesAt.getTime();
+        if (previous && ms < previous + gap) ms = previous + gap;
+        const arrivesAt = freeArrival(ms, slots.sort((a, b) => a - b), gap, ctx.cfg);
+        slots.push(arrivesAt.getTime());
         previous = arrivesAt.getTime();
         created.push(await Command.create({
           worldId: ctx.village.worldId,
@@ -570,9 +597,11 @@ class CommandService {
       defenderItems: [...new Set(defenderItems.filter(Boolean))].map((id) => registry.ITEMS.get(id).name),
       loot: looted, carry, loyalty, conquered,
     };
+    // Éclaireurs seuls : le joueur espionne, il n'attaque pas.
+    const spyOnly = Object.entries(cmd.units).every(([id, n]) => !n || id === 'spy');
     const title = conquered
       ? `${origin.Player.name} a conquis ${villageLabel(target)}`
-      : `${origin.Player.name} attaque ${villageLabel(target)}`;
+      : `${origin.Player.name} ${spyOnly ? 'espionne' : 'attaque'} ${villageLabel(target)}`;
 
     const attackReport = await Report.create({
       playerId: origin.playerId, type: 'attack', title, happenedAt: at,

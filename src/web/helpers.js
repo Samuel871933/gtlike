@@ -1,6 +1,8 @@
 'use strict';
 
 const registry = require('../game/registry');
+const incomingLabel = require('../game/incomingLabel');
+const lastAttack = require('../game/lastAttack');
 const tribeRights = require('../game/tribeRights');
 const { ui, esc } = require('./ui');
 const { continent } = require('../game/MapPlacer');
@@ -98,10 +100,39 @@ const ATTACK_RESULTS = {
   loss: ['#c9372c', 'Pertes totales'],
   spy: ['#3f7fd1', 'Espionnage'],
 };
-const attackDot = (result) => {
+const attackDot = (result, cls = 'size-3.5') => {
   const [color, label] = ATTACK_RESULTS[result] || ATTACK_RESULTS.win;
-  return `<span class="inline-block size-3.5 shrink-0 rounded-full border border-black shadow-[1px_1px_0_#000]" style="background:${color}" title="${label}"></span>`;
+  return `<span class="inline-block ${cls} shrink-0 rounded-full border border-black shadow-[1px_1px_0_#000]" style="background:${color}" title="${label}"></span>`;
 };
+// Défenseur : la gommette de l'attaque vue de son côté (l'attaquant sans perte, c'est une défense perdue).
+const DEFENSE_RESULT = { win: 'loss', loss: 'win', partial: 'partial', spy: 'spy' };
+/**
+ * Résultat d'un rapport d'attaque ou de défense pour son lecteur : gommette (`result`, voir ATTACK_RESULTS), butin
+ * (`haul` full | partial | null, côté attaquant) et attaque d'éclaireurs seuls (`spyOnly`) ; null pour les autres
+ * rapports et les visites (mode sommeil).
+ */
+function reportOutcome(r) {
+  if (!['attack', 'defense'].includes(r.type) || !r.data || r.data.visit || !r.data.attacker) return null;
+  const o = lastAttack.outcome(r.data);
+  const units = r.data.attacker.units || {};
+  const spyOnly = Object.keys(units).length > 0 && Object.entries(units).every(([id, n]) => !n || id === 'spy');
+  return { result: r.type === 'defense' ? DEFENSE_RESULT[o.result] : o.result, haul: r.type === 'attack' ? o.haul : null, spyOnly };
+}
+/**
+ * Icône du butin d'une attaque : sac rempli avec les ressources du jeu (butin plein, il reste sans doute des
+ * ressources à piller) ou version grisée (butin partiel, le village a été vidé). Rien sans butin.
+ */
+function haulIcon(haul, cls = 'size-6') {
+  if (!haul) return '';
+  const full = haul === 'full';
+  const title = full ? 'Butin plein : il reste sans doute des ressources à piller' : 'Butin partiel : le village a été vidé';
+  return `<img src="/img/reports/haul-full.png?v=1" class="${cls} shrink-0 object-contain ${full ? '' : 'opacity-45 grayscale'}" alt="${title}" title="${title}">`;
+}
+/** Titre d'un rapport ; les anciens rapports d'éclaireurs seuls « attaquent » : ils espionnent. */
+function reportTitle(r) {
+  const o = reportOutcome(r);
+  return o && o.spyOnly ? r.title.replace(/ attaque /, ' espionne ') : r.title;
+}
 /** Gommettes et libellés de chaque résultat, pour la carte : { win: { html, label }, … }. */
 const attackDots = () => Object.fromEntries(Object.entries(ATTACK_RESULTS).map(([id, [, label]]) => [id, { html: attackDot(id), label }]));
 
@@ -288,7 +319,9 @@ function orderBadge(type, units, size = 'md') {
     lg: { box: 'size-[30px] shadow-[2px_2px_0_#000]', icon: 'size-[15px]', stroke: 2.2, unit: 'size-6' },
     map: { box: 'size-[18px] shadow-[1px_1px_0_#000]', icon: 'size-[10px]', stroke: 3, unit: 'size-3.5' },
   };
-  const t = types[type] || types.support;
+  // Éclaireurs seuls : espionnage, sur fond bleu (la couleur de la gommette « Espionnage »).
+  const spyOnly = type === 'attack' && units && Object.keys(units).length > 0 && Object.entries(units).every(([id, n]) => !n || id === 'spy');
+  const t = spyOnly ? { box: 'bg-[#3f7fd1]', icon: 'eye', name: 'Espionnage' } : types[type] || types.support;
   const s = sizes[size] || sizes.md;
   const pace = units ? paceUnit(units, type) : null;
   const unit = pace ? (size === 'map'
@@ -298,6 +331,44 @@ function orderBadge(type, units, size = 'md') {
     ? 'flex size-[18px] shrink-0 items-center justify-center border border-black bg-panel-top p-px shadow-[1px_1px_0_#000]'
     : 'flex shrink-0 text-gold-400';
   return `<span class="flex shrink-0 items-center ${size === 'map' ? 'gap-0.5' : 'gap-1.5'}"><span class="flex shrink-0 items-center justify-center border-2 border-black text-night ${s.box} ${t.box}" title="${t.name}">${icon(t.icon, s.icon, s.stroke)}</span>${pace ? `<span class="${unitWrap}" title="Unité la plus lente : ${esc(pace.name)}">${unit}</span>` : ''}</span>`;
+}
+/**
+ * Pastille d'un ordre entrant : type, et icône de l'unité nommée dans son nom (« Noble », « Bélier »…), comme sur GT
+ * quand on renomme une attaque ; les troupes restent inconnues du défenseur.
+ */
+function incomingBadge(cmd, size = 'md') {
+  const unit = incomingLabel.unitFromName(cmd.incomingName);
+  return orderBadge(cmd.type, unit ? { [unit]: 1 } : null, size);
+}
+/**
+ * Lien vers un village, composant unique : nom, coordonnées et continent forment un seul lien vers l'aperçu du village
+ * (sa fiche, ou l'aperçu de ton village avec `own`). `href` : autre destination (marché du village…), même rendu.
+ * `truncate` : nom tronqué dans une colonne étroite (les coordonnées restent entières). Nom et coordonnées sont
+ * toujours en demi-gras et de la couleur du lien (`cls`), pour bien se voir : les graisses et couleurs passées dans
+ * `nameCls` / `coordsCls` sont ignorées (il n'y reste que la taille du texte).
+ */
+function villageLink(vid, v, { cls = ui.linkPlain, href = null, own = false, nameCls = '', coordsCls = '', k = true, truncate = false } = {}) {
+  if (!v) return '';
+  const bold = (c) => `${String(c)
+    .replace(/\bfont-(thin|light|normal|medium|semibold|bold)\b/g, '')
+    .replace(/\btext-(gold|parchment|blood|olive|steel|bronze)-\d+\b/g, '')
+    .replace(/\s+/g, ' ').trim()} font-semibold`.trim();
+  nameCls = bold(nameCls);
+  coordsCls = bold(coordsCls);
+  const url = href || (own ? `/village/${v.id}` : `/village/${vid}/villages/${v.id}`);
+  const where = `(${v.x}|${v.y})${k ? ` ${continent(v.x, v.y)}` : ''}`;
+  return `<a href="${esc(url)}" class="${cls}${truncate ? ' inline-flex min-w-0 max-w-full items-baseline gap-1' : ''}" title="${esc(`${v.name} ${where}`)}">`
+    + `<span class="${nameCls}${truncate ? ' min-w-0 truncate' : ''}">${esc(v.name)}</span>${truncate ? '' : ' '}<span class="${coordsCls} whitespace-nowrap tabular-nums">${where}</span></a>`;
+}
+/**
+ * Même lien à partir du libellé « nom (x|y) » gardé dans les rapports : par l'identifiant s'il est connu, sinon par
+ * les coordonnées du libellé (/villages/at). Texte seul si le libellé n'a pas de coordonnées.
+ */
+function villageLabelLink(vid, label, id = null, opts = {}) {
+  const m = /^(.*) \((\d+)\|(\d+)\)(?: K\d+)?$/.exec(String(label || ''));
+  if (!m) return esc(label || '');
+  const v = { id, name: m[1], x: Number(m[2]), y: Number(m[3]) };
+  return villageLink(vid, v, { href: id ? null : `/village/${vid}/villages/at?x=${v.x}&y=${v.y}`, ...opts });
 }
 /** Icône raster commune aux ressources, au stockage et à la population. */
 const resourceIcon = (id, cls = 'size-8') => `<img src="${RESOURCE_ICONS[id] || RESOURCE_ICONS.storage}" class="${cls} min-h-8 min-w-8 shrink-0 object-contain" alt="" aria-hidden="true">`;
@@ -395,6 +466,8 @@ module.exports = {
   ...require('./worldLabels'),
   unitIcon,
   orderBadge,
+  incomingBadge,
+  incomingName: (cmd) => cmd.incomingName || (cmd.type === 'attack' ? 'Attaque' : 'Soutien'),
   resourceIcon,
   shield,
   QUICKBAR,
@@ -425,6 +498,11 @@ module.exports = {
   buildingSprite,
   ATTACK_RESULTS,
   attackDot,
+  villageLink,
+  villageLabelLink,
+  reportOutcome,
+  haulIcon,
+  reportTitle,
   attackDots,
   TIER_STYLES,
 };

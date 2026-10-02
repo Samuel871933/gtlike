@@ -106,6 +106,24 @@
       <% } %>
     </section>
 
+    <%# Attaques entrantes nommées ou annotées par le membre de la tribu qui possède ce village (notes partagées) %>
+    <% if (sharedIncomings.length) { %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead(`Arrivées annotées (${sharedIncomings.length})`) %>
+      <% for (const { cmd: c, name } of sharedIncomings) { const left = (new Date(c.arrivesAt) - now) / 1000; %>
+        <div class="flex flex-col gap-1 border-b border-bronze-900 px-3 py-2 last:border-b-0">
+          <div class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+            <%- incomingBadge(c, 'sm') %>
+            <span class="min-w-0 truncate font-semibold <%= c.type === 'attack' ? 'text-blood-300' : 'text-parchment-100' %>"><%= name %></span>
+            <span class="text-[13px] text-parchment-500">de <%- villageLink(vid, c.origin, { nameCls: '', coordsCls: '', k: false }) %></span>
+            <span class="ml-auto text-[13px] text-parchment-400 tabular-nums"><%= whenShort(c.arrivesAt, now) %> · <span class="font-semibold text-parchment-100" data-countdown="<%= new Date(c.arrivesAt).getTime() %>" data-countdown-noreload><%= duration(left) %></span></span>
+          </div>
+          <% if (c.incomingNote) { %><p class="whitespace-pre-line wrap-break-word text-sm text-parchment-200"><%= c.incomingNote %></p><% } %>
+        </div>
+      <% } %>
+    </section>
+    <% } %>
+
     <%# Tes ordres vers ce village %>
     <section class="<%= ui.panel %>">
       <%- panelHead(`Propres ordres (${commands.length})`) %>
@@ -161,10 +179,10 @@
       <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
         <thead><tr><th class="w-8"></th><th>Objet</th><th class="text-right">Reçu</th></tr></thead>
         <tbody>
-        <% for (const r of reports) { const dot = r.type === 'attack' ? attackDot(outcomeOf(r.data).result) : ''; %>
+        <% for (const r of reports) { const o = reportOutcome(r); const dot = o ? attackDot(o.result, 'size-4') : ''; %>
           <tr class="<%= r.isRead ? '' : 'font-semibold' %>">
-            <td><input type="checkbox" name="ids" value="<%= r.id %>" form="village-reports" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner « <%= r.title %> »"></td>
-            <td><span class="inline-flex items-center gap-2"><%- dot %><a href="/village/<%= vid %>/reports/<%= r.id %>" class="<%= ui.linkPlain %>"><%= r.title %></a><% if (!r.isRead) { %> <span class="text-[11px] font-normal text-gold-400">(nouveau)</span><% } %></span></td>
+            <td><input type="checkbox" name="ids" value="<%= r.id %>" form="village-reports" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner « <%= reportTitle(r) %> »"></td>
+            <td><span class="inline-flex items-center gap-2"><%- dot %><a href="/village/<%= vid %>/reports/<%= r.id %>" class="<%= ui.linkPlain %>"><%= reportTitle(r) %></a><%- o ? haulIcon(o.haul, 'size-5') : '' %><% if (!r.isRead) { %> <span class="text-[11px] font-normal text-gold-400">(nouveau)</span><% } %></span></td>
             <td class="text-right whitespace-nowrap text-parchment-400 tabular-nums"><%= whenShort(r.happenedAt, now) %></td>
           </tr>
         <% } %>

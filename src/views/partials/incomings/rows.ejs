@@ -1,0 +1,25 @@
+<%# Lignes de l'aperçu Arrivant : rows, vid, qs, td. Incluses par incomings.ejs (paquet par paquet, voir lazyLists),
+    et rendues seules pour remplacer des lignes après une action (renommer, étiqueter : routes/village/incomings.js). %>
+      <% rows.forEach((r) => { const { cmd: c, name, distance } = r; const left = (new Date(c.arrivesAt) - now) / 1000; const owner = c.origin.Player; %>
+        <tr class="<%= c.incomingIgnored ? 'opacity-55' : '' %> hover:bg-row-hover" data-arrived-row data-row-id="<%= c.id %>" data-type="<%= c.type %>" data-ignored="<%= c.incomingIgnored ? 1 : 0 %>" data-player="<%= c.origin.playerId || 'barb' %>" data-origin="<%= c.originVillageId %>" data-target="<%= c.targetVillageId %>">
+          <td class="<%= td %> text-center"><input type="checkbox" name="ids" value="<%= c.id %>" form="incomings-bulk" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner « <%= name %> »"></td>
+          <td class="<%= td %> max-w-80">
+            <%# Crayon : le nom devient un champ, le formulaire unique #incoming-rename placé sur la ligne (game.js). %>
+            <span class="flex min-w-0 items-center gap-2">
+              <%- incomingBadge(c, 'sm') %>
+              <a href="/village/<%= vid %>/incomings/<%= c.id %>" class="<%= ui.linkPlain %> min-w-0 truncate font-semibold <%= c.type === 'attack' ? 'text-blood-300' : '' %>" title="<%= name %>"><%= name %></a>
+              <button type="button" class="<%= ui.iconBtn %> size-[22px] minimal:size-[22px]" title="Renommer l’ordre" aria-label="Renommer l’ordre" data-inline-rename="<%= c.id %>" data-name="<%= c.incomingName || '' %>" data-default="<%= c.type === 'attack' ? 'Attaque' : 'Soutien' %>"><%- icon('edit', 'size-3', 2.2) %></button>
+              <% if (c.incomingNote) { %><span class="shrink-0 text-gold-400" title="<%= c.incomingNote %>" aria-label="Note"><%- icon('edit', 'size-3.5', 2.2) %></span><% } %>
+              <% if (r.train) { %><span class="<%= ui.tagRed %> shrink-0 normal-case tracking-normal" title="Train <%= r.train.k %> : <%= r.train.n %> attaques de <%= c.origin.name %> vers <%= c.target.name %> à moins d’une seconde d’écart, souvent un train de nobles">Train <%= r.train.k %> · <%= r.train.i %>/<%= r.train.n %></span><% } %>
+              <% if (r.dup) { %><a href="<%= qs({ origin: c.originVillageId }) %>" class="<%= ui.tagMuted %> shrink-0 normal-case tracking-normal no-underline" title="<%= r.dup.i %>e des <%= r.dup.n %> attaques parties de <%= c.origin.name %> (cliquer pour les afficher)"><%= r.dup.i %>/<%= r.dup.n %></a><% } %>
+              <% if (c.incomingIgnored) { %><span class="<%= ui.tagMuted %> normal-case tracking-normal">Ignoré</span><% } %>
+            </span>
+          </td>
+          <td class="<%= td %>"><%- villageLink(vid, c.target, { own: true, nameCls: '', k: false }) %></td>
+          <td class="<%= td %>"><%- villageLink(vid, c.origin, { nameCls: '' }) %></td>
+          <td class="<%= td %>"><%- owner ? playerLink(vid, owner, { cls: ui.link }) : '<span class="text-parchment-500">Barbares</span>' %><% if (owner && owner.Tribe) { %> <span class="text-parchment-500">[<%= owner.Tribe.tag %>]</span><% } %></td>
+          <td class="<%= td %> text-right tabular-nums"><%= distance.toFixed(1).replace('.', ',') %></td>
+          <td class="<%= td %> font-semibold text-parchment-100 tabular-nums" title="<%= when(c.arrivesAt, now) %>"><%= whenShort(c.arrivesAt, now) %></td>
+          <td class="<%= td %> text-right font-semibold tabular-nums <%= left < 600 ? 'text-blood-450' : 'text-parchment-100' %>" data-countdown="<%= new Date(c.arrivesAt).getTime() %>" data-countdown-noreload><%= duration(left) %></td>
+        </tr>
+      <% }) %>

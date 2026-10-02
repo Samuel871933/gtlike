@@ -85,6 +85,13 @@ router.post('/favorites/:villageId', ah(async (req, res) => {
  * Aperçu d'un village, comme sur GT : fiche et mini-carte, actions, carnet de notes, tes ordres en cours vers ce
  * village et tes rapports qui le concernent.
  */
+// Village désigné par ses coordonnées (libellés « nom (x|y) » des anciens rapports, voir villageLabelLink).
+router.get('/villages/at', ah(async (req, res) => {
+  const target = await Village.findOne({ where: { worldId: req.ctx.village.worldId, x: Number(req.query.x) || 0, y: Number(req.query.y) || 0 }, attributes: ['id'] });
+  if (!target) throw new GameError('Aucun village à ces coordonnées.', 404);
+  res.redirect(`${base(req)}/villages/${target.id}`);
+}));
+
 router.get('/villages/:villageId', ah(async (req, res) => {
   const { Report, VillageNote, Command } = require('../../../models');
   const target = await Village.findOne({
@@ -130,10 +137,11 @@ router.get('/villages/:villageId', ah(async (req, res) => {
   // Notes de la tribu sur ce village (si tu affiches les notes partagées par ta tribu).
   const viewer = await Player.findByPk(playerId, { attributes: ['id', 'tribeId', 'showTribeNotes'] });
   const tribeNotes = ((await require('../../../services/VillageNoteService').visible(viewer, [target.id])).get(target.id) || []).filter((n) => !n.mine);
+  // Ordres entrants renommés ou annotés par un membre de la tribu sur son village (mêmes réglages que les notes).
+  const sharedIncomings = await require('../../../services/IncomingService').sharedFor(viewer, target);
   res.render('village-info', {
-    page: null, target, relation, dist, travel, favorite, morale, commands, reports, mini,
+    page: null, target, relation, dist, travel, favorite, morale, commands, reports, mini, sharedIncomings,
     note: note ? note.text : '', tribeNotes, showTribeNotes: viewer.showTribeNotes, templates: await ArmyTemplateService.list(playerId),
-    outcomeOf: require('../../../game/lastAttack').outcome,
   });
 }));
 

@@ -9,7 +9,7 @@
             <span class="<%= medal %> size-9"><%- icon(label === 'Attaquant' ? 'troops' : 'wall', 'size-4', 2) %></span>
             <span class="flex min-w-0 flex-col">
               <span class="report-party__player"><%- side.playerId ? playerLink(vid, { id: side.playerId, name: side.playerName }) : esc(side.playerName) %></span>
-              <span class="report-party__village"><%= side.village %></span>
+              <span class="report-party__village"><%- villageLabelLink(vid, side.village, side.villageId) %></span>
             </span>
           </div>
           <% if (label === 'Défenseur' && d.hideDefender) { %>

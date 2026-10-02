@@ -1,19 +1,22 @@
 <%- include('partials/header', { title: 'Rapports' }) %>
 <%
   const vid = ctx.village.id;
-  // Pastille de type : couleur (palette de la charte) + icône du médaillon.
+  // Médaillon de type (couleur de la charte et icône) ; attaques et défenses : la gommette commune du résultat
+  // (attackDot, comme sur la carte), et l'espionnage sur fond bleu.
+  const SPY_MEDAL = 'flex shrink-0 items-center justify-center border-2 border-black bg-[#3f7fd1] text-night shadow-[2px_2px_0_#000]';
   const kind = (r) => {
-    if (r.type === 'support') return { medal: ui.medallionOlive, icon: 'support', dot: 'bg-olive-300' };
-    if (r.type === 'trade') return { medal: ui.medallionGold, icon: 'market', dot: 'bg-gold-400' };
-    if (r.type === 'award') return { medal: ui.medallionGold, icon: 'victory', dot: 'bg-rel-nap' };
-    if (r.type === 'scavenge') return { medal: ui.medallionOlive, icon: 'farm', dot: 'bg-olive-500' };
-    if (r.type === 'world') return { medal: ui.medallionGold, icon: 'crown', dot: 'bg-rel-special' };
-    if (r.data.visit) return { medal: ui.medallion, icon: 'moon', dot: 'bg-parchment-600' };
-    if (r.data.attackerWins == null) return { medal: ui.medallion, icon: 'eye', dot: 'bg-parchment-600' };
-    const good = r.type === 'attack' ? r.data.attackerWins : !r.data.attackerWins;
-    return good
-      ? { medal: ui.medallionOlive, icon: r.type === 'attack' ? 'attack' : 'wall', dot: 'bg-olive-300' }
-      : { medal: ui.medallionRed, icon: r.type === 'attack' ? 'attack' : 'wall', dot: 'bg-blood-500' };
+    const o = reportOutcome(r);
+    if (o) {
+      const medal = o.spyOnly ? SPY_MEDAL : o.result === 'loss' ? ui.medallionRed : o.result === 'partial' ? ui.medallionGold : ui.medallionOlive;
+      return { medal, icon: o.spyOnly ? 'eye' : r.type === 'attack' ? 'attack' : 'wall', dot: attackDot(o.result, 'size-4'), haul: o.haul };
+    }
+    const plain = (cls) => `<span class="inline-block size-2.5 shrink-0 border border-night ${cls}" aria-hidden="true"></span>`;
+    if (r.type === 'support') return { medal: ui.medallionOlive, icon: 'support', dot: plain('bg-olive-300') };
+    if (r.type === 'trade') return { medal: ui.medallionGold, icon: 'market', dot: plain('bg-gold-400') };
+    if (r.type === 'award') return { medal: ui.medallionGold, icon: 'victory', dot: plain('bg-rel-nap') };
+    if (r.type === 'scavenge') return { medal: ui.medallionOlive, icon: 'farm', dot: plain('bg-olive-500') };
+    if (r.type === 'world') return { medal: ui.medallionGold, icon: 'crown', dot: plain('bg-rel-special') };
+    return { medal: ui.medallion, icon: r.data && r.data.visit ? 'moon' : 'eye', dot: plain('bg-parchment-600') };
   };
   const tabs = [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']];
   // Boîte de réception ou dossier d'archives (?folder=), en gardant le filtre de type.
@@ -56,7 +59,9 @@
     <% if (!reports.length) { %>
       <p class="<%= ui.empty %>">Aucun rapport.</p>
     <% } else { %>
-      <form method="post" action="/village/<%= vid %>/reports/bulk" data-bulk><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <%# Chargement progressif (lazyLists) : data-page-ids envoie aussi les rapports pas encore affichés quand « Tout » est coché. %>
+      <% const lr = lazy('reports', reports) %>
+      <form method="post" action="/village/<%= vid %>/reports/bulk" data-bulk data-page-ids="<%= reports.map((r) => r.id).join(',') %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <div class="flex flex-wrap items-center gap-2 border-b border-bronze-900 bg-black/25 px-4.5 py-2.5">
           <label class="<%= ui.checkLabel %> mr-2 text-sm">
             <input type="checkbox" data-check-all class="<%= ui.checkbox %>"> Tout
@@ -77,18 +82,19 @@
             <a href="/village/<%= vid %>/reports/folders" class="<%= ui.link %> text-sm">Créer un dossier pour archiver</a>
           <% } %>
         </div>
-        <ul>
-          <% for (const r of reports) { const k = kind(r); %>
+        <ul data-lazy-list="reports">
+          <% for (const r of lr.items) { const k = kind(r); %>
             <li class="flex min-h-13.5 items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 <%= r.isRead ? '' : 'bg-gold-400/5' %>">
               <input type="checkbox" name="ids" value="<%= r.id %>" class="<%= ui.checkbox %>" aria-label="Sélectionner">
               <a href="/village/<%= vid %>/reports/<%= r.id %>" class="group flex min-w-0 flex-1 items-center gap-3 no-underline">
                 <span class="relative">
                   <span class="<%= k.medal %> size-8 <%= r.isRead ? 'opacity-70' : '' %>"><%- icon(k.icon, 'size-[15px]', 2.1) %></span>
-                  <span class="absolute -right-0.5 -bottom-0.5 size-2.5 border border-night <%= k.dot %>" aria-hidden="true"></span>
+                  <span class="absolute -right-1.5 -bottom-1.5 flex"><%- k.dot %></span>
                 </span>
                 <span class="flex min-w-0 flex-1 flex-col">
                   <span class="flex min-w-0 items-center gap-2">
-                    <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-semibold text-parchment-100' %>"><%= r.title %></span>
+                    <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-semibold text-parchment-100' %>"><%= reportTitle(r) %></span>
+                    <%- haulIcon(k.haul) %>
                     <% if (all && r.folderId && folderName.has(r.folderId)) { %><span class="shrink-0 border border-bronze-700 px-1 text-[12px] text-parchment-400"><%= folderName.get(r.folderId) %></span><% } %>
                   </span>
                   <span class="text-xs text-parchment-500 tabular-nums sm:hidden"><%= when(r.happenedAt, now) %></span>
@@ -100,6 +106,7 @@
               </a>
             </li>
           <% } %>
+          <%- lazyMore(lr, { tag: 'li', label: 'rapports' }) %>
         </ul>
       </form>
     <% } %>

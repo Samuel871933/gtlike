@@ -73,12 +73,11 @@
       <%- panelHead(`Villages (${villages.length})`) %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %> text-sm [&_td]:px-3 [&_td]:py-1.5 [&_th]:px-3">
-          <thead><tr><th>Village</th><th>Coordonnées</th><th class="text-right">Points</th></tr></thead>
+          <thead><tr><th>Village</th><th class="text-right">Points</th></tr></thead>
           <tbody>
           <% for (const v of villages) { %>
             <tr>
-              <td class="max-w-0 w-full"><a href="/village/<%= vid %>/villages/<%= v.id %>" class="<%= ui.linkPlain %> block truncate font-semibold"><%= v.name %></a></td>
-              <td class="whitespace-nowrap tabular-nums"><a href="/village/<%= vid %>/villages/<%= v.id %>" class="<%= ui.linkPlain %>"><%= v.x %>|<%= v.y %></a> <span class="text-parchment-600"><%= continent(v.x, v.y) %></span></td>
+              <td class="max-w-0 w-full"><%- villageLink(vid, v, { truncate: true }) %></td>
               <td class="text-right font-semibold tabular-nums"><%= num(v.points) %></td>
             </tr>
           <% } %>

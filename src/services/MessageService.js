@@ -39,9 +39,10 @@ class MessageService {
 
   /**
    * Nouvelle conversation. `to` : pseudos séparés par des virgules ; ou `group` (tribe | duke | baron | diplomacy) :
-   * tous les membres de la tribu de ce groupe, sans limite de nombre (courrier circulaire).
+   * tous les membres de la tribu de ce groupe, sans limite de nombre (courrier circulaire). `supportRequest` : demande
+   * de soutien envoyée à la tribu depuis les attaques entrantes, permise sans le droit de courrier circulaire.
    */
-  static async start(playerId, { to, group, subject, body }, { now = new Date() } = {}) {
+  static async start(playerId, { to, group, subject, body }, { now = new Date(), supportRequest = false } = {}) {
     const text = cleanBody(body);
     const title = String(subject || '').trim();
     if (!title || title.length > 100) throw new GameError("L'objet doit faire 1 à 100 caractères.");
@@ -57,7 +58,8 @@ class MessageService {
       if (groupId) {
         if (!author.tribeId) throw new GameError("Vous n'êtes dans aucune tribu.");
         const g = GROUPS[groupId];
-        if (g.right && !tribeRights.has(author, g.right)) throw new GameError('Il faut le droit de courrier circulaire.', 403);
+        // Demande de soutien (aperçu Arrivant) : toute la tribu, même sans le droit de courrier circulaire.
+        if (g.right && !supportRequest && !tribeRights.has(author, g.right)) throw new GameError('Il faut le droit de courrier circulaire.', 403);
         const members = await Player.findAll({ where: { tribeId: author.tribeId, id: { [Op.ne]: author.id } }, transaction: t });
         others = members.filter(g.match);
         if (!others.length) throw new GameError(`Aucun autre membre de la tribu dans le groupe « ${g.name} ».`);

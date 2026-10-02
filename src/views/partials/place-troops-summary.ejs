@@ -30,7 +30,7 @@
         <% for (const s of stacksHere) { %>
           <tr class="border-b border-bronze-700/30">
             <td class="text-center"><input type="checkbox" name="ids" value="<%= s.id %>" form="troops-here-bulk" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner le soutien de <%= s.origin.name %>"></td>
-            <th scope="row" class="break-words text-left font-medium"><a href="<%= villageHref(s.origin) %>" class="<%= ui.linkPlain %>"><%= s.origin.name %> <span class="font-normal text-parchment-500">(<%= s.origin.x %>|<%= s.origin.y %>)</span></a><% if (s.origin.Player) { %><span class="block text-xs font-normal text-parchment-500"><%= s.origin.Player.name %></span><% } %></th>
+            <th scope="row" class="break-words text-left font-medium"><%- villageLink(vid, s.origin, { nameCls: '', coordsCls: 'font-normal text-parchment-500', k: false }) %><% if (s.origin.Player) { %><span class="block text-xs font-normal text-parchment-500"><%= s.origin.Player.name %></span><% } %></th>
             <%- unitCells(s.units) %>
           </tr>
         <% } %>
@@ -55,7 +55,7 @@
             <tr class="border-b border-bronze-700/30">
               <td class="text-center"><% if (row.supportId) { %><input type="checkbox" name="ids" value="<%= row.supportId %>" form="troops-away-bulk" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner le soutien à <%= row.village.name %>"><% } %></td>
               <th scope="row" class="break-words text-left font-medium">
-                <% if (row.village) { %><a href="<%= villageHref(row.village) %>" class="<%= ui.linkPlain %>"><%= row.village.name %> <span class="font-normal text-parchment-500">(<%= row.village.x %>|<%= row.village.y %>)</span></a><% } else { %><%= row.kind %><% } %>
+                <% if (row.village) { %><%- villageLink(vid, row.village, { nameCls: '', coordsCls: 'font-normal text-parchment-500', k: false }) %><% } else { %><%= row.kind %><% } %>
                 <span class="block text-xs font-normal text-parchment-500"><% if (row.href) { %><a href="<%= row.href %>" class="<%= ui.link %>"><%= row.kind %></a><% } else { %><%= row.kind %><% } %><% if (row.until) { %> · <%= whenShort(row.until, now) %><% } %></span>
               </th>
               <%- unitCells(row.units) %>

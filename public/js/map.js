@@ -11,7 +11,12 @@
   const SECTOR = boot.sector;
   const WORLD = boot.worldSize;
   // Taille de la carte (cases de côté) : modifiable en direct (« Taille de la carte »).
-  let size = Number(frame.dataset.size);
+  // `baseSize` : cases par côté choisies (réglage « Taille de la carte ») ; `size` : cases dessinées dans la fenêtre,
+  // moins quand on zoome (`zoom`, molette en tenant la carte, de 1 à 3) : les cases grandissent et la fenêtre de la
+  // carte garde sa taille.
+  let baseSize = Number(frame.dataset.size);
+  let zoom = 1;
+  let size = baseSize;
   let half = Math.floor(size / 2);
   const base = window.location.pathname.replace(/\/map$/, '');
   const [meX, meY] = frame.dataset.me.split('|').map(Number);
@@ -35,6 +40,9 @@
   // Case de Guerre Tribale : 53 × 38 px (réduite sur petit écran, voir fit).
   let tw = Number(frame.dataset.tileW);
   let th = Number(frame.dataset.tileH);
+  // Taille des cases sans zoom (celle de GT, réduite sur petit écran) : elle fixe la taille de la fenêtre de la carte.
+  let baseTw = tw;
+  let baseTh = th;
   // Textures d'herbe et d'eau : carrés de 6 cases de large, calés sur le monde (décalage en px).
   const texture = () => 6 * tw;
   const texOffset = (cells, px) => -((((cells * px) % texture()) + texture()) % texture());
@@ -151,7 +159,11 @@
     const orders = [...own, ...tribe];
     const active = orders.find((o) => o.type !== 'return');
     const returning = orders.find((o) => o.type === 'return');
-    const marks = [active, returning].filter(Boolean).map((o) => `<span title="${o.type === 'return' ? 'Troupes en retour' : 'Ordre en cours'}">${o.mapBadge}</span>`).join('');
+    // Ton village attaqué : épées rouges et nombre d'attaques en approche, au-dessus des pastilles d'ordres.
+    const incoming = c.incoming
+      ? `<span class="flex h-[18px] items-center gap-0.5 border border-black bg-blood-600 px-0.5 text-[10px] leading-none font-semibold text-on-accent tabular-nums shadow-[1px_1px_0_#000]" title="${c.incoming} attaque${c.incoming > 1 ? 's' : ''} en approche">${boot.attackIcon || ''}${c.incoming}</span>`
+      : '';
+    const marks = incoming + [active, returning].filter(Boolean).map((o) => `<span title="${o.type === 'return' ? 'Troupes en retour' : 'Ordre en cours'}">${o.mapBadge}</span>`).join('');
     return marks ? `<div class="pointer-events-none absolute z-[5] w-(--tile-w) h-(--tile-h)" style="${style}" aria-hidden="true"><span class="absolute top-px -right-5 flex flex-col items-end">${marks}</span></div>` : '';
   }
 
@@ -417,14 +429,23 @@
     const avail = (row ? row.clientWidth : window.innerWidth) - 16 - 8;
     const nominal = Number(frame.dataset.tileW);
     const mobile = window.matchMedia('(max-width: 639px)').matches;
-    const next = mobile ? Math.max(34, Math.min(nominal, Math.floor(avail / Math.min(size, 11)))) : nominal;
+    baseTw = mobile ? Math.max(34, Math.min(nominal, Math.floor(avail / Math.min(baseSize, 11)))) : nominal;
+    baseTh = Math.round(baseTw * Number(frame.dataset.tileH) / nominal);
+    // Zoom : cases agrandies au pixel près ; assez de cases dessinées pour couvrir la fenêtre.
+    const next = zoom > 1 ? Math.round(baseTw * zoom) : baseTw;
+    size = zoom > 1 ? Math.ceil((baseSize * baseTw) / next) : baseSize;
+    half = Math.floor(size / 2);
+    MARGIN = Math.max(4, Math.ceil(size / 3));
     if (next !== tw || !frame.style.getPropertyValue('--tile-w')) {
       tw = next;
-      th = Math.round(next * Number(frame.dataset.tileH) / nominal);
+      th = zoom > 1 ? Math.round(baseTh * zoom) : baseTh;
       frame.style.setProperty('--tile-w', `${tw}px`);
       frame.style.setProperty('--tile-h', `${th}px`);
       frame.style.setProperty('--tile', `${th}px`);
     }
+    const vw = `${baseSize * baseTw}px`; const vh = `${baseSize * baseTh}px`;
+    if (viewport.style.width !== vw) viewport.style.width = vw;
+    if (viewport.style.height !== vh) viewport.style.height = vh;
     widen();
   }
   // Sur ordinateur, la carte et la mini-carte restent toujours côte à côte : la page s'élargit au-delà de sa
@@ -449,7 +470,7 @@
     // 250 px au moins : largeur minimale de la recherche et des ordres rapides (petites mini-cartes centrées).
     const asideW = Math.max(250, (mini ? Number(mini.dataset.size) : 0) * cell + 28);
     // Carte, cadre de la carte (1 px) et marges et bordures du panneau.
-    const colW = size * tw + 2 + 2 * (px(panel, 'paddingLeft') + px(panel, 'borderLeftWidth'));
+    const colW = baseSize * baseTw + 2 + 2 * (px(panel, 'paddingLeft') + px(panel, 'borderLeftWidth'));
     const gap = px(row, 'columnGap');
     const pad = px(main, 'paddingLeft') + px(main, 'paddingRight');
     const mobile = window.matchMedia('(max-width: 639px)').matches;
@@ -517,10 +538,13 @@
     if (e.button !== 0 || e.target.closest('.map-controls')) return;
     cancelAnimationFrame(anim);
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, cx, cy, moved: false, tile: e.target.closest('[data-map-tile]') };
+    lastPointer.x = e.clientX; lastPointer.y = e.clientY;
     viewport.setPointerCapture(e.pointerId);
   });
   viewport.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
+    // Pendant un zoom, le glisser est suivi par le geste de zoom (voir plus bas).
+    if (zg) return;
     const dx = e.clientX - drag.x;
     const dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
@@ -539,6 +563,90 @@
   };
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
+
+  // Zoom : molette en tenant la carte cliquée (sans clic, la molette fait défiler la page), de ×1 à ×3, autour de la
+  // souris. Pendant le geste, le calque déjà dessiné est seulement agrandi (transformation, sans redessiner) et
+  // s'anime vers le zoom visé ; à l'arrêt (ou si l'écart devient trop grand), la carte est redessinée nette à la
+  // nouvelle taille des cases (commitZoom).
+  const MAX_ZOOM = 3;
+  const zoomLabel = frame.querySelector('[data-map-zoom]');
+  function showZoom(z = zoom) {
+    if (!zoomLabel) return;
+    zoomLabel.hidden = z <= 1.001;
+    zoomLabel.textContent = `×${(Math.round(z * 10) / 10).toLocaleString('fr-FR')}`;
+  }
+  // Geste en cours : zoom affiché et visé, coin visible (en cases), point fixe (souris, px dans la fenêtre).
+  let zg = null;
+  let zoomFrame = 0;
+  let commitTimer = 0;
+  function applyZoomView() {
+    const twV = baseTw * zg.zoom; const thV = baseTh * zg.zoom;
+    layer.style.transformOrigin = '0 0';
+    layer.style.transform = `translate3d(${-zg.left * twV}px, ${-zg.top * thV}px, 0) scale(${twV / tw}, ${thV / th})`;
+    showZoom(zg.zoom);
+  }
+  function zoomStep() {
+    zoomFrame = 0;
+    if (!zg) return;
+    const prev = zg.zoom;
+    zg.zoom += (zg.target - zg.zoom) * 0.35;
+    if (Math.abs(zg.target - zg.zoom) < 0.002) zg.zoom = zg.target;
+    // Le point du monde sous la souris ne bouge pas.
+    zg.left += zg.px / (baseTw * prev) - zg.px / (baseTw * zg.zoom);
+    zg.top += zg.py / (baseTh * prev) - zg.py / (baseTh * zg.zoom);
+    applyZoomView();
+    // Trop loin de l'échelle dessinée (image floue, ou bords vides en dézoomant) : on redessine sans attendre.
+    const s = (baseTw * zg.zoom) / tw;
+    if (s > 1.45 || s < 0.72) commitZoom(true);
+    if (zg && zg.zoom !== zg.target) zoomFrame = requestAnimationFrame(zoomStep);
+    else { clearTimeout(commitTimer); commitTimer = setTimeout(() => commitZoom(false), 140); }
+  }
+  function commitZoom(keep) {
+    if (!zg) return;
+    const g = zg;
+    zoom = g.zoom;
+    fit();
+    dropChunks();
+    cx = clampC(g.left + half);
+    cy = clampC(g.top + half);
+    layer.style.transformOrigin = '';
+    frameOverlay();
+    place();
+    showZoom();
+    rulerX.style.opacity = ''; rulerY.style.opacity = '';
+    // Le glisser repart d'ici, à la nouvelle échelle ; relâcher ne sera pas pris pour un clic sur une case.
+    if (drag) Object.assign(drag, { x: lastPointer.x, y: lastPointer.y, cx, cy, moved: true });
+    // Animation pas finie : le geste continue depuis la carte redessinée.
+    zg = keep && g.zoom !== g.target ? { ...g, left: cx - half, top: cy - half } : null;
+    if (!zg) settle();
+  }
+  const lastPointer = { x: 0, y: 0 };
+  viewport.addEventListener('pointermove', (e) => {
+    // Glisser pendant un zoom : le coin visible suit la souris à l'échelle affichée.
+    if (zg && drag && e.pointerId === drag.id) {
+      zg.left -= (e.clientX - lastPointer.x) / (baseTw * zg.zoom);
+      zg.top -= (e.clientY - lastPointer.y) / (baseTh * zg.zoom);
+      applyZoomView();
+    }
+    lastPointer.x = e.clientX; lastPointer.y = e.clientY;
+  });
+  viewport.addEventListener('wheel', (e) => {
+    if (!drag) return;
+    e.preventDefault();
+    const r = viewport.getBoundingClientRect();
+    if (!zg) {
+      zg = { zoom, target: zoom, left: cx - half, top: cy - half, px: 0, py: 0 };
+      rulerX.style.opacity = '0'; rulerY.style.opacity = '0';
+      drag.moved = true;
+      hideTip(); closeMenu();
+    }
+    zg.px = e.clientX - r.left; zg.py = e.clientY - r.top;
+    // Un cran de molette ≈ ×1,2 ; un pavé tactile envoie de petits pas, d'autant plus fins.
+    const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    zg.target = Math.max(1, Math.min(MAX_ZOOM, zg.target * Math.exp(-delta * 0.0018)));
+    clearTimeout(commitTimer);
+    if (!zoomFrame) zoomFrame = requestAnimationFrame(zoomStep);
+  }, { passive: false });
 
   // Flèches du cadre et clavier (flèches : 1 case, Maj + flèche : une demi-carte).
   frame.querySelectorAll('[data-map-step]').forEach((b) => b.addEventListener('click', () => {
@@ -956,13 +1064,13 @@
 
   // ------------------------------------------------------------------ Tailles en direct (carte et mini-carte)
   function resizeMap(n) {
+    baseSize = n;
     size = n;
+    zoom = 1;
     half = Math.floor(size / 2);
     MARGIN = Math.max(4, Math.ceil(size / 3));
     frame.dataset.size = String(size);
-    const w = `calc(var(--tile-w) * ${size})`;
-    const h = `calc(var(--tile-h) * ${size})`;
-    viewport.style.width = w; viewport.style.height = h;
+    showZoom();
     render();
     settle();
   }

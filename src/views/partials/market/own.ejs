@@ -10,7 +10,7 @@
               <tbody>
               <% for (const o of playerOffers) { %>
                 <tr>
-                  <td><a href="/village/<%= o.village.id %>/market?tab=create" class="<%= ui.linkPlain %> font-semibold"><%= o.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= o.village.x %>|<%= o.village.y %>)</span></td>
+                  <td><%- villageLink(vid, o.village, { href: `/village/${o.village.id}/market?tab=create`, coordsCls: 'text-parchment-500', k: false }) %></td>
                   <td><%- amount(o.sellResource, o.sellAmount) %></td>
                   <td><%- amount(o.buyResource, o.buyAmount) %></td>
                   <td class="text-right font-semibold tabular-nums"><%= o.count %></td>

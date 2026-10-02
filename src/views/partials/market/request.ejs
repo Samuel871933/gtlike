@@ -13,7 +13,7 @@
                 <tbody>
                 <% for (const v of others) { const secs = travelTo(v.village); const canSend = v.market > 0 && v.merchants.free > 0; %>
                   <tr>
-                    <td><a href="/village/<%= v.village.id %>" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                    <td><%- villageLink(vid, v.village, { own: true, coordsCls: 'text-parchment-500', k: false }) %></td>
                     <% for (const r of RESOURCES) { const have = Math.floor(v.resources[r.id]); %>
                       <td>
                         <span class="flex items-center gap-1.5">

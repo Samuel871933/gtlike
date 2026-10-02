@@ -21,12 +21,13 @@
   <% if (!inbox.rows.length) { %>
     <p class="<%= ui.empty %>"><%= q ? 'Aucun message ne correspond à cette recherche.' : 'Aucun message.' %></p>
   <% } else { %>
-    <form id="messages-select" method="post" action="<%= m %>/delete" data-confirm="Effacer les conversations sélectionnées ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+    <% const lm = lazy('messages', inbox.rows) %>
+    <form id="messages-select" method="post" action="<%= m %>/delete" data-page-ids="<%= inbox.rows.map((r) => r.conversation.id).join(',') %>" data-confirm="Effacer les conversations sélectionnées ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %>">
         <thead><tr><th class="w-8"></th><th>Objet</th><th>Joueur</th><th class="text-right">Dernier message</th></tr></thead>
-        <tbody>
-        <% for (const row of inbox.rows) { const c = row.conversation; %>
+        <tbody data-lazy-list="messages">
+        <% for (const row of lm.items) { const c = row.conversation; %>
           <tr class="<%= row.unread ? 'font-semibold' : '' %>">
             <td><input type="checkbox" name="ids" value="<%= c.id %>" form="messages-select" class="<%= ui.checkbox %>" data-select-item aria-label="Sélectionner « <%= c.subject %> »"></td>
             <td class="min-w-56">
@@ -40,6 +41,7 @@
             <td class="text-right whitespace-nowrap text-[13px] font-normal text-parchment-400 tabular-nums"><%= whenShort(c.lastMessageAt, now) %></td>
           </tr>
         <% } %>
+        <%- lazyMore(lm, { colspan: 4, label: 'messages' }) %>
         </tbody>
       </table>
     </div>

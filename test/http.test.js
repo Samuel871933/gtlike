@@ -754,3 +754,11 @@ test('happy hour : popup en jeu une seule fois par créneau et par compte', asyn
     config.happyHourForce = forced;
   }
 });
+
+test('formulaire de plus de 5 000 champs : page d’erreur lisible, sans plantage', async () => {
+  const body = new URLSearchParams();
+  for (let i = 0; i < 6000; i++) body.append('ids', String(i));
+  const res = await fetch(`${base}/login`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+  assert.equal(res.status, 413);
+  assert.match(await res.text(), /Formulaire trop volumineux/);
+});

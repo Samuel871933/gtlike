@@ -29,7 +29,7 @@
   const partyRows = (label, p) => {
     if (!p) return '';
     const who = p.playerId ? playerLink(vid, { id: p.playerId, name: p.playerName }, { cls: `${ui.linkPlain} font-semibold` }) : `<span class="text-parchment-400">${esc(p.playerName || 'Barbares')}</span>`;
-    const place = `<a href="/village/${vid}/villages/${p.villageId}" class="${ui.linkPlain} font-semibold">${esc(p.name)} (${p.x}|${p.y}) ${continent(p.x, p.y)}</a>`
+    const place = villageLink(vid, { id: p.villageId, name: p.name, x: p.x, y: p.y }, { coordsCls: 'font-semibold' })
       + ` <a href="/village/${vid}/map?x=${p.x}&amp;y=${p.y}" class="ml-1 inline-flex align-[-2px] text-parchment-500 hover:text-gold-200" title="Centrer la carte" aria-label="Centrer la carte sur ce village">${icon('map', 'size-3.5', 2)}</a>`;
     return `<tr><th scope="row" class="w-28 text-left">${esc(label)} :</th><th class="text-left"><span class="text-[15px]">${who}</span></th></tr>`
       + `<tr><td class="text-parchment-400">Village :</td><td>${place}</td></tr>`;
@@ -73,7 +73,7 @@
       <div class="report-hero report-hero--<%= reportKind.visual %>" style="background-image: url('/img/reports/<%= reportKind.visual %>.png?v=2')">
         <div class="report-hero__content">
           <span class="report-hero__eyebrow"><%- icon(reportKind.icon, 'size-4', 2.2) %><%= reportKind.label %></span>
-          <h2 class="report-hero__title"><%= report.title %></h2>
+          <h2 class="report-hero__title"><%= reportTitle(report) %></h2>
           <p class="report-hero__time"><%- icon('clock', 'size-3.5') %><%= when(report.happenedAt, now) %></p>
           <% if (d.conquered && d.perspective === 'defender') { %><span class="report-hero__conquest">Village perdu</span><% } %>
         </div>

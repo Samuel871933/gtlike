@@ -9,6 +9,7 @@ const SequelizeStore = require('connect-session-sequelize')(session.Store);
 const config = require('./config');
 const { sequelize, Player } = require('./models');
 const helpers = require('./web/helpers');
+const { BASE_LOCALS } = require('./web/middleware');
 const { loadUser, errorHandler } = require('./web/middleware');
 const csrf = require('./web/csrf');
 const { cacheHeaders } = require('./web/assets');
@@ -63,7 +64,8 @@ function createApp() {
   });
   // Terrain de la carte, partagé avec le serveur (src/game/terrain.js).
   app.get('/js/terrain.js', (req, res) => res.sendFile(path.join(__dirname, 'game', 'terrain.js'), { cacheControl: false }));
-  app.use(express.urlencoded({ extended: false }));
+  // Jusqu'à 5 000 champs : les actions groupées envoient un champ par case cochée (1 000 ordres de l'aperçu Arrivant).
+  app.use(express.urlencoded({ extended: false, parameterLimit: 5000 }));
   app.use(session({
     secret: config.sessionSecret,
     store: sessionStore,
@@ -92,7 +94,7 @@ function createApp() {
   app.use('/uploads/avatars', express.static(ImageService.DIR, { maxAge: '30d', immutable: true }));
 
   app.use((req, res, next) => {
-    Object.assign(res.locals, helpers, { now: new Date(), ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null, playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, asSitter: false, happyPopup: null });
+    Object.assign(res.locals, helpers, BASE_LOCALS(), { now: new Date() });
     const publicPages = {
       '/': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },
       '/login': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },
@@ -110,6 +112,8 @@ function createApp() {
     next();
   });
   app.use(loadUser);
+  // lazy() / lazyMore() des vues : chargement progressif des longues listes (voir web/lazyLists.js).
+  app.use(require('./web/lazyLists').lazyLists);
   // Formulaires d'image de profil (multipart) : lus en mémoire avant le contrôle CSRF, qui a besoin de `_csrf`.
   app.post(/^\/village\/\d+\/(profile|tribe)\/avatar$/, avatarUpload);
   app.use(csrf);

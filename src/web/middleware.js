@@ -59,8 +59,8 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Routes JSON de la carte servies sans le contexte complet (voir loadVillage).
-const MAP_DATA = /^\/map\/(sectors?|mini|world)$/;
+// Routes JSON (carte, alertes d'attaques) servies sans le contexte complet (voir loadVillage).
+const MAP_DATA = /^\/(map\/(sectors?|mini|world)|alerts)$/;
 
 /** Vérifie la propriété du village, le rafraîchit et expose le contexte aux vues. */
 const loadVillage = ah(async (req, res, next) => {
@@ -115,9 +115,26 @@ const loadVillage = ah(async (req, res, next) => {
 /**
  * Erreurs métier : sur un POST, message flash et retour à la page ; sinon page d'erreur.
  */
+/** Valeurs par défaut des vues (en-tête hors partie), posées pour chaque requête et par la page d'erreur. */
+const BASE_LOCALS = () => ({
+  ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null,
+  playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, asSitter: false, happyPopup: null,
+});
+
 function errorHandler(err, req, res, _next) {
+  // Erreur levée avant les valeurs des vues (lecture du formulaire, session) : la page d'erreur doit quand même s'afficher.
+  if (!('ctx' in res.locals)) Object.assign(res.locals, require('./helpers'), BASE_LOCALS(), { now: new Date(), csrfToken: '', seo: null, user: null, flash: null });
+  // Formulaire refusé par la lecture du corps (trop de champs, trop lourd) : message clair plutôt qu'une erreur interne.
+  if (err.type === 'parameters.too.many' || err.type === 'entity.too.large') {
+    err = new GameError('Formulaire trop volumineux : sélectionnez moins d’éléments à la fois.', 413);
+  }
+  // Appel AJAX (accept: application/json) : l'erreur en JSON, le script affiche le message sans quitter la page.
+  if (req.get('accept') === 'application/json') {
+    if (!(err instanceof GameError)) console.error(err);
+    return res.status(err instanceof GameError ? err.status : 500).json({ error: err instanceof GameError ? err.message : 'Erreur interne du serveur.' });
+  }
   if (err instanceof GameError) {
-    if (req.method === 'POST' && err.status < 500 && err.status !== 404) {
+    if (req.method === 'POST' && req.session && err.status < 500 && err.status !== 404) {
       flash(req, 'error', err.message);
       return res.redirect(back(req));
     }
@@ -127,4 +144,4 @@ function errorHandler(err, req, res, _next) {
   res.status(500).render('error', { message: 'Erreur interne du serveur.' });
 }
 
-module.exports = { ah, back, flash, loadUser, requireAuth, loadVillage, ownerOnly, errorHandler };
+module.exports = { ah, back, flash, loadUser, requireAuth, loadVillage, ownerOnly, errorHandler, BASE_LOCALS };
