@@ -62,7 +62,7 @@ module.exports = { seedWorlds, WORLDS };
 if (require.main === module) {
   const { sequelize } = require('../src/models');
   const config = require('../src/config');
-  if (!config.databaseUrl) require('fs').mkdirSync(require('path').dirname(config.sqliteStorage), { recursive: true });
+  if (config.db.dialect === 'sqlite') require('fs').mkdirSync(require('path').dirname(config.sqliteStorage), { recursive: true });
   require('../src/migrator').createMigrator().up().then(seedWorlds).then(() => {
     console.log('Mondes créés.');
     return sequelize.close();

@@ -1,7 +1,7 @@
 'use strict';
 
 process.env.SQLITE_STORAGE = ':memory:';
-delete process.env.DATABASE_URL;
+process.env.DB_DIALECT = 'sqlite';
 const os = require('os');
 const fs = require('fs');
 const path = require('path');

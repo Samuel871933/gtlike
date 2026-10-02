@@ -1,7 +1,7 @@
 # Adarma
 
 Jeu de stratégie par navigateur et par mondes, inspiré de Guerre Tribale.
-Stack : Node.js, Express, Sequelize (SQLite en dev, PostgreSQL via `DATABASE_URL`), vues EJS, Tailwind CSS v4.
+Stack : Node.js, Express, Sequelize sur MySQL / MariaDB (SQLite en mémoire pour les tests), vues EJS, Tailwind CSS v4.
 
 ```bash
 npm install
@@ -13,7 +13,13 @@ npm run migrate -- status | down | create nom-de-la-migration
 npm run populate   # monde « speed » : 1000 joueurs fictifs, tribus, barbares (-- <monde> <nombre> [--reset])
 node scripts/seed-tribes.js [monde] [nombre]   # range les joueurs sans tribu dans des tribus de test (speed, 12)
 node scripts/seed-market.js [monde] [joueur]   # anime le marché autour d'un joueur : offres, acceptations, livraisons
+npm run db:import-sqlite -- [game.sqlite]       # recopie une ancienne base SQLite dans une base MySQL vide
 ```
+
+Base de données : copier `.env.example` en `.env`, puis renseigner `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` et
+`DB_PASSWORD`. La base (MySQL 8 ou MariaDB 10.6 minimum) se crée une fois, vide :
+`CREATE DATABASE adarma CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`. Les migrations créent les tables.
+Sans `DB_DIALECT=mysql`, le jeu retombe sur SQLite (`SQLITE_STORAGE`) ; les tests forcent SQLite en mémoire.
 
 En production, renseigner `SITE_URL` avec l’origine publique du site (par exemple `https://adarma.example`).
 Cette valeur sert aux URL canoniques, aux aperçus de partage et à `/sitemap.xml` ; sans elle, ces éléments
@@ -238,6 +244,26 @@ lancier et porte-épée sans recherche ; la hache demande la forge 2. Durée div
 - Protection CSRF : jeton par session, vérifié sur tous les POST (`src/web/csrf.js`), en plus des cookies `sameSite=lax`.
 - Migrations : en dev elles s'appliquent au démarrage ; en production le serveur refuse de démarrer
   s'il en reste en attente. La migration initiale reprend aussi les bases créées avant les migrations.
+- MySQL (`src/db.js`) : dates en `DATETIME(3)` (échéances à la milliseconde), isolation `READ COMMITTED` avec
+  verrous `FOR UPDATE` sur les lignes dépensées, et `ANSI_QUOTES` pour que le SQL écrit à la main (`"createdAt"`)
+  reste valable sous SQLite comme sous MySQL. MySQL n'accepte pas de valeur par défaut sur les colonnes JSON / TEXT :
+  une migration qui en ajoute une, obligatoire, à une table déjà remplie doit d'abord remplir les lignes existantes.
+
+## Montée en charge
+
+- Un processus Node sert environ 100 pages par seconde (un cœur). Au-delà, lancer plusieurs processus derrière le
+  même port, par exemple `pm2 start src/server.js -i 4` : seul le processus `NODE_APP_INSTANCE=0` applique les
+  migrations (en dev), crée les mondes et fait tourner la boucle de jeu ; les autres ne servent que des pages.
+  Chaque processus ouvre jusqu'à `DB_POOL_MAX` connexions (30) : rester sous `max_connections` de MySQL.
+- Boucle de jeu (toutes les 10 min) : succès évalués monde par monde en une passe (rangs et continents calculés une
+  fois, `AchievementService.evaluateWorld`), barbares lus d'un coup et réécrits par lots seulement s'ils montent un
+  bâtiment (`VillageService.growBarbarians`). Après un combat ou un échange, les succès de rang ne sont pas recalculés.
+- Arrivées (`EventService.processDue`) : un seul traitement à la fois par processus ; les pages qui arrivent pendant
+  ce temps l'attendent au lieu de se disputer les verrous des mêmes ordres.
+- Classements : liste complète recalculée au plus une fois par minute ; exports `/worlds/:slug/map/*.txt` au plus
+  toutes les 5 minutes, avec `Cache-Control` (`src/web/memo.js`, mémoire du processus).
+- Aperçu des villages et statut des marchands : lectures groupées pour tous les villages du joueur ; seuls les villages
+  qui ont une échéance passée sont rafraîchis un par un (`VillagesOverviewService`).
 
 ## Compte : rapports, sommeil, vacances, paladin
 

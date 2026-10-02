@@ -61,7 +61,11 @@ async function shadowed(src, dest, ratio) {
   let after = 0;
   const add = ([a, b]) => { before += a; after += b; };
   for (const [src, dest, width] of DECOR) add(await convert(path.join(MAP, src), path.join(MAP, dest), width));
-  for (const [src, dest, ratio] of SHADOWED) add(await shadowed(path.join(MAP, src), path.join(MAP, dest), ratio));
+  for (const [src, dest, ratio] of SHADOWED) {
+    add(await shadowed(path.join(MAP, src), path.join(MAP, dest), ratio));
+    // Version retournée (décors en miroir, .map-decor--flip) : une image plutôt qu'un transform par élément.
+    await sharp(path.join(MAP, dest)).flop().webp({ quality: 88, alphaQuality: 92, effort: 6 }).toFile(path.join(MAP, dest.replace(/\.webp$/, '-flip.webp')));
+  }
   const villages = path.join(MAP, 'villages');
   for (const design of fs.readdirSync(villages)) {
     const dir = path.join(villages, design);

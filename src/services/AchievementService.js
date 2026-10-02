@@ -42,26 +42,64 @@ class AchievementService {
     return better + 1;
   }
 
-  /** Meilleure place du joueur parmi les continents où il a des villages. */
-  static async bestContinentRank(player, t) {
+  /**
+   * Meilleure place de chaque joueur parmi les continents où il a des villages (points de ses villages dans le
+   * continent, égalités départagées par id). `continents` : limite le calcul à ces continents (tous sinon).
+   * Une seule lecture des villages, sans jointure : la boucle de jeu l'appelle pour tout un monde.
+   * @returns {Promise<Map<number, number>>} id du joueur → meilleure place
+   */
+  static async bestContinentRanks(worldId, { continents = null, t } = {}) {
     const MapService = require('./MapService');
-    const villages = await Village.findAll({ where: { playerId: player.id }, attributes: ['x', 'y'], raw: true, transaction: t });
-    const ks = [...new Set(villages.map((v) => `K${Math.floor(v.y / 100)}${Math.floor(v.x / 100)}`))];
-    let best = null;
-    for (const k of ks) {
-      const rows = await MapService.continentRanking(player.worldId, k, { limit: 1e9 });
-      const i = rows.findIndex((r) => r.player.id === player.id);
-      if (i >= 0 && (best == null || i + 1 < best)) best = i + 1;
+    const where = { worldId, playerId: { [Op.ne]: null } };
+    if (continents) {
+      const bounds = continents.map((k) => MapService.continentBounds(k)).filter(Boolean);
+      if (!bounds.length) return new Map();
+      where[Op.or] = bounds.map((b) => ({ x: { [Op.between]: b.x }, y: { [Op.between]: b.y } }));
+    }
+    const villages = await Village.findAll({ where, attributes: ['playerId', 'x', 'y', 'points'], raw: true, transaction: t });
+    const byContinent = new Map();
+    for (const v of villages) {
+      const k = `K${Math.floor(v.y / 100)}${Math.floor(v.x / 100)}`;
+      if (!byContinent.has(k)) byContinent.set(k, new Map());
+      const points = byContinent.get(k);
+      points.set(v.playerId, (points.get(v.playerId) || 0) + v.points);
+    }
+    const best = new Map();
+    for (const points of byContinent.values()) {
+      [...points].sort((a, b) => b[1] - a[1] || a[0] - b[0]).forEach(([playerId], i) => {
+        if (!best.has(playerId) || i + 1 < best.get(playerId)) best.set(playerId, i + 1);
+      });
     }
     return best;
   }
 
-  static async metrics(player, cfg, { now = new Date(), t } = {}) {
+  /** Meilleure place du joueur parmi les continents où il a des villages. */
+  static async bestContinentRank(player, t) {
+    const villages = await Village.findAll({ where: { playerId: player.id }, attributes: ['x', 'y'], raw: true, transaction: t });
+    const continents = [...new Set(villages.map((v) => `K${Math.floor(v.y / 100)}${Math.floor(v.x / 100)}`))];
+    if (!continents.length) return null;
+    return (await AchievementService.bestContinentRanks(player.worldId, { continents, t })).get(player.id) ?? null;
+  }
+
+  /**
+   * `ranks` : places déjà calculées pour tout le monde ({ rank, continent } : id → place, voir evaluateWorld), ou
+   * `false` pour ne pas les calculer (succès de rang laissés à la boucle de jeu).
+   */
+  static async metrics(player, cfg, { now = new Date(), t, ranks = null } = {}) {
     const s = player.stats || {};
+    let rank = null;
+    let continentRank = null;
+    if (ranks) {
+      rank = player.villageCount > 0 ? ranks.rank.get(player.id) : null;
+      continentRank = ranks.continent.get(player.id) ?? null;
+    } else if (ranks === null) {
+      rank = player.villageCount > 0 ? await AchievementService.rankOf(player, t) : null;
+      continentRank = await AchievementService.bestContinentRank(player, t);
+    }
     return {
       points: player.points,
-      rank: player.villageCount > 0 ? await AchievementService.rankOf(player, t) : null,
-      continentRank: await AchievementService.bestContinentRank(player, t),
+      rank,
+      continentRank,
       lootTotal: s.lootTotal || 0,
       plunders: s.plunders || 0,
       conquests: s.conquests || 0,
@@ -107,14 +145,46 @@ class AchievementService {
    * Débloque les paliers atteints (jamais de retour en arrière, même si le rang baisse ensuite)
    * et prévient le joueur par un rapport. Renvoie les succès débloqués.
    */
-  static async evaluate(playerId, { now = new Date(), t } = {}) {
+  static async evaluate(playerId, { now = new Date(), t, ranks = null } = {}) {
     const player = await Player.findByPk(playerId, { transaction: t });
     if (!player) return [];
+    const cfg = (await World.findByPk(player.worldId, { transaction: t })).getConfig();
+    const existing = await PlayerAchievement.findAll({ where: { playerId }, transaction: t });
+    return AchievementService.unlock(player, cfg, existing, { now, t, ranks });
+  }
+
+  /**
+   * Tous les joueurs d'un monde (boucle de jeu) : rangs et places par continent calculés une seule fois, succès
+   * déjà débloqués lus d'un coup. Seuls les nouveaux paliers donnent lieu à une écriture.
+   */
+  static async evaluateWorld(world, { now = new Date() } = {}) {
+    const cfg = world.getConfig();
+    const players = await Player.findAll({ where: { worldId: world.id } });
+    if (!players.length) return [];
+    const order = [...players].sort((a, b) => b.points - a.points || a.id - b.id);
+    const ranks = {
+      rank: new Map(order.map((p, i) => [p.id, i + 1])),
+      continent: await AchievementService.bestContinentRanks(world.id),
+    };
+    const existing = new Map(players.map((p) => [p.id, []]));
+    const rows = await PlayerAchievement.findAll({
+      include: [{ model: Player, attributes: [], where: { worldId: world.id }, required: true }],
+    });
+    for (const a of rows) existing.get(a.playerId)?.push(a);
+    const unlocked = [];
+    for (const player of players) {
+      unlocked.push(...await AchievementService.unlock(player, cfg, existing.get(player.id), { now, ranks }));
+    }
+    return unlocked;
+  }
+
+  /** Paliers nouvellement atteints par le joueur : enregistrés, avec un rapport chacun. */
+  static async unlock(player, cfg, achievements, { now, t, ranks = null }) {
     // Membres de tribu d'avant les succès : le compteur de jours démarre maintenant.
     if (player.tribeId && !player.tribeJoinedAt) await player.update({ tribeJoinedAt: now }, { transaction: t });
-    const cfg = (await World.findByPk(player.worldId, { transaction: t })).getConfig();
-    const values = await AchievementService.metrics(player, cfg, { now, t });
-    const existing = new Map((await PlayerAchievement.findAll({ where: { playerId }, transaction: t })).map((a) => [a.key, a]));
+    const values = await AchievementService.metrics(player, cfg, { now, t, ranks });
+    const existing = new Map(achievements.map((a) => [a.key, a]));
+    const playerId = player.id;
     const unlocked = [];
     for (const def of AchievementService.definitionsFor(cfg)) {
       const tier = tierFor(def, values[def.metric]);

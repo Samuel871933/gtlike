@@ -9,7 +9,7 @@ const GameLoop = require('./services/GameLoop');
 const { seedWorlds } = require('../scripts/seed');
 
 async function main() {
-  if (!config.databaseUrl) fs.mkdirSync(path.dirname(config.sqliteStorage), { recursive: true });
+  if (config.db.dialect === 'sqlite') fs.mkdirSync(path.dirname(config.sqliteStorage), { recursive: true });
 
   const app = createApp();
   // En dev, les migrations en attente sont appliquées au démarrage ; en prod, il faut lancer `npm run migrate`.
@@ -17,14 +17,16 @@ async function main() {
   if (config.isProduction) {
     const pending = await migrator.pending();
     if (pending.length) throw new Error(`Migrations en attente : ${pending.map((m) => m.name).join(', ')}. Lancez \`npm run migrate\`.`);
-  } else {
+  } else if (config.primaryInstance) {
     const done = await migrator.up();
     if (done.length) console.log(`Migrations appliquées : ${done.map((m) => m.name).join(', ')}`);
   }
-  await app.sessionStore.sync();
-  await seedWorlds();
+  if (config.primaryInstance) {
+    await app.sessionStore.sync();
+    await seedWorlds();
+  }
 
-  new GameLoop(config.gameLoopIntervalMs).start();
+  if (config.primaryInstance && config.gameLoop) new GameLoop(config.gameLoopIntervalMs).start();
   app.listen(config.port, () => console.log(`Serveur démarré sur http://localhost:${config.port}`));
 }
 

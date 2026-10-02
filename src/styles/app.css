@@ -427,17 +427,24 @@ html.game_style body,
 .map-tile[data-selected] { position: relative; z-index: 4; box-shadow: inset 0 0 0 3px var(--color-gold-200), inset 0 0 14px rgb(244 219 160 / .5) !important; }
 .map-viewport.is-dragging .map-tile { pointer-events: none; }
 .map-decor { z-index: 1; width: var(--tile-w); height: var(--tile-h); }
-.map-decor > span { position: absolute; left: calc(50% + var(--decor-x, 0px)); top: calc(50% + var(--decor-y, 0px) + var(--decor-oy, 0px)); width: var(--decor-w); height: var(--decor-h); background: center / contain no-repeat; transform: translate(-50%, -50%) scaleX(var(--decor-flip, 1)) scale(var(--decor-scale, 1)); transform-origin: 50% 75%; }
+/* Sans transform (des centaines par carte, chacun coûtait un nœud de composition à chaque image d'un glisser) :
+   image centrée sur la case (décalée de --decor-x / --decor-y), agrandie de --decor-scale autour d'un point situé aux
+   trois quarts de sa hauteur ; miroir : image retournée (.map-decor--flip). */
+.map-decor > span { --s: var(--decor-scale, 1); position: absolute; left: calc(50% + var(--decor-x, 0px) - var(--decor-w) * var(--s) / 2); top: calc(50% + var(--decor-y, 0px) + var(--decor-oy, 0px) + var(--decor-h) * (.25 - .75 * var(--s))); width: calc(var(--decor-w) * var(--s)); height: calc(var(--decor-h) * var(--s)); background: center / contain no-repeat; }
 /* Le sapin n'occupe que ~12 % × 20 % de son image (centrée bas) : image agrandie et remontée pour un arbre d’environ un tiers de case. */
 .map-decor--pine { --decor-w: calc(var(--tile) * 1.7); --decor-h: calc(var(--tile) * 1.7); --decor-oy: calc(var(--tile) * -0.22); }
 .map-decor--pine > span { background-image: url('/img/map/decor-pine-v5.webp'); }
+.map-decor--pine.map-decor--flip > span { background-image: url('/img/map/decor-pine-v5-flip.webp'); }
 /* Bosquet : image agrandie pour que chaque arbre ait la taille d'un arbre seul (et des grandes forêts). */
 .map-decor--trees { --decor-w: calc(var(--tile) * 1.9); --decor-h: calc(var(--tile) * 1.9); }
 .map-decor--trees > span { background-image: url('/img/map/decor-trees-v5.webp'); }
+.map-decor--trees.map-decor--flip > span { background-image: url('/img/map/decor-trees-v5-flip.webp'); }
 .map-decor--rocks { --decor-w: calc(var(--tile) * .72); --decor-h: calc(var(--tile) * .56); }
 .map-decor--rocks > span { background-image: url('/img/map/decor-rocks-v5.webp'); }
+.map-decor--rocks.map-decor--flip > span { background-image: url('/img/map/decor-rocks-v5-flip.webp'); }
 .map-decor--hill { --decor-w: calc(var(--tile) * 1.65); --decor-h: calc(var(--tile) * 1.5); --decor-oy: calc(var(--tile) * -0.08); }
 .map-decor--hill > span { background-image: url('/img/map/decor-hill-v7.webp'); }
+.map-decor--hill.map-decor--flip > span { background-image: url('/img/map/decor-hill-v7-flip.webp'); }
 .terrain-sprite--large { width: 76px; height: 76px; }
 .map-target-tile { background-image: url('/img/map/terrain-grass.webp'); background-size: 220px 220px; }
 

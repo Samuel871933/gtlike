@@ -13,6 +13,7 @@ const DailyService = require('../../services/DailyService');
 const GameError = require('../../services/GameError');
 const { MapPlacer } = require('../../game/MapPlacer');
 const { ah, flash, requireAuth } = require('../middleware');
+const { memo } = require('../memo');
 const { VICTORY_NAMES, worldModules } = require('../worldLabels');
 
 const router = express.Router();
@@ -44,6 +45,8 @@ async function victoryLocals(world, me = {}) {
 // `victory` : la fin du monde (dominance, runes…), dans le même cadre que les classements.
 const RANKING_TYPES = ['players', 'tribes', 'continent', 'kills', 'awards', 'daily', 'victory'];
 const RANKING_PAGE = 25;
+// Classements recalculés au plus une fois par minute (tous les joueurs du monde, triés).
+const RANKING_TTL = 60000;
 
 /**
  * Données de la page des classements (affichée hors partie ou dans l'interface du jeu).
@@ -62,24 +65,28 @@ async function rankingLocals(world, query, me = {}) {
     };
   }
   const ALL = 1e9;
-  let rows = [];
-  let continent = null;
-  if (type === 'players') rows = (await MapService.ranking(world.id, ALL)).map((player) => ({ player, points: player.points, villages: player.villageCount }));
-  if (type === 'tribes') rows = await TribeService.ranking(world.id, ALL);
   // Adversaires vaincus : par joueur ou par tribu (?of=tribes), filtre en attaque / défense / soutien / total (?kind=).
   const killsOf = query.of === 'tribes' ? 'tribes' : 'players';
-  if (type === 'kills') rows = killsOf === 'tribes' ? await MapService.tribeKillRanking(world.id, kind, ALL) : await MapService.killRanking(world.id, kind, ALL);
-  if (type === 'awards') rows = await AchievementService.ranking(world.id, ALL);
   // Record journalier : meilleure journée de chaque joueur dans la catégorie ?rec= (DailyService.RECORDS).
   const rec = DailyService.RECORDS.some((r) => r.key === query.rec) ? query.rec : DailyService.RECORDS[0].key;
-  if (type === 'daily') rows = await DailyService.records(world.id, rec);
+  let continent = null;
   if (type === 'continent') {
-    const list = await MapService.continents(world.id);
+    const list = await memo(`continents:${world.id}`, RANKING_TTL, () => MapService.continents(world.id));
     const k = list.includes(query.k) ? query.k : list[0];
-    const of = query.of === 'tribes' ? 'tribes' : 'players';
-    continent = { list, k, of };
-    rows = k ? await MapService.continentRanking(world.id, k, { tribes: of === 'tribes', limit: ALL }) : [];
+    continent = { list, k, of: query.of === 'tribes' ? 'tribes' : 'players' };
   }
+  // Classement complet (rang, recherche et pagination s'y calculent), recalculé au plus une fois par minute.
+  const params = { kills: [kind, killsOf], daily: [rec], continent: [continent?.k, continent?.of] }[type] || [];
+  const key = [type, world.id, ...params].join(':');
+  const rows = await memo(`ranking:${key}`, RANKING_TTL, async () => {
+    if (type === 'players') return (await MapService.ranking(world.id, ALL)).map((player) => ({ player, points: player.points, villages: player.villageCount }));
+    if (type === 'tribes') return TribeService.ranking(world.id, ALL);
+    if (type === 'kills') return killsOf === 'tribes' ? MapService.tribeKillRanking(world.id, kind, ALL) : MapService.killRanking(world.id, kind, ALL);
+    if (type === 'awards') return AchievementService.ranking(world.id, ALL);
+    if (type === 'daily') return DailyService.records(world.id, rec);
+    if (type === 'continent' && continent.k) return MapService.continentRanking(world.id, continent.k, { tribes: continent.of === 'tribes', limit: ALL });
+    return [];
+  });
 
   const byTribe = type === 'tribes' || (type === 'continent' && continent.of === 'tribes') || (type === 'kills' && killsOf === 'tribes');
   const isMine = (r) => (byTribe ? r.tribe && r.tribe.id === me.tribeId : r.player && r.player.id === me.playerId);
@@ -112,14 +119,20 @@ async function findWorld(slug) {
 }
 
 // Exports publics, sans connexion (comme /map/*.txt sur Guerre Tribale).
+// Recalculés au plus toutes les 5 minutes (tout le monde, sans connexion), et gardés autant par les navigateurs.
+const EXPORT_TTL = 5 * 60000;
+function sendExport(res, text) {
+  res.set('Cache-Control', `public, max-age=${EXPORT_TTL / 1000}`).type('text/plain').send(text);
+}
+
 router.get('/worlds/:slug/map/village.txt', ah(async (req, res) => {
   const world = await findWorld(req.params.slug);
-  res.type('text/plain').send(await MapService.villageDump(world.id));
+  sendExport(res, await memo(`village.txt:${world.id}`, EXPORT_TTL, () => MapService.villageDump(world.id)));
 }));
 
 router.get('/worlds/:slug/map/player.txt', ah(async (req, res) => {
   const world = await findWorld(req.params.slug);
-  res.type('text/plain').send(await MapService.playerDump(world.id));
+  sendExport(res, await memo(`player.txt:${world.id}`, EXPORT_TTL, () => MapService.playerDump(world.id)));
 }));
 
 router.get('/worlds/:slug/config.json', ah(async (req, res) => {
@@ -274,17 +287,21 @@ router.get('/worlds/:slug/ranking', requireAuth, ah(async (req, res) => {
 for (const [file, kind] of [['kill_att', 'att'], ['kill_def', 'def'], ['kill_sup', 'sup'], ['kill_all', 'all']]) {
   router.get(`/worlds/:slug/map/${file}.txt`, ah(async (req, res) => {
     const world = await findWorld(req.params.slug);
-    const rows = await MapService.killRanking(world.id, kind, 1e9);
-    res.type('text/plain').send(rows.map((r, i) => [i + 1, r.player.id, r.score].join(',')).join('\n'));
+    sendExport(res, await memo(`${file}.txt:${world.id}`, EXPORT_TTL, async () => {
+      const rows = await MapService.killRanking(world.id, kind, 1e9);
+      return rows.map((r, i) => [i + 1, r.player.id, r.score].join(',')).join('\n');
+    }));
   }));
 }
 
 router.get('/worlds/:slug/map/ally.txt', ah(async (req, res) => {
   const world = await findWorld(req.params.slug);
-  const rows = await TribeService.ranking(world.id, 1e9);
-  res.type('text/plain').send(rows.map((r, i) => [
-    r.tribe.id, encodeURIComponent(r.tribe.name), encodeURIComponent(r.tribe.tag), r.members, r.villages, r.points, r.points, i + 1,
-  ].join(',')).join('\n'));
+  sendExport(res, await memo(`ally.txt:${world.id}`, EXPORT_TTL, async () => {
+    const rows = await TribeService.ranking(world.id, 1e9);
+    return rows.map((r, i) => [
+      r.tribe.id, encodeURIComponent(r.tribe.name), encodeURIComponent(r.tribe.tag), r.members, r.villages, r.points, r.points, i + 1,
+    ].join(',')).join('\n');
+  }));
 }));
 
 module.exports = router;

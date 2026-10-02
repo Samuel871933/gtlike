@@ -30,7 +30,7 @@ module.exports = { up, down };
     return;
   }
 
-  if (!config.databaseUrl) fs.mkdirSync(path.dirname(config.sqliteStorage), { recursive: true });
+  if (config.db.dialect === 'sqlite') fs.mkdirSync(path.dirname(config.sqliteStorage), { recursive: true });
   const { sequelize } = require('../src/models');
   const { createMigrator } = require('../src/migrator');
   const migrator = createMigrator();

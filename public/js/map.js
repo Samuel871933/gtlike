@@ -157,11 +157,12 @@
 
   // La carte est découpée en blocs de CHUNK × CHUNK cases, posés en coordonnées du monde dans le calque. Un bloc
   // est dessiné une fois puis gardé : glisser ne fait qu'ajouter les blocs qui entrent dans la zone (et retirer ceux
-  // qui s'en éloignent), au lieu de redessiner toute la carte. Un bloc n'est redessiné que si les villages de son
+  // qui en sortent), au lieu de redessiner toute la carte. Un bloc n'est redessiné que si les villages de son
   // secteur ou d'un secteur voisin changent (le décor et les zones d'influence dépendent des cases voisines).
   // Les blocs ne créent pas de contexte d'empilement (ni z-index, ni transform) : villages, décors et pastilles
   // de toute la carte se superposent comme s'ils étaient dans un seul calque.
-  const CHUNK = 10;
+  // 5 cases : assez petit pour que la zone gardée colle à la vue (peu d'éléments), assez grand pour peu de blocs.
+  const CHUNK = 5;
   const chunkBox = document.createElement('div');
   const overlay = document.createElement('div');
   overlay.className = 'pointer-events-none absolute';
@@ -223,12 +224,12 @@
           decorations.forEach((kind, i) => {
             const [min, max] = DECOR_SCALE[kind] || DECOR_SCALE.default;
             const scale = (min + rnd(x, y, 37 + i * 7) * (max - min)).toFixed(2);
-            const flip = rnd(x, y, 41 + i * 11) > 0.5 ? -1 : 1;
+            const flip = rnd(x, y, 41 + i * 11) > 0.5 ? ' map-decor--flip' : '';
             // Le décor principal reste centré ; les suivants (et tous les arbres seuls d'une case à plusieurs) sont décalés.
             const shifted = i || (kind === 'pine' && decorations.length > 1);
             const dx = shifted ? Math.round((rnd(x, y, 113 + i) - 0.5) * tw * 0.72) : 0;
             const dy = shifted ? Math.round((rnd(x, y, 127 + i) - 0.5) * th * 0.58) : 0;
-            out.push(`<div class="map-decor map-decor--${kind} pointer-events-none absolute" style="${at(x, y)};--decor-scale:${scale};--decor-flip:${flip};--decor-x:${dx}px;--decor-y:${dy}px" aria-hidden="true"><span></span></div>`);
+            out.push(`<div class="map-decor map-decor--${kind}${flip} pointer-events-none absolute" style="${at(x, y)};--decor-scale:${scale};--decor-x:${dx}px;--decor-y:${dy}px" aria-hidden="true"><span></span></div>`);
           });
           if (sel && sel[0] === x && sel[1] === y) out.push(`<div class="map-tile pointer-events-none absolute w-(--tile-w) h-(--tile-h) bg-none" style="${at(x, y)}" data-selected></div>`);
         }
@@ -281,7 +282,7 @@
     ensure(z.a0 * CHUNK, z.b0 * CHUNK, (z.a1 + 1) * CHUNK - 1, (z.b1 + 1) * CHUNK - 1);
     for (const [k, el] of chunks) {
       const [a, b] = k.split('|').map(Number);
-      if (a < z.a0 - 1 || a > z.a1 + 1 || b < z.b0 - 1 || b > z.b1 + 1) { el.remove(); chunks.delete(k); dirty.delete(k); }
+      if (a < z.a0 || a > z.a1 || b < z.b0 || b > z.b1) { el.remove(); chunks.delete(k); dirty.delete(k); }
     }
     for (let b = Math.floor(top / CHUNK); b <= Math.floor((top + size) / CHUNK); b++) {
       for (let a = Math.floor(left / CHUNK); a <= Math.floor((left + size) / CHUNK); a++) if (!chunks.has(key(a, b))) buildChunk(a, b);
@@ -391,8 +392,9 @@
       hx += `<span class="absolute top-0 flex h-full items-center justify-center ${lab(baseX + i, meX)}" style="left:${i * tw}px;width:${tw}px">${baseX + i}</span>`;
       hy += `<span class="absolute right-0 flex w-full items-center justify-center ${lab(baseY + i, meY)}" style="top:${i * th}px;height:${th}px">${baseY + i}</span>`;
     }
-    rulerX.innerHTML = `<div class="absolute inset-y-0 left-0" data-inner>${hx}</div>`;
-    rulerY.innerHTML = `<div class="absolute inset-x-0 -top-5" data-inner>${hy}</div>`;
+    // Calques à part (will-change) : leur décalage à chaque image d'un glisser ne fait rien repeindre.
+    rulerX.innerHTML = `<div class="absolute inset-y-0 left-0 will-change-transform" data-inner>${hx}</div>`;
+    rulerY.innerHTML = `<div class="absolute inset-x-0 -top-5 will-change-transform" data-inner>${hy}</div>`;
   }
 
   // Décale le calque (en coordonnées du monde) pour montrer la zone centrée sur (cx, cy), complète les blocs, et

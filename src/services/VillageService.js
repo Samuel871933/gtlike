@@ -91,7 +91,9 @@ class VillageService {
     ctx.buildQueueSlots = cfg.buildQueueSlots;
     if (village.playerId) {
       const owner = await Player.findByPk(village.playerId, { attributes: ['userId'], transaction: t });
-      if (owner && owner.userId && await require('./ShopService').hasPremium(owner.userId, village.worldId, { now, t })) ctx.buildQueueSlots += cfg.premium.buildQueueBonus;
+      // Droits de boutique du propriétaire, gardés pour l'en-tête des pages (thème, design).
+      ctx.ownerRights = owner && owner.userId ? await require('./ShopService').rightsFor(owner.userId, village.worldId, { now, t }) : null;
+      if (ctx.ownerRights && ctx.ownerRights.premium) ctx.buildQueueSlots += cfg.premium.buildQueueBonus;
       ctx.premium = ctx.buildQueueSlots > cfg.buildQueueSlots;
     }
     // Mondes avec église : une seule première église par joueur (construite ou en chantier dans un autre village).
@@ -513,21 +515,62 @@ class VillageService {
 
   // ---------------------------------------------------------------- Boucle de jeu
 
-  /** Villages barbares encore sous le plafond de points : à faire grandir par la boucle de jeu. */
-  static async growingBarbarianIds(worldId, maxPoints) {
-    const rows = await Village.findAll({ where: { worldId, playerId: null, points: { [Op.lt]: maxPoints } }, attributes: ['id'], raw: true });
-    return rows.map((r) => r.id);
+  /**
+   * Croissance des villages barbares d'un monde (boucle de jeu). Un barbare n'a ni file ni troupes en route : le
+   * rafraîchissement complet se réduit à la production et aux bâtiments montés. On lit tous les barbares d'un coup et
+   * seuls ceux qui montent un bâtiment sont relus sous verrou, par lots, et réécrits (les autres gardent leur réserve de
+   * croissance, comme le ferait un rafraîchissement).
+   * @returns {Promise<number>} villages réécrits
+   */
+  static async growBarbarians(world, now = new Date()) {
+    const cfg = world.getConfig();
+    const grows = (village) => {
+      const from = new Date(village.grownAt || village.createdAt);
+      if (!(now > from)) return null;
+      const state = new VillageState(village.get({ plain: true }), cfg);
+      state.accrue(now);
+      const before = state.points();
+      const grownAt = barbarian.grow(state, from, now, cfg);
+      return state.points() > before ? { state, grownAt } : null;
+    };
+    const candidates = await Village.findAll({
+      where: { worldId: world.id, playerId: null, points: { [Op.lt]: cfg.barbarian.maxPoints } },
+    });
+    const ids = candidates.filter(grows).map((v) => v.id);
+    let written = 0;
+    // Par lots verrouillés dans l'ordre des id : une attaque en cours sur un barbare attend la fin de son lot.
+    for (let i = 0; i < ids.length; i += 100) {
+      written += await sequelize.transaction(async (t) => {
+        const villages = await Village.findAll({
+          where: { id: ids.slice(i, i + 100), playerId: null }, order: [['id', 'ASC']], transaction: t, lock: t.LOCK.UPDATE,
+        });
+        let n = 0;
+        for (const village of villages) {
+          const grown = grows(village);
+          if (!grown) continue;
+          village.set(grown.state.toData());
+          village.points = grown.state.points();
+          village.grownAt = grown.grownAt;
+          await village.save({ transaction: t });
+          n += 1;
+        }
+        return n;
+      });
+    }
+    return written;
   }
 
   /** Villages ayant une construction, une unité ou une recherche terminée : à traiter par la boucle de jeu. */
-  static async dueVillageIds(now = new Date()) {
+  static async dueVillageIds(now = new Date(), villageIds = null) {
     const { Knight, ScavengeRun } = require('../models');
+    // `villageIds` : limite la recherche à ces villages (aperçu des villages d'un joueur).
+    const only = (column) => (villageIds ? { [column]: { [Op.in]: villageIds } } : {});
     const [builds, recruits, research, training, scavenges] = await Promise.all([
-      BuildOrder.findAll({ where: { endsAt: { [Op.lte]: now } }, attributes: ['villageId'], raw: true }),
-      RecruitOrder.findAll({ where: { nextAt: { [Op.lte]: now } }, attributes: ['villageId'], raw: true }),
-      ResearchOrder.findAll({ where: { endsAt: { [Op.lte]: now } }, attributes: ['villageId'], raw: true }),
-      Knight.findAll({ where: { trainingEndsAt: { [Op.lte]: now } }, attributes: [['homeVillageId', 'villageId']], raw: true }),
-      ScavengeRun.findAll({ where: { endsAt: { [Op.lte]: now } }, attributes: ['villageId'], raw: true }),
+      BuildOrder.findAll({ where: { endsAt: { [Op.lte]: now }, ...only('villageId') }, attributes: ['villageId'], raw: true }),
+      RecruitOrder.findAll({ where: { nextAt: { [Op.lte]: now }, ...only('villageId') }, attributes: ['villageId'], raw: true }),
+      ResearchOrder.findAll({ where: { endsAt: { [Op.lte]: now }, ...only('villageId') }, attributes: ['villageId'], raw: true }),
+      Knight.findAll({ where: { trainingEndsAt: { [Op.lte]: now }, ...only('homeVillageId') }, attributes: [['homeVillageId', 'villageId']], raw: true }),
+      ScavengeRun.findAll({ where: { endsAt: { [Op.lte]: now }, ...only('villageId') }, attributes: ['villageId'], raw: true }),
     ]);
     return [...new Set([...builds, ...recruits, ...research, ...training, ...scavenges].map((o) => o.villageId))];
   }

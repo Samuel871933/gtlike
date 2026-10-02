@@ -9,8 +9,25 @@ const TradeService = require('./TradeService');
  * Traite toutes les arrivées échues (troupes et marchands) dans un seul ordre chronologique :
  * une livraison arrivée juste avant une attaque peut être pillée.
  */
+// Traitement en cours dans ce processus (pages et boucle de jeu partagent le même).
+let running = null;
+
 class EventService {
-  static async processDue(now = new Date(), { rng = Math.random, max = 500 } = {}) {
+  /**
+   * Un seul traitement à la fois : les pages qui arrivent pendant un traitement l'attendent au lieu de se disputer
+   * les verrous des mêmes ordres, puis traitent ce qui reste jusqu'à leur propre instant (souvent rien).
+   */
+  static async processDue(now = new Date(), options = {}) {
+    while (running) await running.catch(() => {});
+    running = EventService.run(now, options);
+    try {
+      return await running;
+    } finally {
+      running = null;
+    }
+  }
+
+  static async run(now, { rng = Math.random, max = 500 } = {}) {
     const due = { where: { arrivesAt: { [Op.lte]: now } }, order: [['arrivesAt', 'ASC'], ['id', 'ASC']], attributes: ['id', 'arrivesAt'] };
     let processed = 0;
     while (processed < max) {

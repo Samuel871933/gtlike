@@ -2,7 +2,7 @@
 
 process.env.SQLITE_STORAGE = ':memory:';
 process.env.SITE_URL = 'https://adarma.example';
-delete process.env.DATABASE_URL;
+process.env.DB_DIALECT = 'sqlite';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

@@ -43,7 +43,7 @@ class GameLoop {
       }
       if (now - this.lastBarbarianGrowth >= this.barbarianEveryMs) {
         this.lastBarbarianGrowth = now.getTime();
-        await GameLoop.growBarbarians();
+        await GameLoop.growBarbarians(now);
         await GameLoop.ensureBots(now);
         await GameLoop.evaluateAchievements();
         await require('./DailyService').awardPending(now);
@@ -64,9 +64,7 @@ class GameLoop {
   /** Succès qui dépendent du temps ou des autres joueurs (rangs, jours dans la tribu). */
   static async evaluateAchievements() {
     const AchievementService = require('./AchievementService');
-    const { Player } = require('../models');
-    const players = await Player.findAll({ attributes: ['id'], raw: true });
-    for (const { id } of players) await AchievementService.evaluate(id);
+    for (const world of await World.findAll()) await AchievementService.evaluateWorld(world);
   }
 
   /** Complète les bots des mondes qui en demandent (config.bots.count). */
@@ -76,11 +74,8 @@ class GameLoop {
   }
 
   /** Fait grandir les villages barbares de tous les mondes (la croissance est calculée au rafraîchissement). */
-  static async growBarbarians() {
-    for (const world of await World.findAll()) {
-      const ids = await VillageService.growingBarbarianIds(world.id, world.getConfig().barbarian.maxPoints);
-      for (const id of ids) await VillageService.withVillage(id, async () => {});
-    }
+  static async growBarbarians(now = new Date()) {
+    for (const world of await World.findAll()) await VillageService.growBarbarians(world, now);
   }
 }
 

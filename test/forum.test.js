@@ -3,7 +3,7 @@
 // Forum communautaire : sujets, réponses, anti-flood, droits d'édition et suppression de compte.
 
 process.env.SQLITE_STORAGE = ':memory:';
-delete process.env.DATABASE_URL;
+process.env.DB_DIALECT = 'sqlite';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

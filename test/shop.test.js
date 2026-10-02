@@ -1,7 +1,7 @@
 'use strict';
 
 process.env.SQLITE_STORAGE = ':memory:';
-delete process.env.DATABASE_URL;
+process.env.DB_DIALECT = 'sqlite';
 process.env.HAPPY_HOUR_FORCE = '0'; // créneaux réels, même si le .env force l'happy hour
 
 const test = require('node:test');

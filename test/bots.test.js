@@ -1,7 +1,7 @@
 'use strict';
 
 process.env.SQLITE_STORAGE = ':memory:';
-delete process.env.DATABASE_URL;
+process.env.DB_DIALECT = 'sqlite';
 
 const test = require('node:test');
 const { Op } = require('sequelize');

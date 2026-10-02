@@ -559,7 +559,7 @@ router.get('/market', ah(async (req, res) => {
     const ids = res.locals.myVillages.map((v) => v.id);
     if (tab === 'own') locals.playerOffers = await TradeService.playerOffers(ids);
     else {
-      locals.villages = await TradeService.villagesSummary(ids);
+      locals.villages = await TradeService.villagesSummary(req.ctx.village.playerId);
       locals.moving = await TradeService.movingByVillage(ids);
       locals.travelTo = (v) => TradeService.travelSeconds(v, req.ctx.village, req.ctx.cfg);
     }

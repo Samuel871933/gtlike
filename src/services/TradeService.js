@@ -182,7 +182,7 @@ class TradeService {
 
       const AchievementService = require('./AchievementService');
       for (const id of [seller.playerId, ctx.village.playerId]) await AchievementService.addStats(id, { tradesCompleted: 1 }, t);
-      await AchievementService.evaluateMany([seller.playerId, ctx.village.playerId], { now: ctx.now, t });
+      await AchievementService.evaluateMany([seller.playerId, ctx.village.playerId], { now: ctx.now, t, ranks: false });
       const buyer = await Player.findByPk(ctx.village.playerId, { transaction: t });
       const sellerPlayer = await Player.findByPk(seller.playerId, { transaction: t });
       await Report.create({
@@ -250,18 +250,10 @@ class TradeService {
    * Résumé de plusieurs villages du joueur (statut des marchands, offres en masse, demande) : ressources à jour,
    * marchands, entrepôt, livraisons en cours.
    */
-  static async villagesSummary(villageIds, now = new Date()) {
-    const out = [];
-    for (const id of villageIds) {
-      out.push(await VillageService.withVillage(id, async (ctx, t) => ({
-        village: ctx.village,
-        resources: { ...ctx.state.resources },
-        storage: ctx.state.storageCapacity(),
-        market: ctx.state.level('market'),
-        merchants: await TradeService.merchants(ctx, t),
-      }), { now }));
-    }
-    return out;
+  static async villagesSummary(playerId, now = new Date()) {
+    // Mêmes lectures groupées que l'aperçu des villages (pas une transaction par village).
+    const rows = await require('./VillagesOverviewService').rows(playerId, now);
+    return rows.map((r) => ({ village: r.village, resources: r.resources, storage: r.storage, market: r.buildings.market || 0, merchants: r.merchants }));
   }
 
   /** Ressources en route vers le village (Arrivant) et envoyées par lui (Sortant), comme l'en-tête du marché de GT. */

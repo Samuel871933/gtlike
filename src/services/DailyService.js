@@ -94,7 +94,7 @@ class DailyService {
          SELECT playerId, "${def.field}" AS score, day,
                 ROW_NUMBER() OVER (PARTITION BY playerId ORDER BY "${def.field}" DESC, day ASC) AS n
          FROM "${table}" WHERE worldId = :worldId AND "${def.field}" > 0
-       ) WHERE n = 1 ORDER BY score DESC, day ASC, playerId ASC`,
+       ) AS best WHERE n = 1 ORDER BY score DESC, day ASC, playerId ASC`,
       { replacements: { worldId }, type: sequelize.QueryTypes.SELECT },
     );
     const players = await Player.findAll({

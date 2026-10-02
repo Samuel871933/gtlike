@@ -467,7 +467,7 @@ const Report = sequelize.define(
     isRead: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     happenedAt: { type: DataTypes.DATE, allowNull: false },
   },
-  { indexes: [{ fields: ['playerId', 'happenedAt'] }] },
+  { indexes: [{ fields: ['playerId', 'happenedAt'] }, { fields: ['playerId', 'isRead', 'type'] }] },
 );
 
 Player.hasMany(VillageNote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });

@@ -3,7 +3,7 @@
 // Forum de tribu : réservé aux membres, sous-forums gérés par les modérateurs (duc, baron, droit de modérateur), non-lus, verrouillage, dissolution.
 
 process.env.SQLITE_STORAGE = ':memory:';
-delete process.env.DATABASE_URL;
+process.env.DB_DIALECT = 'sqlite';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

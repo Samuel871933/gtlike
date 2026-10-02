@@ -145,8 +145,9 @@ class TribeForumService {
   }
 
   /** Nombre de sujets non lus de la tribu du joueur (pastille de l'onglet Tribu). */
-  static async unreadCount(playerId) {
-    const player = await Player.findByPk(playerId, { attributes: ['id', 'tribeId'] });
+  /** `player` : identifiant, ou joueur déjà lu avec son `tribeId` (en-tête des pages). */
+  static async unreadCount(playerOrId) {
+    const player = typeof playerOrId === 'object' ? playerOrId : await Player.findByPk(playerOrId, { attributes: ['id', 'tribeId'] });
     if (!player || !player.tribeId) return 0;
     const threads = await tribeThreads(player.tribeId, await mutedIds(player.id));
     return (await unreadIds(player.id, threads)).size;

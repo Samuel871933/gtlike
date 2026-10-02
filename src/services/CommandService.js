@@ -588,7 +588,8 @@ class CommandService {
         data: { ...data, perspective: 'defender' },
       }, { transaction: t });
     }
-    await AchievementService.evaluateMany([origin.playerId, defenderPlayer?.id, ...supporterIds], { now: at, t });
+    // Succès de rang (classements) : calculés par la boucle de jeu, pas dans la transaction du combat.
+    await AchievementService.evaluateMany([origin.playerId, defenderPlayer?.id, ...supporterIds], { now: at, t, ranks: false });
     for (const s of stackReports) {
       const owner = await Village.findByPk(s.stack.originVillageId, { attributes: ['playerId'], transaction: t });
       if (!owner?.playerId || owner.playerId === defenderPlayer?.id) continue;
@@ -743,10 +744,11 @@ class CommandService {
     return { outgoing, incoming, stacksHere, stacksAway };
   }
 
-  static async incomingAttackCount(playerId) {
-    const villages = await Village.findAll({ where: { playerId }, attributes: ['id'], raw: true });
-    if (!villages.length) return 0;
-    return Command.count({ where: { type: 'attack', targetVillageId: { [Op.in]: villages.map((v) => v.id) } } });
+  /** `villageIds` : villages du joueur s'ils sont déjà lus (en-tête des pages). */
+  static async incomingAttackCount(playerId, villageIds = null) {
+    const ids = villageIds || (await Village.findAll({ where: { playerId }, attributes: ['id'], raw: true })).map((v) => v.id);
+    if (!ids.length) return 0;
+    return Command.count({ where: { type: 'attack', targetVillageId: { [Op.in]: ids } } });
   }
 }
 
