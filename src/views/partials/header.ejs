@@ -34,7 +34,7 @@
   <%# Profil d'un joueur : les polices de son thème en plus (voir views/player.ejs). %>
   <% const fontLinks = ctx && page === 'account' ? [...new Set(Object.values(GAME_STYLES).map((s) => s.fonts))] : [...new Set([ctx && gameStyle ? gameStyle.fonts : GAME_STYLES.roman.fonts, ...(typeof profileStyle !== 'undefined' && profileStyle ? [profileStyle.fonts] : [])])]; %>
   <% for (const href of fontLinks) { %><link rel="stylesheet" href="<%= href %>"><% } %>
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="<%= asset('/css/app.css') %>">
 </head>
 <%# Dégradé sans répétition : il s'arrête sur la couleur de fond (to-night), sans cassure sous la hauteur de l'écran. %>
 <body class="relative flex min-h-full flex-col minimal:text-sm bg-night bg-no-repeat bg-radial-[ellipse_at_50%_-10%] from-halo via-panel-lo via-45% to-night font-sans text-[15px] leading-snug text-parchment-100 antialiased [font-synthesis-weight:none]">

@@ -16,24 +16,45 @@
       : { medal: ui.medallionRed, icon: r.type === 'attack' ? 'attack' : 'wall', dot: 'bg-blood-500' };
   };
   const tabs = [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']];
-  const link = (f, p) => `/village/${vid}/reports?filter=${f}${p > 1 ? `&page=${p}` : ''}`;
+  // Boîte de réception ou dossier d'archives (?folder=), en gardant le filtre de type.
+  const link = (f, p, fid = all ? 'all' : folder && folder.id) => `/village/${vid}/reports?filter=${f}${fid ? `&folder=${fid}` : ''}${p > 1 ? `&page=${p}` : ''}`;
+  // Vue « Tout » : nom du dossier des rapports archivés.
+  const folderName = new Map(folders.map((f) => [f.folder.id, f.folder.name]));
+  const shopPremium = `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`;
+  // Destinations du déplacement : les autres dossiers (premium), et la boîte de réception depuis un dossier.
+  const targets = [
+    ...(folder || all ? [['', 'Nouveaux rapports']] : []),
+    ...(premium ? folders.filter((f) => !folder || f.folder.id !== folder.id).map((f) => [f.folder.id, f.folder.name]) : []),
+  ];
 %>
 <div class="flex flex-col gap-5">
   <section class="<%= ui.panel %>">
     <%- panelHead('Rapports', `
       <div class="flex flex-wrap items-center gap-3">
-        <span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${total}</span>
+        <span class="${ui.headCount}">${total}</span>
         <form method="post" action="/village/${vid}/reports/bulk"><input type="hidden" name="_csrf" value="${csrfToken}">
           <button name="action" value="read-all" class="${btn('dark', 'sm')}">${icon('check', 'size-3.5', 2.2)}Tout marquer comme lu</button>
         </form>
       </div>`, { tag: 'h1' }) %>
 
-    <div class="overflow-x-auto border-b border-bronze-900 px-4.5 py-3">
-      <%- segMenu(tabs.map(([id, name]) => [link(id, 1), name, filter === id]), { label: 'Type de rapport' }) %>
-    </div>
+    <%# Comme sur GT : types de rapport et dossiers dans une colonne à gauche (au-dessus sur mobile), la liste à droite. %>
+    <div class="grid md:grid-cols-[200px_minmax(0,1fr)]">
+    <%- sideNav([
+      { heading: 'Type' },
+      ...tabs.map(([id, name]) => ({ href: link(id, 1), label: name, active: filter === id })),
+      { heading: 'Dossiers' },
+      ...(folders.length ? [{ href: link(filter, 1, 'all'), label: 'Tout', active: all }] : []),
+      { href: link(filter, 1, null), label: 'Nouveaux rapports', active: !folder && !all },
+      ...folders.map((f) => ({ href: link(filter, 1, f.folder.id), label: f.folder.name, active: Boolean(folder) && folder.id === f.folder.id, count: f.total })),
+      {
+        href: `/village/${vid}/reports/folders`, icon: icon(premium ? 'edit' : 'reports', 'size-3.5', 2),
+        label: premium ? (folders.length ? 'Gérer les dossiers' : 'Créer un dossier') : 'Archives (premium)',
+      },
+    ], { label: 'Rapports', cls: 'border-b border-bronze-800 md:border-r md:border-b-0' }) %>
+    <div class="flex min-w-0 flex-col">
 
     <% if (!reports.length) { %>
-      <p class="px-4.5 py-4 text-parchment-500">Aucun rapport.</p>
+      <p class="<%= ui.empty %>">Aucun rapport.</p>
     <% } else { %>
       <form method="post" action="/village/<%= vid %>/reports/bulk" data-bulk><input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <div class="flex flex-wrap items-center gap-2 border-b border-bronze-900 bg-black/25 px-4.5 py-2.5">
@@ -43,6 +64,18 @@
           <button name="action" value="read" class="<%= btn('dark', 'sm') %>">Marquer lus</button>
           <button name="action" value="unread" class="<%= btn('dark', 'sm') %>">Marquer non lus</button>
           <button name="action" value="delete" class="<%= btn('danger', 'sm') %>"><%- icon('trash', 'size-3.5', 2) %>Supprimer</button>
+          <% if (targets.length) { %>
+            <span class="flex items-center gap-2">
+              <select name="folder" class="<%= ui.inputSm %>" aria-label="Déplacer vers">
+                <% for (const [id, name] of targets) { %><option value="<%= id %>"><%= name %></option><% } %>
+              </select>
+              <button name="action" value="move" class="<%= btn('dark', 'sm') %>">Déplacer</button>
+            </span>
+          <% } else if (!premium) { %>
+            <a href="<%= shopPremium %>" class="<%= ui.link %> text-sm">Archiver des rapports (premium)</a>
+          <% } else { %>
+            <a href="/village/<%= vid %>/reports/folders" class="<%= ui.link %> text-sm">Créer un dossier pour archiver</a>
+          <% } %>
         </div>
         <ul>
           <% for (const r of reports) { const k = kind(r); %>
@@ -54,7 +87,10 @@
                   <span class="absolute -right-0.5 -bottom-0.5 size-2.5 border border-night <%= k.dot %>" aria-hidden="true"></span>
                 </span>
                 <span class="flex min-w-0 flex-1 flex-col">
-                  <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-semibold text-parchment-100' %>"><%= r.title %></span>
+                  <span class="flex min-w-0 items-center gap-2">
+                    <span class="truncate transition group-hover:text-gold-200 <%= r.isRead ? 'text-parchment-400' : 'font-semibold text-parchment-100' %>"><%= r.title %></span>
+                    <% if (all && r.folderId && folderName.has(r.folderId)) { %><span class="shrink-0 border border-bronze-700 px-1 text-[12px] text-parchment-400"><%= folderName.get(r.folderId) %></span><% } %>
+                  </span>
                   <span class="text-xs text-parchment-500 tabular-nums sm:hidden"><%= when(r.happenedAt, now) %></span>
                 </span>
                 <% if (!r.isRead) { %>
@@ -68,6 +104,15 @@
       </form>
     <% } %>
     <%- include('partials/pagination', { list: 'reports', pagination, href: (n) => link(filter, n) }) %>
+    <% if (all) { %>
+      <p class="<%= ui.panelNote %>">Tous tes rapports : la boîte de réception (<%= keepLimit %> rapports au plus) et tes archives (gardées <%= archiveMonths %> mois).</p>
+    <% } else if (folder) { %>
+      <p class="<%= ui.panelNote %>">Rapports archivés : hors de la limite de la boîte de réception, supprimés <%= archiveMonths %> mois après leur date (réglable dans les <a href="/village/<%= vid %>/reports/folders" class="<%= ui.link %>">dossiers</a>).</p>
+    <% } else { %>
+      <p class="<%= ui.panelNote %>">Les <%= keepLimit %> rapports les plus récents de la boîte sont conservés (100 + 10 par village) ; les plus anciens sont supprimés automatiquement. Les rapports archivés dans un dossier (premium) n’entrent pas dans cette limite.</p>
+    <% } %>
+    </div>
+    </div>
   </section>
 </div>
 <%- include('partials/footer') %>

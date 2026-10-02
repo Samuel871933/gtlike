@@ -1,0 +1,50 @@
+<%# Marché, onglet « Transports sortants et arrivants » (inclus par market.ejs, avec ses helpers : m, vid, res, resIcon, amount…). %>
+      <div class="grid items-start gap-4 xl:grid-cols-2 *:min-w-0">
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Tes marchands', count(outgoing.length)) %>
+          <div>
+            <% if (!outgoing.length) { %><p class="<%= ui.empty %>">Aucun marchand en route.</p><% } %>
+            <% for (const tr of outgoing) { const delivery = tr.type === 'delivery'; %>
+              <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-3 py-2.5 last:border-b-0">
+                <div class="flex items-center gap-3">
+                  <span class="<%= delivery ? ui.medallionGold : ui.medallionOlive %> size-7.5 minimal:size-6"><%- icon(delivery ? 'send' : 'return', 'size-[15px]', 2.2) %></span>
+                  <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="flex min-w-0 items-center gap-2">
+                      <span class="shrink-0 font-semibold <%= delivery ? 'text-gold-200' : 'text-olive-300' %>"><%= delivery ? 'Livraison' : 'Retour' %></span>
+                      <span class="shrink-0 text-parchment-600"><%= delivery ? 'vers' : 'depuis' %></span>
+                      <a href="<%= villageHref(tr.target) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.target.name %></a>
+                      <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.target.x %>|<%= tr.target.y %>)</span>
+                    </span>
+                    <span class="text-[13px] text-parchment-500"><%= tr.merchants %> marchand(s) · <%= whenShort(tr.arrivesAt, now) %></span>
+                  </span>
+                  <span class="<%= ui.figure %>" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+                </div>
+                <% if (delivery) { %><div class="pl-10.5"><%- include('../cost', { cost: tr.resources, have: null }) %></div><% } %>
+              </div>
+            <% } %>
+          </div>
+        </section>
+        <section class="<%= ui.panel %>">
+          <%- panelHead('Livraisons attendues', count(incoming.length)) %>
+          <div>
+            <% if (!incoming.length) { %><p class="<%= ui.empty %>">Rien en approche.</p><% } %>
+            <% for (const tr of incoming) { %>
+              <div class="flex flex-col gap-2 border-b border-bronze-700/35 px-3 py-2.5 last:border-b-0">
+                <div class="flex items-center gap-3">
+                  <%- buildingImg('market', ctx.state.level('market'), 'h-7 w-8 minimal:h-6 minimal:w-7') %>
+                  <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="flex min-w-0 items-center gap-2">
+                      <span class="shrink-0 text-parchment-600">de</span>
+                      <a href="<%= villageHref(tr.origin) %>" class="<%= ui.linkPlain %> truncate font-medium"><%= tr.origin.name %></a>
+                      <span class="shrink-0 text-parchment-600 tabular-nums">(<%= tr.origin.x %>|<%= tr.origin.y %>)</span>
+                    </span>
+                    <span class="text-[13px] text-parchment-500"><% if (tr.origin.Player) { %><%- playerLink(vid, tr.origin.Player, { cls: ui.link }) %> · <% } %><%= whenShort(tr.arrivesAt, now) %></span>
+                  </span>
+                  <span class="<%= ui.figure %>" data-countdown="<%= new Date(tr.arrivesAt).getTime() %>"><%= duration((new Date(tr.arrivesAt) - now) / 1000) %></span>
+                </div>
+                <div class="pl-10.5"><%- include('../cost', { cost: tr.resources, have: null }) %></div>
+              </div>
+            <% } %>
+          </div>
+        </section>
+      </div>

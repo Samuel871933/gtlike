@@ -48,6 +48,8 @@ class GameLoop {
         await GameLoop.evaluateAchievements();
         await require('./DailyService').awardPending(now);
         await require('./VictoryService').checkAll(now);
+        // Conservation des rapports (100 + 10 par village, comme sur Guerre Tribale).
+        await require('./ReportService').pruneAll();
       }
       // Images de profil qui ne sont plus référencées (premier passage au démarrage, puis toutes les heures).
       if (now - this.lastImageSweep >= this.imageSweepEveryMs) {

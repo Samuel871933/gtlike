@@ -383,6 +383,7 @@ const ImageService = require('../services/ImageService');
 
 module.exports = {
   ...require('./ui'),
+  asset: require('./assets').asset,
   // Taille maximale des images de profil (formulaire d'envoi) ; affichage : avatarThumb et avatarImage.
   // Listes à nombre de lignes par page réglable (partials/pagination).
   PER_PAGE_LISTS: require('../services/PaginationService').LISTS,

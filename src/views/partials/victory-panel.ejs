@@ -81,7 +81,7 @@
       <div class="<%= ui.boxGold %> flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 text-parchment-200">
         <span class="font-semibold text-gold-200">Fin de partie en cours :</span>
         <strong class="font-semibold text-parchment-100"><%= state.holderName %></strong> gagne <%= when(state.until, now) %> s'il tient jusque-là ·
-        <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(state.until).getTime() %>"><%= duration((new Date(state.until) - now) / 1000) %></span>
+        <span class="<%= ui.figure %>" data-countdown="<%= new Date(state.until).getTime() %>"><%= duration((new Date(state.until) - now) / 1000) %></span>
       </div>
     <% } %>
 

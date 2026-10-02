@@ -11,6 +11,7 @@ const { sequelize } = require('./models');
 const helpers = require('./web/helpers');
 const { loadUser, errorHandler } = require('./web/middleware');
 const csrf = require('./web/csrf');
+const { cacheHeaders } = require('./web/assets');
 const ImageService = require('./services/ImageService');
 const GameError = require('./services/GameError');
 
@@ -25,6 +26,16 @@ function avatarUpload(req, res, next) {
 function createApp() {
   const app = express();
   const sessionStore = new SequelizeStore({ db: sequelize, tableName: 'Sessions' });
+  // Prolongation d'une session inchangée (cookie de 30 jours) : écrite au plus une fois par heure, pas à chaque page.
+  const touchedAt = new Map();
+  const touch = sessionStore.touch.bind(sessionStore);
+  sessionStore.touch = (sid, data, cb) => {
+    const now = Date.now();
+    if (now - (touchedAt.get(sid) || 0) < 3600000) return cb && cb();
+    if (touchedAt.size >= 100000) touchedAt.clear();
+    touchedAt.set(sid, now);
+    return touch(sid, data, cb);
+  };
 
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
@@ -35,6 +46,10 @@ function createApp() {
   // Images : gardées un jour par le navigateur en production (sinon revalidées à chaque page, des dizaines de
   // requêtes sur la carte). Une image modifiée en profondeur change de nom (-v2, ?v=2…).
   app.use('/img', express.static(path.join(__dirname, '..', 'public', 'img'), { maxAge: config.isProduction ? '1d' : 0 }));
+  // CSS et JS : adresses versionnées par asset() (src/web/assets.js), gardées un an par le navigateur.
+  for (const dir of ['css', 'js']) {
+    app.use(`/${dir}`, cacheHeaders, express.static(path.join(__dirname, '..', 'public', dir), { cacheControl: false }));
+  }
   app.use(express.static(path.join(__dirname, '..', 'public')));
   app.get('/robots.txt', (req, res) => {
     const sitemap = config.siteUrl ? `Sitemap: ${config.siteUrl}/sitemap.xml\n` : '';
@@ -48,7 +63,7 @@ function createApp() {
   // Images de profil envoyées par les joueurs (WebP déjà réduits, noms changés à chaque envoi).
   app.use('/uploads/avatars', express.static(ImageService.DIR, { maxAge: '30d', immutable: true }));
   // Terrain de la carte, partagé avec le serveur (src/game/terrain.js).
-  app.get('/js/terrain.js', (req, res) => res.sendFile(path.join(__dirname, 'game', 'terrain.js')));
+  app.get('/js/terrain.js', (req, res) => res.sendFile(path.join(__dirname, 'game', 'terrain.js'), { cacheControl: false }));
   app.use(express.urlencoded({ extended: false }));
   app.use(session({
     secret: config.sessionSecret,

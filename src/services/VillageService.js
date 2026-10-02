@@ -86,13 +86,24 @@ class VillageService {
     }
 
     const awayUnits = await VillageService.awayUnits(villageId, t);
-    const ctx = { village, world, cfg, state, buildOrders, recruitOrders, researchOrders, awayUnits, now };
+    return VillageService.complete({ village, world, cfg, state, buildOrders, recruitOrders, researchOrders, awayUnits, now }, t);
+  }
+
+  /**
+   * Fin commune du contexte d'un village : file de construction (premium), droits de boutique du propriétaire,
+   * première église, ferme. `ownerUserId` : compte du propriétaire s'il est déjà connu.
+   * @returns {Promise<VillageContext>}
+   */
+  static async complete(ctx, t, { ownerUserId } = {}) {
+    const { village, cfg, state, now } = ctx;
     // Premium du propriétaire (boutique) : file de construction plus longue.
     ctx.buildQueueSlots = cfg.buildQueueSlots;
     if (village.playerId) {
-      const owner = await Player.findByPk(village.playerId, { attributes: ['userId'], transaction: t });
+      const userId = ownerUserId !== undefined
+        ? ownerUserId
+        : (await Player.findByPk(village.playerId, { attributes: ['userId'], transaction: t }))?.userId;
       // Droits de boutique du propriétaire, gardés pour l'en-tête des pages (thème, design).
-      ctx.ownerRights = owner && owner.userId ? await require('./ShopService').rightsFor(owner.userId, village.worldId, { now, t }) : null;
+      ctx.ownerRights = userId ? await require('./ShopService').rightsFor(userId, village.worldId, { now, t }) : null;
       if (ctx.ownerRights && ctx.ownerRights.premium) ctx.buildQueueSlots += cfg.premium.buildQueueBonus;
       ctx.premium = ctx.buildQueueSlots > cfg.buildQueueSlots;
     }
@@ -102,21 +113,62 @@ class VillageService {
     return ctx;
   }
 
+  /**
+   * Contexte d'un village pour un simple affichage, sans transaction ni écriture, quand rien n'y arrive à échéance
+   * (construction, recrue, recherche, collecte, déblocage, formation du paladin, fin de milice) : le
+   * rafraîchissement n'aurait alors rien d'autre à enregistrer que la production, qui se recalcule à l'identique
+   * à la lecture suivante. Renvoie `null` dès qu'une échéance est passée : il faut le rafraîchissement complet.
+   * `village` : la ligne du village déjà lue (avec son propriétaire `Player` si elle l'inclut).
+   * @returns {Promise<VillageContext|null>}
+   */
+  static async peek(village, now = new Date()) {
+    if (!village.playerId) return null; // croissance des barbares : rafraîchissement complet
+    const { ScavengeRun, Knight } = require('../models');
+    const villageId = village.id;
+    const [world, buildOrders, recruitOrders, researchOrders, runs, training] = await Promise.all([
+      World.findByPk(village.worldId),
+      BuildOrder.findAll({ where: { villageId }, order: [['endsAt', 'ASC']] }),
+      RecruitOrder.findAll({ where: { villageId }, order: [['startsAt', 'ASC']] }),
+      ResearchOrder.findAll({ where: { villageId }, order: [['endsAt', 'ASC']] }),
+      ScavengeRun.findAll({ where: { villageId }, attributes: ['units', 'endsAt'] }),
+      Knight.findAll({ where: { homeVillageId: villageId, trainingEndsAt: { [Op.ne]: null } }, attributes: ['trainingEndsAt'] }),
+    ]);
+    const cfg = world.getConfig();
+    const passed = (at) => at && new Date(at) <= now;
+    const unlocking = village.scavenging?.unlocking;
+    if (village.militiaUntil && passed(village.militiaUntil)) return null;
+    if (unlocking && passed(unlocking.endsAt)) return null;
+    if (runs.some((r) => passed(r.endsAt))) return null;
+    if (KnightSkillService.enabled(cfg) && training.some((k) => passed(k.trainingEndsAt))) return null;
+
+    const villageBonus = await KnightSkillService.villageBonuses(village, cfg);
+    const state = new VillageState({ ...village.get({ plain: true }), villageBonus }, cfg);
+    if (state.applyBuildOrders(buildOrders, now).length) return null;
+    if (state.applyRecruitOrders(recruitOrders, now).length) return null;
+    if (state.applyResearchOrders(researchOrders, now).length) return null;
+
+    const awayUnits = await VillageService.awayUnits(villageId, undefined, { runs, training: training.length });
+    return VillageService.complete({ village, world, cfg, state, buildOrders, recruitOrders, researchOrders, awayUnits, now }, undefined, {
+      ownerUserId: village.Player ? village.Player.userId : undefined,
+    });
+  }
+
   /** Somme des troupes appartenant au village mais hors du village. */
-  static async awayUnits(villageId, t) {
-    const { ScavengeRun } = require('../models');
-    const [commands, stacks, runs] = await Promise.all([
+  static async awayUnits(villageId, t, { runs = null, training = null } = {}) {
+    // `runs` (collectes du village) et `training` (paladins en formation) : déjà lus par l'appelant.
+    const { ScavengeRun, Knight } = require('../models');
+    const [commands, stacks, scavenges, trainingCount] = await Promise.all([
       Command.findAll({ where: { originVillageId: villageId }, attributes: ['units'], transaction: t }),
       SupportStack.findAll({ where: { originVillageId: villageId }, attributes: ['units'], transaction: t }),
-      ScavengeRun.findAll({ where: { villageId }, attributes: ['units'], transaction: t }),
+      runs || ScavengeRun.findAll({ where: { villageId }, attributes: ['units'], transaction: t }),
+      training ?? Knight.count({ where: { homeVillageId: villageId, trainingEndsAt: { [Op.ne]: null } }, transaction: t }),
     ]);
     const total = {};
-    for (const { units } of [...commands, ...stacks, ...runs]) {
+    for (const { units } of [...commands, ...stacks, ...scavenges]) {
       for (const [id, n] of Object.entries(units)) total[id] = (total[id] || 0) + n;
     }
     // Un paladin en formation reste à la charge de la ferme de son village.
-    const { Knight } = require('../models');
-    if (await Knight.count({ where: { homeVillageId: villageId, trainingEndsAt: { [Op.ne]: null } }, transaction: t })) {
+    if (trainingCount) {
       total.knight = (total.knight || 0) + 1;
     }
     return total;

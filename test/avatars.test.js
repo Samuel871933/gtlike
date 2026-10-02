@@ -68,6 +68,14 @@ test('images de profil : réduites en WebP, original non gardé, remplacées et 
   const csrf = tokenOf(page.html);
   const big = await sharp({ create: { width: 1600, height: 900, channels: 3, background: '#a33' } }).png().toBuffer();
 
+  // Sans premium (comme sur Guerre Tribale) : refusé, rien n'est écrit, la page propose le premium.
+  await http(`/village/${vid}/profile/avatar`, { method: 'POST', body: upload(csrf, big) });
+  assert.deepEqual(files(), []);
+  const alice = await Player.findOne({ where: { name: 'Alice' } });
+  assert.match((await http(`/village/${vid}/players/${alice.id}`)).html, /L’image de profil est réservée au premium/);
+  const { Entitlement } = require('../src/models');
+  await Entitlement.create({ scope: 'account', userId: alice.userId, itemKey: 'premium', startsAt: new Date(Date.now() - 60000), source: 'gift' });
+
   // Sans jeton CSRF : refusé, rien n'est écrit.
   assert.equal((await http(`/village/${vid}/profile/avatar`, { method: 'POST', body: upload(null, big) })).status, 403);
   assert.deepEqual(files(), []);

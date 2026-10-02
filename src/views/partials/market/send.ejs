@@ -1,0 +1,28 @@
+<%# Marché, onglet « Envoyer des ressources » (inclus par market.ejs, avec ses helpers : m, vid, res, resIcon, amount…). %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Envoyer des ressources') %>
+        <form method="post" action="<%= m %>/send"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="grid gap-3 p-3 sm:grid-cols-3">
+            <% for (const r of RESOURCES) { const have = Math.floor(ctx.state.resources[r.id]); %>
+              <label class="<%= ui.box %> flex flex-col gap-2.5 p-3">
+                <span class="flex items-center justify-between gap-2">
+                  <span class="flex items-center gap-2.5 font-semibold text-parchment-200"><span class="<%= ui.medallion %> size-8"><%- resourceIcon(r.id) %></span><%= r.label %></span>
+                  <button type="button" class="cursor-pointer text-[13px] font-semibold text-gold-400 tabular-nums hover:text-gold-200" data-fill="<%= r.id %>" data-max="<%= Math.min(have, merchants.free * cap) %>">(<%= num(have) %>)</button>
+                </span>
+                <input type="number" name="<%= r.id %>" min="0" placeholder="0" class="<%= ui.input %> w-full tabular-nums">
+              </label>
+            <% } %>
+          </div>
+          <div class="flex flex-wrap items-end gap-4 border-t border-bronze-900 px-3 py-3">
+            <label class="<%= ui.label %>">Destination
+              <span class="flex items-center gap-1.5">
+                <input type="number" name="x" value="<%= form.x %>" placeholder="x" required class="<%= ui.input %> w-24 tabular-nums">
+                <span class="text-parchment-600">|</span>
+                <input type="number" name="y" value="<%= form.y %>" placeholder="y" required class="<%= ui.input %> w-24 tabular-nums">
+              </span>
+            </label>
+            <button class="<%= btn('gold') %>" <%= merchants.free < 1 ? 'disabled' : '' %>><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
+            <span class="self-center text-sm text-parchment-500">Jusqu'à <strong class="text-parchment-300 tabular-nums"><%= num(merchants.free * cap) %></strong> ressources avec les marchands libres.</span>
+          </div>
+        </form>
+      </section>

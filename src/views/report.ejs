@@ -49,13 +49,22 @@
 %>
 <div class="report-detail-page mx-auto flex w-full max-w-4xl flex-col gap-5">
   <section class="<%= ui.panel %>">
+    <% // Archives (premium) : vers un autre dossier, ou retour dans la boîte de réception (toujours possible).
+       const moveTargets = [
+         ...(report.folderId ? [['', 'Nouveaux rapports']] : []),
+         ...(premium ? folders.filter((f) => f.folder.id !== report.folderId).map((f) => [f.folder.id, f.folder.name]) : []),
+       ]; %>
     <% const arrow = (id, dir, label) => id
          ? `<a href="/village/${vid}/reports/${id}" class="${ui.iconBtn}" title="${label}" aria-label="${label}">${icon(dir, 'size-3.5', 2.4)}</a>`
          : `<span class="${ui.iconBtn} pointer-events-none opacity-40" aria-hidden="true">${icon(dir, 'size-3.5', 2.4)}</span>`; %>
     <%- panelHead('Rapport', `
       <div class="flex items-center gap-2">
-        <a href="/village/${vid}/reports" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Rapports</a>
+        <a href="/village/${vid}/reports${report.folderId ? `?folder=${report.folderId}` : ''}" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Rapports</a>
         ${arrow(neighbours.newer, 'chevronUp', 'Rapport plus récent')}${arrow(neighbours.older, 'chevronDown', 'Rapport plus ancien')}
+        ${moveTargets.length ? `<form method="post" action="/village/${vid}/reports/${report.id}/move" class="flex items-center gap-2"><input type="hidden" name="_csrf" value="${csrfToken}">
+          <select name="folder" class="${ui.inputSm}" aria-label="Déplacer vers">${moveTargets.map(([id, name]) => `<option value="${id}">${esc(name)}</option>`).join('')}</select>
+          <button class="${btn('dark', 'sm')}">${report.folderId ? 'Déplacer' : 'Archiver'}</button>
+        </form>` : ''}
         <form method="post" action="/village/${vid}/reports/${report.id}/delete"><input type="hidden" name="_csrf" value="${csrfToken}">
           <button class="${btn('danger', 'sm')}">${icon('trash', 'size-3.5', 2)}Effacer</button>
         </form>

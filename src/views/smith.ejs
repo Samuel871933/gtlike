@@ -4,7 +4,7 @@
   <%- include('partials/building-header', { buildingId: 'smith' , illustration: 'wide' }) %>
 
   <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
-  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+  <div class="<%= ui.buildingGrid %>">
     <div class="max-xl:hidden xl:sticky xl:top-24"><%- include('partials/building-illustration', { buildingId: 'smith' }) %></div>
     <div class="flex min-w-0 flex-col gap-5">
 
@@ -22,12 +22,12 @@
             <span class="<%= ui.kicker %>">Recherche en cours</span>
             <span class="text-parchment-300"><strong class="font-display text-gold-200"><%= unitName(running.unit) %></strong> · <%= when(running.endsAt, now) %></span>
           </span>
-          <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(running.endsAt).getTime() %>"><%= duration((new Date(running.endsAt) - now) / 1000) %></span>
+          <span class="<%= ui.figure %>" data-countdown="<%= new Date(running.endsAt).getTime() %>"><%= duration((new Date(running.endsAt) - now) / 1000) %></span>
           <form method="post" action="/village/<%= ctx.village.id %>/research/<%= running.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>">Annuler</button></form>
         </div>
       <% } %>
     </div>
-    <div class="overflow-x-auto border-t border-bronze-900">
+    <div class="<%= ui.tableScroll %>">
       <table class="<%= ui.table %>">
         <thead><tr><th>Unité</th><th>Coût</th><th>Durée</th><th class="text-right">État</th></tr></thead>
         <tbody>

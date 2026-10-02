@@ -3,7 +3,7 @@
 <% if (orders.length) { const first = orders[0]; const firstNext = new Date(first.nextAt); %>
   <p class="flex flex-wrap items-center gap-x-2 border-b border-bronze-900 px-4.5 py-2.5 text-[15px] text-parchment-400">
     Achèvement de la prochaine unité (<%= unitName(first.unit) %>) :
-    <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= firstNext.getTime() %>"><%= duration((firstNext - now) / 1000) %></span>
+    <span class="<%= ui.figure %>" data-countdown="<%= firstNext.getTime() %>"><%= duration((firstNext - now) / 1000) %></span>
   </p>
   <div class="overflow-x-auto">
     <table class="<%= ui.table %>">
@@ -40,5 +40,5 @@
   </div>
   <p class="border-t border-bronze-900 px-4.5 py-2 text-xs text-parchment-600">Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des unités restantes.</p>
 <% } else if (typeof showEmpty === 'undefined' || showEmpty) { %>
-  <p class="px-4.5 py-3 text-parchment-500">Aucune formation en cours.</p>
+  <p class="<%= ui.empty %>">Aucune formation en cours.</p>
 <% } %>

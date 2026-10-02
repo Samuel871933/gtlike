@@ -1,0 +1,43 @@
+<%# Tribu, onglet « Diplomatie » (inclus par tribe.ejs, avec ses helpers : vid, t, relName, roleTag…). %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Diplomatie', `<span class="${ui.headCount}">${relations.length}</span>`) %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-sm text-parchment-500">La diplomatie est à sens unique : elle indique comment votre tribu considère les autres. Elle colore la carte de vos membres.</p>
+      <% if (can('diplomacy')) { %>
+        <form method="post" action="<%= t %>/relations" class="flex flex-wrap items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label class="<%= ui.label %>">Tag de la tribu
+            <input name="tag" required maxlength="6" class="<%= ui.input %> w-32 uppercase">
+          </label>
+          <label class="<%= ui.label %>">Relation
+            <select name="type" class="<%= ui.input %>">
+              <% for (const r of ['ally', 'nap', 'enemy']) { %><option value="<%= r %>"><%= relName[r] %></option><% } %>
+            </select>
+          </label>
+          <button class="<%= btn('gold') %>">Enregistrer</button>
+        </form>
+      <% } %>
+      <% if (!relations.length) { %><p class="text-parchment-500">Aucune relation définie.</p><% } %>
+    </div>
+    <% if (relations.length) { %>
+      <div class="<%= ui.tableScroll %>">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Relation</th><th>Tribu</th><% if (can('diplomacy')) { %><th></th><% } %></tr></thead>
+          <tbody>
+          <% for (const r of relations) { %>
+            <tr>
+              <td class="w-28"><span class="<%= relTag %> <%= relBadge[r.type] %>"><span class="size-1.5 rotate-45 bg-current" aria-hidden="true"></span><%= relName[r.type] %></span></td>
+              <td><%- tribeLink(vid, r.other, { name: true, avatar: true }) %></td>
+              <% if (can('diplomacy')) { %>
+                <td class="w-12 text-right">
+                  <form method="post" action="<%= t %>/relations/<%= r.id %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button class="<%= ui.iconBtnSm %>" title="Supprimer" aria-label="Supprimer la relation"><%- icon('close', 'size-3', 2.6) %></button>
+                  </form>
+                </td>
+              <% } %>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>

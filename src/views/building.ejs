@@ -50,7 +50,7 @@
               <p class="flex flex-wrap items-center justify-center gap-x-2 border-t border-bronze-900 px-3 py-2.5 text-parchment-200">
                 <span class="text-gold-400"><%- unitIcon('militia', 'size-4') %></span>
                 <b class="tabular-nums"><%= num(mil.active.count) %></b> miliciens stationnés jusqu'à <%= when(mil.active.until, now) %> ·
-                <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= new Date(mil.active.until).getTime() %>"><%= duration((new Date(mil.active.until) - now) / 1000) %></span>
+                <span class="<%= ui.figure %>" data-countdown="<%= new Date(mil.active.until).getTime() %>"><%= duration((new Date(mil.active.until) - now) / 1000) %></span>
               </p>
             <% } else { %>
               <form method="post" action="/village/<%= ctx.village.id %>/farm/militia" class="flex flex-col items-center gap-1.5 border-t border-bronze-900 px-3 py-3" data-confirm="Appeler la milice ? La production sera réduite pendant son stationnement."><input type="hidden" name="_csrf" value="<%= csrfToken %>">

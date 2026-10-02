@@ -1,0 +1,28 @@
+<%# Tribu, onglet « Invitations » (inclus par tribe.ejs, avec ses helpers : vid, t, relName, roleTag…). %>
+    <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Nouvelle invitation') %>
+        <div class="<%= ui.panelBody %>">
+          <form method="post" action="<%= t %>/invite" class="flex items-end gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="<%= ui.label %> min-w-0 flex-1">Inviter un joueur
+              <input name="name" required placeholder="Pseudo" class="<%= ui.input %> w-full">
+            </label>
+            <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Inviter</button>
+          </form>
+        </div>
+      </section>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Invitations en attente', `<span class="${ui.headCount}">${invites.length}</span>`) %>
+        <div class="<%= ui.panelBody %>">
+          <% if (!invites.length) { %><p class="text-parchment-500">Aucune.</p><% } %>
+          <% for (const inv of invites) { %>
+            <div class="<%= ui.box %> flex items-center justify-between gap-3 py-2 pr-2 pl-3">
+              <span class="min-w-0 truncate font-semibold"><%- playerLink(vid, inv.Player, { avatar: true }) %></span>
+              <form method="post" action="<%= t %>/invites/<%= inv.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="<%= btn('danger', 'sm') %>">Retirer</button>
+              </form>
+            </div>
+          <% } %>
+        </div>
+      </section>
+    </div>

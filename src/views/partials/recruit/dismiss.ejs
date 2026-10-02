@@ -1,0 +1,28 @@
+<%# Recrutement, désaffectation des unités (inclus par recruit.ejs, avec rtab, vid, tabsHtml, maxBtn). %>
+  <%# Désaffectation %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Désaffectation', tabsHtml) %>
+    <form method="post" action="/village/<%= vid %>/recruit/<%= building %>/dismiss" data-confirm="Renvoyer définitivement ces unités ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <p class="px-4.5 py-3 text-[15px] text-parchment-400">Les unités renvoyées quittent définitivement le village et libèrent de la place à la ferme. Aucune ressource n'est rendue.</p>
+      <div class="<%= ui.tableScroll %>">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Unité</th><th class="text-right">Au village</th><th class="text-right">Renvoyer</th></tr></thead>
+          <tbody>
+          <% for (const o of [...available, ...locked]) { const have = ctx.state.units[o.type.id] || 0; if (!have) continue; %>
+            <tr>
+              <td>
+                <span class="flex items-center gap-3">
+                  <span class="<%= ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
+                  <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
+                </span>
+              </td>
+              <td class="text-right font-semibold tabular-nums"><%= num(have) %></td>
+              <td class="text-right"><input type="number" name="<%= o.type.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Renvoyer : <%= o.type.name %>"></td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-end border-t border-bronze-900 px-4.5 py-3"><button class="<%= btn('danger', 'md') %>"><%- icon('trash', 'size-3.5', 2) %>Renvoyer</button></div>
+    </form>
+  </section>

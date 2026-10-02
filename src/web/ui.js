@@ -121,6 +121,24 @@ const ui = {
   segOn: 'inline-flex h-7 items-center border border-black bg-night px-2.5 text-sm font-semibold text-gold-200 no-underline',
   segOff: 'inline-flex h-7 items-center border border-black px-2.5 text-sm font-medium text-parchment-300 no-underline transition hover:bg-head-dark hover:text-parchment-100',
 
+  // Compteur à droite d'un en-tête de panneau (« 3 / 20 », « 12 rapports »).
+  headCount: 'text-[13px] font-semibold text-parchment-500 tabular-nums',
+  // Valeur mise en évidence (compte à rebours, score, plage horaire).
+  figure: 'font-semibold text-gold-200 tabular-nums',
+  // Liste vide dans un panneau (« Aucun rapport. »).
+  empty: 'px-4.5 py-4 text-parchment-500',
+  // Note en bas d'un panneau (règles, limites).
+  panelNote: 'px-4.5 py-3 text-[13px] text-parchment-500',
+  // Tableau défilant horizontalement, sous un bloc du panneau.
+  tableScroll: 'overflow-x-auto border-t border-bronze-900',
+  // Page de bâtiment en deux colonnes : illustration et infos à gauche, contenu à droite.
+  buildingGrid: 'grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]',
+
+  // Menu latéral (sideNav) : en-tête de groupe en gras sur bande sombre ; lien en poids normal ; lien actif à trait doré.
+  sideHead: 'block border-b-2 border-bronze-700 bg-black/15 px-3 py-1.5 text-[13px] font-bold text-parchment-100',
+  sideLink: 'flex items-center gap-2 border-l-3 border-transparent py-1.5 pr-3 pl-2.5 font-medium text-gold-400 no-underline transition hover:bg-row-hover hover:text-parchment-100',
+  sideLinkOn: 'flex items-center gap-2 border-l-3 border-gold-400 bg-gold-400/15 py-1.5 pr-3 pl-2.5 font-medium text-parchment-100 no-underline',
+
   // Barre de progression : rail d'encre, remplissage hachuré rouge, bord bronze.
   track: 'block h-[7px] overflow-hidden border border-black bg-night',
   fill: 'block h-full border-r-2 border-gold-400 bg-[repeating-linear-gradient(135deg,var(--color-action)_0_5px,var(--color-action-deep)_5px_10px)]',
@@ -160,4 +178,29 @@ function segMenu(items, { label = 'Afficher' } = {}) {
     + `<select class="${ui.inputSm} max-w-full md:hidden" aria-label="${esc(label)}" onchange="location.href = this.value">${options}</select>`;
 }
 
-module.exports = { ui, btn, panelHead, segTabs, segMenu, esc };
+/**
+ * Menu latéral (rapports, messagerie, marché, classements, modèles de troupes), comme les menus de gauche de GT :
+ * colonne sur desktop, liens en ligne sur mobile. Items : { heading } pour un en-tête de groupe, sinon
+ * { href, label, active, count, sub (lien en retrait), icon / after (HTML avant / après le libellé), title }.
+ * `cls` : classes du <nav> (bordure selon qu'il est dans un panneau ou panneau lui-même) ; `at` : md | lg, largeur à
+ * partir de laquelle il passe en colonne.
+ */
+// Classes du menu latéral selon le point de passage en colonne (écrites en entier pour Tailwind).
+const SIDE_AT = {
+  md: { list: 'flex flex-wrap md:flex-col', item: 'md:border-b md:border-bronze-900 md:last:border-b-0', sub: 'text-sm md:pl-6', head: 'border-t md:border-t-0' },
+  lg: { list: 'flex flex-wrap lg:flex-col', item: 'lg:border-b lg:border-bronze-900 lg:last:border-b-0', sub: 'text-sm lg:pl-6', head: 'border-t lg:border-t-0' },
+};
+
+function sideNav(items, { label = 'Menu', cls = '', at = 'md' } = {}) {
+  const c = SIDE_AT[at] || SIDE_AT.md;
+  const row = (it, i) => {
+    if (it.heading) return `<li class="basis-full"><span class="${ui.sideHead}${i ? ` ${c.head}` : ''}">${esc(it.heading)}</span></li>`;
+    const count = it.count != null ? `<span class="text-xs text-parchment-500 tabular-nums">${esc(it.count)}</span>` : '';
+    const attrs = `${it.title ? ` title="${esc(it.title)}"` : ''}${it.active ? ' aria-current="page"' : ''}`;
+    return `<li class="${c.item}"><a href="${esc(it.href)}" class="${it.active ? ui.sideLinkOn : ui.sideLink}${it.sub ? ` ${c.sub}` : ''}"${attrs}>`
+      + `${it.icon || ''}<span class="min-w-0 flex-1 truncate">${esc(it.label)}</span>${it.after || ''}${count}</a></li>`;
+  };
+  return `<nav class="${cls}" aria-label="${esc(label)}"><ul class="${c.list}">${items.map(row).join('')}</ul></nav>`;
+}
+
+module.exports = { ui, btn, panelHead, segTabs, segMenu, sideNav, esc };

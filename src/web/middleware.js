@@ -64,12 +64,13 @@ const MAP_DATA = /^\/map\/(sectors?|mini|world)$/;
 
 /** Vérifie la propriété du village, le rafraîchit et expose le contexte aux vues. */
 const loadVillage = ah(async (req, res, next) => {
+  // Même instant pour les arrivées résolues et l'état du village : une arrivée ne peut pas tomber entre les deux.
+  // Les arrivées d'abord : le village lu ensuite en tient compte (conquête, pillage).
+  const now = new Date();
+  await CommandService.processDue(now);
   const { village: owned, asSitter } = await VillageService.assertAccess(Number(req.params.villageId), req.user.id);
   req.asSitter = asSitter;
   res.locals.asSitter = asSitter;
-  // Même instant pour les arrivées résolues et l'état du village : une arrivée ne peut pas tomber entre les deux.
-  const now = new Date();
-  await CommandService.processDue(now);
   // Données de la carte (JSON lu en continu pendant les déplacements) : ni état du village (transaction avec
   // verrou), ni en-tête de page. Le village et la configuration du monde suffisent.
   if (req.method === 'GET' && MAP_DATA.test(req.path)) {
@@ -77,32 +78,37 @@ const loadVillage = ah(async (req, res, next) => {
     req.ctx = { village: owned, cfg: world.getConfig() };
     return next();
   }
-  req.ctx = await VillageService.withVillage(owned.id, async (ctx) => ctx, { now });
+  // Affichage d'une page : sans échéance passée dans le village, rien à enregistrer, donc ni transaction ni verrou.
+  req.ctx = (req.method === 'GET' && await VillageService.peek(owned, now))
+    || await VillageService.withVillage(owned.id, async (ctx) => ctx, { now });
   res.locals.ctx = req.ctx;
-  res.locals.unreadByFilter = await ReportService.unreadByFilter(owned.playerId);
-  res.locals.unreadReports = res.locals.unreadByFilter.all;
-  res.locals.myVillages = await Village.findAll({
-    where: { playerId: owned.playerId }, attributes: ['id', 'name', 'x', 'y'], order: [['name', 'ASC'], ['id', 'ASC']],
+  const playerId = owned.playerId;
+  // Compteurs de l'en-tête : lectures indépendantes, lancées ensemble.
+  const [unreadByFilter, myVillages, player, rights, tribeInvites, unreadMessages] = await Promise.all([
+    ReportService.unreadByFilter(playerId),
+    Village.findAll({ where: { playerId }, attributes: ['id', 'name', 'x', 'y'], order: [['name', 'ASC'], ['id', 'ASC']] }),
+    Player.findByPk(playerId, { include: [{ model: Tribe, attributes: ['id', 'tag'] }] }),
+    // Thème et design : le choix du compte, s'il le possède sur ce monde (boutique : compte, monde ou serveur entier).
+    // Le titulaire a déjà ses droits dans le contexte du village ; un remplaçant garde les siens.
+    !asSitter && req.ctx.ownerRights ? req.ctx.ownerRights : ShopService.rightsFor(req.user.id, owned.worldId),
+    TribeInvite.count({ where: { playerId } }),
+    MessageService.unreadCount(playerId),
+  ]);
+  const [incomingAttacks, betterPlayers, tribeForumUnread] = await Promise.all([
+    CommandService.incomingAttackCount(playerId, myVillages.map((v) => v.id)),
+    Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } }),
+    // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.
+    TribeForumService.unreadCount(player),
+  ]);
+  Object.assign(res.locals, {
+    unreadByFilter, unreadReports: unreadByFilter.all, myVillages, incomingAttacks, player, shopRights: rights,
+    gameStyle: gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights), gameLayout: gameLayoutFor(req.user),
+    playerRank: 1 + betterPlayers, tribeInvites, tribeForumUnread, unreadMessages,
   });
-  res.locals.incomingAttacks = await CommandService.incomingAttackCount(owned.playerId, res.locals.myVillages.map((v) => v.id));
-  const player = await Player.findByPk(owned.playerId, { include: [{ model: Tribe, attributes: ['id', 'tag'] }] });
-  res.locals.player = player;
-  // Thème et design : le choix du compte, s'il le possède sur ce monde (boutique : compte, monde ou serveur entier).
-  // Le titulaire a déjà ses droits dans le contexte du village ; un remplaçant garde les siens.
-  const rights = !asSitter && req.ctx.ownerRights ? req.ctx.ownerRights : await ShopService.rightsFor(req.user.id, owned.worldId);
-  res.locals.shopRights = rights;
-  res.locals.gameStyle = gameStyleFor(req.user, rights);
-  res.locals.villageDesign = villageDesignFor(req.user, rights);
-  res.locals.gameLayout = gameLayoutFor(req.user);
   // Happy hour des Adartons : popup en jeu tant que ce créneau n'a pas été vu par le compte (la popup le signale
   // elle-même en s'ouvrant, POST happy-hour/seen : une requête de fond ne la consomme pas).
   const happy = require('../game/shopCatalog').happyHour(now);
   if (happy.active && req.user.happyHourSeen !== happy.endsAt.toISOString()) res.locals.happyPopup = happy;
-  res.locals.playerRank = 1 + await Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } });
-  res.locals.tribeInvites = await TribeInvite.count({ where: { playerId: owned.playerId } });
-  // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.
-  res.locals.tribeForumUnread = await TribeForumService.unreadCount(player);
-  res.locals.unreadMessages = await MessageService.unreadCount(owned.playerId);
   next();
 });
 

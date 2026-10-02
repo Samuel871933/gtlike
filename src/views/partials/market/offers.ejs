@@ -1,0 +1,62 @@
+<%# Marché, onglet « Échange : offres des autres joueurs, filtres » (inclus par market.ejs, avec ses helpers : m, vid, res, resIcon, amount…). %>
+<% const q = (o) => `${m}?${new URLSearchParams({ tab: 'offers', ...(filters.sell ? { sell: filters.sell } : {}), ...(filters.buy ? { buy: filters.buy } : {}), ...(filters.maxHours ? { hours: filters.maxHours } : {}), ...(filters.filter !== 'all' ? { filter: filters.filter } : {}), ...o })}`; %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Trouver des offres', count(total)) %>
+        <form method="get" action="<%= m %>" class="flex flex-col gap-3 p-3"><input type="hidden" name="tab" value="offers">
+          <div class="flex flex-wrap items-stretch gap-2">
+            <table class="<%= ui.table %> w-auto! self-start">
+              <tbody>
+                <tr><th scope="row" class="w-24 text-left">Je veux :</th><td><span class="flex flex-wrap items-center gap-4"><%- radios('sell', filters.sell, { all: true, off: filters.buy }) %></span></td></tr>
+                <tr><th scope="row" class="text-left">J'offre :</th><td><span class="flex flex-wrap items-center gap-4"><%- radios('buy', filters.buy, { all: true, off: filters.sell }) %></span></td></tr>
+              </tbody>
+            </table>
+            <button class="<%= btn('gold', 'md', 'self-center') %>"><%- icon('search', 'size-3.5', 2.2) %>Chercher</button>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <span class="font-semibold text-parchment-200">Limitations</span>
+            <label class="inline-flex items-center gap-2">Durée :
+              <select name="hours" class="<%= ui.inputSm %>" onchange="this.form.submit()">
+                <option value="">toutes</option>
+                <% for (const h of [1, 2, 3, 5, 10, 24, 48, 72]) { %><option value="<%= h %>" <%= filters.maxHours === h ? 'selected' : '' %>><%= h %> heure<%= h > 1 ? 's' : '' %></option><% } %>
+              </select>
+            </label>
+            <label class="inline-flex items-center gap-2">Filtre :
+              <select name="filter" class="<%= ui.inputSm %>" onchange="this.form.submit()">
+                <% for (const [id, label] of [['all', 'Tout afficher'], ['possible', 'Offres acceptables maintenant'], ['tribe', 'Offres de ma tribu']]) { %><option value="<%= id %>" <%= filters.filter === id ? 'selected' : '' %>><%= label %></option><% } %>
+              </select>
+            </label>
+          </div>
+        </form>
+        <% if (!offers.length) { %>
+          <p class="border-t border-bronze-900 px-3 py-3 text-parchment-500">Aucune offre ne correspond.</p>
+        <% } else { %>
+          <div class="<%= ui.tableScroll %>">
+            <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+              <thead><tr><th>Recevoir</th><th>Pour</th><th>Joueur</th><th>Durée</th><th class="text-center">Ratio</th><th>Disponibilité</th><th class="text-right">Accepter</th></tr></thead>
+              <tbody>
+              <% for (const { offer: o, seconds, max, ratio } of offers) { %>
+                <tr>
+                  <td><%- amount(o.sellResource, o.sellAmount) %></td>
+                  <td><%- amount(o.buyResource, o.buyAmount) %></td>
+                  <td>
+                    <span class="block font-semibold whitespace-nowrap"><%- playerLink(vid, o.village.Player) %></span>
+                    <a href="/village/<%= vid %>/villages/<%= o.village.id %>" class="<%= ui.linkPlain %> block text-[12px] whitespace-nowrap text-parchment-500"><%= o.village.name %> (<%= o.village.x %>|<%= o.village.y %>)</a>
+                  </td>
+                  <td class="whitespace-nowrap text-parchment-300 tabular-nums"><%= duration(seconds) %></td>
+                  <td class="text-center"><span class="inline-flex items-center gap-1 px-1.5 py-0.5 font-semibold tabular-nums <%= ratio >= 1 ? 'bg-gold-400/35 text-parchment-50' : 'text-parchment-300' %>" title="Ce que tu reçois pour 1 donné"><%- icon('market', 'size-3.5', 2) %><%= (Math.round(ratio * 100) / 100).toLocaleString('fr-FR') %></span></td>
+                  <td class="whitespace-nowrap"><span class="tabular-nums"><%= o.count %> offre<%= o.count > 1 ? 's' : '' %></span> <%- limitTags(o) %></td>
+                  <td class="text-right">
+                    <form method="post" action="<%= m %>/offers/<%= o.id %>/accept" class="inline-flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="number" name="count" min="1" max="<%= Math.max(1, max) %>" value="1" class="<%= ui.inputSm %> w-16 text-right tabular-nums" aria-label="Nombre d'offres" <%= max < 1 ? 'disabled' : '' %>>
+                      <button type="button" class="<%= ui.link %> cursor-pointer text-xs tabular-nums" data-fill="count" data-max="<%= max %>">(<%= max %>)</button>
+                      <button class="<%= btn('gold', 'sm') %>" <%= max < 1 ? 'disabled title="Ressources ou marchands insuffisants"' : '' %>>Accepter</button>
+                    </form>
+                  </td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+        <%- include('../pagination', { list: 'market', pagination, href: (n) => q({ page: n }) }) %>
+      </section>

@@ -1,0 +1,35 @@
+<%# Marché, onglet « Demande : faire venir des ressources de ses autres villages » (inclus par market.ejs, avec ses helpers : m, vid, res, resIcon, amount…). %>
+<% const others = villages.filter((v) => v.village.id !== vid); %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead(`Demande vers ${ctx.village.name}`) %>
+        <% if (!others.length) { %>
+          <p class="<%= ui.empty %>">Il faut au moins un autre village pour demander des ressources.</p>
+        <% } else { %>
+          <form method="post" action="<%= m %>/request"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <p class="px-3 pt-3 text-sm text-parchment-400">Tes autres villages envoient ces ressources à <b><%= ctx.village.name %></b> avec leurs marchands libres.</p>
+            <div class="overflow-x-auto">
+              <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+                <thead><tr><th>Village</th><% for (const r of RESOURCES) { %><th><%- resIcon(r.id) %></th><% } %><th class="text-right">Marchands</th><th class="text-right">Durée</th></tr></thead>
+                <tbody>
+                <% for (const v of others) { const secs = travelTo(v.village); const canSend = v.market > 0 && v.merchants.free > 0; %>
+                  <tr>
+                    <td><a href="/village/<%= v.village.id %>" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                    <% for (const r of RESOURCES) { const have = Math.floor(v.resources[r.id]); %>
+                      <td>
+                        <span class="flex items-center gap-1.5">
+                          <input type="number" name="<%= r.id %>_<%= v.village.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="<%= r.label %> depuis <%= v.village.name %>" <%= canSend ? '' : 'disabled' %>>
+                          <button type="button" class="<%= ui.link %> cursor-pointer text-xs tabular-nums" data-fill="<%= r.id %>_<%= v.village.id %>" data-max="<%= Math.min(have, v.merchants.free * cap) %>">(<%= num(have) %>)</button>
+                        </span>
+                      </td>
+                    <% } %>
+                    <td class="text-right tabular-nums"><%= v.market ? `${v.merchants.free}/${v.merchants.total}` : 'Pas de marché' %></td>
+                    <td class="text-right whitespace-nowrap tabular-nums text-parchment-300"><%= duration(secs) %></td>
+                  </tr>
+                <% } %>
+                </tbody>
+              </table>
+            </div>
+            <div class="border-t border-bronze-900 px-3 py-2.5"><button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Demander</button></div>
+          </form>
+        <% } %>
+      </section>

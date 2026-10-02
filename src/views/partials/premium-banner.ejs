@@ -1,0 +1,11 @@
+<%# Bandeau d'incitation au premium (celui de la file du quartier général). Paramètres : href (offres du monde),
+    title (phrase principale), detail (ligne secondaire), highlight (mis en avant : file pleine…), cls (classes en plus). %>
+<% const on = typeof highlight !== 'undefined' && highlight; %>
+<a href="<%= href %>" class="group flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-bronze-800 px-3 no-underline <%= on ? 'bg-[linear-gradient(90deg,rgba(227,178,60,0.22),rgba(227,178,60,0.04))] py-2.5' : 'py-2 hover:bg-row-hover' %> <%= typeof cls !== 'undefined' ? cls : '' %>">
+  <%- icon('adarton', `${on ? 'size-9' : 'size-7'} drop-shadow-[0_0_8px_rgba(227,178,60,0.4)] transition group-hover:-rotate-12`) %>
+  <span class="flex min-w-0 flex-1 flex-col leading-snug">
+    <span class="<%= on ? 'font-semibold text-parchment-100' : 'text-parchment-300' %>"><%= title %></span>
+    <span class="text-[13px] text-parchment-500"><%= detail %></span>
+  </span>
+  <span class="<%= btn(on ? 'gold' : 'dark', 'sm') %>">Passer au premium</span>
+</a>

@@ -1,0 +1,25 @@
+<%# Marché, onglet « Statut des marchands de chaque village » (inclus par market.ejs, avec ses helpers : m, vid, res, resIcon, amount…). %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Statut des marchands', count(villages.length)) %>
+        <div class="overflow-x-auto">
+          <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+            <thead><tr><th>Village</th><th class="text-right">Au village</th><th class="text-right">En livraison</th><th class="text-right">En retour</th><th class="text-right">Réservés (offres)</th><th class="text-right">Total</th></tr></thead>
+            <tbody>
+            <% for (const v of villages) { const mv = moving.get(v.village.id); %>
+              <tr class="<%= v.village.id === vid ? ui.rowActive : '' %>">
+                <td><a href="/village/<%= v.village.id %>/market?tab=merchants" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                <% if (!v.market) { %>
+                  <td colspan="5" class="text-right text-parchment-500">Pas de marché</td>
+                <% } else { %>
+                  <td class="text-right font-semibold tabular-nums"><%= v.merchants.free %></td>
+                  <td class="text-right tabular-nums"><%= mv.delivery %></td>
+                  <td class="text-right tabular-nums"><%= mv.return %></td>
+                  <td class="text-right tabular-nums"><%= mv.offers %></td>
+                  <td class="text-right tabular-nums"><%= v.merchants.total %></td>
+                <% } %>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+      </section>

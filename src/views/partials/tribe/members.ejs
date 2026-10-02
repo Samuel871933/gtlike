@@ -1,0 +1,24 @@
+<%# Tribu, onglet « Membres » (inclus par tribe.ejs, avec ses helpers : vid, t, relName, roleTag…). %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Membres', `<span class="${ui.headCount}">${members.length} / ${ctx.cfg.tribe.memberLimit}</span>`) %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %>">
+        <thead><tr><th>Joueur</th><th>Pouvoirs</th><th class="text-right">Points</th><th class="text-right">Villages</th><th></th></tr></thead>
+        <tbody>
+        <% for (const m of members) { const self = m.id === player.id; %>
+          <tr class="<%= self ? ui.rowActive : '' %>">
+            <td class="font-semibold"><%- playerLink(vid, m, { avatar: true }) %></td>
+            <td><span class="<%= roleTag[m.tribeRole] %>"><%= tribeRights.label(m) %></span></td>
+            <td class="text-right font-semibold tabular-nums"><%= num(m.points) %></td>
+            <td class="text-right tabular-nums"><%= m.villageCount %></td>
+            <td class="text-right whitespace-nowrap">
+              <% if (canEdit(m)) { %>
+                <form method="post" action="<%= t %>/members/<%= m.id %>/kick" class="inline" data-confirm="Renvoyer <%= m.name %> de la tribu ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>">Renvoyer</button></form>
+              <% } %>
+            </td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>

@@ -1,0 +1,85 @@
+<%# Tribu, onglet « Aperçu : fil de la tribu, annonce » (inclus par tribe.ejs, avec ses helpers : vid, t, relName, roleTag…). %>
+<%
+     // Fil de la tribu comme sur GT : une phrase par événement, avec liens vers les joueurs, villages et tribus.
+     const pl = (p) => (p && p.id ? playerLink(vid, p, { cls: `${ui.linkPlain} font-semibold` }) : `<span class="font-semibold">${esc(p ? p.name : 'Joueur supprimé')}</span>`);
+     const vl = (v) => `<a href="/village/${vid}/villages/${v.id}" class="${ui.linkPlain} font-semibold">${esc(v.name)} (${v.x}|${v.y}) ${v.k}</a>`
+       + ` <a href="/village/${vid}/map?x=${v.x}&amp;y=${v.y}" class="inline-flex align-[-2px] text-parchment-500 hover:text-gold-200" title="Centrer la carte" aria-label="Centrer la carte sur ce village">${icon('map', 'size-3.5', 2)}</a>`;
+     const tl = (tr) => tribeLink(vid, tr, { name: true });
+     const relWord = { ally: 'alliée', nap: 'en PNA', enemy: 'ennemie' };
+     const sentence = (e) => {
+       const d = e.data;
+       switch (e.type) {
+         case 'conquered': return `${pl(d.actor)} a conquis ${vl(d.village)}${d.target ? ` de ${pl(d.target)}` : ' (village barbare)'}.`;
+         case 'lost': return `${pl(d.target)} a perdu ${vl(d.village)} au profit de ${pl(d.actor)}.`;
+         case 'relation': return `${pl(d.actor)} a marqué ${tl(d.tribe)} comme ${relWord[d.relation] || d.relation}.`;
+         case 'relationRemoved': return `${pl(d.actor)} a supprimé la relation avec ${tl(d.tribe)}.`;
+         case 'joined': return `${pl(d.actor)} a rejoint la tribu.`;
+         case 'invited': return `${pl(d.target)} a été invité par ${pl(d.actor)}.`;
+         case 'inviteCancelled': return `L'invitation de ${pl(d.target)} a été retirée par ${pl(d.actor)}.`;
+         case 'inviteDeclined': return `${pl(d.actor)} a refusé l'invitation.`;
+         case 'left': return `${pl(d.actor)} a quitté la tribu.`;
+         case 'quitWorld': return `${esc(d.actor.name)} (supprimé) a quitté le monde.`;
+         case 'kicked': return `${pl(d.target)} a été renvoyé par ${pl(d.actor)}.`;
+         case 'rights': return `${pl(d.actor)} a changé les droits et le titre de ${pl(d.target)}${d.title ? ` <span class="text-parchment-500">(${esc(d.title)})</span>` : ''}.`;
+         case 'founded': return `${pl(d.actor)} a fondé la tribu.`;
+         case 'profile': return `${pl(d.actor)} a modifié le profil de la tribu.`;
+         case 'announcement': return `${pl(d.actor)} a modifié les annonces internes.`;
+         default: return esc(e.type);
+       }
+     };
+     const feedUrl = (params) => `${t}?${new URLSearchParams({ tab: 'overview', ...params })}`;
+     const cat = feed.category; %>
+  <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead('Événements', `<span class="text-[13px] text-parchment-500 tabular-nums">${num(feed.total)}</span>`) %>
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-bronze-800 px-3 py-2">
+        <%- segMenu([[feedUrl({}), 'Tout', cat === 'all'], ...Object.entries(TribeCategories).map(([id, name]) => [feedUrl({ cat: id }), name, cat === id])], { label: 'Catégorie d’événements' }) %>
+        <%- include('../pager', { page: feed.page, pages: feed.pages, href: (n) => feedUrl({ ...(cat !== 'all' ? { cat } : {}), page: n }) }) %>
+      </div>
+      <% if (!feed.events.length) { %>
+        <p class="<%= ui.empty %>">Aucun événement<%= cat !== 'all' ? ' dans cette catégorie' : '' %>.</p>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="<%= ui.table %>">
+            <thead><tr><th class="w-28">Date</th><th class="w-10"></th><th>Événement</th><th class="w-10"></th></tr></thead>
+            <tbody>
+            <% for (const e of feed.events) { %>
+              <tr>
+                <td class="text-[13px] whitespace-nowrap text-parchment-400 tabular-nums"><%= whenShort(e.happenedAt, now) %></td>
+                <td><%- avatarThumb('player', e.player) %></td>
+                <td class="text-parchment-300"><%- sentence(e) %></td>
+                <td class="text-right"><% if (e.category === 'noble') { %><span class="inline-flex <%= e.type === 'lost' ? 'text-blood-400' : 'text-gold-400' %>" title="<%= e.type === 'lost' ? 'Village perdu' : 'Village conquis' %>"><%- unitIcon('snob', 'size-5') %></span><% } %></td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+      <form method="post" action="<%= t %>/leave" class="flex flex-wrap items-center gap-3 border-t border-bronze-900 px-3 py-3" data-confirm="Quitter la tribu ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="<%= btn('danger', 'sm') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter la tribu</button>
+        <% if (isDuke && dukes === 1 && members.length > 1) { %><span class="text-xs text-parchment-600">Nommez d'abord un autre duc.</span><% } %>
+        <% if (members.length === 1) { %><span class="text-xs text-parchment-600">Vous êtes seul : la tribu sera dissoute.</span><% } %>
+      </form>
+    </section>
+
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Annonces internes') %>
+      <div class="<%= ui.panelBody %>">
+        <% if (tribe.announcement) { %>
+          <p class="text-center whitespace-pre-line wrap-break-word text-parchment-200"><%= tribe.announcement %></p>
+        <% } else { %>
+          <p class="text-center text-parchment-500">Pas encore d'annonce.</p>
+        <% } %>
+        <p class="text-center text-[13px] text-parchment-600 italic">Ce texte peut être modifié par un duc ou un baron de la tribu.</p>
+        <% if (can('baron')) { %>
+          <details class="border-t border-bronze-900 pt-3">
+            <summary class="<%= ui.link %> cursor-pointer text-sm">Modifier les annonces</summary>
+            <form method="post" action="<%= t %>/announcement" class="mt-2 flex flex-col gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <textarea name="announcement" rows="5" maxlength="2000" class="<%= ui.textarea %> w-full" aria-label="Annonces internes"><%= tribe.announcement || '' %></textarea>
+              <div><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></div>
+            </form>
+          </details>
+        <% } %>
+      </div>
+    </section>
+  </div>

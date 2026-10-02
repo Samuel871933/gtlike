@@ -235,6 +235,8 @@ const Player = sequelize.define(
     messagesPerPage: { type: DataTypes.INTEGER, allowNull: true },
     // Rapports par page (nul : valeur par défaut, voir PaginationService).
     reportsPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    // Archives des rapports : supprimées après ce nombre de mois (3 par défaut, 24 au plus, comme sur GT).
+    reportArchiveMonths: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 3 },
     // Réglages tribu : partager ses notes de village avec sa tribu, afficher les notes partagées par la tribu.
     shareVillageNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // Offres par page de la recherche du marché (nulle : valeur par défaut).
@@ -467,8 +469,16 @@ const Report = sequelize.define(
     isRead: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     happenedAt: { type: DataTypes.DATE, allowNull: false },
   },
-  { indexes: [{ fields: ['playerId', 'happenedAt'] }, { fields: ['playerId', 'isRead', 'type'] }] },
+  {
+    indexes: [
+      { fields: ['playerId', 'happenedAt'] }, { fields: ['playerId', 'isRead', 'type'] },
+      { name: 'reports_player_id_folder_id_happened_at', fields: ['playerId', 'folderId', 'happenedAt'] },
+    ],
+  },
 );
+
+/** Dossier d'archives des rapports (premium) : ses rapports échappent à la limite de la boîte. */
+const ReportFolder = sequelize.define('ReportFolder', { name: { type: DataTypes.STRING(32), allowNull: false } }, { indexes: [{ fields: ['playerId'] }] });
 
 Player.hasMany(VillageNote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 Village.hasMany(VillageNote, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
@@ -542,6 +552,10 @@ Player.hasMany(PlayerAchievement, { as: 'achievements', foreignKey: { name: 'pla
 PlayerAchievement.belongsTo(Player, { foreignKey: 'playerId' });
 Player.hasMany(Report, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 Report.belongsTo(Player, { foreignKey: 'playerId' });
+Player.hasMany(ReportFolder, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+ReportFolder.belongsTo(Player, { foreignKey: 'playerId' });
+ReportFolder.hasMany(Report, { foreignKey: { name: 'folderId', allowNull: true }, onDelete: 'SET NULL' });
+Report.belongsTo(ReportFolder, { foreignKey: 'folderId' });
 
 /** Modèle d'armée d'un joueur (« Ordres rapides ») : un nom et des unités, pour pré-remplir le point de ralliement. */
 const ArmyTemplate = sequelize.define(
@@ -689,7 +703,7 @@ Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: fals
 Entitlement.belongsTo(World, { foreignKey: { name: 'worldId', allowNull: true }, onDelete: 'CASCADE' });
 
 module.exports = {
-  sequelize, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, LastAttack, VillageNote, Transport, MarketOffer,
+  sequelize, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,

@@ -29,6 +29,9 @@ Le favicon est découpé dans le logo PNG et décliné en PNG et ICO ; `python3 
 Le style est uniquement en Tailwind, sans CSS maison : [src/styles/app.css](src/styles/app.css) ne contient que
 la configuration (`@theme` : palette et polices de la maquette `maquettes/Adarma.html`), et les
 composants (panneaux, boutons, onglets, médaillons…) sont des chaînes de classes dans [src/web/ui.js](src/web/ui.js).
+Menus latéraux (rapports, messagerie, marché, classements, modèles de troupes) : `sideNav()` ; compteur d'en-tête
+(`ui.headCount`), liste vide (`ui.empty`), note de bas de panneau (`ui.panelNote`) ; bandeau premium :
+`partials/premium-banner`.
 Le CSS compilé (`public/css/app.css`) n'est pas versionné : `npm start` le recompile (Tailwind est en
 devDependencies, installer donc aussi les dépendances de développement pour construire).
 
@@ -66,6 +69,8 @@ src/migrator.js      Migrations Umzug (dossier migrations/, table SequelizeMeta 
 migrations/          Une migration par changement de schéma ; ne jamais modifier une migration déjà appliquée
 src/styles/          Point d'entrée Tailwind (@theme) et styles de jeu (game-styles/ : romain, viking)
 src/web/             Routes Express, middlewares, helpers de vue, composants (ui.js), styles de jeu (gameStyles.js)
+src/web/routes/village/  Pages d'un village, un routeur par thème (bâtiments, ralliement, marché, tribu, rapports…)
+src/views/partials/market|tribe|recruit/  Un partial par onglet des grandes pages (le fichier parent garde l'en-tête et ses helpers)
 src/views/           Pages EJS
 public/              JS client (game.js : ressources, comptes à rebours… ; map.js : carte ; minimap.js : rendu commun des mini-cartes), images (accueil, fonds de village par style)
 maquettes/           Maquette de référence de l'interface (bundle HTML autonome)
@@ -251,7 +256,7 @@ lancier et porte-épée sans recherche ; la hache demande la forge 2. Durée div
 
 ## Montée en charge
 
-- Un processus Node sert environ 100 pages par seconde (un cœur). Au-delà, lancer plusieurs processus derrière le
+- Un processus Node sert environ 120 pages par seconde (un cœur, ~8 ms de calcul par page). Au-delà, lancer plusieurs processus derrière le
   même port, par exemple `pm2 start src/server.js -i 4` : seul le processus `NODE_APP_INSTANCE=0` applique les
   migrations (en dev), crée les mondes et fait tourner la boucle de jeu ; les autres ne servent que des pages.
   Chaque processus ouvre jusqu'à `DB_POOL_MAX` connexions (30) : rester sous `max_connections` de MySQL.
@@ -264,6 +269,17 @@ lancier et porte-épée sans recherche ; la hache demande la forge 2. Durée div
   toutes les 5 minutes, avec `Cache-Control` (`src/web/memo.js`, mémoire du processus).
 - Aperçu des villages et statut des marchands : lectures groupées pour tous les villages du joueur ; seuls les villages
   qui ont une échéance passée sont rafraîchis un par un (`VillagesOverviewService`).
+- Affichage d'une page (GET) : sans échéance passée dans le village (construction, recrue, recherche, collecte,
+  déblocage, formation, fin de milice), `VillageService.peek` calcule l'état en mémoire, sans transaction, verrou ni
+  écriture ; sinon rafraîchissement complet comme avant (`test/village-peek.test.js` vérifie que les deux concordent).
+  Compteurs de l'en-tête lus en parallèle.
+- Rapports : comme sur Guerre Tribale, la boîte de chaque joueur garde 100 rapports + 10 par village ; la boucle de jeu
+  supprime les plus anciens au-delà (`ReportService.pruneAll`, toutes les 10 minutes). Archives (premium) : dossiers
+  du joueur (`ReportFolders`, 20 au plus), hors de cette limite, supprimés après `Players.reportArchiveMonths` mois
+  (3 par défaut, 24 au plus). Sans premium, on peut encore lire ses dossiers et en ressortir des rapports.
+- Sessions : la prolongation d'une session inchangée est écrite au plus une fois par heure (`src/app.js`).
+- CSS et JS : `asset('/css/app.css')` dans les vues ajoute la date du fichier à l'adresse ; ces adresses sont gardées
+  un an par le navigateur (`src/web/assets.js`), plus de revalidation à chaque page.
 
 ## Compte : rapports, sommeil, vacances, paladin
 

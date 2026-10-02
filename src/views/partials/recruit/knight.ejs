@@ -1,0 +1,43 @@
+<%# Recrutement, paladin unique et salle des armes (statue) (inclus par recruit.ejs, avec rtab, vid, tabsHtml, maxBtn). %>
+<% const kp = knight.player; const prog = Math.min(100, kp.knightProgress); %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Salle des armes', `<span class="${ui.headCount}">${kp.knightItems.length} / ${knight.items.length}</span>`) %>
+    <div class="flex flex-col gap-4 px-4.5 py-4">
+      <p class="text-[15px] text-parchment-400">
+        La jauge monte de <%= ctx.cfg.knightItems.progressPerDay %> % par jour (× vitesse du monde) depuis la construction de la statue,
+        et avec les adversaires vaincus, en attaque comme en défense. À 100 %, votre paladin trouve une arme au hasard.
+        L'arme équipée agit quand le paladin accompagne l'armée ou défend un village.
+      </p>
+      <div class="<%= ui.box %> flex flex-col gap-1.5 p-3">
+        <div class="flex justify-between gap-2"><span class="<%= ui.kicker %>">Prochaine arme</span><span class="<%= ui.figure %>"><%= Math.floor(prog) %> %</span></div>
+        <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= prog %>%"></span></span>
+        <% if (!kp.knightRecruited) { %><p class="text-xs text-parchment-500">Les armes ne sont trouvées qu'après avoir recruté un premier paladin.</p><% } %>
+        <% if (!kp.knightProgressAt) { %><p class="text-xs text-parchment-500">La jauge commencera à monter avec le temps une fois la statue construite.</p><% } %>
+      </div>
+      <ul class="grid gap-2 sm:grid-cols-2">
+        <% for (const item of knight.items) { const owned = kp.knightItems.includes(item.id); const equipped = kp.knightItem === item.id;
+             const effect = item.unit ? `${unitName(item.unit)} : +${item.attack * 100} % en attaque, +${item.defense * 100} % en défense`
+               : item.siege ? `Dégâts des ${item.siege.ram ? 'béliers' : 'catapultes'} +100 %`
+               : item.spy ? 'Le paladin compte comme éclaireur (espionnage complet s’il survit)'
+               : `Baisse la loyauté d'au moins ${item.loyalty} lors d'une attaque de noble`;
+             const itemIcon = item.unit ? item.unit : item.siege ? (item.siege.ram ? 'ram' : 'catapult') : item.spy ? 'spy' : 'snob'; %>
+          <li class="<%= equipped ? ui.boxGold : ui.box %> flex items-center gap-3 p-3 <%= owned ? '' : 'opacity-50' %>">
+            <span class="<%= equipped ? ui.medallionGold : ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(itemIcon, 'size-[19px]') %></span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span class="font-display text-sm font-semibold <%= equipped ? 'text-gold-200' : 'text-parchment-100' %>"><%= item.name %></span>
+              <span class="text-[13px] text-parchment-500"><%= effect %></span>
+            </span>
+            <% if (equipped) { %>
+              <span class="<%= ui.tagGold %>">Équipée</span>
+            <% } else if (owned) { %>
+              <form method="post" action="/village/<%= vid %>/statue/equip"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="item" value="<%= item.id %>"><button class="<%= btn('dark', 'sm') %>">Équiper</button>
+              </form>
+            <% } else { %>
+              <span class="shrink-0 text-xs text-parchment-600">Pas encore trouvée</span>
+            <% } %>
+          </li>
+        <% } %>
+      </ul>
+    </div>
+  </section>

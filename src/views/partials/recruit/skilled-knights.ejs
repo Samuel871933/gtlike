@@ -1,0 +1,116 @@
+<%# Recrutement, paladins à compétences (statue) (inclus par recruit.ejs, avec rtab, vid, tabsHtml, maxBtn). %>
+<% const ks = skilled.skills; %>
+  <% if (!skilled.knights.length) { %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Vos paladins') %>
+      <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Vous n'avez pas encore de paladin.</p></div>
+    </section>
+  <% } %>
+  <% for (const k of skilled.knights) {
+       const spent = ks.booksSpent(k.skills); const books = k.level - spent;
+       const cur = ks.xpForLevel(k.level); const next = k.level < ks.MAX_LEVEL ? ks.xpForLevel(k.level + 1) : null;
+       const pct = next ? Math.min(100, Math.round((100 * (k.xp - cur)) / (next - cur))) : 100;
+       const branches = [...new Set(ks.SKILLS.map((x) => x.branch))]; %>
+    <section class="<%= ui.panel %>" id="paladin-<%= k.id %>">
+      <%- panelHead(k.name, !k.alive ? `<span class="${ui.tagRed}">mort</span>` : '') %>
+      <div class="flex flex-col gap-4 px-4.5 py-4">
+        <div class="flex flex-wrap items-center gap-4">
+          <span class="relative shrink-0">
+            <span class="<%= k.alive ? ui.medallionGold : ui.medallionRed %> size-14"><%- unitIcon('knight', 'size-7') %></span>
+            <span class="absolute -right-1.5 -bottom-1 <%= ui.levelBadge %>"><%= k.level %></span>
+          </span>
+          <div class="flex min-w-48 flex-1 flex-col gap-2">
+            <p class="text-parchment-400">Village d'attache : <span class="font-semibold text-parchment-100"><%= k.home.name %></span> <span class="text-parchment-600 tabular-nums">(<%= k.home.x %>|<%= k.home.y %>)</span></p>
+            <div class="flex flex-col gap-1">
+              <div class="flex justify-between gap-2 text-xs text-parchment-500"><span>Expérience</span><span class="tabular-nums"><%= num(k.xp) %><%= next ? ` / ${num(next)}` : ' · niveau maximal' %></span></div>
+              <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= pct %>%"></span></span>
+            </div>
+          </div>
+          <dl class="flex gap-2">
+            <div class="<%= ui.tile %> min-w-20 text-center"><dt class="<%= ui.tileLabel %>">Niveau</dt><dd class="<%= ui.tileValue %>"><%= k.level %></dd></div>
+            <div class="<%= ui.tile %> min-w-20 text-center"><dt class="<%= ui.tileLabel %>">Livres</dt><dd class="<%= ui.tileValue %> <%= books > 0 ? 'text-gold-200' : '' %>"><%= books %></dd></div>
+          </dl>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+          <% for (const branch of branches) { %>
+            <div class="flex flex-col gap-2">
+              <p class="<%= ui.sectionLabel %>"><%= branch %></p>
+              <ul class="flex flex-col gap-2">
+                <% for (const sk of ks.SKILLS.filter((x) => x.branch === branch)) { const tier = k.skills[sk.id] || 0; const blocker = ks.learnBlocker(k, sk.id); %>
+                  <li class="<%= tier ? ui.boxGold : ui.box %> flex flex-col gap-1.5 p-3 text-sm">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-semibold text-parchment-100"><%= sk.name %></span>
+                      <span class="flex gap-1" title="Palier <%= tier %> / 4"><% for (let i = 1; i <= 4; i++) { %><span class="size-2 rotate-45 <%= i <= tier ? 'bg-gold-400' : 'bg-bronze-800' %>"></span><% } %></span>
+                    </div>
+                    <p class="text-[13px] text-parchment-500"><%= sk.text %> : <%= sk.values.map((v) => sk.flat ? `+${v}` : `${Math.round(v * 100)} %`).join(' / ') %></p>
+                    <% if (tier < 4) { %>
+                      <form method="post" action="/village/<%= vid %>/knights/<%= k.id %>/learn" class="flex flex-wrap items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <input type="hidden" name="skill" value="<%= sk.id %>">
+                        <button class="<%= btn('dark', 'sm') %>" <%= blocker ? 'disabled' : '' %>>Palier <%= tier + 1 %></button>
+                        <% if (blocker) { %><span class="text-xs text-parchment-600"><%= blocker %></span><% } %>
+                      </form>
+                    <% } %>
+                  </li>
+                <% } %>
+              </ul>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="grid gap-4 border-t border-bronze-900 pt-4 lg:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <p class="<%= ui.subLabel %>">Formation</p>
+            <% if (k.trainingEndsAt) { %>
+              <p class="text-parchment-400">En formation, fin <%= when(k.trainingEndsAt, now) %>
+                · <span class="<%= ui.figure %>" data-countdown="<%= new Date(k.trainingEndsAt).getTime() %>"><%= duration((new Date(k.trainingEndsAt) - now) / 1000) %></span>
+                · +<%= num(k.trainingXp) %> XP</p>
+            <% } else if (!k.alive) { %>
+              <p class="text-parchment-500">Ressuscitez-le d'abord.</p>
+            <% } else { %>
+              <ul class="flex flex-col gap-1.5">
+                <% for (const prog of skilled.programs) { %>
+                  <li>
+                    <form method="post" action="/village/<%= vid %>/knights/<%= k.id %>/train" class="<%= ui.box %> flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-sm"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="hidden" name="program" value="<%= prog.id %>">
+                      <span class="w-28 font-semibold text-parchment-100"><%= prog.name %></span>
+                      <span class="w-16 text-parchment-400 tabular-nums"><%= duration(prog.hours * 3600 / ctx.cfg.speed) %></span>
+                      <span class="w-24 font-semibold text-gold-200 tabular-nums">+<%= num(prog.xp) %> XP</span>
+                      <%- include('../cost', { cost: prog.cost, have: null }) %>
+                      <button class="<%= btn('dark', 'sm', 'ml-auto') %>">Former</button>
+                    </form>
+                  </li>
+                <% } %>
+              </ul>
+              <p class="text-xs text-parchment-600">Payé par son village d'attache ; il doit s'y trouver.</p>
+            <% } %>
+          </div>
+          <div class="flex flex-col gap-2">
+            <p class="<%= ui.subLabel %>">Déménagement</p>
+            <% if (!skilled.destinations.length) { %>
+              <p class="text-parchment-500">Aucun autre de vos villages n'a de statue libre.</p>
+            <% } else { %>
+              <form method="post" action="/village/<%= vid %>/knights/<%= k.id %>/relocate" class="flex flex-wrap gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <select name="villageId" class="<%= ui.input %> min-w-0 flex-1" aria-label="Village de destination">
+                  <% for (const d of skilled.destinations) { %><option value="<%= d.id %>"><%= d.name %> (<%= d.x %>|<%= d.y %>)</option><% } %>
+                </select>
+                <button class="<%= btn('dark', 'md') %>" <%= !k.alive || k.trainingEndsAt ? 'disabled' : '' %>><%- icon('relocate', 'size-3.5', 2) %>Déménager</button>
+              </form>
+              <p class="text-xs text-parchment-600">Il voyage à sa vitesse ; son village d'attache change à l'arrivée.</p>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 border-t border-bronze-900 pt-4">
+          <form method="post" action="/village/<%= vid %>/knights/<%= k.id %>/rename" class="flex min-w-0 gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input name="name" value="<%= k.name %>" maxlength="32" class="<%= ui.input %> w-56 min-w-0" aria-label="Nom du paladin"><button class="<%= btn('dark', 'md') %>"><%- icon('edit', 'size-3.5', 2) %>Renommer</button>
+          </form>
+          <% if (spent) { %>
+            <form method="post" action="/village/<%= vid %>/knights/<%= k.id %>/respec" class="ml-auto" data-confirm="Réinitialiser les compétences de ce paladin ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="<%= btn('danger', 'md') %>">Réinitialiser les compétences</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    </section>
+  <% } %>

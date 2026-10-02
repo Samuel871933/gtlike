@@ -1,5 +1,5 @@
 <%- include('partials/header', { title: 'Carte' }) %>
-<link rel="stylesheet" href="/css/map-v3.css">
+<link rel="stylesheet" href="<%= asset('/css/map-v3.css') %>">
 <%
   // Carte façon Guerre Tribale : cases de taille fixe (la taille choisie agrandit vraiment la carte), villages
   // chargés par secteurs de 20 × 20 et déplacement fluide (public/js/map.js). Rien n'est rechargé en naviguant.
@@ -302,7 +302,7 @@
     </div>
   </section>
 </div>
-<script src="/js/terrain.js" defer></script>
-<script src="/js/minimap.js" defer></script>
-<script src="/js/map.js?v=8" defer></script>
+<script src="<%= asset('/js/terrain.js') %>" defer></script>
+<script src="<%= asset('/js/minimap.js') %>" defer></script>
+<script src="<%= asset('/js/map.js') %>" defer></script>
 <%- include('partials/footer') %>

@@ -94,10 +94,23 @@
         <% } else { %>
           <p class="text-center text-parchment-500">Vous n'avez pas encore d'image de profil.</p>
         <% } %>
-        <details class="border-t border-bronze-800 pt-3" <%= subject.avatar ? '' : 'open' %>>
-          <summary class="flex cursor-pointer list-none items-center gap-2 font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('edit', 'size-3.5', 2.2) %>Modifier</summary>
-          <div class="mt-2.5"><%- include('partials/avatar-form', { action: `/village/${vid}/profile/avatar`, avatar: subject.avatar }) %></div>
-        </details>
+        <% if (ctx.premium) { %>
+          <details class="border-t border-bronze-800 pt-3" <%= subject.avatar ? '' : 'open' %>>
+            <summary class="flex cursor-pointer list-none items-center gap-2 font-semibold text-gold-400 hover:text-parchment-100 [&::-webkit-details-marker]:hidden"><%- icon('edit', 'size-3.5', 2.2) %>Modifier</summary>
+            <div class="mt-2.5"><%- include('partials/avatar-form', { action: `/village/${vid}/profile/avatar`, avatar: subject.avatar }) %></div>
+          </details>
+        <% } else { %>
+          <%# Sans premium (comme sur Guerre Tribale) : pas d'envoi ; une image déjà en place peut être supprimée. %>
+          <%- include('partials/premium-banner', {
+            href: `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`, cls: '-mx-3',
+            title: 'L’image de profil est réservée au premium.', detail: 'Mets ta propre image sur ton profil · dès 30 Adartons',
+          }) %>
+          <% if (subject.avatar) { %>
+            <form method="post" action="/village/<%= vid %>/profile/avatar/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="<%= btn('dark', 'sm') %>">Supprimer l'image</button>
+            </form>
+          <% } %>
+        <% } %>
       </div>
     </section>
     <% } %>
@@ -155,7 +168,7 @@
          const anchor = anchored ? '' : ' id="succes"'; anchored = true; %>
       <section class="<%= ui.panel %> scroll-mt-28"<%- anchor %>>
         <%- panelHead(`Succès · ${title}`, `<span class="text-[13px] text-parchment-500 tabular-nums">${won.length} / ${list.length}</span>`) %>
-        <% if (!won.length) { %><p class="px-4.5 py-3 text-parchment-500">Aucun succès obtenu dans cette catégorie.</p><% } %>
+        <% if (!won.length) { %><p class="<%= ui.empty %>">Aucun succès obtenu dans cette catégorie.</p><% } %>
         <ul>
           <% for (const a of won) { const multi = a.def.tiers.length > 1; %>
             <li class="flex items-center gap-3.5 border-b border-bronze-800 px-4 py-2.5 last:border-b-0">
@@ -191,6 +204,6 @@
   </div>
 </div>
 <% if (profileStyle) { %></div><% } %>
-<% if (mm) { %><script src="/js/terrain.js" defer></script>
-<script src="/js/minimap.js" defer></script><% } %>
+<% if (mm) { %><script src="<%= asset('/js/terrain.js') %>" defer></script>
+<script src="<%= asset('/js/minimap.js') %>" defer></script><% } %>
 <%- include('partials/footer') %>

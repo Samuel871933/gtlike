@@ -1,0 +1,73 @@
+<%- include('partials/header', { title: 'Dossiers de rapports' }) %>
+<%
+  // Dossiers d'archives des rapports (ReportService), comme sur Guerre Tribale : réservés au premium, hors de la
+  // limite de la boîte de réception, supprimés après la durée choisie. Sans premium, on peut encore lire, renommer
+  // et supprimer ses dossiers, et en ressortir des rapports.
+  const vid = ctx.village.id;
+  const shopPremium = `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`;
+%>
+<div class="mx-auto flex w-full max-w-3xl flex-col gap-5">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Dossiers de rapports', `<a href="/village/${vid}/reports" class="${btn('dark', 'sm')}">${icon('arrowLeft', 'size-3.5', 2.2)}Rapports</a>`, { tag: 'h1' }) %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-parchment-300">
+        Ta boîte de réception garde tes <%= keepLimit %> rapports les plus récents (100 + 10 par village). Range un rapport
+        dans un dossier pour l’archiver : il échappe à cette limite et reste jusqu’à <%= archiveMonths %> mois après sa date.
+      </p>
+      <% if (!premium) { %>
+        <%- include('partials/premium-banner', {
+          href: shopPremium, cls: '-mx-3 -mb-3',
+          title: 'Les archives de rapports sont réservées au premium.', detail: 'Crée des dossiers et garde tes rapports importants jusqu’à 2 ans · dès 30 Adartons',
+        }) %>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Mes dossiers', `<span class="${ui.headCount}">${folders.length} / ${maxFolders}</span>`) %>
+    <% if (!folders.length) { %>
+      <p class="<%= ui.empty %>">Aucun dossier.</p>
+    <% } else { %>
+      <ul>
+        <% for (const { folder, total, unread } of folders) { %>
+          <li class="flex flex-wrap items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2.5 last:border-b-0">
+            <a href="/village/<%= vid %>/reports?folder=<%= folder.id %>" class="flex min-w-0 flex-1 items-center gap-2 no-underline">
+              <span class="truncate font-medium text-parchment-100"><%= folder.name %></span>
+              <span class="text-[13px] text-parchment-500 tabular-nums"><%= total %> rapport<%= total > 1 ? 's' : '' %><%= unread ? ` · ${unread} non lu${unread > 1 ? 's' : ''}` : '' %></span>
+            </a>
+            <form method="post" action="/village/<%= vid %>/reports/folders/<%= folder.id %>/rename" class="flex items-center gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input name="name" value="<%= folder.name %>" maxlength="32" required class="<%= ui.inputSm %> w-40" aria-label="Nom du dossier">
+              <button class="<%= btn('dark', 'sm') %>">Renommer</button>
+            </form>
+            <form method="post" action="/village/<%= vid %>/reports/folders/<%= folder.id %>/delete" onsubmit="return confirm('Supprimer ce dossier ? Ses rapports reviendront dans la boîte de réception.')"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="<%= btn('danger', 'sm') %>"><%- icon('trash', 'size-3.5', 2) %>Supprimer</button>
+            </form>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+    <% if (premium && folders.length < maxFolders) { %>
+      <form method="post" action="/village/<%= vid %>/reports/folders" class="flex flex-wrap items-end gap-2 border-t border-bronze-800 px-4.5 py-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="<%= ui.label %> min-w-0 flex-1">Nouveau dossier
+          <input name="name" maxlength="32" required placeholder="Ex. : Espionnages" class="<%= ui.input %> w-full">
+        </label>
+        <button class="<%= btn('gold') %>">Créer</button>
+      </form>
+    <% } %>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Conservation des archives') %>
+    <form method="post" action="/village/<%= vid %>/reports/archive-months" class="flex flex-wrap items-end gap-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="<%= ui.label %>">Supprimer les rapports archivés après
+        <select name="months" class="<%= ui.input %>">
+          <% for (let m = limits.min; m <= limits.max; m++) { %>
+            <option value="<%= m %>" <%= m === archiveMonths ? 'selected' : '' %>><%= m %> mois<%= m === limits.default ? ' (par défaut)' : '' %></option>
+          <% } %>
+        </select>
+      </label>
+      <button class="<%= btn('dark') %>">Enregistrer</button>
+    </form>
+  </section>
+</div>
+<%- include('partials/footer') %>

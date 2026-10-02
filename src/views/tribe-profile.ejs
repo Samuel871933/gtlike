@@ -25,7 +25,7 @@
 
 <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
   <section class="<%= ui.panel %> min-w-0">
-    <%- panelHead('Membres', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${members.length}</span>`) %>
+    <%- panelHead('Membres', `<span class="${ui.headCount}">${members.length}</span>`) %>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %>">
         <thead><tr><th>Joueur</th><th>Titre</th><th class="text-right">Points</th><th class="text-right">Villages</th></tr></thead>

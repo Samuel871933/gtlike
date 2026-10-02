@@ -111,7 +111,7 @@
             <span class="<%= ui.medallionGold %> size-9"><%- icon('moon', 'size-4') %></span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="<%= ui.kicker %>"><%= player.isAsleep(now) ? 'Sommeil en cours' : 'Sommeil programmé' %></span>
-              <span class="font-semibold text-gold-200 tabular-nums"><%= when(player.sleepStartsAt, now) %> → <%= when(player.sleepEndsAt, now) %></span>
+              <span class="<%= ui.figure %>"><%= when(player.sleepStartsAt, now) %> → <%= when(player.sleepEndsAt, now) %></span>
             </span>
             <form method="post" action="/village/<%= vid %>/account/sleep/stop"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button class="<%= btn('dark', 'sm') %>"><%= player.isAsleep(now) ? 'Me réveiller' : 'Annuler' %></button>

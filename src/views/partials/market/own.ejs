@@ -1,0 +1,25 @@
+<%# Marché, onglet « Toutes ses propres offres » (inclus par market.ejs, avec ses helpers : m, vid, res, resIcon, amount…). %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Toutes tes propres offres', count(playerOffers.length)) %>
+        <% if (!playerOffers.length) { %>
+          <p class="<%= ui.empty %>">Aucune offre en ligne dans tes villages.</p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+              <thead><tr><th>Village</th><th>J'offre</th><th>Je veux</th><th class="text-right">Offres</th><th>Limites</th><th></th></tr></thead>
+              <tbody>
+              <% for (const o of playerOffers) { %>
+                <tr>
+                  <td><a href="/village/<%= o.village.id %>/market?tab=create" class="<%= ui.linkPlain %> font-semibold"><%= o.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= o.village.x %>|<%= o.village.y %>)</span></td>
+                  <td><%- amount(o.sellResource, o.sellAmount) %></td>
+                  <td><%- amount(o.buyResource, o.buyAmount) %></td>
+                  <td class="text-right font-semibold tabular-nums"><%= o.count %></td>
+                  <td><%- limitTags(o) || '<span class="text-parchment-500">—</span>' %></td>
+                  <td class="text-right"><form method="post" action="/village/<%= o.village.id %>/market/offers/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('danger', 'sm') %>"><%- icon('close', 'size-3', 2.6) %>Retirer</button></form></td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </section>

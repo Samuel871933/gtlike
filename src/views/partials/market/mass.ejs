@@ -1,0 +1,34 @@
+<%# Marché, onglet « Offres en masse depuis plusieurs villages » (inclus par market.ejs, avec ses helpers : m, vid, res, resIcon, amount…). %>
+<% const withMarket = villages.filter((v) => v.market > 0); %>
+      <section class="<%= ui.panel %>">
+        <%- panelHead('Créer des offres en masse') %>
+        <form method="post" action="<%= m %>/mass" class="flex flex-col gap-3 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <p class="text-sm text-parchment-400">La même offre est publiée depuis chaque village où tu indiques un nombre d'offres.</p>
+          <table class="<%= ui.table %> w-auto! self-start">
+            <tbody>
+              <tr><th scope="row" class="w-24 text-left">J'offre :</th><td><input type="number" name="sellAmount" min="1" required value="<%= cap %>" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Quantité offerte"></td><td><span class="flex items-center gap-5"><%- radios('sellResource', 'wood') %></span></td></tr>
+              <tr><th scope="row" class="text-left">Je veux :</th><td><input type="number" name="buyAmount" min="1" required value="<%= cap %>" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Quantité voulue"></td><td><span class="flex items-center gap-5"><%- radios('buyResource', 'iron') %></span></td></tr>
+            </tbody>
+          </table>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <label class="inline-flex items-center gap-2">Durée maximale du voyage : <input type="number" name="maxHours" min="1" placeholder="—" class="<%= ui.inputSm %> w-20 text-right tabular-nums"> heures</label>
+            <label class="inline-flex cursor-pointer items-center gap-2"><input type="checkbox" name="tribeOnly" value="1" class="<%= ui.checkbox %>">Commerce de tribu uniquement</label>
+          </div>
+          <div class="overflow-x-auto border border-bronze-800">
+            <table class="<%= ui.table %> text-sm [&_td]:py-1.5">
+              <thead><tr><th>Village</th><% for (const r of RESOURCES) { %><th class="text-right"><%- resIcon(r.id) %></th><% } %><th class="text-right">Marchands</th><th class="text-right">Nombre d'offres</th></tr></thead>
+              <tbody>
+              <% for (const v of villages) { %>
+                <tr>
+                  <td><a href="/village/<%= v.village.id %>/market?tab=mass" class="<%= ui.linkPlain %> font-semibold"><%= v.village.name %></a> <span class="text-parchment-500 tabular-nums">(<%= v.village.x %>|<%= v.village.y %>)</span></td>
+                  <% for (const r of RESOURCES) { %><td class="text-right tabular-nums <%= v.resources[r.id] >= v.storage ? 'text-blood-450' : '' %>"><%= num(v.resources[r.id]) %></td><% } %>
+                  <td class="text-right tabular-nums"><%= v.market ? `${v.merchants.free}/${v.merchants.total}` : '—' %></td>
+                  <td class="text-right"><% if (v.market) { %><input type="number" name="count_<%= v.village.id %>" min="0" placeholder="0" class="<%= ui.inputSm %> w-20 text-right tabular-nums" aria-label="Offres depuis <%= v.village.name %>"><% } else { %><span class="text-[12px] text-parchment-500">Pas de marché</span><% } %></td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+          <div><button class="<%= btn('gold') %>" <%= withMarket.length ? '' : 'disabled' %>><%- icon('plus', 'size-3.5', 2.2) %>Créer les offres</button></div>
+        </form>
+      </section>

@@ -1,0 +1,26 @@
+<%# Tribu, onglet « Propriétés : description, image » (inclus par tribe.ejs, avec ses helpers : vid, t, relName, roleTag…). %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Profil de la tribu', `<a href="/village/${vid}/tribes/${tribe.id}" class="${ui.link} text-[13px]">Voir le profil public</a>`) %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-sm text-parchment-500">Description affichée sur le profil public de la tribu. Les ducs, barons et diplomates peuvent la modifier.</p>
+      <% if (can('diplomacy')) { %>
+        <form method="post" action="<%= t %>/description" class="flex flex-col gap-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <textarea name="description" rows="8" maxlength="5000" class="<%= ui.textarea %> w-full" aria-label="Description"><%= tribe.description %></textarea>
+          <div><button class="<%= btn('dark') %>">Enregistrer</button></div>
+        </form>
+      <% } else if (tribe.description) { %>
+        <p class="whitespace-pre-line text-parchment-300"><%= tribe.description %></p>
+      <% } else { %>
+        <p class="text-parchment-500">Pas encore de description.</p>
+      <% } %>
+      <div class="flex flex-col gap-3 border-t border-bronze-900 pt-4">
+        <h3 class="<%= ui.heading %>">Image de la tribu</h3>
+        <% if (tribe.avatar) { %>
+          <%- avatarImage('tribe', tribe, { cls: 'self-start' }) %>
+        <% } else { %>
+          <p class="text-parchment-500">Pas encore d'image.</p>
+        <% } %>
+        <% if (can('diplomacy')) { %><%- include('../avatar-form', { action: t + '/avatar', avatar: tribe.avatar }) %><% } %>
+      </div>
+    </div>
+  </section>

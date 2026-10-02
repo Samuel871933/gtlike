@@ -142,7 +142,7 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   await http(`${joined.location}/account/village-design`, { method: 'POST', form: { design: 'inconnu', _csrf: tokenOf(after.html) } });
   assert.match((await http(`${joined.location}/map`)).html, /"design":"blanc-bleu"/);
 
-  for (const page of ['', '/villages', '/villages?mode=prod', '/villages?mode=units', '/villages?mode=buildings', '/place', '/place?tab=troops', '/place?tab=troops&view=units', '/scavenge', '/map', '/reports', '/messages', '/tribe', '/market', '/ranking', '/ranking?type=continent', '/ranking?type=daily', '/ranking?type=daily&rec=loot', '/ranking?type=victory']) {
+  for (const page of ['', '/villages', '/villages?mode=prod', '/villages?mode=units', '/villages?mode=buildings', '/place', '/place?tab=troops', '/place?tab=troops&view=units', '/scavenge', '/map', '/reports', '/reports/folders', '/messages', '/tribe', '/market', '/ranking', '/ranking?type=continent', '/ranking?type=daily', '/ranking?type=daily&rec=loot', '/ranking?type=victory']) {
     const r = await http(joined.location + page);
     assert.ok([200, 302].includes(r.status), `${page} → ${r.status}`);
   }
@@ -387,6 +387,25 @@ test('messagerie : boîte, écriture avec groupe de tribu, mail circulaire, effa
   assert.match((await http(`${v}/reports`)).html, /name="perPage"[^>]*value="40"/);
   await http(`${v}/per-page`, { method: 'POST', form: { list: 'reports', perPage: '9999', _csrf: tokenOf(inbox.html) } });
   assert.match((await http(`${v}/reports`)).html, /name="perPage"[^>]*value="40"/);
+
+  // Archives de rapports : réservées au premium ; dossier créé, rapport archivé puis lu dans son dossier.
+  const { Entitlement, Village: VillageModel, Player: PlayerModel, Report } = require('../src/models');
+  const owner = await PlayerModel.findByPk((await VillageModel.findByPk(Number(v.split('/').pop()))).playerId);
+  assert.match((await http(`${v}/reports/folders`)).html, /réservées au premium/);
+  await http(`${v}/reports/folders`, { method: 'POST', form: { name: 'Refusé', _csrf: tokenOf(inbox.html) } });
+  assert.match((await http(`${v}/reports/folders`)).html, /Aucun dossier/);
+  await Entitlement.create({ scope: 'account', userId: owner.userId, itemKey: 'premium', startsAt: new Date(Date.now() - 60000), source: 'gift' });
+  await http(`${v}/reports/folders`, { method: 'POST', form: { name: 'Espionnages', _csrf: tokenOf(inbox.html) } });
+  const folders = await http(`${v}/reports/folders`);
+  const folderId = folders.html.match(/reports\?folder=(\d+)/)[1];
+  const report = await Report.create({ playerId: owner.id, type: 'attack', title: 'Espionnage de test', data: { perspective: 'attacker', attackerWins: null }, happenedAt: new Date() });
+  await http(`${v}/reports/bulk`, { method: 'POST', form: { action: 'move', ids: String(report.id), folder: folderId, _csrf: tokenOf(inbox.html) } });
+  assert.doesNotMatch((await http(`${v}/reports`)).html, /Espionnage de test/);
+  const archived = await http(`${v}/reports?folder=${folderId}`);
+  assert.match(archived.html, /Espionnage de test/);
+  assert.match(archived.html, /Rapports archivés/);
+  await http(`${v}/reports/archive-months`, { method: 'POST', form: { months: '12', _csrf: tokenOf(inbox.html) } });
+  assert.match((await http(`${v}/reports/folders`)).html, /value="12" selected/);
 });
 
 test('fin du monde : dans le menu des classements, une page par type de victoire, ancienne adresse redirigée', async () => {

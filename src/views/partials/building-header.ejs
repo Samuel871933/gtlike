@@ -34,7 +34,7 @@
         <dd class="flex flex-wrap items-baseline gap-x-2 sm:justify-end">
           <span class="text-lg font-semibold text-parchment-100 tabular-nums"><%= stat.value %></span>
           <% if (nextStat) { %>
-            <span class="inline-flex items-center gap-1 text-[13px] text-parchment-500"><span class="text-gold-400"><%- icon('arrowRight', 'size-3', 2.6) %></span><span class="font-semibold text-gold-200 tabular-nums"><%= nextStat.value %></span> au niv. <%= bLevel + 1 %></span>
+            <span class="inline-flex items-center gap-1 text-[13px] text-parchment-500"><span class="text-gold-400"><%- icon('arrowRight', 'size-3', 2.6) %></span><span class="<%= ui.figure %>"><%= nextStat.value %></span> au niv. <%= bLevel + 1 %></span>
           <% } %>
         </dd>
       </dl>

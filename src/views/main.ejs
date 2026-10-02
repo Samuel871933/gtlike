@@ -30,7 +30,7 @@
   <%- include('partials/building-header', { buildingId: 'main' , illustration: 'wide' }) %>
 
   <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
-  <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+  <div class="<%= ui.buildingGrid %>">
     <div class="max-xl:hidden xl:sticky xl:top-24"><%- include('partials/building-illustration', { buildingId: 'main' }) %></div>
     <div class="flex min-w-0 flex-col gap-5">
 
@@ -85,14 +85,11 @@
       </div>
       <% if (!ctx.premium) { %>
         <%# Incitation au premium : 3 emplacements de plus ; mise en avant quand la file est pleine. %>
-        <a href="<%= premiumHref %>" class="group flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-bronze-800 px-3 no-underline <%= queueFull ? 'bg-[linear-gradient(90deg,rgba(227,178,60,0.22),rgba(227,178,60,0.04))] py-2.5' : 'py-2 hover:bg-row-hover' %>">
-          <%- icon('adarton', `${queueFull ? 'size-9' : 'size-7'} drop-shadow-[0_0_8px_rgba(227,178,60,0.4)] transition group-hover:-rotate-12`) %>
-          <span class="flex min-w-0 flex-1 flex-col leading-snug">
-            <span class="<%= queueFull ? 'font-semibold text-parchment-100' : 'text-parchment-300' %>"><%= queueFull ? `File pleine ? Avec le premium, enchaîne jusqu’à ${premiumSlots} constructions.` : `Le premium allonge la file à ${premiumSlots} constructions.` %></span>
-            <span class="text-[13px] text-parchment-500"><%= ctx.cfg.premium.buildQueueBonus %> emplacements de plus dans chaque village · dès 30 Adartons</span>
-          </span>
-          <span class="<%= btn(queueFull ? 'gold' : 'dark', 'sm') %>">Passer au premium</span>
-        </a>
+        <%- include('partials/premium-banner', {
+          href: premiumHref, highlight: queueFull,
+          title: queueFull ? `File pleine ? Avec le premium, enchaîne jusqu’à ${premiumSlots} constructions.` : `Le premium allonge la file à ${premiumSlots} constructions.`,
+          detail: `${ctx.cfg.premium.buildQueueBonus} emplacements de plus dans chaque village · dès 30 Adartons`,
+        }) %>
       <% } %>
       <p class="border-t border-bronze-800 px-3 py-1.5 text-xs text-parchment-600">
         Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources (rien pour une démolition) ·
@@ -104,7 +101,7 @@
   <% if (tab === 'build') { %>
     <%# Bâtiments : besoins du niveau suivant (bois, argile, fer, durée, population) et bouton de construction. %>
     <section class="<%= ui.panel %> min-w-0">
-      <%- panelHead('Bâtiments', `<span class="text-[13px] font-semibold text-parchment-500 tabular-nums">${available.length} à construire</span>`) %>
+      <%- panelHead('Bâtiments', `<span class="${ui.headCount}">${available.length} à construire</span>`) %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
           <thead>

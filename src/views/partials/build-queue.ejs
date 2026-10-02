@@ -8,7 +8,7 @@
         <div class="flex flex-wrap justify-between gap-x-2">
           <span class="truncate font-semibold"><%= buildingName(o.building) %> <span class="font-medium <%= o.demolish ? 'text-blood-300' : 'text-parchment-500' %>"><%= o.demolish ? `démolition → niveau ${o.level}` : `niveau ${o.level}` %></span></span>
           <% if (running) { %>
-            <span class="font-semibold text-gold-200 tabular-nums" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span>
+            <span class="<%= ui.figure %>" data-countdown="<%= end %>"><%= duration((end - now) / 1000) %></span>
           <% } else { %>
             <span class="font-semibold text-parchment-500 tabular-nums"><%= duration((end - start) / 1000) %></span>
           <% } %>
