@@ -905,8 +905,10 @@
       ['star', d.fav ? 'Retirer des favoris' : 'Ajouter aux favoris', `${base}/favorites/${d.id}`, 'post'],
       ['market', 'Envoyer des ressources', `${base}/market?tab=send&x=${d.x}&y=${d.y}`],
     ];
-    // Cercle un peu aplati, à la forme de la case (53 × 38) : les icônes ne couvrent pas le village.
-    const rx = sw * 0.95 + 8; const ry = sh * 0.95 + 12;
+    // Cercle un peu aplati, à la forme de la case sans zoom (baseTw × baseTh, 53 × 38) : sans zoom, les icônes ne
+    // couvrent pas le village. Ce rayon ne suit pas le zoom : la roue garde sa taille et son espacement, comme sur GT
+    // (zoomé, elle se pose sur le village au lieu de s'éparpiller sur la carte).
+    const rx = baseTw * 0.95 + 8; const ry = baseTh * 0.95 + 12;
     const btn = 'pointer-events-auto absolute flex size-[30px] -translate-1/2 cursor-pointer items-center justify-center border-2 border-black bg-panel-top no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000] transition hover:scale-110 hover:bg-head-dark hover:text-parchment-100';
     const svg = (ic) => `<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MENU_ICONS[ic]}</svg>`;
     const ORDER = { market: 0, profile: 1, recruit: 1, message: 2, center: 2, star: 3, troops: 4 };

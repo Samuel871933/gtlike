@@ -62,8 +62,8 @@
   transform: scale(var(--village-scale, 1));
   transform-origin: center bottom;
 }
-.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.webp'); --village-inset: 17%; }
-.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.webp'); --village-inset: 9%; }
+.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.webp'); --village-inset: 20%; }
+.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.webp'); --village-inset: 13%; }
 .village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.webp'); --village-scale: .9; }
 .village-marker--4 { --village-image: url('/img/map/villages/beige/level-4.webp'); --village-scale: 1; }
 .village-marker--5 { --village-image: url('/img/map/villages/beige/level-5.webp'); --village-scale: 1.12; }
@@ -170,6 +170,7 @@
 .village-design--futuriste.village-marker--3 { --village-image: url('/img/map/villages/futuriste/level-3.webp'); --village-scale: 1.05; }
 .village-design--futuriste.village-marker--4 { --village-image: url('/img/map/villages/futuriste/level-4.webp'); --village-scale: 1.17; }
 .village-design--futuriste.village-marker--5 { --village-image: url('/img/map/villages/futuriste/level-5.webp'); --village-scale: 1.32; }
+.village-design--futuriste.village-marker--5 .village-sprite { background-position: calc(50% + 1px) center; }
 .village-design--futuriste.village-marker--6 { --village-image: url('/img/map/villages/futuriste/level-6.webp'); --village-scale: 1.43; }
 .village-design--halloween.village-marker--1 { --village-image: url('/img/map/villages/halloween/level-1.webp'); }
 .village-design--halloween.village-marker--2 { --village-image: url('/img/map/villages/halloween/level-2.webp'); }

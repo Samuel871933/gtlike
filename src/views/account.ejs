@@ -5,6 +5,7 @@
 <%- include('partials/account/theme', { sleep, vid, scheduled, shopLink }) %>
 <%- include('partials/account/design', { sleep, vid, scheduled, shopLink }) %>
 <%- include('partials/account/layout', { sleep, vid, scheduled, shopLink }) %>
+<%- include('partials/account/quickbar', { vid }) %>
 <% if (asSitter) { %>
   <section class="<%= ui.panel %>">
     <%- panelHead('Compte', '', { tag: 'h1' }) %>

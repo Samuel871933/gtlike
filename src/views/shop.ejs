@@ -10,16 +10,9 @@
     ['designs', 'Designs de village', 'L’apparence de tous tes villages sur la carte, du hameau à la capitale, vue par tous les joueurs. Le design Beige reste gratuit.', items.filter((i) => i.kind === 'design')],
   ];
   const preview = (it) => {
-    if (it.kind === 'theme') return `<div class="aspect-966/580 border-2 border-black bg-cover bg-center" style="background-image: url('/img/game-styles/${it.styleId}/background-preview.webp')" aria-hidden="true"></div>`;
-    // Design : vitrine sur un coin de carte, la capitale (niveau 6) en grand, puis la progression des niveaux 1 à 5.
-    if (it.kind === 'design') {
-      const marker = (l, w, h) => `<span class="village-marker village-marker--${l} village-design--${it.designId}" style="--tile-w:${w}px;--tile-h:${h}px"><span class="village-sprite"></span></span>`;
-      return `<div class="relative overflow-hidden border-2 border-black bg-[url(/img/map/terrain-grass.webp)] bg-size-[260px]" aria-hidden="true">
-        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(255,236,170,0.28),transparent_55%),radial-gradient(ellipse_at_50%_50%,transparent_55%,rgba(0,0,0,0.55))]"></div>
-        <div class="relative flex h-36 items-end justify-center pb-3">${marker(6, 140, 100)}</div>
-        <div class="relative flex items-end justify-center gap-1 border-t border-black/40 bg-black/35 px-2 py-1.5">${[1, 2, 3, 4, 5].map((l) => marker(l, 44, 32)).join('')}</div>
-      </div>`;
-    }
+    // Thème et design : aperçu commun avec les réglages du compte (helpers.cosmeticPreview).
+    if (it.kind === 'theme') return cosmeticPreview('theme', it.styleId);
+    if (it.kind === 'design') return cosmeticPreview('design', it.designId);
     const artwork = { premium: 'premium', 'cosmetics:all': 'all-cosmetics' }[it.key];
     if (artwork) return `<div class="flex h-24 items-center justify-center border-2 border-black bg-night" aria-hidden="true"><img src="/img/shop/${artwork}.webp" width="512" height="512" class="h-full max-w-full object-contain p-1" alt="" loading="lazy" decoding="async"></div>`;
     return `<div class="flex h-24 items-center justify-center border-2 border-black bg-night text-gold-400" aria-hidden="true">${icon(it.kind === 'premium' ? 'bolt' : 'star', 'size-10', 1.6)}</div>`;

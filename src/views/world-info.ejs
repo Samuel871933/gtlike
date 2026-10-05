@@ -44,7 +44,7 @@
     ]],
     ['Construction et production', [
       ['Production de base', `${num(cfg.baseProduction)} / h`],
-      ['Emplacements de la file', `${cfg.buildQueueSlots} (${cfg.buildQueueSlots + cfg.premium.buildQueueBonus} avec le premium)`],
+      ['Emplacements de la file', `${cfg.buildQueueSlots} (${cfg.buildQueueSlots + cfg.premium.buildQueueBonus} avec le premium, puis jusqu’à ${Math.max(cfg.buildQueueSlots + cfg.premium.buildQueueBonus, cfg.premium.maxQueue)} à +${Math.round((cfg.premium.extraOrderFactor - 1) * 100)} % par construction)`],
       ['Remboursement à l’annulation', `${Math.round(cfg.cancelRefund * 100)} %`],
       ['Recherche à la forge', cfg.tech === 'simple' ? 'Simple (une fois par unité)' : 'Aucune'],
     ]],

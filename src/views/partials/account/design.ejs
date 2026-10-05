@@ -1,27 +1,26 @@
 <%# Compte, panneau « Design des villages » (inclus par account.ejs, avec sleep, vid, scheduled, shopLink). %>
 <%# Design des villages : skin de ses propres villages sur la carte, vu par tous les joueurs (réglage du compte connecté). %>
 <section class="<%= ui.panel %>" id="design-villages">
-  <%- panelHead('Design des villages', `<span class="text-[13px] text-parchment-500">Beige gratuit, les autres à la <a href="/shop#designs" class="text-gold-200 underline hover:text-parchment-100">boutique</a> · tes villages sur la carte, vus par tous</span>`) %>
+  <%- panelHead('Design des villages', `<span class="text-[13px] text-parchment-500">Le design Beige est gratuit, les autres s’achètent à la <a href="/shop#designs" class="text-gold-200 underline hover:text-parchment-100">boutique</a></span>`) %>
+  <p class="border-b border-bronze-900 px-4 py-2.5 text-sm text-parchment-400">Le design donne leur apparence à tous tes villages sur la carte, du hameau à la capitale. Tous les joueurs le voient.</p>
   <div class="grid gap-3 p-4.5 sm:grid-cols-2 xl:grid-cols-3">
     <% for (const d of Object.values(VILLAGE_DESIGNS)) { const active = villageDesign && villageDesign.id === d.id; const owned = shopRights.has(`design:${d.id}`); %>
-      <form method="post" action="/village/<%= vid %>/account/village-design"
-            class="flex flex-col overflow-hidden border-2 border-black bg-panel-top <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),5px_5px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' %>">
+      <%# Carte et aperçu de la boutique (helpers.cosmeticPreview), aux couleurs du thème affiché. %>
+      <form method="post" action="/village/<%= vid %>/account/village-design" class="group flex flex-col gap-2 border-2 border-black bg-panel-top p-1 text-parchment-200 <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),4px_4px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),4px_4px_0_#050505]' %>">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="design" value="<%= d.id %>">
-        <%# Les six niveaux utilisent les mêmes marqueurs et échelles que sur la carte. %>
-        <div class="m-1 grid grid-cols-3 gap-1 border-2 border-black bg-[url(/img/map/terrain-grass.webp)] bg-size-[220px] p-2" aria-hidden="true">
-          <% for (let level = 1; level <= 6; level++) { %>
-            <span class="village-design-preview-cell"><span class="village-marker village-marker--<%= level %> village-design--<%= d.id %>"><span class="village-sprite"></span></span></span>
-          <% } %>
-        </div>
-        <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
+        <%- cosmeticPreview('design', d.id) %>
+        <span class="flex flex-1 flex-col gap-1.5 px-2.5 pb-2.5">
           <span class="flex items-center justify-between gap-2">
-            <span class="font-display text-lg font-semibold tracking-[0.02em] text-gold-400"><%= d.name %></span>
+            <span class="font-display text-lg font-semibold text-gold-400"><%= d.name %></span>
             <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } else if (!owned) { %><span class="inline-flex items-center gap-1 text-[13px] text-parchment-500"><%- icon('lock', 'size-3.5', 2) %>À débloquer</span><% } %>
           </span>
           <span class="text-sm text-parchment-400"><%= d.description %></span>
-          <% if (!active && owned) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
-          <% if (!owned) { %><a href="<%= shopLink(`design:${d.id}`) %>" class="<%= btn('dark', 'sm', 'mt-auto w-full') %>"><%- icon('adarton', 'size-5') %>Débloquer</a><% } %>
-        </div>
+          <span class="mt-auto flex border-t border-bronze-900 pt-2">
+            <% if (!active && owned) { %><button class="<%= btn('gold', 'sm', 'w-full') %>">Appliquer</button><% } %>
+            <% if (!owned) { %><a href="<%= shopLink(`design:${d.id}`) %>" class="<%= btn('dark', 'sm', 'w-full') %>"><%- icon('adarton', 'size-5') %>Débloquer</a><% } %>
+            <% if (active) { %><span class="text-sm text-parchment-500">Utilisé en ce moment</span><% } %>
+          </span>
+        </span>
       </form>
     <% } %>
   </div>

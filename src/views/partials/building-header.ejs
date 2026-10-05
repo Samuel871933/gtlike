@@ -23,7 +23,10 @@
       <div class="flex min-w-0 flex-col gap-0.5">
         <div class="flex items-center gap-1.5">
           <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[28px]"><%= bType.name %> <span class="font-sans text-sm font-semibold text-gold-400 [text-shadow:none]">· <%= bLevel ? `niveau ${bLevel}` : 'non construit' %></span></h1>
-          <%- favStar(ctx.village.id, buildingId, favoriteBuildings(player, ctx).includes(buildingId), csrfToken, 'size-8') %>
+          <%# Étoile de l'onglet affiché (favTab, sinon tab des données de la page) : « Pillage » plutôt que le bâtiment. %>
+          <% const starKey = favKey(buildingId, typeof favTab !== 'undefined' && favTab ? favTab : typeof tab !== 'undefined' ? tab : null, ctx.cfg);
+             const starTab = starKey.includes(':') ? starKey.split(':')[1] : null; %>
+          <%- favStar(ctx.village.id, buildingId, favoriteBuildings(player, ctx).includes(starKey), csrfToken, 'size-8', starTab) %>
         </div>
         <p class="text-sm text-parchment-500"><%= bType.description %></p>
       </div>

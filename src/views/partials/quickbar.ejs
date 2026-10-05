@@ -1,14 +1,33 @@
 <%#
-  Barre d'accès rapide (sous le menu principal) : les bâtiments favoris du joueur (étoiles du plan du village,
-  du quartier général et des pages de bâtiment). Rendue seule après un clic sur une étoile (game.js).
+  Barre d'accès rapide (sous le menu principal, ou à l'emplacement choisi au compte : barre en bas, colonne à gauche ou à droite) : les bâtiments favoris du joueur (étoiles du plan du village,
+  du quartier général et des pages de bâtiment), ou un onglet d'un bâtiment (Pillage du point de ralliement…). Rendue seule après un clic sur une étoile (game.js).
 %>
 <% const v = `/village/${ctx.village.id}`;
-   const quick = favoriteBuildings(player, ctx).map((id) => registry.building(id)); %>
-<nav class="flex min-w-0 gap-0.5 overflow-x-auto [scrollbar-width:none]" aria-label="Bâtiments favoris" data-quickbar data-page="<%= page || '' %>">
-  <% for (const b of quick) { const on = page === b.id; %>
-    <a href="<%= v %>/<%= buildingPath(b.id, ctx.cfg) %>" class="flex shrink-0 items-center gap-[5px] border px-[9px] py-1 text-[13px] font-semibold whitespace-nowrap no-underline transition <%= on ? 'border-bronze-500 bg-head-dark text-parchment-100' : 'border-transparent text-gold-400 hover:border-blood-800 hover:bg-row-hover hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>>
-      <%- buildingImg(b.id, ctx.state.level(b.id), '-my-1 h-[22px] w-[25px]') %><%= b.name %>
+   // Page affichée : son bâtiment (page) et son onglet (favTab, sinon tab des données de la page).
+   const currentTab = typeof favTab !== 'undefined' && favTab ? favTab : typeof tab !== 'undefined' ? tab : null;
+   const currentKey = page ? favKey(page, currentTab, ctx.cfg) : '';
+   const quick = favoriteEntries(player, ctx); %>
+<% const pos = typeof quickbarPos !== 'undefined' && quickbarPos ? quickbarPos : 'top';
+   const empty = `Ajoute des bâtiments en favoris avec l’étoile <span class="mx-1 text-gold-400">★</span>`; %>
+<% if (pos === 'top') { %>
+<nav class="flex min-w-0 gap-0.5 overflow-x-auto [scrollbar-width:none]" aria-label="Favoris" data-quickbar data-page="<%= page || '' %>" data-tab="<%= currentTab || '' %>">
+  <% for (const f of quick) { const on = currentKey === f.key; %>
+    <a href="<%= v %>/<%= f.path %>" title="<%= f.title %>" class="flex shrink-0 items-center gap-[5px] border px-[9px] py-1 text-[13px] font-semibold whitespace-nowrap no-underline transition <%= on ? 'border-bronze-500 bg-head text-on-accent' : 'border-transparent text-gold-400 hover:border-blood-800 hover:bg-row-hover hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>>
+      <%- buildingImg(f.id, ctx.state.level(f.id), '-my-1 h-[22px] w-[25px]') %><%= f.name %>
     </a>
   <% } %>
-  <% if (!quick.length) { %><span class="flex items-center px-2 text-[13px] text-parchment-600">Ajoute des bâtiments en favoris avec l’étoile <span class="mx-1 text-gold-400">★</span></span><% } %>
+  <% if (!quick.length) { %><span class="flex items-center px-2 text-[13px] text-parchment-600"><%- empty %></span><% } %>
 </nav>
+<% } else { %>
+<%# Barre fixée en bas de l'écran, ou colonne hors du contenu (left / right) : voir .quickbar-dock dans app.css. %>
+<nav class="quickbar-dock" data-pos="<%= pos %>" aria-label="Favoris" data-quickbar data-page="<%= page || '' %>" data-tab="<%= currentTab || '' %>">
+  <div class="quickbar-dock__inner">
+    <% for (const f of quick) { const on = currentKey === f.key; %>
+      <a href="<%= v %>/<%= f.path %>" title="<%= f.title %>" class="quickbar-dock__link"<%- on ? ' aria-current="page"' : '' %>>
+        <%- buildingImg(f.id, ctx.state.level(f.id), '-my-1 h-[22px] w-[25px] shrink-0') %><span class="quickbar-dock__name"><%= f.name %></span>
+      </a>
+    <% } %>
+    <% if (!quick.length) { %><span class="quickbar-dock__empty"><%- empty %></span><% } %>
+  </div>
+</nav>
+<% } %>

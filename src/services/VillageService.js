@@ -105,8 +105,11 @@ class VillageService {
       // Droits de boutique du propriétaire, gardés pour l'en-tête des pages (thème, design).
       ctx.ownerRights = userId ? await require('./ShopService').rightsFor(userId, village.worldId, { now, t }) : null;
       if (ctx.ownerRights && ctx.ownerRights.premium) ctx.buildQueueSlots += cfg.premium.buildQueueBonus;
-      ctx.premium = ctx.buildQueueSlots > cfg.buildQueueSlots;
+      ctx.premium = Boolean(ctx.ownerRights && ctx.ownerRights.premium);
     }
+    // File maximale : les emplacements au prix normal, et avec le premium, des ordres en plus de plus en plus chers
+    // (voir queueSurcharge), jusqu'à premium.maxQueue.
+    ctx.buildQueueMax = ctx.premium ? Math.max(ctx.buildQueueSlots, cfg.premium.maxQueue) : ctx.buildQueueSlots;
     // Mondes avec église : une seule première église par joueur (construite ou en chantier dans un autre village).
     if (cfg.hasFeature('church') && village.playerId) ctx.firstChurchElsewhere = await VillageService.hasFirstChurchElsewhere(village, t);
     ctx.popUsed = () => state.popUsed(ctx.buildOrders, ctx.recruitOrders, ctx.awayUnits);
@@ -233,7 +236,10 @@ class VillageService {
     if (type.id === 'church_f' && ctx.firstChurchElsewhere) option.blockers.push('Vous avez déjà une première église');
     if (ctx.buildOrders.some((o) => o.building === type.id && o.demolish)) option.blockers.push('Démolition en cours');
 
-    option.cost = type.costFor(level);
+    // Au-delà des emplacements au prix normal (premium) : surcoût du prochain ordre, appliqué au coût payé.
+    option.surcharge = VillageService.queueSurcharge(ctx);
+    option.baseCost = type.costFor(level);
+    option.cost = VillageService.withSurcharge(option.baseCost, option.surcharge);
     option.pop = type.popFor(level);
     option.duration = Math.round(type.buildTimeFor(level, state.level('main'), cfg) * (1 - (state.villageBonus?.buildSpeed || 0)));
 
@@ -242,12 +248,29 @@ class VillageService {
     if (ctx.popUsed() + option.pop > state.farmCapacity()) {
       option.blockers.push('La ferme est trop petite');
     }
-    if (ctx.buildOrders.length >= (ctx.buildQueueSlots ?? cfg.buildQueueSlots)) option.blockers.push('La file de construction est pleine');
+    if (ctx.buildOrders.length >= (ctx.buildQueueMax ?? ctx.buildQueueSlots ?? cfg.buildQueueSlots)) option.blockers.push('La file de construction est pleine');
     if (!state.canAfford(option.cost)) {
       option.lacksResources = true;
       option.availableAt = state.affordableAt(option.cost, ctx.now);
     }
     return option;
+  }
+
+  /**
+   * Multiplicateur du coût du prochain ordre de la file, comme sur GT : 1 tant qu'il reste un emplacement au prix
+   * normal, puis premium.extraOrderFactor par ordre en plus (×1,25 le 6ᵉ, ×1,25² le 7ᵉ… avec 5 emplacements).
+   * Les démolitions (gratuites) occupent une place mais ne paient rien.
+   */
+  static queueSurcharge(ctx) {
+    const slots = ctx.buildQueueSlots ?? ctx.cfg.buildQueueSlots;
+    const extra = ctx.buildOrders.length - slots + 1;
+    return extra > 0 ? ctx.cfg.premium.extraOrderFactor ** extra : 1;
+  }
+
+  /** Coût multiplié par le surcoût de la file (arrondi à l'unité supérieure). */
+  static withSurcharge(cost, factor) {
+    if (factor === 1) return cost;
+    return Object.fromEntries(Object.entries(cost).map(([r, n]) => [r, Math.ceil(n * factor)]));
   }
 
   /** Le joueur a-t-il une première église (construite ou en chantier) dans un autre de ses villages ? */
@@ -271,7 +294,7 @@ class VillageService {
     if (state.level('main') < cfg.demolishMainLevel) option.blockers.push(`Quartier général niveau ${cfg.demolishMainLevel}`);
     if ((village.loyalty ?? 100) < 100) option.blockers.push('Loyauté à 100 % requise');
     if (ctx.buildOrders.some((o) => o.building === type.id)) option.blockers.push('Chantier en cours sur ce bâtiment');
-    if (ctx.buildOrders.length >= (ctx.buildQueueSlots ?? cfg.buildQueueSlots)) option.blockers.push('La file de construction est pleine');
+    if (ctx.buildOrders.length >= (ctx.buildQueueMax ?? ctx.buildQueueSlots ?? cfg.buildQueueSlots)) option.blockers.push('La file de construction est pleine');
     return option;
   }
 

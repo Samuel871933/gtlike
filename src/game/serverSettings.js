@@ -3,7 +3,8 @@
 // Réglages d'un serveur privé, décrits une seule fois : le formulaire de création (views/server-new.ejs) est généré
 // à partir de cette liste et la saisie est validée par `parse`. Chaque réglage vise un chemin de la configuration du
 // monde (WorldConfig) ; sa valeur par défaut est celle de WorldConfig.DEFAULTS.
-//   type 'number' : min, max, step ; `scale` convertit la saisie en valeur stockée (minutes → secondes, % → fraction)
+//   type 'number' : min, max, step ; `scale` convertit la saisie en valeur stockée (minutes → secondes, % → fraction),
+//                   `offset` s'y ajoute (surcoût de 25 % → facteur 1,25)
 //   type 'bool'   : case à cocher
 //   type 'select' : options [[valeur, libellé]]
 // Fin du monde : seule la domination est proposée (les autres conditions restent désactivées sur tous les mondes).
@@ -19,6 +20,9 @@ const GROUPS = [
     { key: 'mapSize', label: 'Taille de la carte', type: 'select', options: [[200, '200 × 200'], [500, '500 × 500'], [1000, '1000 × 1000']], hint: 'Une petite carte rapproche les joueurs : les premiers combats arrivent plus tôt.' },
     { key: 'newbieDays', label: 'Protection des débutants (jours)', type: 'number', min: 0, max: 14, step: 1, hint: 'Pendant ce temps après son inscription, un joueur ne peut pas être attaqué par les autres joueurs.' },
     { key: 'buildQueueSlots', label: 'Emplacements de la file de construction', type: 'number', min: 1, max: 5, step: 1, hint: 'Nombre de constructions qu’on peut mettre en file au quartier général.' },
+    { key: 'premium.buildQueueBonus', label: 'Emplacements en plus avec le premium', type: 'number', min: 0, max: 10, step: 1, hint: 'Constructions en plus dans la file, au prix normal, pour les joueurs premium (3 sur Guerre Tribale).' },
+    { key: 'premium.maxQueue', label: 'File maximale avec le premium', type: 'number', min: 1, max: 50, step: 1, hint: 'Au-delà des emplacements au prix normal, un joueur premium peut encore ajouter des constructions jusqu’à ce total, de plus en plus chères.' },
+    { key: 'premium.extraOrderFactor', label: 'Surcoût par construction en plus (%)', type: 'number', min: 0, max: 100, step: 5, scale: 0.01, offset: 1, hint: 'Chaque construction au-delà des emplacements au prix normal coûte ce pourcentage de plus que la précédente (25 % sur Guerre Tribale : +25 %, +56 %, +95 %…).' },
   ] },
   { title: 'Unités et modules', intro: 'Les unités et les fonctionnalités disponibles. Tout ce qui est décoché disparaît du monde (bâtiments, unités, menus).', settings: [
     { key: 'features.archer', label: 'Archers et archers montés', type: 'bool', hint: 'Ajoute l’archer (caserne) et l’archer monté (écurie), et la défense contre les archers.' },
@@ -83,7 +87,7 @@ function formValue(setting, input = {}) {
   if (submitted && setting.type === 'bool') return input[setting.key] === '1';
   if (Object.prototype.hasOwnProperty.call(input, setting.key)) return input[setting.key];
   const v = get(WorldConfig.DEFAULTS, setting.key);
-  if (setting.type === 'number' && setting.scale) return Math.round((v / setting.scale) * 1000) / 1000;
+  if (setting.type === 'number' && setting.scale) return Math.round(((v - (setting.offset || 0)) / setting.scale) * 1000) / 1000;
   return v;
 }
 
@@ -104,7 +108,7 @@ function parse(body = {}) {
     } else {
       const n = Number(String(raw ?? '').replace(',', '.'));
       if (!Number.isFinite(n) || n < s.min || n > s.max) return { error: `${s.label} : entre ${s.min} et ${s.max}.` };
-      value = s.scale ? Math.round(n * s.scale * 1e6) / 1e6 : n;
+      value = s.scale ? Math.round(((s.offset || 0) + n * s.scale) * 1e6) / 1e6 : n;
     }
     set(config, s.key, value);
   }

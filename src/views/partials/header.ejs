@@ -174,7 +174,7 @@
       </div>
       <% if (next) { %><a href="/village/<%= next.id %>" data-village-link class="<%= arrow %>" title="Village suivant : <%= next.name %>" aria-label="Village suivant"><%- icon('chevronRight', 'size-3.5', 2.6) %></a><% } %>
     </div>
-    <%- include('quickbar') %>
+    <% if (quickbarPos === 'top') { %><%- include('quickbar') %><% } %>
   </div>
   <div class="flex min-w-0 flex-[0_1_auto] gap-[3px] overflow-x-auto [scrollbar-width:none]">
     <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; %>
@@ -198,6 +198,7 @@
 </div>
 </header>
 
+<% if (quickbarPos !== 'top') { %><%- include('quickbar') %><% } %>
 <main class="relative z-[2] mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] grow flex-col gap-3.5 px-2.5 pt-3.5 pb-10 minimal:gap-2.5 minimal:py-6">
 <% if (happyPopup) { %><%- include('happy-hour-popup') %><% } %>
 <% } else {

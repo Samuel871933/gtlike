@@ -135,6 +135,23 @@ test('pages : assistant réservé au premium, envoi rapide en JSON (raccourcis d
   assert.match((await http(`${v}/map`)).text, /"farm":\[\{"id":\d+,"name":"pilleurs","letter":"P"\}/);
   assert.match((await http(`${v}/place`)).text, /Retirer des favoris/);
 
+  // Favori d'un onglet : « Pillage » du point de ralliement dans la barre d'accès rapide, à côté du bâtiment.
+  await http(`${v}/buildings/place/favorite`, { method: 'POST', form: { tab: 'farm', _csrf: token(page.text) } });
+  assert.ok((await Player.findByPk(alice.id)).favoriteBuildings.includes('place:farm'));
+  const bar = (await http(`${v}/farm`)).text.match(/<nav[^>]*data-quickbar[\s\S]*?<\/nav>/)[0];
+  assert.match(bar, new RegExp(`href="${v}/farm"[^>]*aria-current="page"`));
+  await http(`${v}/buildings/place/favorite`, { method: 'POST', form: { tab: 'inconnu', _csrf: token(page.text) } });
+  // Onglet inconnu : c'est le bâtiment qui bascule (il était dans la barre par défaut, il en sort).
+  const keys = (await Player.findByPk(alice.id)).favoriteBuildings;
+  assert.ok(!keys.includes('place') && !keys.some((k) => k.endsWith(':inconnu')) && keys.includes('place:farm'));
+
+  // Barre des favoris déplacée (réglage du compte) : colonne hors de l'en-tête ; emplacement inconnu refusé.
+  await http(`${v}/account/quickbar-position`, { method: 'POST', form: { position: 'left', _csrf: token(page.text) } });
+  assert.match((await http(`${v}/farm`)).text, /class="quickbar-dock" data-pos="left"[^>]*data-quickbar/);
+  await http(`${v}/account/quickbar-position`, { method: 'POST', form: { position: 'milieu', _csrf: token(page.text) } });
+  assert.match((await http(`${v}/account`)).text, /id="barre-favoris"/);
+  assert.match((await http(`${v}/farm`)).text, /data-pos="left"/);
+
   const [fav] = await ArmyTemplateService.favorites(alice.id);
   const ok = await http(`${v}/farm/send`, { method: 'POST', json: true, form: { template: fav.id, target: barbs[2].id, _csrf: token(page.text) } });
   assert.equal(ok.status, 200);

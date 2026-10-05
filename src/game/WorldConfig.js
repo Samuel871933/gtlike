@@ -20,8 +20,10 @@ const DEFAULTS = {
   // première église (niveau 1 seulement) ; hors de toute zone d'une de ses églises, les troupes d'un joueur se battent
   // avec `faithless` de leur force (attaque depuis ce village, défense de ce village).
   church: { radius: [0, 4, 6, 8], firstRadius: 6, faithless: 0.5 },
-  // Premium (boutique, voir ShopService) : emplacements de file de construction en plus.
-  premium: { buildQueueBonus: 3 },
+  // Premium (boutique, voir ShopService) : emplacements de file de construction en plus, au prix normal. Au-delà,
+  // comme sur GT, la file continue jusqu'à `maxQueue` ordres, chaque ordre supplémentaire coûtant `extraOrderFactor`
+  // fois le précédent (×1,25 : +25 %, +56 %, +95 %…).
+  premium: { buildQueueBonus: 3, extraOrderFactor: 1.25, maxQueue: 20 },
   startBuildings: { main: 1, farm: 1, storage: 1, place: 1 },
   startResources: { wood: 500, stone: 500, iron: 500 },
   // Placement. emptyVillages : villages barbares créés à chaque inscription, en % comme coord.empty_villages de

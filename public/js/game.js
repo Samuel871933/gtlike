@@ -429,12 +429,12 @@
     e.preventDefault();
     const bar = document.querySelector('[data-quickbar]');
     const body = new URLSearchParams(new FormData(form));
-    if (bar) body.set('page', bar.dataset.page || '');
+    if (bar) { body.set('page', bar.dataset.page || ''); body.set('pageTab', bar.dataset.tab || ''); }
     try {
       const res = await fetch(form.action, { method: 'POST', body, headers: { accept: 'application/json' } });
       if (!res.ok) throw new Error(String(res.status));
       const { on, html } = await res.json();
-      const id = form.querySelector('[data-fav]').dataset.fav;
+      const id = CSS.escape(form.querySelector('[data-fav]').dataset.fav);
       document.querySelectorAll(`[data-fav="${id}"]`).forEach((b) => {
         b.setAttribute('aria-pressed', String(on));
         b.title = on ? 'Retirer des favoris' : 'Ajouter aux favoris';
@@ -936,6 +936,9 @@
     }
   });
 
+})();
+
+(() => {
   // Assistant de pillage : envoi d'un modèle favori, retrait d'une ligne et filtres sans recharger la page. Après un
   // envoi, les troupes du village baissent, la ligne s'estompe et les boutons des modèles devenus trop gros se
   // désactivent ; un filtre changé est enregistré puis la liste est relue.
@@ -992,9 +995,17 @@
         if (!res.ok) throw new Error(data.error || 'Envoi impossible.');
         if (sending) {
           for (const [id, n] of Object.entries(data.units || {})) left[id] = Math.max(0, (left[id] || 0) - n);
-          row?.classList.add('opacity-45');
           window.adarmaToast?.(`Attaque envoyée sur ${data.target.x}|${data.target.y}.`);
-        } else row?.remove();
+        }
+        // Village désormais attaqué : il sort de la liste, sauf si le filtre garde les villages vers lesquels une
+        // attaque est en route (la ligne s'estompe alors). Un village retiré (×) sort toujours.
+        const keep = sending && filters?.querySelector('[name="attacked"]')?.checked;
+        if (keep) row?.classList.add('opacity-45');
+        else if (row) {
+          row.remove();
+          const total = document.querySelector('[data-farm-total]');
+          if (total) total.textContent = String(Math.max(0, (Number(total.textContent) || 0) - 1));
+        }
       } catch (err) {
         window.adarmaToast?.(err.message, true);
       } finally {
@@ -1003,4 +1014,15 @@
       }
     });
   }
+})();
+
+// Barre des favoris en colonne (Compte → Barre des favoris) : elle se place sous l'en-tête collant, dont la hauteur
+// varie (style de jeu, passage à la ligne) ; mesurée ici dans --header-h (src/styles/app.css, .quickbar-dock).
+(() => {
+  const header = document.querySelector('body > header.sticky');
+  if (!header || !document.querySelector('.quickbar-dock')) return;
+  const measure = () => document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`);
+  measure();
+  if (window.ResizeObserver) new ResizeObserver(measure).observe(header);
+  else window.addEventListener('resize', measure);
 })();

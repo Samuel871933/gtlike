@@ -6,13 +6,19 @@
 //   npm run populate                    → 1000 joueurs sur le monde « speed »
 //   npm run populate -- skills 300      → 300 joueurs sur le monde « skills »
 //   npm run populate -- speed 1000 --reset  → retire d'abord le peuplement précédent de ce monde
+//   npm run populate -- speed 500 --add     → ajoute 500 joueurs à un monde déjà peuplé
+//
+// Une partie des comptes reçoit des cosmétiques, comme après des achats à la boutique (droits offerts sur ce monde) :
+// design de village (vu par tous sur la carte), thème de jeu, premium, et un texte de profil.
 //
 // Les comptes fictifs ont l'adresse <nom>@bots.adarma.local et le mot de passe « motdepasse ».
-// Sans --reset, le script refuse de peupler deux fois le même monde.
+// Sans --reset ni --add, le script refuse de peupler deux fois le même monde.
 
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const { sequelize, User, World, Player, Village, Tribe, TribeRelation } = require('../src/models');
+const { sequelize, User, World, Player, Village, Tribe, TribeRelation, Entitlement } = require('../src/models');
+const { VILLAGE_DESIGNS, DEFAULT_VILLAGE_DESIGN } = require('../src/web/villageDesigns');
+const { GAME_STYLES, DEFAULT_GAME_STYLE } = require('../src/web/gameStyles');
 const { MapPlacer } = require('../src/game/MapPlacer');
 const VillageState = require('../src/game/VillageState');
 const registry = require('../src/game/registry');
@@ -48,10 +54,11 @@ const VILLAGE_NAMES = ['Fort', 'Bastion', 'Colline', 'Rempart', 'Vallée', 'Moul
 function main() {
   const args = process.argv.slice(2);
   const reset = args.includes('--reset');
+  const add = args.includes('--add');
   const [slug = 'speed', countArg = '1000'] = args.filter((a) => !a.startsWith('--'));
   const count = Math.max(1, Math.min(20000, Number.parseInt(countArg, 10) || 1000));
   return (reset ? unpopulate(slug) : Promise.resolve())
-    .then(() => populate(slug, count))
+    .then(() => populate(slug, count, { add }))
     .finally(() => sequelize.close());
 }
 
@@ -81,6 +88,8 @@ async function unpopulate(slug) {
     const villageIds = [...(await Village.findAll({ where: { playerId: playerIds }, attributes: ['id'], raw: true, transaction: t })).map((v) => v.id), ...barbIds];
     // Tout ce qui dépend de ces lignes (rapports, succès, ordres, forums de tribu…) : supprimé, ou détaché
     // quand la référence est facultative (messages d'un joueur réel à un joueur fictif, par exemple).
+    // Droits de boutique offerts aux comptes fictifs (leur référence au compte est facultative : supprimés à part).
+    await Entitlement.destroy({ where: { userId: players.map((p) => p.userId) }, transaction: t });
     await purge(t, { Villages: villageIds, Tribes: tribeIds, Players: playerIds, Users: players.map((p) => p.userId) });
     console.log(`Peuplement précédent retiré : ${players.length} joueurs fictifs, ${tribeIds.length} tribus.`);
   });
@@ -127,14 +136,15 @@ async function purge(t, targets) {
   }
 }
 
-async function populate(slug, count) {
+async function populate(slug, count, { add = false } = {}) {
   const world = await World.findOne({ where: { slug } });
   if (!world) throw new Error(`Monde « ${slug} » introuvable (lancer le serveur une fois pour créer les mondes).`);
   const cfg = world.getConfig();
   const already = await Player.count({ where: { worldId: world.id }, include: [{ model: User, where: { email: { [Op.like]: `%@${BOT_DOMAIN}` } } }] });
-  if (already) throw new Error(`Le monde « ${slug} » est déjà peuplé (${already} joueurs fictifs).`);
+  if (already && !add) throw new Error(`Le monde « ${slug} » est déjà peuplé (${already} joueurs fictifs) : --add pour en ajouter, --reset pour recommencer.`);
 
-  const rng = rngFrom(world.id * 7919 + count);
+  // Graine différente à chaque ajout (sinon les mêmes noms reviendraient, déjà pris).
+  const rng = rngFrom(world.id * 7919 + count + already * 104729);
   const pick = (list) => list[Math.floor(rng() * list.length)];
   const between = (a, b) => a + Math.floor(rng() * (b - a + 1));
   const now = new Date();
@@ -275,8 +285,34 @@ async function populate(slug, count) {
     return list;
   });
 
+  // ---------------------------------------------------------------- Cosmétiques et profils
+  // Comme des achats sur ce monde : droit (Entitlement, portée monde, offert) et choix enregistré sur le compte.
+  const designs = Object.keys(VILLAGE_DESIGNS).filter((id) => id !== DEFAULT_VILLAGE_DESIGN);
+  const styles = Object.keys(GAME_STYLES).filter((id) => id !== DEFAULT_GAME_STYLE);
+  const MOTTOS = ['Recrutement ouvert aux joueurs actifs.', 'On ne pille pas mes fermes, merci.', 'Actif le soir, en vacances jamais.',
+    'Offres de commerce bienvenues : du fer contre du bois.', 'Mieux vaut un noble en route que deux en caserne.', 'Paix aux voisins, guerre aux autres.'];
+  const rights = [];
+  let designed = 0; let styled = 0; let premium = 0;
+  await sequelize.transaction(async (t) => {
+    for (const p of players) {
+      const user = {};
+      const right = (itemKey, days = null) => rights.push({
+        userId: p.userId, worldId: world.id, scope: 'world', itemKey, startsAt: now, endsAt: days ? new Date(now.getTime() + days * 86400000) : null, source: 'gift',
+      });
+      // Les gros joueurs dépensent plus volontiers.
+      const spender = rng() < 0.25 + 0.5 * (totals.get(p.id)?.points || 0) / (ranked[0].points || 1);
+      if (spender || rng() < 0.12) { user.villageDesign = pick(designs); right(`design:${user.villageDesign}`); designed += 1; }
+      if (spender && rng() < 0.4) { user.gameStyle = pick(styles); right(`theme:${user.gameStyle}`); styled += 1; }
+      if (spender && rng() < 0.5) { right('premium', between(3, 30)); premium += 1; }
+      if (Object.keys(user).length) await User.update(user, { where: { id: p.userId }, transaction: t });
+      if (rng() < 0.3) await p.update({ profileText: pick(MOTTOS) }, { transaction: t });
+    }
+    for (let i = 0; i < rights.length; i += 500) await Entitlement.bulkCreate(rights.slice(i, i + 500), { transaction: t });
+  });
+
   const inTribe = players.filter((p) => p.tribeId).length;
   console.log(`${players.length} joueurs, ${villages.length - barbarians} villages de joueurs, ${barbarians} villages barbares, ${tribes.length} tribus (${inTribe} membres).`);
+  console.log(`Cosmétiques : ${designed} designs de village, ${styled} thèmes, ${premium} premiums.`);
   console.log(`Comptes : <nom>@${BOT_DOMAIN} / ${PASSWORD} (ex. ${ranked[0].name}, ${ranked[0].points} points).`);
 }
 

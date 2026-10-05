@@ -23,7 +23,7 @@ router.get('/farm', ah(async (req, res) => {
   // Sans premium : la page présente l'assistant, sans la liste.
   const data = req.ctx.premium ? await FarmService.list(player, village, settings, { page: req.query.page }) : { rows: [], pagination: null };
   res.render('farm', {
-    page: 'place', settings, templates, favorites, ...data, premium: Boolean(req.ctx.premium),
+    page: 'place', favTab: 'farm', settings, templates, favorites, ...data, premium: Boolean(req.ctx.premium),
     farmLetter: ArmyTemplateService.letter, carry: combat.carryCapacity,
     worldUnits: registry.unitsFor(cfg).filter((u) => !u.stationary),
   });

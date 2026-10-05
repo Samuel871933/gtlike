@@ -25,12 +25,12 @@ const SCOPES = {
   server: { name: 'Tout mon serveur', hint: 'Pour tous les joueurs d’un de tes serveurs privés.' },
 };
 
-// Premium : une file de construction plus longue (WorldConfig.premium.buildQueueBonus) et les archives de rapports
+// Premium : une file de construction plus longue (WorldConfig.premium : buildQueueBonus, puis surcoût jusqu'à maxQueue) et les archives de rapports
 // (dossiers hors de la limite de la boîte, ReportService), l'image de profil et l'assistant de pillage (FarmService),
 // comme sur Guerre Tribale.
 const PREMIUM = {
   key: 'premium', kind: 'premium', name: 'Premium',
-  description: 'File de construction plus longue : 3 emplacements de plus dans chaque village. Archives de rapports : des dossiers hors de la limite de la boîte, gardés jusqu’à 2 ans. Image de profil. Assistant de pillage : tous tes villages barbares attaqués, filtrés, et l’attaque en un clic.',
+  description: 'File de construction plus longue : 3 emplacements de plus dans chaque village, puis jusqu’à 20 constructions en payant 25 % de plus à chacune. Archives de rapports : des dossiers hors de la limite de la boîte, gardés jusqu’à 2 ans. Image de profil. Assistant de pillage : tous tes villages barbares attaqués, filtrés, et l’attaque en un clic.',
   offers: [
     { id: 'world-3', scope: 'world', days: 3, price: 30 },
     { id: 'world-7', scope: 'world', days: 7, price: 60 },

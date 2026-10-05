@@ -28,7 +28,7 @@
     </div>
   <% } %>
   <p class="text-xs text-parchment-600">
-    File <%= ctx.buildOrders.length %>/<%= ctx.buildQueueSlots %><% if (ctx.premium) { %> (premium)<% } else { %> (<a href="/shop/item/premium?world=<%= encodeURIComponent(ctx.world.slug) %>" class="<%= ui.link %>">premium : <%= ctx.buildQueueSlots + ctx.cfg.premium.buildQueueBonus %></a>)<% } %> · une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources · une construction se termine gratuitement quand il lui reste moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes.
+    File <%= ctx.buildOrders.length %>/<%= ctx.buildQueueMax %><% if (ctx.premium) { %> (premium<%= ctx.buildQueueMax > ctx.buildQueueSlots ? `, ${ctx.buildQueueSlots} au prix normal` : '' %>)<% } else { %> (<a href="/shop/item/premium?world=<%= encodeURIComponent(ctx.world.slug) %>" class="<%= ui.link %>">premium : <%= ctx.buildQueueSlots + ctx.cfg.premium.buildQueueBonus %></a>)<% } %> · une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources · une construction se termine gratuitement quand il lui reste moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes.
   </p>
 <% } else { %>
   <p class="text-parchment-500">Aucune construction en cours.</p>

@@ -4,8 +4,11 @@
   // (construction, durée, achèvement, annulation), puis tableau des bâtiments (besoins, bouton du niveau suivant).
   // Pas de colonne « Accélération » : la boutique ne vend pas d'accélération (le premium allonge seulement la file).
   const vid = ctx.village.id;
-  // Premium (boutique) : file de construction plus longue ; sans premium, incitation quand la file est pleine.
-  const queueFull = ctx.buildOrders.length >= ctx.buildQueueSlots;
+  // Premium (boutique) : file de construction plus longue ; au-delà des emplacements au prix normal, des ordres en
+  // plus de plus en plus chers (VillageService.queueSurcharge). Sans premium, incitation quand la file est pleine.
+  const queueFull = ctx.buildOrders.length >= ctx.buildQueueMax;
+  const surcharge = Math.round((queueSurcharge - 1) * 100);
+  const extraPct = Math.round((ctx.cfg.premium.extraOrderFactor - 1) * 100);
   const premiumHref = `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`;
   const premiumSlots = ctx.buildQueueSlots + ctx.cfg.premium.buildQueueBonus;
   const favs = new Set(favoriteBuildings(player, ctx));
@@ -39,7 +42,7 @@
   <%# File en cours (constructions et démolitions). %>
   <% if (ctx.buildOrders.length) { %>
     <section class="<%= ui.panel %> min-w-0">
-      <%- panelHead('Constructions en cours', `<span class="flex items-center gap-2">${ctx.premium ? `<span class="${ui.tagGold}">Premium</span>` : ''}<span class="text-[13px] font-semibold ${queueFull ? 'text-gold-200' : 'text-parchment-500'} tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueSlots}</span></span>`) %>
+      <%- panelHead('Constructions en cours', `<span class="flex items-center gap-2">${ctx.premium ? `<span class="${ui.tagGold}">Premium</span>` : ''}${surcharge && !queueFull ? `<span class="text-[13px] font-semibold text-gold-200 tabular-nums" title="Coût supplémentaire de la prochaine construction de la file">prochaine : +${surcharge} %</span>` : ''}<span class="text-[13px] font-semibold ${queueFull || surcharge ? 'text-gold-200' : 'text-parchment-500'} tabular-nums" title="${ctx.premium ? `${ctx.buildQueueSlots} au prix normal, ${ctx.buildQueueMax} au plus` : ''}">${ctx.buildOrders.length} / ${ctx.buildQueueMax}</span></span>`) %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
           <thead><tr><th>Construction</th><th>Durée</th><th class="max-sm:hidden">Achèvement</th><th class="text-right">Annulation</th></tr></thead>
@@ -87,11 +90,12 @@
         <%# Incitation au premium : 3 emplacements de plus ; mise en avant quand la file est pleine. %>
         <%- include('partials/premium-banner', {
           href: premiumHref, highlight: queueFull,
-          title: queueFull ? `File pleine ? Avec le premium, enchaîne jusqu’à ${premiumSlots} constructions.` : `Le premium allonge la file à ${premiumSlots} constructions.`,
-          detail: `${ctx.cfg.premium.buildQueueBonus} emplacements de plus dans chaque village · dès 30 Adartons`,
+          title: queueFull ? `File pleine ? Avec le premium, enchaîne jusqu’à ${premiumSlots} constructions au prix normal.` : `Le premium allonge la file à ${premiumSlots} constructions au prix normal.`,
+          detail: `Puis jusqu’à ${ctx.cfg.premium.maxQueue} en payant ${extraPct} % de plus à chaque construction · dès 30 Adartons`,
         }) %>
       <% } %>
       <p class="border-t border-bronze-800 px-3 py-1.5 text-xs text-parchment-600">
+        <% if (ctx.premium && ctx.buildQueueMax > ctx.buildQueueSlots) { %>Premium : <%= ctx.buildQueueSlots %> constructions au prix normal, puis jusqu’à <%= ctx.buildQueueMax %>, chacune <%= extraPct %> % plus chère que la précédente<%= surcharge ? ` (prochaine : +${surcharge} %)` : '' %> ·<% } %>
         Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources (rien pour une démolition) ·
         moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes : « Terminer » est gratuit.
       </p>
@@ -102,6 +106,13 @@
     <%# Bâtiments : besoins du niveau suivant (bois, argile, fer, durée, population) et bouton de construction. %>
     <section class="<%= ui.panel %> min-w-0">
       <%- panelHead('Bâtiments', `<span class="${ui.headCount}">${available.length} à construire</span>`) %>
+      <% if (surcharge && !queueFull) { %>
+        <%# File au-delà des emplacements au prix normal (premium) : les coûts de la liste incluent le surcoût. %>
+        <p class="flex items-center gap-2 border-b border-bronze-800 bg-gold-400/12 px-3 py-2 text-sm text-parchment-200" role="note">
+          <span class="text-gold-200"><%- icon('alert', 'size-4', 2.2) %></span>
+          <span>La prochaine construction dépasse les <%= ctx.buildQueueSlots %> emplacements au prix normal : les coûts ci-dessous incluent <strong class="font-semibold text-gold-200">+<%= surcharge %> %</strong>. Survole un coût pour voir le prix normal.</span>
+        </p>
+      <% } %>
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
           <thead>
@@ -118,12 +129,17 @@
               <% if (o.maxed) { %>
                 <td colspan="6" class="text-center text-sm text-parchment-500">Bâtiment complètement terminé</td>
               <% } else { const reason = o.blockers[0] || null; %>
+                <% const extra = o.surcharge > 1; %>
                 <% for (const r of RESOURCES) { const short = o.cost[r.id] > ctx.state.resources[r.id]; %>
-                  <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= short ? 'text-blood-400' : '' %>"><span><%- resourceIcon(r.id) %></span><%= num(o.cost[r.id]) %></span></td>
+                  <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= short ? 'text-blood-400' : extra ? 'text-gold-200' : '' %>"<%- extra ? ` title="${r.label} : ${num(o.baseCost[r.id])} au prix normal, ${num(o.cost[r.id])} avec le surcoût de la file (+${surcharge} %)"` : '' %>><span><%- resourceIcon(r.id) %></span><%= num(o.cost[r.id]) %></span></td>
                 <% } %>
                 <td class="whitespace-nowrap max-md:hidden"><%- clock(o.duration) %></td>
                 <td class="whitespace-nowrap tabular-nums max-md:hidden"><span class="inline-flex items-center gap-1.5 <%= reason === 'La ferme est trop petite' ? 'text-blood-400' : 'text-parchment-300' %>"><span><%- resourceIcon('pop') %></span><%= num(o.pop) %></span></td>
                 <td class="text-right">
+                  <% if (extra && !reason) { %>
+                    <%# Surcoût de la file : ancien et nouveau coût au survol. %>
+                    <span class="mb-1 flex justify-end"><span class="inline-flex items-center gap-1 border border-gold-400 bg-night px-1.5 py-px text-[11px] font-semibold text-gold-200 tabular-nums" title="Surcoût de la file : <%= RESOURCES.map((r) => `${r.label} ${num(o.baseCost[r.id])} → ${num(o.cost[r.id])}`).join(' · ') %>"><%- icon('alert', 'size-3', 2.4) %>+<%= surcharge %> %</span></span>
+                  <% } %>
                   <% if (reason === 'La file de construction est pleine' && !ctx.premium) { %>
                     <span class="flex flex-col items-end text-[13px] leading-tight"><span class="text-parchment-500">File pleine</span><a href="<%= premiumHref %>" class="<%= ui.link %> inline-flex items-center gap-1"><%- icon('adarton', 'size-4') %>Agrandir la file</a></span>
                   <% } else if (reason) { %>

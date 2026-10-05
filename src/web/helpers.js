@@ -148,6 +148,8 @@ const RESOURCE_ICONS = Object.fromEntries(
 
 // Icônes au trait (grille 24 × 24) de la maquette, en ligne pour éviter toute dépendance.
 const ICONS = {
+  // Avertissement (triangle et point d'exclamation) : surcoût de la file de construction…
+  alert: '<path d="M12 3L2 20h20z"/><path d="M12 10v4M12 17v.5"/>',
   // Navigation
   overview: '<path d="M3 9l9-5 9 5z"/><path d="M5 20h14M6 17h12M7 17V10M11 17V10M13 17V10M17 17V10"/>',
   map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
@@ -236,26 +238,74 @@ const UNIT_ICONS = {
 const QUICKBAR = ['main', 'barracks', 'stable', 'garage', 'snob', 'smith', 'place', 'statue', 'market'];
 
 /**
- * Bâtiments favoris du joueur, dans l'ordre des bâtiments du jeu. Tant qu'il n'a rien choisi : la barre par
- * défaut (QUICKBAR), limitée aux bâtiments construits dans le village courant.
+ * Onglets d'un bâtiment qu'on peut mettre en favori : [{ key, name, path }] (adresse relative au village), le premier
+ * étant la page par défaut du bâtiment. Rien pour un bâtiment sans onglet.
  */
-function favoriteBuildings(player, ctx) {
-  const ids = player && Array.isArray(player.favoriteBuildings)
-    ? player.favoriteBuildings
-    : QUICKBAR.filter((id) => ctx && ctx.state.level(id) > 0);
-  const wanted = new Set(ids);
-  return [...registry.BUILDINGS.keys()].filter((id) => wanted.has(id) && (!ctx || registry.building(id).isAvailableIn(ctx.cfg)));
+function buildingTabs(id, world) {
+  if (id === 'place') {
+    return [
+      { key: 'commands', name: 'Commandes', path: 'place' },
+      { key: 'troops', name: 'Troupes', path: 'place?tab=troops' },
+      { key: 'sim', name: 'Simulateur', path: 'place?tab=sim' },
+      ...(world && world.scavenging && world.scavenging.active ? [{ key: 'scavenge', name: 'Collecte', path: 'scavenge' }] : []),
+      { key: 'farm', name: 'Pillage', path: 'farm' },
+    ];
+  }
+  if (id === 'market') {
+    return [['offers', 'Échange'], ['create', 'Créer des offres'], ['mass', 'Offres en masse'], ['send', 'Envoyer des ressources'],
+      ['transports', 'Transports'], ['merchants', 'Marchands'], ['own', 'Mes offres'], ['request', 'Demande']]
+      .map(([key, name], i) => ({ key, name, path: i ? `market?tab=${key}` : 'market' }));
+  }
+  if (id === 'main') return [{ key: 'build', name: 'Construction', path: 'main' }, { key: 'demolition', name: 'Démolition', path: 'main?tab=demolition' }];
+  if (['barracks', 'stable', 'garage'].includes(id)) {
+    return [{ key: 'recruit', name: 'Recrutement', path: `recruit/${id}` }, { key: 'dismiss', name: 'Désaffectation', path: `recruit/${id}?tab=dismiss` }];
+  }
+  return [];
+}
+
+/** Clé d'un favori : le bâtiment seul pour sa page par défaut (ou un onglet inconnu), sinon « bâtiment:onglet ». */
+function favKey(id, tab, world) {
+  const tabs = buildingTabs(id, world);
+  return tab && tabs.slice(1).some((t) => t.key === tab) ? `${id}:${tab}` : id;
 }
 
 /**
- * Étoile « favori » d'un bâtiment : petit formulaire (game.js l'envoie sans recharger la page et met à jour
- * la barre d'accès rapide). `cls` : placement et taille du bouton.
+ * Favoris du joueur (barre d'accès rapide) : bâtiments ou onglets de bâtiment, dans l'ordre des bâtiments du jeu puis
+ * de leurs onglets : [{ key, id, tab, name, title, path }]. Tant qu'il n'a rien choisi : la barre par défaut (QUICKBAR),
+ * limitée aux bâtiments construits dans le village courant.
  */
-function favStar(vid, buildingId, on, csrfToken, cls = 'size-7') {
+function favoriteEntries(player, ctx) {
+  const keys = player && Array.isArray(player.favoriteBuildings)
+    ? player.favoriteBuildings
+    : QUICKBAR.filter((id) => ctx && ctx.state.level(id) > 0);
+  const wanted = new Set(keys);
+  const out = [];
+  for (const id of registry.BUILDINGS.keys()) {
+    if (ctx && !registry.building(id).isAvailableIn(ctx.cfg)) continue;
+    const name = registry.building(id).name;
+    if (wanted.has(id)) out.push({ key: id, id, tab: null, name, title: name, path: buildingPath(id, ctx && ctx.cfg) });
+    for (const t of buildingTabs(id, ctx && ctx.cfg).slice(1)) {
+      if (wanted.has(`${id}:${t.key}`)) out.push({ key: `${id}:${t.key}`, id, tab: t.key, name: t.name, title: `${name} · ${t.name}`, path: t.path });
+    }
+  }
+  return out;
+}
+
+/** Clés des favoris du joueur (voir favoriteEntries) : « place », « place:farm »… */
+function favoriteBuildings(player, ctx) {
+  return favoriteEntries(player, ctx).map((f) => f.key);
+}
+
+/**
+ * Étoile « favori » d'un bâtiment, ou d'un de ses onglets (`tab`) : petit formulaire (game.js l'envoie sans recharger
+ * la page et met à jour la barre d'accès rapide). `cls` : placement et taille du bouton.
+ */
+function favStar(vid, buildingId, on, csrfToken, cls = 'size-7', tab = null) {
   const label = on ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  const key = tab ? `${buildingId}:${tab}` : buildingId;
   return `<form method="post" action="/village/${vid}/buildings/${buildingId}/favorite" class="contents" data-fav-form>`
-    + `<input type="hidden" name="_csrf" value="${esc(csrfToken)}">`
-    + `<button class="group/fav inline-flex shrink-0 cursor-pointer items-center justify-center text-parchment-500 transition hover:text-gold-200 aria-pressed:text-gold-200 ${cls}" data-fav="${buildingId}" aria-pressed="${on}" title="${label}" aria-label="${label}">`
+    + `<input type="hidden" name="_csrf" value="${esc(csrfToken)}">${tab ? `<input type="hidden" name="tab" value="${esc(tab)}">` : ''}`
+    + `<button class="group/fav inline-flex shrink-0 cursor-pointer items-center justify-center text-parchment-500 transition hover:text-gold-200 aria-pressed:text-gold-200 ${cls}" data-fav="${esc(key)}" aria-pressed="${on}" title="${label}" aria-label="${label}">`
     + icon('star', 'size-[70%] drop-shadow-[0_1px_1px_#000] group-aria-pressed/fav:fill-current', 2)
     + '</button></form>';
 }
@@ -446,6 +496,24 @@ function dayLabel(day, now = new Date()) {
   return `${d}.${m}.${y}`;
 }
 
+/**
+ * Aperçu d'un cosmétique, le même dans la boutique et dans les réglages du compte : le fond d'un thème de jeu
+ * (`kind` 'theme'), ou un design de village sur un coin de carte, la capitale (niveau 6) en grand puis les niveaux
+ * 1 à 5 (`kind` 'design'). Les couleurs autour suivent le thème affiché. Hauteur en px fixes (pas réduite en
+ * minimaliste) : les capitales les plus hautes (futuriste) dépassent de 42 px au-dessus de leur case.
+ */
+function cosmeticPreview(kind, id) {
+  if (kind === 'theme') {
+    return `<div class="aspect-966/580 border-2 border-black bg-cover bg-center" style="background-image: url('/img/game-styles/${esc(id)}/background-preview.webp')" aria-hidden="true"></div>`;
+  }
+  const marker = (l, w, h) => `<span class="village-marker village-marker--${l} village-design--${esc(id)}" style="--tile-w:${w}px;--tile-h:${h}px"><span class="village-sprite"></span></span>`;
+  return `<div class="relative overflow-hidden border-2 border-black bg-[url(/img/map/terrain-grass.webp)] bg-size-[260px]" aria-hidden="true">
+    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(255,236,170,0.28),transparent_55%),radial-gradient(ellipse_at_50%_50%,transparent_55%,rgba(0,0,0,0.55))]"></div>
+    <div class="relative flex h-[172px] items-end justify-center pb-[12px]">${marker(6, 140, 100)}</div>
+    <div class="relative flex items-end justify-center gap-1 border-t border-black/40 bg-black/35 px-2 py-1.5">${[1, 2, 3, 4, 5].map((l) => marker(l, 44, 32)).join('')}</div>
+  </div>`;
+}
+
 const ImageService = require('../services/ImageService');
 
 module.exports = {
@@ -458,6 +526,7 @@ module.exports = {
   GAME_STYLES: require('./gameStyles').GAME_STYLES,
   VILLAGE_DESIGNS: require('./villageDesigns').VILLAGE_DESIGNS,
   GAME_LAYOUTS: require('./gameLayouts').GAME_LAYOUTS,
+  QUICKBAR_POSITIONS: require('./quickbarPositions').QUICKBAR_POSITIONS,
   RESOURCES,
   RESOURCE_ICONS,
   UNIT_ICONS,
@@ -472,6 +541,9 @@ module.exports = {
   shield,
   QUICKBAR,
   favoriteBuildings,
+  favoriteEntries,
+  buildingTabs,
+  favKey,
   favStar,
   UNIT_GROUPS,
   buildingPath,
@@ -502,6 +574,7 @@ module.exports = {
   villageLabelLink,
   reportOutcome,
   haulIcon,
+  cosmeticPreview,
   reportTitle,
   attackDots,
   TIER_STYLES,

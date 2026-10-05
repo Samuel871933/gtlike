@@ -62,6 +62,16 @@ router.post('/account/game-layout', ah(async (req, res) => {
   res.redirect(`${base(req)}/account#style-de-jeu`);
 }));
 
+// Barre des favoris : en-tête, bas de l'écran, colonne à gauche ou à droite (réglage du compte).
+router.post('/account/quickbar-position', ah(async (req, res) => {
+  const { isQuickbarPosition, QUICKBAR_POSITIONS } = require('../../quickbarPositions');
+  const id = String(req.body.position || '');
+  if (!isQuickbarPosition(id)) throw new GameError('Emplacement inconnu.');
+  await req.user.update({ quickbarPosition: id });
+  flash(req, 'success', `Barre des favoris : ${QUICKBAR_POSITIONS[id].name.toLowerCase()}.`);
+  res.redirect(`${base(req)}/account#barre-favoris`);
+}));
+
 // Design des villages : skin de ses villages sur la carte, vu par tous (réglage du compte, comme le style de jeu).
 router.post('/account/village-design', ah(async (req, res) => {
   const { isVillageDesign, VILLAGE_DESIGNS } = require('../../villageDesigns');

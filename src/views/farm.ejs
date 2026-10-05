@@ -37,7 +37,7 @@
 <%# Modèles d'armée (ceux du point de ralliement) : l'étoile en fait un favori (3 au plus), bouton de l'assistant et
     raccourci de la carte ; capacité de butin de chacun. %>
 <section class="<%= ui.panel %>" id="modeles">
-  <%- panelHead("Modèles d'armée", `<span class="flex items-center gap-3"><span class="${ui.headCount}">${favorites.length} / 3 favoris</span><a href="/village/${vid}/place#modeles" class="${ui.link} font-sans text-xs">Créer un modèle</a></span>`) %>
+  <%- panelHead("Modèles d'armée", `<span class="flex items-center gap-3"><span class="font-sans text-[11px] text-parchment-300 tabular-nums">${favorites.length} / 3 favoris</span><a href="/village/${vid}/place#modeles" class="${ui.link} font-sans text-xs">Créer un modèle</a></span>`) %>
   <% if (!templates.length) { %>
     <p class="<%= ui.empty %>">Aucun modèle d’armée. Crée tes modèles au point de ralliement, puis mets jusqu’à 3 d’entre eux en favori (☆) : ils deviennent les boutons de l’assistant et des raccourcis sur la carte.</p>
   <% } else { %>

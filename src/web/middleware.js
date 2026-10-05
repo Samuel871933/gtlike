@@ -103,6 +103,7 @@ const loadVillage = ah(async (req, res, next) => {
   Object.assign(res.locals, {
     unreadByFilter, unreadReports: unreadByFilter.all, myVillages, incomingAttacks, player, shopRights: rights,
     gameStyle: gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights), gameLayout: gameLayoutFor(req.user),
+    quickbarPos: require('./quickbarPositions').quickbarPositionFor(req.user),
     playerRank: 1 + betterPlayers, tribeInvites, tribeForumUnread, unreadMessages,
   });
   // Happy hour des Adartons : popup en jeu tant que ce créneau n'a pas été vu par le compte (la popup le signale
@@ -118,7 +119,7 @@ const loadVillage = ah(async (req, res, next) => {
 /** Valeurs par défaut des vues (en-tête hors partie), posées pour chaque requête et par la page d'erreur. */
 const BASE_LOCALS = () => ({
   ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null,
-  playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, asSitter: false, happyPopup: null,
+  playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, quickbarPos: 'top', asSitter: false, happyPopup: null,
 });
 
 function errorHandler(err, req, res, _next) {

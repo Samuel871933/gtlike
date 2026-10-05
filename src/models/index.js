@@ -15,6 +15,8 @@ const User = sequelize.define('User', {
   villageDesign: { type: DataTypes.STRING(16), allowNull: true },
   // Style de jeu (densité de l'interface) (src/web/gameLayouts.js) : normal ou minimaliste ; nul = minimaliste (par défaut).
   gameLayout: { type: DataTypes.STRING(16), allowNull: true },
+  // Emplacement de la barre des favoris (src/web/quickbarPositions.js) : top, bottom, left, right ; nul = top.
+  quickbarPosition: { type: DataTypes.STRING(8), allowNull: true },
   // Solde d'Adartons, la monnaie de la boutique (voir ShopService) ; chaque mouvement est inscrit dans AdartonTransactions.
   adartons: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   // Dernière happy hour déjà annoncée par la popup du jeu (fin du créneau, en ISO) : une seule fois par créneau.

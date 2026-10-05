@@ -14,7 +14,7 @@ const scavenging = require('../../../game/scavenging');
 const knightSkills = require('../../../game/knightSkills');
 const GameError = require('../../../services/GameError');
 const registry = require('../../../game/registry');
-const { favoriteBuildings } = require('../../helpers');
+const { favoriteBuildings, favKey } = require('../../helpers');
 const { ah, back, flash } = require('../../middleware');
 const { base, me } = require('./shared');
 
@@ -28,6 +28,8 @@ router.get('/main', (req, res) => {
   res.render('main', {
     page: 'main',
     tab: req.query.tab === 'demolition' ? 'demolition' : 'build',
+    // Coût supplémentaire du prochain ordre de la file (premium, au-delà des emplacements au prix normal).
+    queueSurcharge: VillageService.queueSurcharge(req.ctx),
     demolitions: types.map((type) => VillageService.demolishOption(req.ctx, type)).filter((o) => o.current > 0),
     available: options.filter((o) => !o.maxed && !(o.missing && o.missing.length)),
     maxed: options.filter((o) => o.maxed),
@@ -86,16 +88,18 @@ router.post('/buildings/:buildingId/favorite', ah(async (req, res) => {
   const id = req.params.buildingId;
   const type = registry.BUILDINGS.get(id);
   if (!type || !type.isAvailableIn(req.ctx.cfg)) throw new GameError('Bâtiment inconnu.', 404);
+  // Favori d'un onglet (« Pillage » du point de ralliement…) : clé « bâtiment:onglet ».
+  const key = favKey(id, req.body.tab, req.ctx.cfg);
   const player = await Player.findByPk(me(req));
   const current = favoriteBuildings(player, req.ctx);
-  const on = !current.includes(id);
-  await player.update({ favoriteBuildings: on ? [...current, id] : current.filter((b) => b !== id) });
+  const on = !current.includes(key);
+  await player.update({ favoriteBuildings: on ? [...current, key] : current.filter((b) => b !== key) });
   if (req.get('accept') !== 'application/json') return res.redirect(back(req, base(req)));
   res.locals.player = player;
   const html = await new Promise((resolve, reject) => {
-    res.render('partials/quickbar', { page: String(req.body.page || '') }, (err, out) => (err ? reject(err) : resolve(out)));
+    res.render('partials/quickbar', { page: String(req.body.page || ''), favTab: String(req.body.pageTab || '') }, (err, out) => (err ? reject(err) : resolve(out)));
   });
-  res.json({ on, html });
+  res.json({ on, key, html });
 }));
 
 router.post('/build', ah(async (req, res) => {
@@ -276,7 +280,7 @@ router.post('/research/:orderId/cancel', ah(async (req, res) => {
 router.get('/scavenge', ah(async (req, res) => {
   if (!ScavengeService.enabled(req.ctx.cfg)) throw new GameError("La collecte n'existe pas sur ce monde.", 404);
   res.render('scavenge', {
-    page: 'place', options: await ScavengeService.overview(req.ctx), units: scavenging.unitsFor(req.ctx.cfg),
+    page: 'place', favTab: 'scavenge', options: await ScavengeService.overview(req.ctx), units: scavenging.unitsFor(req.ctx.cfg),
   });
 }));
 

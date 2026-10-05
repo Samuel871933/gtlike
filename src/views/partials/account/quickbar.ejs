@@ -1,0 +1,37 @@
+<%# Compte, panneau « Barre des favoris » (inclus par account.ejs, avec vid) : emplacement de la barre d'accès rapide
+    (src/web/quickbarPositions.js), réglage du compte connecté. Aperçus schématiques en px fixes. %>
+<section class="<%= ui.panel %>" id="barre-favoris">
+  <%- panelHead('Barre des favoris', `<span class="text-[13px] text-parchment-500">Gratuit · bâtiments et onglets mis en favori (★)</span>`) %>
+  <div class="grid gap-3 p-4.5 sm:grid-cols-2 xl:grid-cols-4">
+    <% for (const q of Object.values(QUICKBAR_POSITIONS)) { const active = quickbarPos === q.id; %>
+      <form method="post" action="/village/<%= vid %>/account/quickbar-position"
+            class="flex flex-col overflow-hidden border-2 border-black bg-panel-top text-parchment-200 <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),5px_5px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="position" value="<%= q.id %>">
+        <%# Écran schématique : en-tête, contenu, et la barre des favoris (dorée) à son emplacement. %>
+        <div class="relative m-1 h-[104px] overflow-hidden border-2 border-black bg-night" aria-hidden="true">
+          <span class="absolute inset-x-0 top-0 flex h-[16px] items-center gap-[4px] border-b border-bronze-500 bg-head px-[6px]">
+            <span class="h-[4px] w-[22px] bg-parchment-100/70"></span>
+            <% if (q.id === 'top') { %><span class="ml-[6px] flex gap-[3px]"><% for (let i = 0; i < 4; i++) { %><span class="h-[6px] w-[12px] bg-gold-400"></span><% } %></span><% } %>
+          </span>
+          <span class="absolute top-[24px] bottom-[10px] left-1/2 flex w-[52%] -translate-x-1/2 flex-col gap-[6px]">
+            <% for (const w of ['w-full', 'w-[80%]', 'w-full']) { %><span class="h-[16px] <%= w %> border border-black bg-panel-top"></span><% } %>
+          </span>
+          <% if (q.id === 'bottom') { %>
+            <span class="absolute inset-x-0 bottom-0 flex h-[12px] items-center justify-center gap-[3px] border-t border-bronze-500 bg-head-dark"><% for (let i = 0; i < 5; i++) { %><span class="h-[5px] w-[12px] bg-gold-400"></span><% } %></span>
+          <% } else if (q.id !== 'top') { %>
+            <span class="absolute top-[24px] flex w-[16%] flex-col gap-[3px] <%= q.id === 'left' ? 'left-[5px]' : 'right-[5px]' %>"><% for (let i = 0; i < 5; i++) { %><span class="h-[6px] w-full bg-gold-400"></span><% } %></span>
+          <% } %>
+        </div>
+        <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
+          <span class="flex items-center justify-between gap-2">
+            <span class="font-display text-lg font-semibold tracking-[0.02em] text-gold-400"><%= q.name %></span>
+            <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
+          </span>
+          <span class="text-sm text-parchment-400"><%= q.description %></span>
+          <% if (!active) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
+        </div>
+      </form>
+    <% } %>
+  </div>
+  <p class="<%= ui.panelNote %> border-t border-bronze-800">Sur un écran trop étroit pour une colonne, la barre se place en bas de l’écran.</p>
+</section>

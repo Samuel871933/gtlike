@@ -438,7 +438,7 @@ html.game_style body::before,
 .map-shore-corner--ne { transform: translate(-50%, -50%) rotate(90deg); }
 .map-shore-corner--sw { transform: translate(-50%, -50%) rotate(270deg); }
 .map-tile:hover { filter: brightness(1.16); box-shadow: inset 0 0 0 2px rgb(240 208 138 / .45); }
-.map-tile[data-selected] { position: relative; z-index: 4; box-shadow: inset 0 0 0 3px var(--color-gold-200), inset 0 0 14px rgb(244 219 160 / .5) !important; }
+.map-tile[data-selected] { position: absolute; z-index: 4; box-shadow: inset 0 0 0 3px var(--color-gold-200), inset 0 0 14px rgb(244 219 160 / .5) !important; }
 .map-viewport.is-dragging .map-tile { pointer-events: none; }
 .map-decor { z-index: 1; width: var(--tile-w); height: var(--tile-h); }
 /* Sans transform (des centaines par carte, chacun coûtait un nœud de composition à chaque image d'un glisser) :
@@ -488,8 +488,8 @@ html.game_style body::before,
   transform: scale(var(--village-scale, 1));
   transform-origin: center bottom;
 }
-.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.webp'); --village-inset: 17%; }
-.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.webp'); --village-inset: 9%; }
+.village-marker--1 { --village-image: url('/img/map/villages/beige/level-1.webp'); --village-inset: 20%; }
+.village-marker--2 { --village-image: url('/img/map/villages/beige/level-2.webp'); --village-inset: 13%; }
 /* Les images 3 à 6 ont des proportions voisines : sans échelle, elles paraissent de même taille. */
 .village-marker--3 { --village-image: url('/img/map/villages/beige/level-3.webp'); --village-scale: .9; }
 .village-marker--4 { --village-image: url('/img/map/villages/beige/level-4.webp'); --village-scale: 1; }
@@ -598,6 +598,7 @@ html.game_style body::before,
 .village-design--futuriste.village-marker--3 { --village-image: url('/img/map/villages/futuriste/level-3.webp'); --village-scale: 1.05; }
 .village-design--futuriste.village-marker--4 { --village-image: url('/img/map/villages/futuriste/level-4.webp'); --village-scale: 1.17; }
 .village-design--futuriste.village-marker--5 { --village-image: url('/img/map/villages/futuriste/level-5.webp'); --village-scale: 1.32; }
+.village-design--futuriste.village-marker--5 .village-sprite { background-position: calc(50% + 1px) center; }
 .village-design--futuriste.village-marker--6 { --village-image: url('/img/map/villages/futuriste/level-6.webp'); --village-scale: 1.43; }
 .village-design--halloween.village-marker--1 { --village-image: url('/img/map/villages/halloween/level-1.webp'); }
 .village-design--halloween.village-marker--2 { --village-image: url('/img/map/villages/halloween/level-2.webp'); }
@@ -632,7 +633,6 @@ html.game_style body::before,
 .village-marker--barb { --village-color: #858585; filter: grayscale(1) saturate(0) brightness(.92) contrast(1.08) drop-shadow(0 2px 1px rgb(0 0 0 / .82)); }
 .village-marker--current { filter: drop-shadow(0 0 4px var(--color-rel-own)) drop-shadow(0 2px 1px #000); }
 .village-marker--large { width: 92px; height: 92px; }
-.village-design-preview-cell { display: flex; min-height: 60px; align-items: center; justify-content: center; }
 .village-special { position: absolute; z-index: 3; top: 0; right: 1px; color: var(--color-gold-200); font-size: 13px; text-shadow: 0 1px 2px #000; }
 [data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }
 [data-game-style="viking"] .village-design--futuriste .village-sprite { filter: none; }
@@ -849,4 +849,66 @@ html.game_style body::before,
   padding: 2px 10px;
   color: var(--color-gold-200);
   font-weight: 600;
+}
+
+/* Barre des favoris hors de l'en-tête (Compte → Barre des favoris, partials/quickbar.ejs) : fixée en bas de l'écran,
+   ou colonne fixée hors du contenu (data-pos left / right). Une colonne demande la place de la page (1500 px, 1120 px
+   en minimaliste) plus la sienne de chaque côté : en dessous, elle devient la barre du bas. --header-h : hauteur de
+   l'en-tête collant, mesurée par game.js. */
+.quickbar-dock {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 35;
+  border-top: 3px solid var(--color-bronze-500); background: var(--color-night);
+  box-shadow: 0 -2px 0 var(--color-head-dark), 0 -6px 0 rgb(0 0 0 / .35);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.quickbar-dock__inner {
+  display: flex; gap: 2px; max-width: 1500px; margin-inline: auto; padding: 5px 10px;
+  overflow-x: auto; scrollbar-width: none;
+}
+[data-game-layout="minimal"] .quickbar-dock__inner { max-width: 1120px; }
+/* Minimaliste : trait fin, sans ombre, comme l'en-tête. */
+[data-game-layout="minimal"] .quickbar-dock { border-top-width: 1px; box-shadow: none; }
+.quickbar-dock__link {
+  display: flex; flex-shrink: 0; align-items: center; gap: 5px; min-width: 0; padding: 4px 9px;
+  border: 1px solid transparent; color: var(--color-gold-400); font-size: 13px; font-weight: 600;
+  white-space: nowrap; text-decoration: none; transition: background-color .15s, color .15s, border-color .15s;
+}
+.quickbar-dock__link:hover { border-color: var(--color-blood-800); background: var(--color-row-hover); color: var(--color-parchment-100); }
+/* Favori de la page affichée : aplat d'en-tête de panneau et texte clair, lisible dans tous les thèmes. */
+.quickbar-dock__link[aria-current="page"] { border-color: var(--color-bronze-500); background: var(--color-head); color: var(--color-on-accent); }
+.quickbar-dock__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.quickbar-dock__empty { display: flex; align-items: center; padding: 4px 8px; color: var(--color-parchment-600); font-size: 13px; }
+/* Barre du bas (colonnes repliées comprises) : le pied de page s'allonge d'autant, son fond passe sous la barre
+   (pas de bande vide sous la page). */
+body:has(.quickbar-dock) > footer:last-of-type { padding-bottom: 46px; }
+
+/* Colonnes : assez de place pour la page (1500 px) et une colonne de 176 px de chaque côté. */
+@media (min-width: 1900px) {
+  :root:not([data-game-layout="minimal"]) :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) {
+    inset-inline: auto; bottom: auto; top: calc(var(--header-h, 100px) + 14px); width: 176px;
+    max-height: calc(100vh - var(--header-h, 100px) - 28px); overflow-y: auto; padding: 0;
+    border: 2px solid #000; background: var(--color-panel-top);
+    box-shadow: inset 0 0 0 1px var(--color-bronze-500), 4px 4px 0 #000;
+  }
+  :root:not([data-game-layout="minimal"]) .quickbar-dock[data-pos="left"] { left: calc((100vw - 1500px) / 2 - 176px - 14px); }
+  :root:not([data-game-layout="minimal"]) .quickbar-dock[data-pos="right"] { right: calc((100vw - 1500px) / 2 - 176px - 14px); }
+  :root:not([data-game-layout="minimal"]) :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) .quickbar-dock__inner { flex-direction: column; max-width: none; padding: 4px; overflow: visible; }
+  :root:not([data-game-layout="minimal"]) :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) .quickbar-dock__link { flex-shrink: 1; }
+  :root:not([data-game-layout="minimal"]) :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) .quickbar-dock__empty { white-space: normal; }
+  :root:not([data-game-layout="minimal"]) body:has(.quickbar-dock:is([data-pos="left"], [data-pos="right"])) > footer:last-of-type { padding-bottom: 0; }
+}
+/* Minimaliste : page de 1120 px. */
+@media (min-width: 1520px) {
+  [data-game-layout="minimal"] :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) {
+    inset-inline: auto; bottom: auto; top: calc(var(--header-h, 100px) + 14px); width: 176px;
+    max-height: calc(100vh - var(--header-h, 100px) - 28px); overflow-y: auto; padding: 0;
+    /* Comme les encarts minimalistes : trait fin bronze, sans ombre. */
+    border: 1px solid var(--color-bronze-500); background: var(--color-panel-top); box-shadow: none;
+  }
+  [data-game-layout="minimal"] .quickbar-dock[data-pos="left"] { left: calc((100vw - 1120px) / 2 - 176px - 14px); }
+  [data-game-layout="minimal"] .quickbar-dock[data-pos="right"] { right: calc((100vw - 1120px) / 2 - 176px - 14px); }
+  [data-game-layout="minimal"] :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) .quickbar-dock__inner { flex-direction: column; max-width: none; padding: 4px; overflow: visible; }
+  [data-game-layout="minimal"] :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) .quickbar-dock__link { flex-shrink: 1; }
+  [data-game-layout="minimal"] :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) .quickbar-dock__empty { white-space: normal; }
+  [data-game-layout="minimal"] body:has(.quickbar-dock:is([data-pos="left"], [data-pos="right"])) > footer:last-of-type { padding-bottom: 0; }
 }

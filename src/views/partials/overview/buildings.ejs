@@ -1,7 +1,7 @@
 <%# Aperçu du village, constructions en cours (inclus par overview.ejs, avec ses constantes). %>
 <%# Constructions %>
 <section class="<%= ui.panel %>" data-overview-live="buildings">
-  <%- panelHead('Constructions', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueSlots}</span>`) %>
+  <%- panelHead('Constructions', `<span class="font-sans text-[11px] text-parchment-300 tabular-nums">${ctx.buildOrders.length} / ${ctx.buildQueueMax}</span>`) %>
   <div class="flex flex-col">
     <% if (!ctx.buildOrders.length) { %><p class="p-2.5 text-[13px] text-parchment-500">Aucun chantier. Les ouvriers attendent tes ordres.</p><% } %>
     <% for (const o of ctx.buildOrders) { const running = new Date(o.startsAt) <= now; const start = new Date(o.startsAt).getTime(); const end = new Date(o.endsAt).getTime();
