@@ -424,7 +424,7 @@ test('fin du monde : dans le menu des classements, une page par type de victoire
   const expected = {
     dominance: ['Dominance du monde', 'Top des tribus par dominance', 'Compte à rebours de dominance', 'Votre contribution'],
     pointsVillages: ['Points et villages', 'Top des tribus par points', 'Top villages'],
-    runes: ['Guerre des runes', 'Top des tribus par villages de rune', 'Apparition des runes'],
+    runes: ['Guerres runiques', 'Top des tribus par continents remplis', 'Apparition des runes', 'de chaque continent'],
     siege: ['Grand Siège', 'Top des tribus par influence', "Baisse de l&#39;objectif"],
   };
   for (const [type, texts] of Object.entries(expected)) {

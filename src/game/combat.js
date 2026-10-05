@@ -53,6 +53,7 @@ function siegeLevels(count, unitId, level, divisor) {
  * @param {number} [p.morale=1]
  * @param {number} [p.luck=0] entre -0.25 et 0.25
  * @param {number} [p.nightFactor=1]
+ * @param {number} [p.defenseFactor=1] force de toute la défense (village de runes conquis : 0,5, voir game/runes.js)
  * @param {{ building: string, level: number } | null} [p.catapultTarget]
  */
 /** Bonus cumulés des armes de paladin présentes (une même arme ne compte qu'une fois). */
@@ -83,7 +84,7 @@ function mergeBonuses(base, extra) {
 function resolve({
   attackers, defenders, wall = 0, morale: mor = 1, luck = 0, nightFactor = 1, catapultTarget = null,
   attackerItems = [], defenderItems = [], attackerSkills = null, defenderSkills = null,
-  attackerFaith = 1, defenderFaith = 1,
+  attackerFaith = 1, defenderFaith = 1, defenseFactor = 1,
 }) {
   const attBonus = mergeBonuses(itemBonuses(attackerItems), attackerSkills);
   const defBonus = mergeBonuses(itemBonuses(defenderItems), defenderSkills);
@@ -132,6 +133,7 @@ function resolve({
     // Foi (mondes avec église) : 1, ou 0.5 pour des troupes hors de la zone d'influence d'une église.
     attackerFaith,
     defenderFaith,
+    defenseFactor,
   };
   if (attSpies) result.attackerLosses.spy = spiesLost;
   if (!hasArmy) {
@@ -146,7 +148,7 @@ function resolve({
     * (1 + (defBonus.defense[u.id] || 0))) * defenderFaith;
   // Huile bouillante : la part apportée par la muraille (défense de base et multiplicateur) est renforcée.
   const wallMultiplier = 1 + (Math.pow(1.037, wallFight) - 1) * wallBoost;
-  const defense = (unitDefense + 20 + 50 * wallFight * wallBoost) * wallMultiplier * nightFactor;
+  const defense = (unitDefense + 20 + 50 * wallFight * wallBoost) * wallMultiplier * nightFactor * defenseFactor;
 
   result.attackStrength = attack;
   result.defenseStrength = defense;

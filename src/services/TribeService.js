@@ -6,6 +6,7 @@ const GameError = require('./GameError');
 const tribeRights = require('../game/tribeRights');
 const TribeEventService = require('./TribeEventService');
 const ImageService = require('./ImageService');
+const { factionName } = require('../game/factions');
 
 const { who } = TribeEventService;
 
@@ -47,6 +48,13 @@ class TribeService {
     return world.getConfig().tribe.memberLimit;
   }
 
+  /** Monde à factions : une tribu n'accueille que les joueurs de sa faction. */
+  static checkFaction(tribe, player) {
+    if (tribe && tribe.faction && tribe.faction !== player.faction) {
+      throw new GameError(`Cette tribu est réservée à la faction des ${factionName(tribe.faction).toLowerCase()}.`);
+    }
+  }
+
   // ---------------------------------------------------------------- Création et adhésion
 
   static async create(playerId, { name, tag }) {
@@ -59,7 +67,8 @@ class TribeService {
       if (player.tribeId) throw new GameError('Vous êtes déjà dans une tribu.');
       const taken = await Tribe.findOne({ where: { worldId: player.worldId, [Op.or]: [{ name }, { tag }] }, transaction: t });
       if (taken) throw new GameError(taken.tag === tag ? 'Ce tag est déjà pris.' : 'Ce nom est déjà pris.');
-      const tribe = await Tribe.create({ worldId: player.worldId, name, tag }, { transaction: t });
+      // Monde à factions : la tribu prend la faction de son fondateur.
+      const tribe = await Tribe.create({ worldId: player.worldId, name, tag, faction: player.faction || null }, { transaction: t });
       await player.update({ tribeId: tribe.id, tribeRole: 'duke', tribeRights: null, tribeJoinedAt: new Date() }, { transaction: t });
       await TribeInvite.destroy({ where: { playerId }, transaction: t });
       // Forum de la tribu : Annonces, Attaque, Défense, Taverne, Vacances, Suggestions.
@@ -76,6 +85,8 @@ class TribeService {
       if (!target) throw new GameError('Aucun joueur de ce nom sur ce monde.');
       if (target.isBot) throw new GameError('Les bots ne rejoignent pas de tribu.');
       if (target.tribeId === manager.tribeId) throw new GameError('Ce joueur est déjà dans la tribu.');
+      const tribe = await Tribe.findByPk(manager.tribeId, { attributes: ['faction'], transaction: t });
+      TribeService.checkFaction(tribe, target);
       const [, created] = await TribeInvite.findOrCreate({
         where: { tribeId: manager.tribeId, playerId: target.id }, transaction: t,
       });
@@ -101,6 +112,7 @@ class TribeService {
       const invite = await TribeInvite.findOne({ where: { id: Number(inviteId), playerId }, transaction: t });
       if (!invite) throw new GameError('Invitation introuvable.', 404);
       if (player.tribeId) throw new GameError("Quittez d'abord votre tribu actuelle.");
+      TribeService.checkFaction(await Tribe.findByPk(invite.tribeId, { attributes: ['faction'], transaction: t }), player);
       const members = await Player.count({ where: { tribeId: invite.tribeId }, transaction: t });
       if (members >= (await TribeService.memberLimit(player.worldId, t))) throw new GameError('Cette tribu est complète.');
       await player.update({ tribeId: invite.tribeId, tribeRole: 'member', tribeRights: null, tribeJoinedAt: new Date() }, { transaction: t });
@@ -252,7 +264,7 @@ class TribeService {
 
   /** Données du profil public : aucune relation diplomatique ni annonce interne. */
   static async profile(tribeId) {
-    const tribe = await Tribe.findByPk(Number(tribeId), { attributes: ['id', 'worldId', 'name', 'tag', 'description', 'avatar'] });
+    const tribe = await Tribe.findByPk(Number(tribeId), { attributes: ['id', 'worldId', 'name', 'tag', 'description', 'avatar', 'faction'] });
     if (!tribe) throw new GameError('Tribu introuvable.', 404);
     const members = await Player.findAll({ where: { tribeId: tribe.id }, order: [['points', 'DESC'], ['id', 'ASC']] });
     return {

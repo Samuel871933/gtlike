@@ -6,6 +6,7 @@ const catalog = require('../game/shopCatalog');
 const { DEFAULT_GAME_STYLE } = require('../web/gameStyles');
 const { DEFAULT_VILLAGE_DESIGN } = require('../web/villageDesigns');
 const GameError = require('./GameError');
+const { factionDesign } = require('../game/factions');
 
 // Articles toujours possédés : le thème et le design par défaut.
 const FREE = new Set([`theme:${DEFAULT_GAME_STYLE}`, `design:${DEFAULT_VILLAGE_DESIGN}`]);
@@ -41,8 +42,18 @@ class ShopService {
     if (userId && worldId) scopes.push({ scope: 'world', userId, worldId });
     if (worldId) scopes.push({ scope: 'server', worldId });
     if (!scopes.length) return new Rights();
-    const rows = await Entitlement.findAll({ where: { ...activeAt(now), [Op.and]: [{ [Op.or]: scopes }] }, attributes: ['itemKey'], transaction: t });
-    return new Rights(rows.map((r) => r.itemKey));
+    const [rows, faction] = await Promise.all([
+      Entitlement.findAll({ where: { ...activeAt(now), [Op.and]: [{ [Op.or]: scopes }] }, attributes: ['itemKey'], transaction: t }),
+      userId && worldId ? ShopService.factionKeys(userId, worldId, t) : [],
+    ]);
+    return new Rights([...rows.map((r) => r.itemKey), ...faction]);
+  }
+
+  /** Monde à factions : le design de village de sa faction est offert au joueur sur ce monde. */
+  static async factionKeys(userId, worldId, t) {
+    const player = await Player.findOne({ where: { userId, worldId }, attributes: ['faction'], transaction: t });
+    const design = factionDesign(player && player.faction);
+    return design ? [`design:${design}`] : [];
   }
 
   /** Droits de plusieurs comptes sur un même monde (carte : design des villages de chaque propriétaire). */
@@ -63,6 +74,11 @@ class ShopService {
     for (const r of rows) {
       if (r.scope === 'server') server.push(r.itemKey);
       else if (out.has(r.userId)) out.get(r.userId).push(r.itemKey);
+    }
+    // Monde à factions : design de sa faction offert à chaque joueur.
+    if (ids.length) {
+      const players = await Player.findAll({ where: { worldId, userId: { [Op.in]: ids }, faction: { [Op.ne]: null } }, attributes: ['userId', 'faction'], raw: true });
+      for (const p of players) if (factionDesign(p.faction)) out.get(p.userId).push(`design:${factionDesign(p.faction)}`);
     }
     const rights = new Map([...out].map(([id, keys]) => [id, new Rights([...keys, ...server])]));
     rights.server = new Rights(server);

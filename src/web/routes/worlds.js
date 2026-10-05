@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const { Op } = require('sequelize');
 const { World, Village, Player, Command } = require('../../models');
@@ -12,6 +14,7 @@ const AchievementService = require('../../services/AchievementService');
 const DailyService = require('../../services/DailyService');
 const GameError = require('../../services/GameError');
 const { MapPlacer } = require('../../game/MapPlacer');
+const { FACTIONS, isFaction } = require('../../game/factions');
 const { ah, flash, requireAuth } = require('../middleware');
 const { memo } = require('../memo');
 const { VICTORY_NAMES, worldModules } = require('../worldLabels');
@@ -20,20 +23,21 @@ const router = express.Router();
 
 /**
  * Données de la fin du monde (entrée du menu des classements, comme « Dominance du monde » sur GT) :
- * état de la condition, part du joueur qui regarde (`me` : { playerId, tribeId }) et durée tenue par le meneur.
+ * état de la condition, part du joueur qui regarde (`me` : { playerId, tribeId, faction }) et durée tenue par le meneur.
  */
 async function victoryLocals(world, me = {}) {
   const now = new Date();
   const standings = await require('../../services/VictoryService').standings(world, now);
   const state = world.victoryState || {};
-  const scopePlayer = standings.type === 'pointsVillages' && world.getConfig().victory.pointsVillages.scope === 'player';
-  const mineId = scopePlayer ? me.playerId : me.tribeId;
+  const cfg = world.getConfig();
+  const scopePlayer = standings.type === 'pointsVillages' && cfg.victory.pointsVillages.scope === 'player';
+  const mineId = scopePlayer ? me.playerId : cfg.factions.active ? me.faction : me.tribeId;
   const [myVillages, totalVillages] = await Promise.all([
     me.playerId ? Village.count({ where: { playerId: me.playerId } }) : 0,
     Village.count({ where: { worldId: world.id, playerId: { [Op.ne]: null } } }),
   ]);
   return {
-    world, cfg: world.getConfig(), standings, state, now,
+    world, cfg, standings, state, now,
     mine: (standings.list || []).find((r) => r.id === mineId) || null,
     hasMine: Boolean(mineId),
     contribution: totalVillages ? (100 * myVillages) / totalVillages : 0,
@@ -159,18 +163,87 @@ router.get('/worlds', requireAuth, ah(async (req, res) => {
     w.campaign = { rank: better + 1, village: villages[0] || null, nextAttackAt: nextAttack ? nextAttack.arrivesAt : null };
   }
   const popularServers = await PrivateServerService.popular(6);
-  res.render('worlds', { worlds, selected, code, popularServers, maxOwned: PrivateServerService.MAX_OWNED, directions: MapPlacer.DIRECTIONS });
+  res.render('worlds', { worlds, selected, code, popularServers, maxOwned: PrivateServerService.MAX_OWNED, directions: MapPlacer.DIRECTIONS, factions: FACTIONS });
+}));
+
+// ------------------------------------------------------------ Entrée dans un monde (page dédiée, par étapes)
+
+// Illustration d'une faction : /img/factions/<id>.webp si le fichier existe (sinon la vue dessine un blason de repli).
+const FACTION_IMG_DIR = path.join(__dirname, '../../../public/img/factions');
+const factionCards = () => FACTIONS.map((f) => ({
+  ...f, image: fs.existsSync(path.join(FACTION_IMG_DIR, `${f.id}.webp`)) ? `/img/factions/${f.id}.webp` : null,
+}));
+
+/**
+ * Étapes de l'entrée dans un monde, une par choix : la faction (monde à factions, première inscription seulement :
+ * elle est définitive), puis la position de départ sur la carte.
+ */
+function joinSteps(world, player) {
+  return [
+    ...(world.getConfig().factions.active && !(player && player.faction) ? ['faction'] : []),
+    'direction',
+  ];
+}
+
+/** Choix déjà faits, lus dans la requête (étapes précédentes) ; les valeurs invalides sont ignorées. */
+const joinChoices = (q) => ({
+  faction: isFaction(q.faction) ? q.faction : null,
+  direction: MapPlacer.DIRECTIONS.includes(q.direction) ? q.direction : null,
+});
+
+/** Adresse d'une étape avec les choix déjà faits (et le code d'un serveur privé). */
+function joinUrl(slug, step, choices, code) {
+  const params = new URLSearchParams();
+  if (step) params.set('step', String(step));
+  for (const [k, v] of Object.entries(choices)) if (v) params.set(k, v);
+  if (code) params.set('code', code);
+  const qs = params.toString();
+  return `/worlds/${encodeURIComponent(slug)}/join${qs ? `?${qs}` : ''}`;
+}
+
+/** Vérifie qu'on peut entrer dans ce monde ; renvoie le joueur existant (recommencer) ou null. */
+async function joinable(req, world, code) {
+  const player = await WorldService.getPlayer(req.user.id, world.id);
+  if (!PrivateServerService.canAccess(world, { userId: req.user.id, isPlayer: Boolean(player), code })) {
+    throw new GameError('Ce serveur privé demande son code d’accès.', 403);
+  }
+  return player;
+}
+
+router.get('/worlds/:slug/join', requireAuth, ah(async (req, res) => {
+  const world = await findWorld(req.params.slug);
+  const code = req.query.code || null;
+  const player = await joinable(req, world, code);
+  if (player && player.villageCount > 0) return res.redirect(`/worlds/${encodeURIComponent(world.slug)}/play`);
+  if (!world.isOpen || world.endedAt) {
+    flash(req, 'error', "Ce monde n'accepte plus de nouveaux joueurs.");
+    return res.redirect(`/worlds?w=${encodeURIComponent(world.slug)}`);
+  }
+  const steps = joinSteps(world, player);
+  const choices = joinChoices(req.query);
+  // Une étape ne s'ouvre que si les précédentes sont faites (sinon : la première qui manque).
+  let index = Math.max(0, Math.min(steps.length - 1, Number.parseInt(req.query.step, 10) || 0));
+  const missing = steps.findIndex((s, i) => i < index && !choices[s]);
+  if (missing >= 0) index = missing;
+  res.render('join', {
+    world, player, steps, index, choices, code, factions: factionCards(), directions: MapPlacer.DIRECTIONS,
+    stepUrl: (i) => joinUrl(world.slug, i, choices, code), lobbyPage: 'worlds',
+  });
 }));
 
 router.post('/worlds/:slug/join', requireAuth, ah(async (req, res) => {
   const world = await findWorld(req.params.slug);
-  const isPlayer = Boolean(await WorldService.getPlayer(req.user.id, world.id));
-  if (!PrivateServerService.canAccess(world, { userId: req.user.id, isPlayer, code: req.body.code })) {
-    throw new GameError('Ce serveur privé demande son code d’accès.', 403);
+  await joinable(req, world, req.body.code);
+  const choices = joinChoices(req.body);
+  try {
+    const { village } = await WorldService.join(req.user, req.params.slug, { direction: choices.direction || 'random', faction: choices.faction });
+    res.redirect(`/village/${village.id}`);
+  } catch (err) {
+    if (!(err instanceof GameError) || err.status >= 403) throw err;
+    // Retour à l'entrée dans le monde, choix conservés.
+    flash(req, 'error', err.message);
+    res.redirect(joinUrl(world.slug, 0, choices, req.body.code));
   }
-  const direction = MapPlacer.DIRECTIONS.includes(req.body.direction) ? req.body.direction : 'random';
-  const { village } = await WorldService.join(req.user, req.params.slug, { direction });
-  res.redirect(`/village/${village.id}`);
 }));
 
 // ------------------------------------------------------------ Serveurs privés
@@ -194,7 +267,8 @@ const SERVER_SORTS = {
 };
 router.get('/servers', requireAuth, ah(async (req, res) => {
   const type = SERVER_TYPES.includes(req.query.type) ? req.query.type : 'all';
-  const sort = Object.hasOwn(SERVER_SORTS, req.query.tri) ? req.query.tri : 'players';
+  // Par défaut : les serveurs les plus récents d'abord.
+  const sort = Object.hasOwn(SERVER_SORTS, req.query.tri) ? req.query.tri : 'recent';
   const dir = ['asc', 'desc'].includes(req.query.ordre) ? req.query.ordre : SERVER_SORTS[sort].dir;
   const q = String(req.query.q || '').trim();
   const visible = (await WorldService.listForUser(req.user.id))
@@ -280,7 +354,7 @@ router.get('/worlds/:slug/victory', requireAuth, (req, res) => res.redirect(`/wo
 router.get('/worlds/:slug/ranking', requireAuth, ah(async (req, res) => {
   const world = await findWorld(req.params.slug);
   const player = await Player.findOne({ where: { worldId: world.id, userId: req.session.userId }, attributes: ['id', 'tribeId'] });
-  res.render('ranking', await rankingLocals(world, req.query, player ? { playerId: player.id, tribeId: player.tribeId } : {}));
+  res.render('ranking', await rankingLocals(world, req.query, player ? { playerId: player.id, tribeId: player.tribeId, faction: player.faction } : {}));
 }));
 
 // Exports publics des adversaires vaincus (format Guerre Tribale : rang,id_joueur,score).

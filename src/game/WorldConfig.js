@@ -77,11 +77,18 @@ const DEFAULTS = {
   },
   // Conditions de victoire. `type` : dominance | pointsVillages | runes | siege | none.
   // Les durées sont en jours réels (comme sur Guerre Tribale, elles ne suivent pas la vitesse du monde).
+  // runes (Guerres runiques de GT) : au bout de `spawnAfterDays`, `villagesPerContinent` villages de runes apparaissent
+  // dans chaque continent qui a au moins `minPlayerVillages` villages de joueurs ; la victoire demande `winPercent` %
+  // des villages de runes de CHAQUE continent, tenus `holdDays` jours. Conquis, un village de runes se défend avec
+  // `defenseFactor` de sa force ; `disableMorale` : pas de morale contre eux (game/runes.js).
   victory: {
     type: 'dominance',
     dominance: { warningPercent: 35, warningWorldAgeDays: 80, endgamePercent: 50, minWorldAgeDays: 180, holdDays: 14 },
     pointsVillages: { scope: 'tribe', points: 5000000, villages: 1000, holdHours: 72 },
-    runes: { spawnAfterDays: 90, villagesPerContinent: 25, winPercent: 60, holdDays: 14, garrison: { spear: 3000, sword: 3000, heavy: 300 } },
+    runes: {
+      spawnAfterDays: 90, villagesPerContinent: 25, minPlayerVillages: 20, winPercent: 60, holdDays: 14,
+      defenseFactor: 0.5, disableMorale: false, garrison: { spear: 3000, sword: 3000, heavy: 300 },
+    },
     siege: {
       startAfterDays: 140, villages: 36, influencePerVillagePerDay: 500, requiredInfluence: 162000,
       reductionEveryDays: 7, reductionPercent: 12, maxReductionPercent: 85, garrison: { spear: 5000, sword: 5000, heavy: 500 },
@@ -89,6 +96,10 @@ const DEFAULTS = {
   },
   // Tribus : membres max, attaque interdite entre membres, soutien réservé à la tribu et aux alliés
   tribe: { memberLimit: 25, noHarm: true, supportOnlyTribe: false },
+  // Monde à factions (voir game/factions.js) : chaque joueur choisit sa faction (elfes, nains, orques, humains) à
+  // l'inscription ; une tribu n'accueille que sa faction et la victoire revient à une faction, pas à une tribu.
+  // noHarm : attaque interdite entre joueurs d'une même faction.
+  factions: { active: false, noHarm: false },
   // Marché : capacité d'un marchand, minutes par case, écart de valeur maximal d'une offre (1:maxRatio)
   market: { merchantCapacity: 1000, merchantSpeed: 6, maxRatio: 3 },
   // Nobles (système de pièces d'or)
@@ -113,6 +124,7 @@ class WorldConfig {
       snob: { ...DEFAULTS.snob, ...(raw.snob || {}) },
       market: { ...DEFAULTS.market, ...(raw.market || {}) },
       tribe: { ...DEFAULTS.tribe, ...(raw.tribe || {}) },
+      factions: { ...DEFAULTS.factions, ...(raw.factions || {}) },
       scavenging: { ...DEFAULTS.scavenging, ...(raw.scavenging || {}) },
       victory: {
         ...DEFAULTS.victory,

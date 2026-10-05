@@ -1,6 +1,6 @@
 <%- include('partials/header', { title: `Infos · ${world.name}`, world }) %>
 <%
-  const victoryNames = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège', none: 'Aucune' };
+  const victoryNames = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Guerres runiques', siege: 'Grand Siège', none: 'Aucune' };
   const yes = (b) => (b ? 'Oui' : 'Non');
   const h = (m) => (m >= 60 ? `${Math.round(m / 6) / 10} h` : `${m} min`);
   // Paramètres de la condition de fin du monde (config.victory), selon son type.
@@ -21,8 +21,11 @@
   if (v.type === 'runes') victoryRows.push(
     ['Apparition des runes', `après ${v.runes.spawnAfterDays} jours`],
     ['Villages de rune par continent', String(v.runes.villagesPerContinent)],
-    ['Part à détenir', `${v.runes.winPercent} %`],
+    ['Continents concernés', `au moins ${num(v.runes.minPlayerVillages)} villages de joueurs`],
+    ['Part à détenir', `${v.runes.winPercent} % dans chaque continent`],
     ['Part à tenir', `${v.runes.holdDays} jours`],
+    ['Défense d’un village de rune conquis', v.runes.defenseFactor < 1 ? `−${Math.round((1 - v.runes.defenseFactor) * 100)} %` : 'Normale'],
+    ['Morale contre les villages de rune', v.runes.disableMorale ? 'Désactivée' : 'Normale'],
   );
   if (v.type === 'siege') victoryRows.push(
     ['Apparition de la cité', `après ${v.siege.startAfterDays} jours`],
@@ -73,6 +76,8 @@
     ['Tribus, marché et nobles', [
       ['Membres par tribu', String(cfg.tribe.memberLimit)],
       ['Attaque entre membres', cfg.tribe.noHarm ? 'Interdite' : 'Autorisée'],
+      ['Factions', cfg.factions.active ? 'Elfes, nains, orques, humains (victoire par faction)' : 'Non'],
+      ...(cfg.factions.active ? [['Attaque dans sa faction', cfg.factions.noHarm ? 'Interdite' : 'Autorisée']] : []),
       ['Capacité d’un marchand', num(cfg.market.merchantCapacity)],
       ['Distance maximale d’un noble', `${cfg.snob.maxDistance} cases`],
       ['Loyauté retirée par noble', `${cfg.snob.loyaltyLossMin} à ${cfg.snob.loyaltyLossMax}`],

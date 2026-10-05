@@ -38,7 +38,7 @@ Le CSS compilé (`public/css/app.css`) n'est pas versionné : `npm start` le rec
 devDependencies, installer donc aussi les dépendances de développement pour construire).
 
 Deux mondes sont créés au premier lancement (voir [scripts/seed.js](scripts/seed.js)) : `w1` (vitesse 1, classique)
-et `speed` (vitesse 100, tous les modules, pour tester vite).
+et `speed` (vitesse 100, tous les modules, pour tester vite), plus `lotr1` (« LOTR 1 », vitesse 1, monde à factions).
 `npm run populate` remplit un monde de test comme une vraie partie ([scripts/populate.js](scripts/populate.js)) :
 joueurs de 1 à ~40 villages (bâtiments, troupes et ressources cohérents), ~65 % en tribu avec diplomatie, villages barbares.
 Comptes fictifs : `<nom>@bots.adarma.local`, mot de passe `motdepasse` (connexion avec le nom du joueur).
@@ -222,6 +222,34 @@ modèle, ni renvoi) et disparaît si le village est conquis. Points « adversair
   annonces internes (ducs et barons) ; onglet Propriétés pour la description publique. Pas de mur : les discussions
   passent par le forum de tribu. Classement des tribus, export public `/worlds/:slug/map/ally.txt`.
 
+## Mondes à factions
+
+Réglage `factions.active` du monde (groupe « Factions » à la création d'un serveur), désactivé par défaut. Quatre
+factions ([src/game/factions.js](src/game/factions.js)) : elfes, nains, orques, humains. Elles ne changent rien aux
+bâtiments ni aux unités : seulement les tribus et la fin du monde.
+
+- Entrée dans un monde (tous les mondes) : page dédiée `/worlds/:slug/join` ([src/views/join.ejs](src/views/join.ejs)),
+  une étape par choix avant d'ouvrir le village : faction (mondes à factions, première inscription), puis position de
+  départ. Les choix passent d'une étape à l'autre dans l'adresse ; la dernière envoie l'inscription. Illustrations
+  des factions : déposer `public/img/factions/<id>.webp` (portrait 3:4 ; `elf`, `dwarf`, `orc`, `human`), sinon blason de repli.
+- Chaque joueur choisit sa faction en rejoignant le monde (`Players.faction`) ; elle est définitive : après la perte
+  de tous ses villages, on recommence dans la même. Les bots prennent la faction la moins peuplée.
+- Les tribus existent toujours : une tribu prend la faction de son fondateur (`Tribes.faction`) et n'invite ni
+  n'accueille que des joueurs de cette faction.
+- Victoire : les mêmes conditions (`victory`) se calculent par faction au lieu de tribu (`VictoryService.teamScope`) :
+  les villages de tous les joueurs d'une faction, en tribu ou non, comptent ensemble. Toute la faction gagne
+  (`Worlds.winnerFaction`, succès « Vainqueur du monde » pour chacun de ses joueurs).
+- `factions.noHarm` : attaque interdite entre joueurs d'une même faction (indépendant de `tribe.noHarm`, qui reste
+  le réglage « Attaque interdite entre membres d'une tribu »).
+- Designs de village des factions (`humains`, `elfes`, `nains`, `orques`, champ `design` de game/factions.js) : sur un
+  monde à factions, celui de sa faction est offert (`ShopService.factionKeys`, ajouté aux droits de ce monde) et remplace
+  Beige comme design par défaut (bots compris) ; un design acheté et choisi reste prioritaire. Ailleurs, ils
+  s'achètent à la boutique comme les autres designs.
+- Monde officiel : `lotr1` (« LOTR 1 »). `npm run populate -- lotr1` répartit les joueurs fictifs entre les factions
+  (tribus d'une seule faction) ; `scripts/seed-tribes.js` ne met dans une tribu que des joueurs de la faction du duc.
+- Faction affichée sur la fiche du monde, les infos du monde, le profil des joueurs et des tribus, et dans la fin du
+  monde (« Top des factions par dominance », « Votre faction »).
+
 ## Villages barbares, messagerie, profils
 
 - À chaque inscription, `placement.emptyVillages` % de villages barbares apparaissent autour du nouveau joueur
@@ -358,7 +386,13 @@ sans éclaireurs, béliers, catapultes ni nobles, sans annulation ; butin plafon
 - `dominance` (par défaut, seule active sur les mondes) : part des villages de joueurs d'une tribu ; avertissement,
   puis fin de partie quand le seuil et l'âge minimal du monde sont atteints, à tenir `holdDays` jours.
 - `pointsVillages` : une tribu ou un joueur atteint des points et des villages et les tient `holdHours` heures.
-- `runes` : des villages de rune garnis de troupes apparaissent sur chaque continent ; en détenir `winPercent` %.
+- `runes` (Guerres runiques de GT, proposées à la création d'un serveur) : au bout de `spawnAfterDays` jours,
+  `villagesPerContinent` villages de rune gardés par des barbares apparaissent, répartis dans chaque continent qui a au
+  moins `minPlayerVillages` villages de joueurs (la carte grandit depuis le centre : ce sont les continents habités qui
+  comptent, pas `mapSize`). Victoire : `winPercent` % des villages de rune de **chaque** continent, tenus `holdDays` jours.
+  Conquis, un village de rune se défend avec `defenseFactor` de sa force, soutiens compris (0,5 = −50 %, réglable) ;
+  `disableMorale` retire la morale des attaques contre eux ([src/game/runes.js](src/game/runes.js)). Rune violette sur la
+  carte, tableau par continent dans la fin du monde ; les bots ne s'en approchent pas.
 - `siege` : des quartiers apparaissent au centre ; chacun rapporte de l'influence par jour ; l'objectif baisse de
   `reductionPercent` % tous les `reductionEveryDays` jours (au plus `maxReductionPercent` %).
 
@@ -387,7 +421,7 @@ L'église est un module de monde (`features.church`, case « Église » à la cr
 
 ## Pas encore fait
 
-Pénalité de défense des villages de rune fraîchement conquis, succès quotidien de la collecte.
+Succès quotidien de la collecte.
 
 Données sources et analyse des mondes FR : [research/ANALYSE_GUERRE_TRIBALE.md](research/ANALYSE_GUERRE_TRIBALE.md).
 # adarma

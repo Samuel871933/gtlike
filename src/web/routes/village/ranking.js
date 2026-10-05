@@ -13,8 +13,8 @@ const router = express.Router({ mergeParams: true });
 
 router.get('/ranking', ah(async (req, res) => {
   const { rankingLocals } = require('../worlds');
-  const viewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId'] });
-  res.render('ranking', { page: 'ranking', ...(await rankingLocals(req.ctx.world, req.query, { playerId: viewer.id, tribeId: viewer.tribeId })) });
+  const viewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId', 'faction'] });
+  res.render('ranking', { page: 'ranking', ...(await rankingLocals(req.ctx.world, req.query, { playerId: viewer.id, tribeId: viewer.tribeId, faction: viewer.faction })) });
 }));
 
 // Ancienne adresse de la fin du monde : elle est maintenant dans les classements.

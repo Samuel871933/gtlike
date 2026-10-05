@@ -5,6 +5,7 @@ const { sequelize, World, Player, Village } = require('../models');
 const { MapPlacer } = require('../game/MapPlacer');
 const VillageState = require('../game/VillageState');
 const GameError = require('./GameError');
+const { FACTIONS, isFaction } = require('../game/factions');
 
 class WorldService {
   static async createWorld({ slug, name, config = {} }) {
@@ -43,9 +44,10 @@ class WorldService {
   /**
    * Inscrit le compte sur un monde : crée le joueur et son premier village
    * sur la carte (plus quelques villages barbares autour). Sert aussi à recommencer
-   * après la perte de tous ses villages.
+   * après la perte de tous ses villages. Monde à factions : `faction` est obligatoire à la première inscription,
+   * puis définitive (on recommence dans la même faction).
    */
-  static async join(user, worldSlug, { direction = 'random', now = new Date(), rng = Math.random } = {}) {
+  static async join(user, worldSlug, { direction = 'random', faction = null, now = new Date(), rng = Math.random } = {}) {
     return sequelize.transaction(async (transaction) => {
       const world = await World.findOne({ where: { slug: worldSlug }, transaction });
       if (!world) throw new GameError('Monde introuvable.', 404);
@@ -56,8 +58,10 @@ class WorldService {
         throw new GameError('Vous jouez déjà sur ce monde.');
       }
 
+      const factions = world.getConfig().factions.active;
       if (!player) {
-        player = await Player.create({ userId: user.id, worldId: world.id, name: user.username }, { transaction });
+        if (factions && !isFaction(faction)) throw new GameError('Choisis ta faction : elfes, nains, orques ou humains.');
+        player = await Player.create({ userId: user.id, worldId: world.id, name: user.username, faction: factions ? faction : null }, { transaction });
       } else {
         await player.update({ stats: { ...player.stats, restarts: (player.stats.restarts || 0) + 1 } }, { transaction });
       }
@@ -75,11 +79,29 @@ class WorldService {
       if (player) {
         await player.update({ stats: { ...player.stats, restarts: (player.stats.restarts || 0) + 1 } }, { transaction });
       } else {
-        player = await Player.create({ userId: null, isBot: true, worldId: world.id, name }, { transaction });
+        const faction = world.getConfig().factions.active ? await WorldService.smallestFaction(world.id, transaction, rng) : null;
+        player = await Player.create({ userId: null, isBot: true, worldId: world.id, name, faction }, { transaction });
       }
       const village = await WorldService.settle(world, player, { now, rng }, transaction);
       return { player, village };
     });
+  }
+
+  /** Joueurs de chaque faction d'un monde : Map(faction → nombre). */
+  static async factionCounts(worldId, transaction) {
+    const rows = await Player.findAll({
+      where: { worldId, faction: { [Op.ne]: null } },
+      attributes: ['faction', [sequelize.fn('COUNT', sequelize.col('id')), 'n']], group: ['faction'], raw: true, transaction,
+    });
+    return new Map(rows.map((r) => [r.faction, Number(r.n)]));
+  }
+
+  /** Faction la moins peuplée (au hasard entre les ex aequo) : celle des bots qui entrent dans le monde. */
+  static async smallestFaction(worldId, transaction, rng = Math.random) {
+    const counts = await WorldService.factionCounts(worldId, transaction);
+    const min = Math.min(...FACTIONS.map((f) => counts.get(f.id) || 0));
+    const pool = FACTIONS.filter((f) => (counts.get(f.id) || 0) === min);
+    return pool[Math.floor(rng() * pool.length)].id;
   }
 
   /** Premier village d'un joueur (et ses barbares autour), points et nombre de villages du joueur à jour. */

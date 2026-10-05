@@ -1,6 +1,6 @@
 <%- include('partials/header', { title: 'Mondes', hero: true, lobbyPage: 'worlds' }) %>
 <%
-  const directionNames = { random: 'Aléatoire', nw: 'Nord-Ouest', ne: 'Nord-Est', sw: 'Sud-Ouest', se: 'Sud-Est' };
+  const directionNames = DIRECTION_NAMES;
   const victoryNames = VICTORY_NAMES;
   const playing = (w) => w.player && w.player.villageCount > 0;
   // Mondes officiels (encart 1) et serveurs privés (encart 2, voir PrivateServerService).
@@ -30,7 +30,9 @@
       esc(subtitle(world)) + ` · unités ×${cfg.unitSpeed}`,
       `Carte ${cfg.mapSize} × ${cfg.mapSize} · protection ${cfg.newbieDays} j`,
       cfg.night.active ? `Bonus de nuit ${cfg.night.startHour} h-${cfg.night.endHour} h (×${cfg.night.defFactor})` : 'Pas de bonus de nuit',
-      cfg.victory.type === 'dominance' ? `Victoire : ${dom.endgamePercent} % pendant ${dom.holdDays} j, après ${dom.minWorldAgeDays} j` : `Victoire : ${esc(victoryNames[cfg.victory.type])}`,
+      cfg.victory.type === 'dominance' ? `Victoire : ${dom.endgamePercent} % pendant ${dom.holdDays} j, après ${dom.minWorldAgeDays} j`
+        : cfg.victory.type === 'runes' ? `Guerres runiques : ${cfg.victory.runes.winPercent} % des runes de chaque continent pendant ${cfg.victory.runes.holdDays} j`
+          : `Victoire : ${esc(victoryNames[cfg.victory.type])}`,
       `<span class="text-parchment-500">${a.startsWith('créé') ? 'Créé à l’instant' : `Ouvert ${esc(a)}`}</span>`,
     ];
     return `

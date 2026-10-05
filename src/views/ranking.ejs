@@ -20,7 +20,7 @@
     ['Succès', url({ type: 'awards' }), type === 'awards'],
     ['Record journalier', url({ type: 'daily', ...(daily ? { rec: daily.rec } : {}) }), type === 'daily'],
     // Fin du monde (comme « Dominance du monde » sur GT), nommée selon la condition de victoire du monde.
-    [{ dominance: 'Dominance du monde', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège' }[world.getConfig().victory.type] || 'Fin du monde',
+    [{ dominance: 'Dominance du monde', pointsVillages: 'Points et villages', runes: 'Guerres runiques', siege: 'Grand Siège' }[world.getConfig().victory.type] || 'Fin du monde',
       url({ type: 'victory' }), type === 'victory'],
   ];
   const titles = {

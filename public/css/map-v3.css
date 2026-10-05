@@ -196,6 +196,31 @@
 .village-design--islam.village-marker--4 { --village-image: url('/img/map/villages/islam/level-4.webp'); --village-scale: 1.1; }
 .village-design--islam.village-marker--5 { --village-image: url('/img/map/villages/islam/level-5.webp'); --village-scale: 1.2; }
 .village-design--islam.village-marker--6 { --village-image: url('/img/map/villages/islam/level-6.webp'); --village-scale: 1.36; }
+/* Designs des factions (mondes à factions, voir src/game/factions.js). */
+.village-design--humains.village-marker--1 { --village-image: url('/img/map/villages/humains/level-1.webp'); }
+.village-design--humains.village-marker--2 { --village-image: url('/img/map/villages/humains/level-2.webp'); }
+.village-design--humains.village-marker--3 { --village-image: url('/img/map/villages/humains/level-3.webp'); }
+.village-design--humains.village-marker--4 { --village-image: url('/img/map/villages/humains/level-4.webp'); }
+.village-design--humains.village-marker--5 { --village-image: url('/img/map/villages/humains/level-5.webp'); }
+.village-design--humains.village-marker--6 { --village-image: url('/img/map/villages/humains/level-6.webp'); }
+.village-design--elfes.village-marker--1 { --village-image: url('/img/map/villages/elfes/level-1.webp'); }
+.village-design--elfes.village-marker--2 { --village-image: url('/img/map/villages/elfes/level-2.webp'); }
+.village-design--elfes.village-marker--3 { --village-image: url('/img/map/villages/elfes/level-3.webp'); }
+.village-design--elfes.village-marker--4 { --village-image: url('/img/map/villages/elfes/level-4.webp'); }
+.village-design--elfes.village-marker--5 { --village-image: url('/img/map/villages/elfes/level-5.webp'); }
+.village-design--elfes.village-marker--6 { --village-image: url('/img/map/villages/elfes/level-6.webp'); }
+.village-design--nains.village-marker--1 { --village-image: url('/img/map/villages/nains/level-1.webp'); }
+.village-design--nains.village-marker--2 { --village-image: url('/img/map/villages/nains/level-2.webp'); }
+.village-design--nains.village-marker--3 { --village-image: url('/img/map/villages/nains/level-3.webp'); }
+.village-design--nains.village-marker--4 { --village-image: url('/img/map/villages/nains/level-4.webp'); }
+.village-design--nains.village-marker--5 { --village-image: url('/img/map/villages/nains/level-5.webp'); }
+.village-design--nains.village-marker--6 { --village-image: url('/img/map/villages/nains/level-6.webp'); }
+.village-design--orques.village-marker--1 { --village-image: url('/img/map/villages/orques/level-1.webp'); }
+.village-design--orques.village-marker--2 { --village-image: url('/img/map/villages/orques/level-2.webp'); }
+.village-design--orques.village-marker--3 { --village-image: url('/img/map/villages/orques/level-3.webp'); }
+.village-design--orques.village-marker--4 { --village-image: url('/img/map/villages/orques/level-4.webp'); }
+.village-design--orques.village-marker--5 { --village-image: url('/img/map/villages/orques/level-5.webp'); }
+.village-design--orques.village-marker--6 { --village-image: url('/img/map/villages/orques/level-6.webp'); }
 .village-marker { width: var(--tile-w, 53px); height: var(--tile-h, 38px); }
 .village-marker::after { display: none; }
 .village-relation-dot { position: absolute; z-index: 4; left: 1px; top: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }

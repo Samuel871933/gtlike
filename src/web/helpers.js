@@ -533,6 +533,8 @@ module.exports = {
   buildingImg,
   VILLAGE_PLAN: require('./villagePlan'),
   ...require('./worldLabels'),
+  factionName: require('../game/factions').factionName,
+  factionDesign: require('../game/factions').factionDesign,
   unitIcon,
   orderBadge,
   incomingBadge,

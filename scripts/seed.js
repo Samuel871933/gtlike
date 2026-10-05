@@ -48,6 +48,30 @@ const WORLDS = [
       features: { knight: true, archer: false },
     },
   },
+  {
+    // Monde à factions : elfes, nains, orques et humains ; la victoire revient à une faction (voir game/factions.js).
+    slug: 'lotr1',
+    name: 'LOTR 1',
+    config: {
+      speed: 1,
+      unitSpeed: 1,
+      night: { active: true, startHour: 0, endHour: 8, defFactor: 2 },
+      factions: { active: true, noHarm: false },
+      victory: { type: 'dominance', dominance: { endgamePercent: 50, minWorldAgeDays: 180, holdDays: 14, warningPercent: 35, warningWorldAgeDays: 80 } },
+    },
+  },
+  {
+    // Second monde à factions, mêmes réglages que LOTR 1 (tests).
+    slug: 'lotr2',
+    name: 'LOTR II',
+    config: {
+      speed: 1,
+      unitSpeed: 1,
+      night: { active: true, startHour: 0, endHour: 8, defFactor: 2 },
+      factions: { active: true, noHarm: false },
+      victory: { type: 'dominance', dominance: { endgamePercent: 50, minWorldAgeDays: 180, holdDays: 14, warningPercent: 35, warningWorldAgeDays: 80 } },
+    },
+  },
 ];
 
 async function seedWorlds() {

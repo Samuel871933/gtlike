@@ -51,7 +51,9 @@ async function main() {
   for (const [i, founder] of founders.entries()) {
     const [tag, name] = free[i];
     const tribe = await TribeService.create(founder.id, { name, tag });
-    const members = pool.splice(0, sizes[i]);
+    // Monde à factions : seulement des joueurs de la faction du fondateur.
+    const members = pool.filter((p) => (p.faction || null) === (founder.faction || null)).slice(0, sizes[i]);
+    for (const m of members) pool.splice(pool.indexOf(m), 1);
     await sequelize.transaction(async (t) => {
       for (const [j, m] of members.entries()) {
         const role = j < 2 ? 'baron' : 'member';

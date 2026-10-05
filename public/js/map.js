@@ -162,7 +162,7 @@
     const fav = c.fav ? '<span class="pointer-events-none absolute right-0.5 bottom-0 z-[6] text-xs leading-none text-map-label-me [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
     const barb = c.kind === 'barb' ? ' group-data-[layer-nobarb]/map:hidden' : '';
     const note = c.note ? `<span class="pointer-events-none absolute bottom-0.5 left-0.5 z-[6] flex border border-black bg-[#f4e8c8] p-px text-[#3a2812] shadow-[1px_1px_0_#000]" title="Note">${NOTE_ICON}</span>` : '';
-    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? '<span class="village-special">★</span>' : ''}</span>${note}</span>${fav}`;
+    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? (c.specialKind === 'rune' ? '<span class="village-special village-special--rune"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v12M8 8 3.5 3.5M8 8l4.5-4.5"/></svg></span>' : '<span class="village-special">★</span>') : ''}</span>${note}</span>${fav}`;
   }
 
   // Pastilles des ordres en cours (en haut à droite, débordant sur la case voisine) : dans un calque au-dessus de

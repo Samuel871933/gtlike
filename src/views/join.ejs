@@ -1,0 +1,150 @@
+<%- include('partials/header', { title: `Rejoindre ${world.name}`, hero: true, lobbyPage: 'worlds' }) %>
+<%#
+  Entrée dans un monde, sur une page dédiée avant d'ouvrir le village : une étape par choix (route GET /worlds/:slug/join,
+  `steps` : faction sur un monde à factions, puis position de départ). Chaque étape renvoie à la suivante avec les choix
+  déjà faits dans l'adresse ; la dernière envoie le formulaire d'inscription (POST). `stepUrl(i)` : adresse de l'étape i.
+%>
+<%
+  const step = steps[index];
+  const last = index === steps.length - 1;
+  const cfg = world.getConfig();
+  const STEP_NAMES = { faction: 'Faction', direction: 'Position de départ' };
+  const factionOf = (id) => factions.find((f) => f.id === id);
+  // Blason de repli (sans illustration) : un dégradé et un monogramme aux couleurs de chaque faction.
+  const CREST = {
+    elf: { bg: 'bg-linear-to-b from-[#2f5a34] via-[#1f3a24] to-[#0d160e]', ink: 'text-[#c9e4a0]' },
+    dwarf: { bg: 'bg-linear-to-b from-[#7a5428] via-[#46301a] to-[#160f08]', ink: 'text-[#f0c987]' },
+    orc: { bg: 'bg-linear-to-b from-[#6e2a18] via-[#3e1610] to-[#120605]', ink: 'text-[#f29a74]' },
+    human: { bg: 'bg-linear-to-b from-[#344a7a] via-[#1f2c4c] to-[#0b0f1d]', ink: 'text-[#c7d4f2]' },
+  };
+  // Choix déjà faits, rappelés au pied de l'étape (lien pour y revenir).
+  const done = steps.slice(0, index).map((s, i) => ({
+    i, name: STEP_NAMES[s], value: s === 'faction' ? factionOf(choices.faction)?.name : DIRECTION_NAMES[choices.direction],
+  }));
+  // Les autres choix suivent le formulaire de l'étape en champs cachés.
+  const carried = Object.entries(choices).filter(([k, v]) => v && k !== step);
+%>
+<section class="landing-hero relative flex min-h-[calc(100svh-46px)] flex-col overflow-hidden border-b-[3px] border-black">
+  <div class="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(115deg,rgba(0,0,0,0.18)_0_2px,transparent_2px_7px)] opacity-35" aria-hidden="true"></div>
+  <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,transparent_30%,rgba(0,0,0,0.55))]" aria-hidden="true"></div>
+
+  <div class="relative mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-3.5 pt-6 pb-10">
+    <%# En-tête : retour, monde, étapes. %>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <a href="<%= index ? stepUrl(index - 1) : `/worlds?w=${encodeURIComponent(world.slug)}${code ? `&code=${encodeURIComponent(code)}` : ''}` %>" class="<%= ui.link %> inline-flex items-center gap-1.5 text-sm [text-shadow:1px_1px_0_#000]"><%- icon('arrowLeft', 'size-3.5', 2.4) %><%= index ? 'Étape précédente' : 'Retour au monde' %></a>
+      <ol class="flex items-center gap-1.5" aria-label="Étapes">
+        <% steps.forEach((s, i) => { const state = i < index ? 'done' : i === index ? 'current' : 'next'; %>
+          <% if (i) { %><li class="h-px w-6 <%= i <= index ? 'bg-gold-400' : 'bg-bronze-700' %>" aria-hidden="true"></li><% } %>
+          <li class="flex items-center gap-1.5" <%- state === 'current' ? 'aria-current="step"' : '' %>>
+            <% if (state === 'done') { %>
+              <a href="<%= stepUrl(i) %>" class="flex size-7 items-center justify-center border-2 border-black bg-gold-400 text-night shadow-[2px_2px_0_#000]" title="Revenir à : <%= STEP_NAMES[s] %>"><%- icon('check', 'size-3.5', 3) %></a>
+            <% } else { %>
+              <span class="flex size-7 items-center justify-center border-2 border-black font-display text-sm font-semibold shadow-[2px_2px_0_#000] <%= state === 'current' ? 'bg-blood-700 text-parchment-100' : 'bg-night text-parchment-500' %>"><%= i + 1 %></span>
+            <% } %>
+            <span class="hidden text-[13px] sm:inline <%= state === 'next' ? 'text-parchment-500' : 'text-parchment-100' %> [text-shadow:1px_1px_0_#000]"><%= STEP_NAMES[s] %></span>
+          </li>
+        <% }) %>
+      </ol>
+    </div>
+
+    <div class="text-center [text-shadow:2px_2px_0_#000]">
+      <div class="font-display text-sm text-gold-400"><%= world.name %> · étape <%= index + 1 %> sur <%= steps.length %></div>
+      <% if (step === 'faction') { %>
+        <h1 class="m-0 mt-1 font-display text-[28px] leading-tight font-semibold text-balance text-parchment-100 sm:text-[34px]">Choisis ton peuple</h1>
+        <p class="mx-auto mt-1.5 max-w-2xl text-[15px] text-pretty text-parchment-200">Sur ce monde, quatre peuples se disputent la victoire. Ta faction est définitive : tu ne pourras rejoindre que des tribus de ton peuple, et c'est tout ton peuple qui gagnera le monde.</p>
+      <% } else { %>
+        <h1 class="m-0 mt-1 font-display text-[28px] leading-tight font-semibold text-balance text-parchment-100 sm:text-[34px]">Où fonder ton village ?</h1>
+        <p class="mx-auto mt-1.5 max-w-2xl text-[15px] text-pretty text-parchment-200">Les nouveaux villages naissent au bord des terres déjà peuplées. Choisis la région du monde où commencer, près de tes amis ou loin de tes rivaux.</p>
+      <% } %>
+    </div>
+
+    <form method="<%= last ? 'post' : 'get' %>" action="/worlds/<%= world.slug %>/join" class="flex flex-col gap-4">
+      <% if (last) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } else { %><input type="hidden" name="step" value="<%= index + 1 %>"><% } %>
+      <% if (code) { %><input type="hidden" name="code" value="<%= code %>"><% } %>
+      <% for (const [k, v] of carried) { %><input type="hidden" name="<%= k %>" value="<%= v %>"><% } %>
+
+      <% if (step === 'faction') { %>
+        <%# Cartes des factions : illustration (ou blason de repli), nom, présentation ; la carte choisie s'éclaire. %>
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <% for (const f of factions) { const crest = CREST[f.id]; %>
+            <label class="group relative flex cursor-pointer flex-col overflow-hidden border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#000] transition hover:-translate-y-1 hover:shadow-[inset_0_0_0_1px_var(--color-bronze-500),6px_8px_0_#000] has-checked:-translate-y-1 has-checked:shadow-[inset_0_0_0_2px_var(--color-gold-400),6px_8px_0_#000] has-focus-visible:outline-2 has-focus-visible:outline-gold-400">
+              <input type="radio" name="faction" value="<%= f.id %>" required class="sr-only" <%= choices.faction === f.id ? 'checked' : '' %>>
+              <span class="relative block aspect-3/4 overflow-hidden <%= f.image ? 'bg-night' : crest.bg %>">
+                <% if (f.image) { %>
+                  <img src="<%= f.image %>" alt="" class="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-105 group-has-checked:scale-105" style="transform: scale(1.1)">
+                <% } else { %>
+                  <span class="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.04)_0_2px,transparent_2px_9px)]" aria-hidden="true"></span>
+                  <span class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                    <span class="flex size-[58%] items-center justify-center rotate-45 border-2 border-black/60 bg-black/20 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.08)] transition duration-500 group-hover:rotate-[50deg] group-has-checked:rotate-[50deg]">
+                      <span class="-rotate-45 font-display text-[64px] leading-none sm:text-[84px] <%= crest.ink %> [text-shadow:3px_3px_0_#000]"><%= f.singular[0] %></span>
+                    </span>
+                  </span>
+                <% } %>
+                <span class="absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-black/85 to-transparent" aria-hidden="true"></span>
+                <span class="absolute bottom-2.5 left-3 font-display text-[22px] leading-none font-semibold text-parchment-100 [text-shadow:2px_2px_0_#000] sm:text-[26px]"><%= f.name %></span>
+                <span class="absolute top-2 right-2 hidden size-7 items-center justify-center border-2 border-black bg-gold-400 text-night shadow-[2px_2px_0_#000] group-has-checked:flex"><%- icon('check', 'size-3.5', 3) %></span>
+              </span>
+              <span class="flex flex-1 flex-col gap-1 border-t-2 border-black px-3 py-2.5">
+                <span class="text-[13px] text-gold-400"><%= f.hint %></span>
+                <span class="text-[13px] leading-snug text-pretty text-parchment-300"><%= f.lore %></span>
+              </span>
+            </label>
+          <% } %>
+        </div>
+      <% } else { const chosen = choices.direction || 'random'; %>
+        <%# Rose des vents : les quatre quadrants restent des zones cliquables, avec le placement aléatoire au centre. %>
+        <div class="grid items-center gap-5 md:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+          <div class="faction-compass relative mx-auto aspect-square w-full max-w-[420px]" role="radiogroup" aria-label="Position de départ">
+            <svg class="faction-compass__rose" viewBox="0 0 420 420" fill="none" aria-hidden="true">
+              <circle cx="210" cy="210" r="162" stroke="currentColor" stroke-opacity=".55" stroke-width="1.5"/>
+              <circle cx="210" cy="210" r="148" stroke="currentColor" stroke-opacity=".32" stroke-width="1" stroke-dasharray="2 7"/>
+              <circle cx="210" cy="210" r="128" stroke="currentColor" stroke-opacity=".28" stroke-width="1"/>
+              <path d="M210 36v126m0 96v126M36 210h126m96 0h126" stroke="currentColor" stroke-opacity=".52" stroke-width="1.5"/>
+              <path d="M96 96l82 82m64 64 82 82M324 96l-82 82m-64 64-82 82" stroke="currentColor" stroke-opacity=".4" stroke-width="1" stroke-dasharray="3 5"/>
+              <path d="M210 67l-13 94 13-16 13 16-13-94Zm143 143-94-13 16 13-16 13 94-13Zm-143 143 13-94-13 16-13-16 13 94ZM67 210l94 13-16-13 16-13-94 13Z" fill="currentColor" fill-opacity=".32" stroke="currentColor" stroke-opacity=".55"/>
+              <circle cx="210" cy="210" r="76" stroke="currentColor" stroke-opacity=".55" stroke-width="1.5"/>
+            </svg>
+            <span class="faction-compass__point faction-compass__point--n" aria-hidden="true">N</span>
+            <span class="faction-compass__point faction-compass__point--e" aria-hidden="true">E</span>
+            <span class="faction-compass__point faction-compass__point--s" aria-hidden="true">S</span>
+            <span class="faction-compass__point faction-compass__point--w" aria-hidden="true">O</span>
+            <div class="faction-compass__regions">
+              <% for (const [d, arrow] of [['nw', '↖'], ['ne', '↗'], ['sw', '↙'], ['se', '↘']]) { %>
+                <label class="faction-compass__region">
+                  <input type="radio" name="direction" value="<%= d %>" class="sr-only" <%= chosen === d ? 'checked' : '' %>>
+                  <span class="faction-compass__choice"><span class="faction-compass__arrow" aria-hidden="true"><%= arrow %></span><span><%= DIRECTION_NAMES[d] %></span></span>
+                </label>
+              <% } %>
+            </div>
+            <label class="faction-compass__random">
+              <input type="radio" name="direction" value="random" class="sr-only" <%= chosen === 'random' ? 'checked' : '' %>>
+              <svg viewBox="0 0 36 36" fill="none" aria-hidden="true"><path d="M18 2l3.5 12.5L34 18l-12.5 3.5L18 34l-3.5-12.5L2 18l12.5-3.5L18 2Z" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="18" r="3" fill="currentColor"/></svg>
+              <span>Aléatoire</span>
+            </label>
+          </div>
+          <div class="flex flex-col gap-2.5 border-2 border-black bg-night/85 p-4 text-[15px] leading-relaxed text-parchment-300 shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#000]">
+            <div class="font-display text-lg font-semibold text-parchment-100">Bon à savoir</div>
+            <p class="m-0">Le monde se peuple du centre vers les bords : ton village apparaît à la limite des terres habitées, dans la région choisie.</p>
+            <p class="m-0">Des villages barbares naissent autour de toi : ce sont tes premières cibles de pillage.</p>
+            <p class="m-0">Pendant <span class="font-semibold text-parchment-100"><%= cfg.newbieDays %> jour<%= cfg.newbieDays > 1 ? 's' : '' %></span>, la protection des débutants empêche les autres joueurs de t'attaquer.</p>
+          </div>
+        </div>
+      <% } %>
+
+      <%# Pied : rappel des choix faits, puis Continuer (ou Fonder mon village à la dernière étape). %>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-2 border-black bg-night/90 px-3.5 py-2.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#000]">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <% if (player && player.faction) { %>
+            <span class="text-parchment-500">Faction <span class="font-semibold text-parchment-100"><%= factionOf(player.faction)?.name %></span> (définitive)</span>
+          <% } %>
+          <% for (const d of done) { %>
+            <span class="text-parchment-500"><%= d.name %> <span class="font-semibold text-parchment-100"><%= d.value %></span> · <a href="<%= stepUrl(d.i) %>" class="<%= ui.link %>">modifier</a></span>
+          <% } %>
+          <% if (!done.length && !(player && player.faction)) { %><span class="text-parchment-500"><%= player ? 'Tu recommences sur ce monde avec un nouveau village.' : 'Bienvenue sur ' + world.name + '.' %></span><% } %>
+        </div>
+        <button class="<%= btn('gold', 'md', 'min-w-52 max-sm:w-full') %>"><%= last ? (player ? 'Recommencer ici' : 'Fonder mon village') : 'Continuer' %><%- icon('arrowRight', 'size-3.5', 2.4) %></button>
+      </div>
+    </form>
+  </div>
+</section>
+<%- include('partials/footer') %>

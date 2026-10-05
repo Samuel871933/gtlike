@@ -67,6 +67,8 @@ const World = sequelize.define('World', {
   endedAt: { type: DataTypes.DATE, allowNull: true },
   winnerTribeId: { type: DataTypes.INTEGER, allowNull: true },
   winnerPlayerId: { type: DataTypes.INTEGER, allowNull: true },
+  // Monde à factions : faction gagnante (elf, dwarf, orc, human ; voir game/factions.js).
+  winnerFaction: { type: DataTypes.STRING(8), allowNull: true },
   // Serveur privé (voir PrivateServerService) : créé par un compte, accès 'open' (listé, ouvert à tous) ou 'code'
   // (réservé aux détenteurs du code). Nuls pour les mondes officiels.
   ownerUserId: { type: DataTypes.INTEGER, allowNull: true },
@@ -109,6 +111,8 @@ const Tribe = sequelize.define(
     announcement: { type: DataTypes.TEXT, allowNull: true },
     // Image du profil public (fichier WebP réduit, voir ImageService), nulle sans image.
     avatar: { type: DataTypes.STRING(64), allowNull: true },
+    // Monde à factions : faction du fondateur ; seuls les joueurs de cette faction peuvent entrer dans la tribu.
+    faction: { type: DataTypes.STRING(8), allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['worldId', 'tag'] }, { unique: true, fields: ['worldId', 'name'] }] },
 );
@@ -281,6 +285,8 @@ const Player = sequelize.define(
     mapSettings: { type: DataTypes.JSON, allowNull: true },
     // Joueur géré par l'IA (voir BotService) : sans compte (userId nul), ses réglages sont dans Bot.
     isBot: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    // Monde à factions : faction choisie à l'inscription, pour toute la partie (nulle sur les autres mondes).
+    faction: { type: DataTypes.STRING(8), allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['userId', 'worldId'] }, { fields: ['tribeId'] }, { fields: ['worldId', 'points'] }] },
 );

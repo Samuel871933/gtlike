@@ -16,6 +16,7 @@ const MarkerService = require('../services/MarkerService');
 const FavoriteService = require('../services/FavoriteService');
 const ShopService = require('../services/ShopService');
 const combat = require('../game/combat');
+const runes = require('../game/runes');
 
 const SECTOR = 20;
 
@@ -33,7 +34,7 @@ async function viewContext(village, cfg) {
     attackedVillages(player.id),
   ]);
   return {
-    village, player, relations, markers, favorites, attacked,
+    village, player, relations, markers, favorites, attacked, cfg,
     colors: MarkerService.colorMaps(markers),
     favIds: new Set(favorites.map((f) => f.villageId)),
     moraleOf: cfg.moral ? (points) => combat.morale(player.points, points, true) : null,
@@ -75,13 +76,15 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), 
     tribeId: t ? t.id : '', tribe: t ? t.tag : '', tribeName: t ? t.name : '',
     tribeInfo: t && tribePoints.has(t.id) ? `${num(tribePoints.get(t.id))} points` : '',
     special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
+    specialKind: v.special || '',
     fav: vc.favIds.has(v.id),
     // Design (skin) choisi par le propriétaire pour ses villages, vu par tous ; les barbares gardent le design par défaut.
     // Seulement s'il le possède sur ce monde (boutique) ; `rights` : droits par compte (ShopService.rightsByUser).
-    design: p && p.User ? villageDesignFor(p.User, rights.get(p.userId) || rights.server || null).id : DEFAULT_VILLAGE_DESIGN,
+    // Monde à factions : le design de sa faction par défaut (bots compris).
+    design: p ? villageDesignFor(p.User, p.User ? rights.get(p.userId) || rights.server || null : null, p.faction).id : DEFAULT_VILLAGE_DESIGN,
     mark: markOf(vc, v),
     // Morale de tes attaques contre ce joueur (rien contre les barbares et tes propres villages).
-    morale: vc.moraleOf && p && kind !== 'own' && kind !== 'current' ? `${Math.round(vc.moraleOf(p.points) * 100)} %` : '',
+    morale: vc.moraleOf && p && kind !== 'own' && kind !== 'current' ? `${Math.round((runes.moraleApplies(vc.cfg, v) ? vc.moraleOf(p.points) : 1) * 100)} %` : '',
     // Dernière attaque du joueur sur ce village (gommette et infobulle, comme sur GT) : résultat, butin, date, rapport.
     last: lastOf(lastAttacks.get(v.id)),
     // Notes visibles sur ce village (la tienne, celles que ta tribu partage) : icône sur la case, texte dans l'infobulle.
@@ -121,7 +124,7 @@ async function sectors(vc, list) {
     attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
     include: [{
       model: Player,
-      attributes: ['id', 'name', 'userId', 'tribeId', 'points', 'villageCount', 'isBot'],
+      attributes: ['id', 'name', 'userId', 'tribeId', 'points', 'villageCount', 'isBot', 'faction'],
       include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }, { model: User, attributes: ['villageDesign'] }],
     }],
   });

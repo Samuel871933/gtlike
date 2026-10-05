@@ -228,7 +228,8 @@ class BotService {
   static async around(village, radius, where) {
     const rows = await Village.findAll({
       where: {
-        worldId: village.worldId, ...where,
+        // Jamais les villages spéciaux (villages de rune, quartiers du Grand Siège) : leur garnison écraserait le bot.
+        worldId: village.worldId, special: null, ...where,
         x: { [Op.between]: [village.x - radius, village.x + radius] },
         y: { [Op.between]: [village.y - radius, village.y + radius] },
       },

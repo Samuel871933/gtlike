@@ -25,10 +25,11 @@
            ['Carte', `${cfg.mapSize} × ${cfg.mapSize} · protection ${cfg.newbieDays} j`],
            ['Combat', [cfg.moral ? 'morale' : 'sans morale', `chance ±${Math.round(cfg.luck * 100)} %`, cfg.night.active ? `nuit ${cfg.night.startHour} h-${cfg.night.endHour} h (×${cfg.night.defFactor})` : 'pas de bonus de nuit'].join(' · ')],
            ['Tribus', `${cfg.tribe.memberLimit} membres max`],
+           ...(cfg.factions.active ? [['Factions', `elfes, nains, orques, humains · victoire par faction${cfg.factions.noHarm ? ' · pas d’attaque dans sa faction' : ''}`]] : []),
          ]; %>
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 border border-bronze-800 bg-night px-2.5 py-1.5 text-[13px]">
         <% for (const [k, v] of facts) { %><dt class="text-parchment-500"><%= k %></dt><dd class="font-semibold first-letter:uppercase"><%= v %></dd><% } %>
-        <dt class="text-parchment-500">Victoire</dt><dd><a href="/worlds/<%= world.slug %>/ranking?type=victory" class="<%= ui.link %>"><%= victoryNames[cfg.victory.type] %></a><% if (cfg.victory.type === 'dominance') { %> <span class="text-parchment-500">· <%= dom.endgamePercent %> % pendant <%= dom.holdDays %> j, après <%= dom.minWorldAgeDays %> j</span><% } %></dd>
+        <dt class="text-parchment-500">Victoire</dt><dd><a href="/worlds/<%= world.slug %>/ranking?type=victory" class="<%= ui.link %>"><%= victoryNames[cfg.victory.type] %></a><% if (cfg.victory.type === 'dominance') { %> <span class="text-parchment-500">· <%= dom.endgamePercent %> % pendant <%= dom.holdDays %> j, après <%= dom.minWorldAgeDays %> j</span><% } else if (cfg.victory.type === 'runes') { const rn = cfg.victory.runes; %> <span class="text-parchment-500">· <%= rn.winPercent %> % des runes de chaque continent pendant <%= rn.holdDays %> j, apparition après <%= rn.spawnAfterDays %> j</span><% } %></dd>
       </dl>
       <a href="/worlds/<%= world.slug %>/info" class="<%= btn('dark', 'sm', 'w-full') %>"><%- icon('search', 'size-3.5', 2.2) %>Voir tous les paramètres du monde</a>
       <%# Code d'accès d'un serveur sur code : montré à son créateur et à ses joueurs, pour qu'ils le partagent. %>
@@ -41,15 +42,8 @@
       <% if (playing(selected)) { %>
         <a class="<%= btn('gold', 'md', 'w-full') %>" href="/worlds/<%= world.slug %>/play">Entrer dans le monde</a>
       <% } else if (world.isOpen && !world.endedAt) { %>
-        <form method="post" action="/worlds/<%= world.slug %>/join" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <% if (code) { %><input type="hidden" name="code" value="<%= code %>"><% } %>
-          <label class="<%= ui.label %>">Où commencer sur la carte ?
-            <select name="direction" class="<%= ui.input %> w-full">
-              <% for (const d of directions) { %><option value="<%= d %>"><%= directionNames[d] %></option><% } %>
-            </select>
-          </label>
-          <button class="<%= btn('gold', 'md', 'w-full') %>"><%= player ? 'Recommencer sur ce monde' : 'Rejoindre ce monde' %></button>
-        </form>
+        <%# Les choix (faction, position de départ) se font sur une page dédiée, une étape par choix (views/join.ejs). %>
+        <a class="<%= btn('gold', 'md', 'w-full') %>" href="/worlds/<%= world.slug %>/join<%= code ? `?code=${encodeURIComponent(code)}` : '' %>"><%= player ? 'Recommencer sur ce monde' : 'Rejoindre ce monde' %></a>
       <% } else { %>
         <p class="text-parchment-500">Inscriptions fermées.</p>
       <% } %>

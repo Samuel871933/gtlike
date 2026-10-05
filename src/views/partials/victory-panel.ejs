@@ -9,6 +9,11 @@
    const pct = (x) => `${(Math.round(x * 100) / 100).toLocaleString('fr-FR')} %`;
    const b = (x) => `<strong class="font-semibold text-gold-200">${x}</strong>`;
    const byPlayer = s.type === 'pointsVillages' && v.pointsVillages.scope === 'player';
+   // Monde à factions : la victoire se dispute entre factions (voir VictoryService.teamScope).
+   const byFaction = !byPlayer && cfg.factions.active;
+   const team = byFaction
+     ? { ones: 'factions', One: 'Faction', a: 'une faction', the: 'la faction', A: 'Une faction', The: 'La faction', first: 'la première faction', First: 'La première faction', yours: 'Votre faction', its: 'à sa faction', none: 'Aucune faction pour le moment.' }
+     : { ones: 'tribus', One: 'Tribu', a: 'une tribu', the: 'la tribu', A: 'Une tribu', The: 'La tribu', first: 'la première tribu', First: 'La première tribu', yours: 'Votre tribu', its: 'à sa tribu', none: 'Aucune tribu pour le moment.' };
    const days = (ms) => Math.floor(ms / DAY);
    // Barre de condition : remplissage `value / goal`, texte « valeur / objectif » au centre.
    const bar = (value, goal, label) => {
@@ -19,53 +24,55 @@
        <span class="relative text-[13px] font-semibold text-parchment-100 tabular-nums">${label}</span>
      </span>`;
    };
-   const who = (r) => (r.tag
+   const who = (r) => (r.faction ? `<span class="font-semibold">${esc(r.name)}</span>` : r.tag
      ? (vid ? `<a href="/village/${vid}/tribes/${r.id}" class="${ui.linkPlain} font-semibold" title="${esc(r.label)}">${esc(r.tag)}</a>` : `<span class="font-semibold" title="${esc(r.label)}">${esc(r.tag)}</span>`)
      : playerLink(vid, { id: r.id, name: r.label || r.name }, { cls: `${ui.linkPlain} font-semibold` }));
-   const names = { dominance: 'Dominance du monde', pointsVillages: 'Points et villages', runes: 'Guerre des runes', siege: 'Grand Siège', none: 'Fin du monde' };
+   const names = { dominance: 'Dominance du monde', pointsVillages: 'Points et villages', runes: 'Guerres runiques', siege: 'Grand Siège', none: 'Fin du monde' };
    const leader = s.leader;
    // Colonnes du top et lignes des conditions, selon le type de fin du monde.
    let top = { title: '', cols: [], cells: () => [] };
    let rows = [];
    if (s.type === 'dominance') {
      const d = v.dominance;
-     top = { title: 'Top des tribus par dominance', cols: ['Tribu', 'Dominance'], cells: (r) => [who(r), pct(r.percent)] };
+     top = { title: `Top des ${team.ones} par dominance`, cols: [team.One, 'Dominance'], cells: (r) => [who(r), pct(r.percent)] };
      rows = [
        ['Âge du monde', bar(s.age, d.minWorldAgeDays, `${num(Math.floor(s.age))} / ${num(d.minWorldAgeDays)} jours`)],
        ['Top dominance', bar(leader ? leader.percent : 0, d.endgamePercent, `${pct(leader ? leader.percent : 0)} / ${d.endgamePercent} %`)],
        ['Compte à rebours de dominance', bar(heldMs, d.holdDays * DAY, `${days(heldMs)} / ${d.holdDays} jours`)],
-       ...(hasMine ? [['Votre tribu', bar(mine ? mine.percent : 0, d.endgamePercent, `${pct(mine ? mine.percent : 0)} / ${d.endgamePercent} %`)]] : []),
+       ...(hasMine ? [[team.yours, bar(mine ? mine.percent : 0, d.endgamePercent, `${pct(mine ? mine.percent : 0)} / ${d.endgamePercent} %`)]] : []),
        ['Votre contribution', bar(contribution, d.endgamePercent, `${pct(contribution)} / ${d.endgamePercent} %`)],
      ];
    } else if (s.type === 'pointsVillages') {
      const pv = v.pointsVillages;
-     top = { title: `Top des ${byPlayer ? 'joueurs' : 'tribus'} par points`, cols: [byPlayer ? 'Joueur' : 'Tribu', 'Points', 'Villages'], cells: (r) => [who(r), num(r.points), num(r.villages)] };
+     top = { title: `Top des ${byPlayer ? 'joueurs' : team.ones} par points`, cols: [byPlayer ? 'Joueur' : team.One, 'Points', 'Villages'], cells: (r) => [who(r), num(r.points), num(r.villages)] };
      const holdMs = pv.holdHours * 3600000;
      rows = [
        ['Top points', bar(leader ? leader.points : 0, pv.points, `${num(leader ? leader.points : 0)} / ${num(pv.points)}`)],
        ['Top villages', bar(leader ? leader.villages : 0, pv.villages, `${num(leader ? leader.villages : 0)} / ${num(pv.villages)}`)],
        ['Compte à rebours', bar(heldMs, holdMs, `${Math.floor(heldMs / 3600000)} / ${pv.holdHours} heures`)],
        ...(hasMine ? [
-         [byPlayer ? 'Vos points' : 'Points de votre tribu', bar(mine ? mine.points : 0, pv.points, `${num(mine ? mine.points : 0)} / ${num(pv.points)}`)],
-         [byPlayer ? 'Vos villages' : 'Villages de votre tribu', bar(mine ? mine.villages : 0, pv.villages, `${num(mine ? mine.villages : 0)} / ${num(pv.villages)}`)],
+         [byPlayer ? 'Vos points' : `Points de ${team.yours.toLowerCase()}`, bar(mine ? mine.points : 0, pv.points, `${num(mine ? mine.points : 0)} / ${num(pv.points)}`)],
+         [byPlayer ? 'Vos villages' : `Villages de ${team.yours.toLowerCase()}`, bar(mine ? mine.villages : 0, pv.villages, `${num(mine ? mine.villages : 0)} / ${num(pv.villages)}`)],
        ] : []),
      ];
    } else if (s.type === 'runes') {
      const rn = v.runes;
-     top = { title: 'Top des tribus par villages de rune', cols: ['Tribu', 'Runes', 'Part'], cells: (r) => [who(r), num(r.villages), pct(r.percent)] };
+     // Victoire : `winPercent` % des villages de rune de CHAQUE continent (continents « remplis »), voir VictoryService.runeStandings.
+     const nK = s.continents.length;
+     top = { title: `Top des ${team.ones} par continents remplis`, cols: [team.One, 'Continents', 'Runes'], cells: (r) => [who(r), `${num(r.filled)} / ${num(nK)}`, num(r.villages)] };
      rows = [
        ['Apparition des runes', bar(s.age, rn.spawnAfterDays, s.spawned ? `${num(s.total)} villages de rune` : `${num(Math.floor(s.age))} / ${rn.spawnAfterDays} jours`)],
-       ['Top des runes', bar(leader ? leader.percent : 0, rn.winPercent, `${pct(leader ? leader.percent : 0)} / ${rn.winPercent} %`)],
+       ['Continents remplis par le meneur', bar(leader ? leader.filled : 0, nK, `${num(leader ? leader.filled : 0)} / ${num(nK)}`)],
        ['Compte à rebours des runes', bar(heldMs, rn.holdDays * DAY, `${days(heldMs)} / ${rn.holdDays} jours`)],
-       ...(hasMine ? [['Votre tribu', bar(mine ? mine.percent : 0, rn.winPercent, `${pct(mine ? mine.percent : 0)} / ${rn.winPercent} %`)]] : []),
+       ...(hasMine ? [[team.yours, bar(mine ? mine.filled : 0, nK, `${num(mine ? mine.filled : 0)} / ${num(nK)} continents`)]] : []),
      ];
    } else if (s.type === 'siege') {
      const sg = v.siege;
-     top = { title: 'Top des tribus par influence', cols: ['Tribu', 'Quartiers', 'Influence'], cells: (r) => [who(r), num(r.villages), num(r.influence)] };
+     top = { title: `Top des ${team.ones} par influence`, cols: [team.One, 'Quartiers', 'Influence'], cells: (r) => [who(r), num(r.villages), num(r.influence)] };
      rows = [
        ['Apparition de la cité', bar(s.age, sg.startAfterDays, s.spawned ? `${sg.villages} quartiers` : `${num(Math.floor(s.age))} / ${sg.startAfterDays} jours`)],
        ['Top influence', bar(leader ? leader.influence : 0, s.required, `${num(leader ? leader.influence : 0)} / ${num(s.required)}`)],
-       ...(hasMine ? [['Votre tribu', bar(mine ? mine.influence : 0, s.required, `${num(mine ? mine.influence : 0)} / ${num(s.required)}`)]] : []),
+       ...(hasMine ? [[team.yours, bar(mine ? mine.influence : 0, s.required, `${num(mine ? mine.influence : 0)} / ${num(s.required)}`)]] : []),
        ["Baisse de l'objectif", bar(s.reduction * 100, sg.maxReductionPercent, `${Math.round(s.reduction * 100)} / ${sg.maxReductionPercent} %`)],
      ];
    } %>
@@ -75,31 +82,35 @@
     <% if (world.endedAt) { %>
       <div class="<%= ui.boxGoldV %> flex items-center gap-3 p-3.5">
         <span class="<%= ui.medallionGold %> size-[46px] minimal:size-[34px]"><%- icon('crown', 'size-[22px]') %></span>
-        <p class="text-parchment-200"><strong class="font-display text-[17px] font-semibold text-gold-200"><%= state.winnerName %></strong> a gagné le monde <%= when(world.endedAt, now) %>. Le monde est en paix.</p>
+        <p class="text-parchment-200"><strong class="font-display text-[17px] font-semibold text-gold-200"><%= world.winnerFaction ? `Les ${state.winnerName}` : state.winnerName %></strong> <%= world.winnerFaction ? 'ont' : 'a' %> gagné le monde <%= when(world.endedAt, now) %>. Le monde est en paix.</p>
       </div>
     <% } else if (state.holderId) { %>
       <div class="<%= ui.boxGold %> flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 text-parchment-200">
         <span class="font-semibold text-gold-200">Fin de partie en cours :</span>
-        <strong class="font-semibold text-parchment-100"><%= state.holderName %></strong> gagne <%= when(state.until, now) %> s'il tient jusque-là ·
+        <% if (byFaction) { %><strong class="font-semibold text-parchment-100">Les <%= state.holderName %></strong> gagnent <%= when(state.until, now) %> s'ils tiennent jusque-là ·<% } else { %><strong class="font-semibold text-parchment-100"><%= state.holderName %></strong> gagne <%= when(state.until, now) %> s'il tient jusque-là ·<% } %>
         <span class="<%= ui.figure %>" data-countdown="<%= new Date(state.until).getTime() %>"><%= duration((new Date(state.until) - now) / 1000) %></span>
       </div>
     <% } %>
 
     <div class="flex flex-col gap-2.5 text-[15px] leading-relaxed text-parchment-300">
+      <% if (byFaction) { %>
+        <p>Sur ce monde, ce sont les factions qui s'affrontent : elfes, nains, orques et humains. Les villages de tous les joueurs d'une faction, qu'ils soient dans une tribu ou non, comptent ensemble, et la victoire revient à toute la faction.</p>
+      <% } %>
       <% if (s.type === 'dominance') { const d = v.dominance; %>
-        <p>Chaque monde a besoin d'un vainqueur, mais quel groupe de valeureux seigneurs s'unira pour gagner <%= world.name %> ?</p>
-        <p>Afin de vraiment prouver leur valeur, une tribu doit contrôler au moins <%- b(`${d.endgamePercent} %`) %> de l'ensemble des villages des joueurs de ce monde. Ce pourcentage est aussi connu comme le pourcentage de domination d'une tribu.</p>
-        <p>Afin d'éviter que le monde ne se termine trop tôt sur une victoire non satisfaisante, le monde doit être vieux d'au moins <%- b(d.minWorldAgeDays) %> jours pour qu'une tribu puisse prétendre à la victoire.</p>
-        <p>La tribu dominatrice doit conserver le pourcentage de dominance pendant <%- b(d.holdDays) %> jours consécutifs pour prétendre à la victoire. Tous les joueurs sont prévenus dès qu'une tribu dépasse <%= d.warningPercent %> % (monde d'au moins <%= d.warningWorldAgeDays %> jours).</p>
+        <p>Chaque monde a besoin d'un vainqueur, mais <%= byFaction ? 'quel peuple' : 'quel groupe de valeureux seigneurs' %> s'unira pour gagner <%= world.name %> ?</p>
+        <p>Afin de vraiment prouver leur valeur, <%= team.a %> doit contrôler au moins <%- b(`${d.endgamePercent} %`) %> de l'ensemble des villages des joueurs de ce monde. Ce pourcentage est aussi connu comme le pourcentage de domination d'<%= team.a %>.</p>
+        <p>Afin d'éviter que le monde ne se termine trop tôt sur une victoire non satisfaisante, le monde doit être vieux d'au moins <%- b(d.minWorldAgeDays) %> jours pour qu'<%= team.a %> puisse prétendre à la victoire.</p>
+        <p><%= team.The %> dominatrice doit conserver le pourcentage de dominance pendant <%- b(d.holdDays) %> jours consécutifs pour prétendre à la victoire. Tous les joueurs sont prévenus dès qu'<%= team.a %> dépasse <%= d.warningPercent %> % (monde d'au moins <%= d.warningWorldAgeDays %> jours).</p>
       <% } else if (s.type === 'pointsVillages') { const pv = v.pointsVillages; %>
-        <p>Sur ce monde, la victoire revient <%= byPlayer ? 'au premier joueur' : 'à la première tribu' %> qui atteint à la fois <%- b(`${num(pv.points)} points`) %> et <%- b(`${num(pv.villages)} villages`) %>.</p>
-        <p><%= byPlayer ? 'Le joueur' : 'La tribu' %> doit tenir ces deux seuils pendant <%- b(`${pv.holdHours} heures`) %> consécutives pour gagner le monde.</p>
+        <p>Sur ce monde, la victoire revient <%= byPlayer ? 'au premier joueur' : `à ${team.first}` %> qui atteint à la fois <%- b(`${num(pv.points)} points`) %> et <%- b(`${num(pv.villages)} villages`) %>.</p>
+        <p><%= byPlayer ? 'Le joueur' : team.The %> doit tenir ces deux seuils pendant <%- b(`${pv.holdHours} heures`) %> consécutives pour gagner le monde.</p>
       <% } else if (s.type === 'runes') { const rn = v.runes; %>
-        <p>Au bout de <%- b(`${rn.spawnAfterDays} jours`) %>, <%= rn.villagesPerContinent %> villages de rune garnis de troupes apparaissent sur chaque continent peuplé.</p>
-        <p>Une tribu gagne en détenant <%- b(`${rn.winPercent} %`) %> des villages de rune pendant <%- b(`${rn.holdDays} jours`) %> consécutifs.</p>
+        <p>Au bout de <%- b(`${rn.spawnAfterDays} jours`) %>, <%= rn.villagesPerContinent %> villages de rune gardés par des troupes barbares apparaissent dans chaque continent qui compte au moins <%= rn.minPlayerVillages %> villages de joueurs.</p>
+        <p><%= team.A %> gagne en détenant <%- b(`${rn.winPercent} %`) %> des villages de rune <%- b('de chaque continent') %> pendant <%- b(`${rn.holdDays} jours`) %> consécutifs : il faut être présent partout.</p>
+        <% if (rn.defenseFactor < 1 || rn.disableMorale) { %><p><%= rn.defenseFactor < 1 ? `Les pierres runiques affaiblissent leurs défenseurs : un village de rune conquis se défend avec ${Math.round((1 - rn.defenseFactor) * 100)} % de force en moins, soutiens compris.` : '' %><%= rn.disableMorale ? ' La morale ne protège pas les villages de rune.' : '' %></p><% } %>
       <% } else if (s.type === 'siege') { const sg = v.siege; %>
-        <p>Au bout de <%- b(`${sg.startAfterDays} jours`) %>, les <%= sg.villages %> quartiers de la cité apparaissent au centre de la carte. Chaque quartier tenu rapporte <%- b(num(sg.influencePerVillagePerDay)) %> points d'influence par jour à sa tribu.</p>
-        <p>La première tribu qui atteint l'objectif d'influence gagne immédiatement. L'objectif baisse de <%= sg.reductionPercent %> % tous les <%= sg.reductionEveryDays %> jours (au plus −<%= sg.maxReductionPercent %> %) ; il est actuellement de <%- b(num(s.required)) %> points.</p>
+        <p>Au bout de <%- b(`${sg.startAfterDays} jours`) %>, les <%= sg.villages %> quartiers de la cité apparaissent au centre de la carte. Chaque quartier tenu rapporte <%- b(num(sg.influencePerVillagePerDay)) %> points d'influence par jour <%= team.its %>.</p>
+        <p><%= team.First %> qui atteint l'objectif d'influence gagne immédiatement. L'objectif baisse de <%= sg.reductionPercent %> % tous les <%= sg.reductionEveryDays %> jours (au plus −<%= sg.maxReductionPercent %> %) ; il est actuellement de <%- b(num(s.required)) %> points.</p>
       <% } else { %>
         <p>Ce monde n'a pas de condition de victoire automatique.</p>
       <% } %>
@@ -111,7 +122,7 @@
           <table class="<%= ui.table %>">
             <thead><tr><th colspan="<%= top.cols.length %>"><%= top.title %></th></tr></thead>
             <tbody>
-              <% if (!s.list.length) { %><tr><td colspan="<%= top.cols.length %>" class="text-parchment-500"><%= byPlayer ? 'Aucun joueur.' : 'Aucune tribu pour le moment.' %></td></tr><% } %>
+              <% if (!s.list.length) { %><tr><td colspan="<%= top.cols.length %>" class="text-parchment-500"><%= byPlayer ? 'Aucun joueur.' : team.none %></td></tr><% } %>
               <% s.list.slice(0, 20).forEach((r) => { const cells = top.cells(r); const me = mine && r.id === mine.id; %>
                 <tr class="<%= me ? ui.rowActive : '' %>">
                   <% cells.forEach((c, i) => { %><td class="<%= i ? 'text-right tabular-nums' : '' %>"><%- c %></td><% }) %>
@@ -131,6 +142,27 @@
           </table>
         </div>
       </div>
+      <%# Guerres runiques : détail par continent (villages de rune, requis, meilleur camp, le vôtre). %>
+      <% if (s.type === 'runes' && s.continents.length) { %>
+        <div class="overflow-x-auto border border-bronze-800">
+          <table class="<%= ui.table %>">
+            <thead><tr><th>Continent</th><th class="text-right">Villages de rune</th><th class="text-right">Requis</th><th>Meilleur <%= team.One.toLowerCase() %></th><% if (hasMine) { %><th class="text-right"><%= team.yours %></th><% } %></tr></thead>
+            <tbody>
+              <% for (const c of s.continents) {
+                   const best = s.list.reduce((m, r) => ((r.byContinent[c.k] || 0) > (m ? m.byContinent[c.k] || 0 : 0) ? r : m), null);
+                   const mineN = mine ? mine.byContinent[c.k] || 0 : 0; %>
+                <tr>
+                  <td class="font-semibold"><%= c.k %></td>
+                  <td class="text-right tabular-nums"><%= num(c.total) %></td>
+                  <td class="text-right tabular-nums"><%= num(c.need) %></td>
+                  <td><% if (best) { %><%- who(best) %> <span class="text-parchment-500 tabular-nums">· <%= num(best.byContinent[c.k]) %></span><% if (best.byContinent[c.k] >= c.need) { %> <span class="text-olive-300">rempli</span><% } %><% } else { %><span class="text-parchment-500">Personne</span><% } %></td>
+                  <% if (hasMine) { %><td class="text-right tabular-nums <%= mineN >= c.need && c.need ? 'text-olive-300 font-semibold' : '' %>"><%= num(mineN) %> / <%= num(c.need) %></td><% } %>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
     <% } %>
   </div>
 </section>

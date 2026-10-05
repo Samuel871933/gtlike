@@ -7,6 +7,7 @@ const {
 } = require('../models');
 const registry = require('../game/registry');
 const combat = require('../game/combat');
+const runes = require('../game/runes');
 const { travelSeconds, distance, arrivalAt } = require('../game/movement');
 const VillageService = require('./VillageService');
 const KnightService = require('./KnightService');
@@ -104,13 +105,19 @@ class CommandService {
           throw new GameError(`Ce joueur est sous protection débutant jusqu'au ${protectedUntil.toLocaleString('fr-FR')}.`);
         }
       }
-      if (target.Player) moraleValue = combat.morale(attackerPlayer.points, target.Player.points, cfg.moral);
+      if (target.Player && runes.moraleApplies(cfg, target)) moraleValue = combat.morale(attackerPlayer.points, target.Player.points, cfg.moral);
     }
 
     // Règles de tribu du monde.
     const sameTribe = target.playerId !== village.playerId && attackerPlayer.tribeId && target.Player && target.Player.tribeId === attackerPlayer.tribeId;
     if (type === 'attack' && sameTribe && cfg.tribe.noHarm) {
       throw new GameError("Vous ne pouvez pas attaquer un membre de votre tribu.");
+    }
+    // Monde à factions : attaque interdite entre joueurs d'une même faction (réglage `factions.noHarm`).
+    const sameFaction = cfg.factions.active && target.Player && target.playerId !== village.playerId
+      && attackerPlayer.faction && target.Player.faction === attackerPlayer.faction;
+    if (type === 'attack' && sameFaction && cfg.factions.noHarm) {
+      throw new GameError('Vous ne pouvez pas attaquer un joueur de votre faction.');
     }
     if (type === 'support' && cfg.tribe.supportOnlyTribe && target.playerId !== village.playerId && !sameTribe) {
       const rel = target.Player?.tribeId && attackerPlayer.tribeId
@@ -400,13 +407,15 @@ class CommandService {
       attackerSkills: attackerKnight ? knightSkills.bonuses([attackerKnight], 'attack') : null,
       defenderSkills: defenderKnights.length ? knightSkills.bonuses(defenderKnights, 'defense') : null,
       wall: state.level('wall'),
-      morale: defenderPlayer ? combat.morale(origin.Player.points, defenderPlayer.points, cfg.moral) : 1,
+      morale: defenderPlayer && runes.moraleApplies(cfg, target) ? combat.morale(origin.Player.points, defenderPlayer.points, cfg.moral) : 1,
       luck: (rng() * 2 - 1) * cfg.luck,
       nightFactor: defenderPlayer && cfg.isNight(at) ? cfg.night.defFactor : 1,
       catapultTarget: cmd.catapultTarget ? { building: cmd.catapultTarget, level: state.level(cmd.catapultTarget) } : null,
       // Foi : l'attaque dépend de l'église du village d'origine, toute la défense (soutiens compris) de celle de la cible.
       attackerFaith: await FaithService.factor(origin, cfg, { t }),
       defenderFaith: await FaithService.factor(target, cfg, { t, buildings: state.buildings }),
+      // Guerres runiques : un village de runes conquis se défend mal (soutiens compris).
+      defenseFactor: runes.defenseFactor(cfg, target),
     });
 
     // Pertes du défenseur : même proportion pour le village et chaque soutien.
@@ -591,6 +600,7 @@ class CommandService {
       attackerWins: result.hasBattle ? result.attackerWins : null,
       luck: result.luck, morale: result.morale, night: result.nightFactor > 1,
       ...(cfg.hasFeature('church') ? { faith: { attacker: result.attackerFaith, defender: result.defenderFaith } } : {}),
+      ...(result.defenseFactor !== 1 ? { runePenalty: result.defenseFactor } : {}),
       wall: { before: result.wallBefore, after: result.wallAfter },
       catapult: result.catapult ? { ...result.catapult, name: registry.building(result.catapult.building).name } : null,
       attackerItem: attackerItem ? registry.ITEMS.get(attackerItem).name : null,

@@ -93,19 +93,75 @@ test('points et villages (joueur) : victoire après la durée de maintien', asyn
   assert.equal(world.winnerPlayerId, alice.id);
 });
 
-test('runes : apparition par continent, victoire en détenant la part requise', async () => {
+test('runes : apparition par continent, victoire en détenant la part requise dans chaque continent', async () => {
   const { world, tribe, alice } = await setupWorld({
-    type: 'runes', runes: { spawnAfterDays: 0, villagesPerContinent: 2, winPercent: 50, holdDays: 0, garrison: { spear: 10 } },
+    type: 'runes', runes: { spawnAfterDays: 0, villagesPerContinent: 2, minPlayerVillages: 1, winPercent: 50, holdDays: 0, garrison: { spear: 10 } },
   });
   await VictoryService.check(world.id, new Date());
+  await world.reload();
   const runes = await Village.findAll({ where: { worldId: world.id, special: 'rune' } });
-  assert.ok(runes.length >= 2);
+  const keyOf = (v) => `K${Math.floor(v.y / 100)}${Math.floor(v.x / 100)}`;
+  assert.deepEqual([...new Set(runes.map(keyOf))].sort(), world.victoryState.continents, 'runes dans chaque continent peuplé');
+  assert.equal(runes.length, 2 * world.victoryState.continents.length);
   assert.equal(runes[0].units.spear, 10, 'garnison barbare');
-  const half = runes.slice(0, Math.ceil(runes.length / 2));
-  await Village.update({ playerId: alice.id }, { where: { id: half.map((r) => r.id) } });
+  // Une rune de chaque continent : 50 % partout, victoire.
+  const one = world.victoryState.continents.map((k) => runes.find((r) => keyOf(r) === k));
+  await Village.update({ playerId: alice.id }, { where: { id: one.map((r) => r.id) } });
   await VictoryService.check(world.id, new Date());
   await world.reload();
   assert.equal(world.winnerTribeId, tribe.id);
+});
+
+test('runes : tenir beaucoup de runes ne suffit pas s’il manque un continent', async () => {
+  const { world, alice } = await setupWorld({
+    type: 'runes', runes: { spawnAfterDays: 0, villagesPerContinent: 4, minPlayerVillages: 1, winPercent: 50, holdDays: 0, garrison: {} },
+  });
+  // Trois continents d'office (le centre est au coin de quatre) : un village de joueur dans deux continents voisins.
+  const { Player: P } = require('../src/models');
+  const p = await P.findByPk(alice.id);
+  await WorldService.createVillage(world, { x: 450, y: 450, player: p, name: 'NO', buildings: { main: 1 }, now: new Date() });
+  await WorldService.createVillage(world, { x: 550, y: 450, player: p, name: 'NE', buildings: { main: 1 }, now: new Date() });
+  await VictoryService.check(world.id, new Date());
+  await world.reload();
+  const ks = world.victoryState.continents;
+  assert.ok(ks.length >= 2, ks.join());
+  const runes = await Village.findAll({ where: { worldId: world.id, special: 'rune' } });
+  const keyOf = (v) => `K${Math.floor(v.y / 100)}${Math.floor(v.x / 100)}`;
+  // Toutes les runes sauf celles du dernier continent.
+  await Village.update({ playerId: alice.id }, { where: { id: runes.filter((r) => keyOf(r) !== ks[ks.length - 1]).map((r) => r.id) } });
+  const s = await VictoryService.standings(world, new Date());
+  assert.equal(s.leader.filled, ks.length - 1);
+  assert.equal(s.met, false);
+  await VictoryService.check(world.id, new Date());
+  await world.reload();
+  assert.equal(world.endedAt, null);
+});
+
+test('runes : seuls les continents assez peuplés reçoivent des runes', async () => {
+  const { world, alice } = await setupWorld({
+    type: 'runes', runes: { spawnAfterDays: 0, villagesPerContinent: 3, minPlayerVillages: 50, winPercent: 60, holdDays: 1, garrison: {} },
+  });
+  void alice;
+  await VictoryService.check(world.id, new Date());
+  await world.reload();
+  assert.equal(world.victoryState.continents.length, 1, 'aucun continent à 50 villages : le plus peuplé seulement');
+  assert.equal(await Village.count({ where: { worldId: world.id, special: 'rune' } }), 3);
+});
+
+test('runes : un village de rune conquis se défend mal, morale désactivable', async () => {
+  const combat = require('../src/game/combat');
+  const runeRules = require('../src/game/runes');
+  const WorldConfig = require('../src/game/WorldConfig');
+  const cfg = new WorldConfig({ victory: { type: 'runes', runes: { defenseFactor: 0.4, disableMorale: true } } });
+  assert.equal(runeRules.defenseFactor(cfg, { special: 'rune', playerId: 1 }), 0.4);
+  assert.equal(runeRules.defenseFactor(cfg, { special: 'rune', playerId: null }), 1, 'la garnison barbare garde sa force');
+  assert.equal(runeRules.defenseFactor(cfg, { special: null, playerId: 1 }), 1);
+  assert.equal(runeRules.moraleApplies(cfg, { special: 'rune' }), false);
+  assert.equal(runeRules.defenseFactor(new WorldConfig({}), { special: 'rune', playerId: 1 }), 1, 'monde en domination');
+  const fight = (defenseFactor) => combat.resolve({ attackers: { axe: 300 }, defenders: { spear: 1000 }, wall: 0, defenseFactor });
+  assert.equal(fight(1).attackerWins, false);
+  assert.equal(fight(0.4).attackerWins, true);
+  assert.equal(fight(0.4).defenseFactor, 0.4);
 });
 
 test('Grand Siège : l’influence s’accumule par quartier tenu, l’objectif baisse chaque semaine', async () => {
@@ -129,4 +185,34 @@ test('Grand Siège : l’influence s’accumule par quartier tenu, l’objectif 
   await VictoryService.check(world.id, later);
   await world.reload();
   assert.equal(world.winnerTribeId, tribe.id, '1 000 d’influence ≥ 880');
+});
+
+test('runes : la pénalité de défense s’applique au combat et figure dans le rapport', async () => {
+  const { world, alice, bob, a, b } = await setupWorld({ type: 'runes', runes: { defenseFactor: 0.5, spawnAfterDays: 1000 } });
+  void alice; void bob;
+  await Village.update({ special: 'rune', units: { spear: 50 } }, { where: { id: b.id } });
+  await Village.update({ units: { axe: 20 }, buildings: { ...a.buildings, place: 1 } }, { where: { id: a.id } });
+  const cmd = await CommandService.send(a.id, { x: b.x, y: b.y, type: 'attack', units: { axe: 20 } });
+  await CommandService.processDue(new Date(new Date(cmd.arrivesAt).getTime() + 1000));
+  const report = await Report.findOne({ where: { playerId: alice.id, type: 'attack' }, order: [['id', 'DESC']] });
+  assert.ok(report, 'rapport d’attaque');
+  assert.equal(report.data.runePenalty, 0.5);
+  assert.equal(world.getConfig().victory.type, 'runes');
+});
+
+test('création de serveur : Guerres runiques et pénalité réglables', () => {
+  const serverSettings = require('../src/game/serverSettings');
+  const body = {};
+  for (const st of serverSettings.SETTINGS) {
+    const v = serverSettings.formValue(st);
+    body[st.key] = typeof v === 'boolean' ? (v ? '1' : '') : v;
+  }
+  assert.equal(body['victory.runes.defenseFactor'], 50, 'affichée en % de pénalité');
+  Object.assign(body, { 'victory.type': 'runes', 'victory.runes.defenseFactor': '60', 'victory.runes.villagesPerContinent': '8' });
+  const { config, error } = serverSettings.parse(body);
+  assert.equal(error, undefined);
+  assert.equal(config.victory.type, 'runes');
+  assert.equal(config.victory.runes.defenseFactor, 0.4);
+  assert.equal(config.victory.runes.villagesPerContinent, 8);
+  assert.match(serverSettings.parse({ ...body, 'victory.type': 'siege' }).error, /choix invalide/);
 });

@@ -172,6 +172,132 @@ html.game_style body::before,
   }
 }
 
+/* Choix de la région de départ : rose des vents interactive sur la carte. */
+.faction-compass {
+  isolation: isolate;
+  overflow: hidden;
+  border: 3px solid #080a08;
+  background-image:
+    radial-gradient(circle at center, rgb(32 34 25 / .08) 18%, rgb(11 13 10 / .72) 100%),
+    linear-gradient(135deg, rgb(126 104 62 / .36), rgb(26 34 24 / .24) 55%, rgb(114 84 44 / .3)),
+    url('/img/map/terrain-grass.webp');
+  background-size: cover, cover, 220px;
+  box-shadow: inset 0 0 0 2px #8a764e, inset 0 0 0 10px rgb(9 11 8 / .58), 6px 6px 0 #000;
+}
+.faction-compass::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 13px;
+  border: 1px solid rgb(203 163 95 / .5);
+  pointer-events: none;
+}
+.faction-compass__rose {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: #d4b77e;
+  opacity: .8;
+  filter: drop-shadow(1px 1px 1px #080a08);
+  pointer-events: none;
+}
+.faction-compass__regions {
+  position: absolute;
+  z-index: 3;
+  inset: 21px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+.faction-compass__region {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .2s;
+}
+.faction-compass__region:hover,
+.faction-compass__region:has(input:checked) {
+  background: radial-gradient(circle, rgb(203 163 95 / .18), transparent 75%);
+}
+.faction-compass__choice {
+  display: flex;
+  min-width: 116px;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 2px solid #080a08;
+  padding: 7px 11px 8px;
+  background: rgb(18 20 16 / .91);
+  color: #f2e5c8;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.1;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px #655b3f, 3px 3px 0 #000;
+  transition: border-color .2s, background .2s, color .2s, transform .2s;
+}
+.faction-compass__arrow { color: #d8b46f; font-family: Georgia, serif; font-size: 26px; line-height: 1; }
+.faction-compass__region:hover .faction-compass__choice { transform: translateY(-3px); border-color: #d8b46f; }
+.faction-compass__region:has(input:checked) .faction-compass__choice {
+  border-color: #080a08;
+  background: #cba35f;
+  color: #15140f;
+  box-shadow: inset 0 0 0 1px #f0dba6, 3px 3px 0 #000;
+}
+.faction-compass__region:has(input:checked) .faction-compass__arrow { color: #3e2b17; }
+.faction-compass__region:has(input:focus-visible) .faction-compass__choice,
+.faction-compass__random:has(input:focus-visible) { outline: 3px solid #f0dba6; outline-offset: 3px; }
+.faction-compass__point {
+  position: absolute;
+  z-index: 4;
+  color: #f0dba6;
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1;
+  text-shadow: 1px 1px 2px #000, -1px -1px 2px #000;
+  pointer-events: none;
+}
+.faction-compass__point--n { top: 17px; left: 50%; transform: translateX(-50%); }
+.faction-compass__point--s { bottom: 17px; left: 50%; transform: translateX(-50%); }
+.faction-compass__point--e { right: 18px; top: 50%; transform: translateY(-50%); }
+.faction-compass__point--w { left: 18px; top: 50%; transform: translateY(-50%); }
+.faction-compass__random {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: 29%;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  border: 3px solid #090a08;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #383323, #181a15);
+  color: #f0dba6;
+  font-family: var(--font-display);
+  font-size: 15px;
+  box-shadow: 0 0 0 2px #b5945e, 0 0 0 5px #0b0e0a, 4px 5px 0 #000;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s, color .2s;
+}
+.faction-compass__random svg { width: 30px; height: 30px; }
+.faction-compass__random:hover { box-shadow: 0 0 0 2px #f0dba6, 0 0 0 5px #0b0e0a, 4px 5px 0 #000; }
+.faction-compass__random:has(input:checked) { background: linear-gradient(145deg, #efd292, #cba35f); color: #1e1b13; }
+@media (max-width: 380px) {
+  .faction-compass__regions { inset: 15px; }
+  .faction-compass__choice { min-width: 0; padding: 5px 7px; font-size: 12px; }
+  .faction-compass__arrow { font-size: 21px; }
+  .faction-compass__random { width: 26%; font-size: 12px; }
+  .faction-compass__random svg { width: 23px; height: 23px; }
+}
+
 /*
   Uniquement la configuration Tailwind : palette et polices de la charte (maquette « Adarma », maquettes/Adarma.html).
   Style « BD » : encre noire, rouge sang, bronze, aplats et ombres portées franches, sans arrondis.
@@ -624,6 +750,31 @@ html.game_style body::before,
 .village-design--islam.village-marker--4 { --village-image: url('/img/map/villages/islam/level-4.webp'); --village-scale: 1.1; }
 .village-design--islam.village-marker--5 { --village-image: url('/img/map/villages/islam/level-5.webp'); --village-scale: 1.2; }
 .village-design--islam.village-marker--6 { --village-image: url('/img/map/villages/islam/level-6.webp'); --village-scale: 1.36; }
+/* Designs des factions (mondes à factions, voir src/game/factions.js). */
+.village-design--humains.village-marker--1 { --village-image: url('/img/map/villages/humains/level-1.webp'); }
+.village-design--humains.village-marker--2 { --village-image: url('/img/map/villages/humains/level-2.webp'); }
+.village-design--humains.village-marker--3 { --village-image: url('/img/map/villages/humains/level-3.webp'); }
+.village-design--humains.village-marker--4 { --village-image: url('/img/map/villages/humains/level-4.webp'); }
+.village-design--humains.village-marker--5 { --village-image: url('/img/map/villages/humains/level-5.webp'); }
+.village-design--humains.village-marker--6 { --village-image: url('/img/map/villages/humains/level-6.webp'); }
+.village-design--elfes.village-marker--1 { --village-image: url('/img/map/villages/elfes/level-1.webp'); }
+.village-design--elfes.village-marker--2 { --village-image: url('/img/map/villages/elfes/level-2.webp'); }
+.village-design--elfes.village-marker--3 { --village-image: url('/img/map/villages/elfes/level-3.webp'); }
+.village-design--elfes.village-marker--4 { --village-image: url('/img/map/villages/elfes/level-4.webp'); }
+.village-design--elfes.village-marker--5 { --village-image: url('/img/map/villages/elfes/level-5.webp'); }
+.village-design--elfes.village-marker--6 { --village-image: url('/img/map/villages/elfes/level-6.webp'); }
+.village-design--nains.village-marker--1 { --village-image: url('/img/map/villages/nains/level-1.webp'); }
+.village-design--nains.village-marker--2 { --village-image: url('/img/map/villages/nains/level-2.webp'); }
+.village-design--nains.village-marker--3 { --village-image: url('/img/map/villages/nains/level-3.webp'); }
+.village-design--nains.village-marker--4 { --village-image: url('/img/map/villages/nains/level-4.webp'); }
+.village-design--nains.village-marker--5 { --village-image: url('/img/map/villages/nains/level-5.webp'); }
+.village-design--nains.village-marker--6 { --village-image: url('/img/map/villages/nains/level-6.webp'); }
+.village-design--orques.village-marker--1 { --village-image: url('/img/map/villages/orques/level-1.webp'); }
+.village-design--orques.village-marker--2 { --village-image: url('/img/map/villages/orques/level-2.webp'); }
+.village-design--orques.village-marker--3 { --village-image: url('/img/map/villages/orques/level-3.webp'); }
+.village-design--orques.village-marker--4 { --village-image: url('/img/map/villages/orques/level-4.webp'); }
+.village-design--orques.village-marker--5 { --village-image: url('/img/map/villages/orques/level-5.webp'); }
+.village-design--orques.village-marker--6 { --village-image: url('/img/map/villages/orques/level-6.webp'); }
 .village-marker--current { --village-color: #fff; }
 .village-marker--own { --village-color: #f0c74b; }
 .village-marker--tribe { --village-color: #3159b8; }
@@ -634,6 +785,8 @@ html.game_style body::before,
 .village-marker--current { filter: drop-shadow(0 0 4px var(--color-rel-own)) drop-shadow(0 2px 1px #000); }
 .village-marker--large { width: 92px; height: 92px; }
 .village-special { position: absolute; z-index: 3; top: 0; right: 1px; color: var(--color-gold-200); font-size: 13px; text-shadow: 0 1px 2px #000; }
+/* Village de rune (Guerres runiques) : rune lumineuse, visible de loin. */
+.village-special--rune { top: -3px; right: -2px; line-height: 0; color: #e4d8ff; filter: drop-shadow(0 0 2px #7b4dff) drop-shadow(0 0 4px #7b4dff) drop-shadow(0 1px 1px #000); }
 [data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }
 [data-game-style="viking"] .village-design--futuriste .village-sprite { filter: none; }
 

@@ -249,7 +249,7 @@
 
 <% if (ctx && ctx.world.endedAt) { %>
   <div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-2">
-    <%- icon('victory', 'size-4') %><span class="font-semibold">Monde terminé :</span> <%= (ctx.world.victoryState || {}).winnerName %> a gagné. Le monde est en paix.
+    <%- icon('victory', 'size-4') %><span class="font-semibold">Monde terminé :</span> <%= ctx.world.winnerFaction ? `les ${(ctx.world.victoryState || {}).winnerName} ont` : `${(ctx.world.victoryState || {}).winnerName} a` %> gagné. Le monde est en paix.
     <a href="/village/<%= ctx.village.id %>/ranking?type=victory" class="<%= ui.link %> ml-auto">Détails</a>
   </div>
 <% } %>

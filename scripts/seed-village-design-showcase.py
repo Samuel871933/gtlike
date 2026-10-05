@@ -30,6 +30,10 @@ DESIGNS = (
     ("noel", "ApercuNoel", "Noel"),
     ("christianisme", "ApercuChristianisme", "Christianisme"),
     ("islam", "ApercuIslam", "Islam"),
+    ("humains", "ApercuHumains", "Humains"),
+    ("elfes", "ApercuElfes", "Elfes"),
+    ("nains", "ApercuNains", "Nains"),
+    ("orques", "ApercuOrques", "Orques"),
 )
 STAGES = ((0, 299, 150), (300, 999, 650), (1000, 2999, 2000),
           (3000, 5999, 4500), (6000, 8999, 7500), (9000, 999999, 9800))

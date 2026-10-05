@@ -7,7 +7,7 @@
 //                   `offset` s'y ajoute (surcoût de 25 % → facteur 1,25)
 //   type 'bool'   : case à cocher
 //   type 'select' : options [[valeur, libellé]]
-// Fin du monde : seule la domination est proposée (les autres conditions restent désactivées sur tous les mondes).
+// Fin du monde : domination ou Guerres runiques (points et villages, Grand Siège : pas proposés).
 // Un monde créé est immuable : ces réglages ne servent qu'à la création (voir le hook beforeUpdate de World).
 
 const WorldConfig = require('./WorldConfig');
@@ -17,7 +17,7 @@ const GROUPS = [
   { title: 'Vitesse et carte', intro: 'Le rythme de la partie. Les mondes classiques de Guerre Tribale tournent à ×1 ; les mondes « speed » se jouent en quelques jours à ×100 et plus.', settings: [
     { key: 'speed', label: 'Vitesse du monde', type: 'number', min: 0.5, max: 1000, step: 0.5, hint: 'Multiplie la production, et divise la durée des constructions, du recrutement et des recherches.' },
     { key: 'unitSpeed', label: 'Vitesse des unités', type: 'number', min: 0.5, max: 10, step: 0.5, hint: 'Multiplie la vitesse de déplacement des troupes et des marchands, en plus de la vitesse du monde.' },
-    { key: 'mapSize', label: 'Taille de la carte', type: 'select', options: [[200, '200 × 200'], [500, '500 × 500'], [1000, '1000 × 1000']], hint: 'Une petite carte rapproche les joueurs : les premiers combats arrivent plus tôt.' },
+    { key: 'mapSize', label: 'Taille de la carte', type: 'select', options: [[200, '200 × 200'], [500, '500 × 500'], [1000, '1000 × 1000']], hint: 'Taille maximale : le monde se peuple depuis le centre au fil des inscriptions, la carte ne sert que de limite (toujours 1000 × 1000 sur Guerre Tribale). Ce qui rapproche les joueurs, c’est le nombre d’inscrits.' },
     { key: 'newbieDays', label: 'Protection des débutants (jours)', type: 'number', min: 0, max: 14, step: 1, hint: 'Pendant ce temps après son inscription, un joueur ne peut pas être attaqué par les autres joueurs.' },
     { key: 'buildQueueSlots', label: 'Emplacements de la file de construction', type: 'number', min: 1, max: 5, step: 1, hint: 'Nombre de constructions qu’on peut mettre en file au quartier général.' },
     { key: 'premium.buildQueueBonus', label: 'Emplacements en plus avec le premium', type: 'number', min: 0, max: 10, step: 1, hint: 'Constructions en plus dans la file, au prix normal, pour les joueurs premium (3 sur Guerre Tribale).' },
@@ -61,10 +61,26 @@ const GROUPS = [
     { key: 'snob.maxDistance', label: 'Distance maximale d’un noble (cases)', type: 'number', min: 10, max: 500, step: 5, hint: 'Un noble ne peut pas conquérir un village plus loin que cette distance de son village d’origine.' },
     { key: 'market.merchantCapacity', label: 'Capacité d’un marchand', type: 'number', min: 100, max: 5000, step: 100, hint: 'Ressources transportées par chaque marchand (1 000 sur Guerre Tribale).' },
   ] },
-  { title: 'Fin du monde (domination)', intro: 'Le monde se termine quand une tribu domine la carte assez longtemps. Ces durées sont en jours réels : elles ne suivent pas la vitesse du monde.', settings: [
-    { key: 'victory.dominance.endgamePercent', label: 'Villages de joueurs à détenir (%)', type: 'number', min: 10, max: 100, step: 5, hint: 'Part des villages de joueurs qu’une tribu doit posséder (les barbares ne comptent pas).' },
+  { title: 'Factions', intro: 'Un monde à factions oppose quatre peuples : elfes, nains, orques et humains. Chaque joueur choisit le sien en entrant dans le monde, pour toute la partie. Les tribus restent, mais chacune appartient à la faction de son fondateur, et c’est une faction, non une tribu, qui gagne le monde.', settings: [
+    { key: 'factions.active', label: 'Monde à factions', type: 'bool', hint: 'La fin du monde se joue entre factions : on additionne les villages de tous les joueurs de chaque faction, avec les mêmes conditions de victoire.' },
+    { key: 'factions.noHarm', label: 'Attaque interdite entre membres d’une faction', type: 'bool', hint: 'Empêche d’attaquer un joueur de sa propre faction, même hors de sa tribu. Sans effet sur un monde sans factions.' },
+  ] },
+  { title: 'Fin du monde', intro: 'Comment le monde se termine. Sur un monde à factions, c’est une faction et non une tribu qui l’emporte. Les durées sont en jours réels : elles ne suivent pas la vitesse du monde.', settings: [
+    { key: 'victory.type', label: 'Condition de victoire', type: 'select', options: [['dominance', 'Domination'], ['runes', 'Guerres runiques']], hint: 'Domination : détenir une part des villages de joueurs. Guerres runiques : conquérir et tenir des villages de rune dans chaque continent. Seuls les réglages de la condition choisie comptent.' },
+  ] },
+  { title: 'Domination', intro: 'Le monde se termine quand une tribu (ou une faction) détient une part des villages de joueurs assez longtemps.', settings: [
+    { key: 'victory.dominance.endgamePercent', label: 'Villages de joueurs à détenir (%)', type: 'number', min: 10, max: 100, step: 5, hint: 'Part des villages de joueurs qu’une tribu (ou une faction) doit posséder (les barbares ne comptent pas).' },
     { key: 'victory.dominance.minWorldAgeDays', label: 'Durée minimale du monde (jours)', type: 'number', min: 1, max: 730, step: 1, hint: 'Aucune victoire possible avant cet âge du monde : c’est la durée minimale de la partie.' },
-    { key: 'victory.dominance.holdDays', label: 'Domination à tenir (jours)', type: 'number', min: 1, max: 90, step: 1, hint: 'La tribu doit garder la domination sans interruption pendant ce temps pour gagner.' },
+    { key: 'victory.dominance.holdDays', label: 'Domination à tenir (jours)', type: 'number', min: 1, max: 90, step: 1, hint: 'La tribu (ou la faction) doit garder la domination sans interruption pendant ce temps pour gagner.' },
+  ] },
+  { title: 'Guerres runiques', intro: 'Comme sur Guerre Tribale : à une date fixée, des villages de rune gardés par des troupes barbares apparaissent dans chaque continent peuplé. Il faut en conquérir et en tenir une part dans chaque continent, alors qu’ils se défendent mal une fois conquis.', settings: [
+    { key: 'victory.runes.spawnAfterDays', label: 'Apparition des villages de rune (jours)', type: 'number', min: 0, max: 365, step: 1, hint: 'Âge du monde auquel les villages de rune apparaissent (90 sur Guerre Tribale).' },
+    { key: 'victory.runes.villagesPerContinent', label: 'Villages de rune par continent', type: 'number', min: 1, max: 100, step: 1, hint: '25 sur Guerre Tribale. Baisse-le pour un serveur à peu de joueurs.' },
+    { key: 'victory.runes.minPlayerVillages', label: 'Villages de joueurs pour qu’un continent compte', type: 'number', min: 1, max: 1000, step: 1, hint: 'Seuls les continents qui ont au moins ce nombre de villages de joueurs à l’apparition reçoivent des runes (au moins le plus peuplé). La carte grandit depuis le centre : ce sont les continents habités qui comptent, pas la taille de la carte.' },
+    { key: 'victory.runes.winPercent', label: 'Part à tenir dans chaque continent (%)', type: 'number', min: 10, max: 100, step: 5, hint: 'La tribu (ou la faction) doit tenir cette part des villages de rune de chaque continent (60 % sur Guerre Tribale).' },
+    { key: 'victory.runes.holdDays', label: 'Villages de rune à tenir (jours)', type: 'number', min: 1, max: 90, step: 1, hint: 'Durée du compte à rebours : il s’arrête dès qu’un continent n’est plus tenu.' },
+    { key: 'victory.runes.defenseFactor', label: 'Pénalité de défense des villages de rune (%)', type: 'number', min: 0, max: 90, step: 5, scale: -0.01, offset: 1, hint: 'Un village de rune conquis se défend avec ce pourcentage de force en moins, soutiens compris (50 % sur Guerre Tribale FR, 60 % sur le serveur anglais). 0 : aucune pénalité.' },
+    { key: 'victory.runes.disableMorale', label: 'Pas de morale contre les villages de rune', type: 'bool', hint: 'Les attaques contre un village de rune ne sont pas affaiblies par la morale, même contre un petit joueur.' },
   ] },
 ];
 
@@ -116,7 +132,7 @@ function parse(body = {}) {
   const d = config.victory.dominance;
   d.warningPercent = Math.min(WorldConfig.DEFAULTS.victory.dominance.warningPercent, Math.round(d.endgamePercent * 0.7));
   d.warningWorldAgeDays = Math.min(WorldConfig.DEFAULTS.victory.dominance.warningWorldAgeDays, Math.round(d.minWorldAgeDays * 0.45));
-  config.victory = { ...config.victory, type: 'dominance' };
+  if (!['dominance', 'runes'].includes(config.victory.type)) config.victory.type = 'dominance';
   return { config };
 }
 

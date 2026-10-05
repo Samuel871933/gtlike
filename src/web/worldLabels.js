@@ -3,11 +3,16 @@
 // Libellés d'un monde, communs à l'accueil (views/worlds.ejs) et à la liste des serveurs (views/servers.ejs) :
 // type et accès, modules, sous-titre, ancienneté.
 
-const VICTORY_NAMES = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Runes', siege: 'Grand Siège', none: 'aucune' };
+const VICTORY_NAMES = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Guerres runiques', siege: 'Grand Siège', none: 'aucune' };
+// Position de départ sur la carte (MapPlacer.DIRECTIONS).
+const DIRECTION_NAMES = { random: 'Aléatoire', nw: 'Nord-Ouest', ne: 'Nord-Est', sw: 'Sud-Ouest', se: 'Sud-Est' };
 const FEATURE_NAMES = { knight: 'paladin', archer: 'archers', militia: 'milice', church: 'église' };
 
-/** Modules actifs d'un monde (paladin, archers, milice, église). */
-const worldModules = (cfg) => Object.entries(cfg.features).filter(([, on]) => on).map(([k]) => FEATURE_NAMES[k] || k);
+/** Modules actifs d'un monde (paladin, archers, milice, église, factions). */
+const worldModules = (cfg) => [
+  ...Object.entries(cfg.features).filter(([, on]) => on).map(([k]) => FEATURE_NAMES[k] || k),
+  ...(cfg.factions.active ? ['factions'] : []),
+];
 
 /** « Vitesse ×100 · paladin, archers » ou « Vitesse ×1 · classique ». */
 function worldSubtitle(world) {
@@ -28,4 +33,4 @@ function worldAge(world, now = new Date()) {
   return `depuis ${d} jour${d > 1 ? 's' : ''}`;
 }
 
-module.exports = { VICTORY_NAMES, worldModules, worldSubtitle, worldType, worldAge };
+module.exports = { VICTORY_NAMES, DIRECTION_NAMES, worldModules, worldSubtitle, worldType, worldAge };

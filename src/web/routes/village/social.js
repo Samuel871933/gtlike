@@ -31,8 +31,10 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const daily = await DailyService.countsFor(profile.player.id);
   const isMe = profile.player.id === me(req);
   // Invitation possible depuis le profil : on dirige une tribu et le joueur n'en fait pas partie.
-  const viewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId', 'tribeRole', 'tribeRights'] });
-  const canInvite = !isMe && TribeService.can(viewer, 'invite') && profile.player.tribeId !== viewer.tribeId;
+  const viewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId', 'tribeRole', 'tribeRights', 'faction'] });
+  const canInvite = !isMe && TribeService.can(viewer, 'invite') && profile.player.tribeId !== viewer.tribeId
+    // Monde à factions : une tribu n'accueille que sa faction (celle de ses membres).
+    && profile.player.faction === viewer.faction;
   // `subject` et non `player` : `player` est le joueur connecté, utilisé par l'en-tête.
   const { player: subject, ...rest } = profile;
   // Le contenu du profil s'affiche dans le thème de jeu de son propriétaire (les bots, sans compte, ont le thème par
@@ -108,7 +110,8 @@ router.get('/villages/:villageId', ah(async (req, res) => {
   const dist = Math.hypot(target.x - req.ctx.village.x, target.y - req.ctx.village.y);
   const travel = registry.unitsFor(req.ctx.cfg).map((u) => ({ id: u.id, seconds: Math.round(dist * u.minutesPerField(req.ctx.cfg) * 60) }));
   const favorite = (await FavoriteService.list(playerId)).some((f) => f.villageId === target.id);
-  const morale = req.ctx.cfg.moral && target.Player && target.playerId !== playerId ? combat.morale(me.points, target.Player.points, true) : null;
+  const morale = req.ctx.cfg.moral && target.Player && target.playerId !== playerId
+    ? (require('../../../game/runes').moraleApplies(req.ctx.cfg, target) ? combat.morale(me.points, target.Player.points, true) : 1) : null;
 
   // Tes ordres vers ce village (attaques, soutiens) et les retours qui en reviennent, depuis n'importe lequel de tes villages.
   const myIds = res.locals.myVillages.map((v) => v.id);

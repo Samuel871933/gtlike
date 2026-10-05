@@ -23,6 +23,7 @@ const { MapPlacer } = require('../src/game/MapPlacer');
 const VillageState = require('../src/game/VillageState');
 const registry = require('../src/game/registry');
 const formulas = require('../src/game/formulas');
+const { FACTIONS } = require('../src/game/factions');
 
 const BOT_DOMAIN = 'bots.adarma.local';
 const PASSWORD = 'motdepasse';
@@ -175,7 +176,9 @@ async function populate(slug, count, { add = false } = {}) {
       { transaction: t },
     );
     const byName = new Map((await User.findAll({ where: { username: names }, attributes: ['id', 'username'], transaction: t })).map((u) => [u.username, u.id]));
-    await Player.bulkCreate(names.map((n) => ({ userId: byName.get(n), worldId: world.id, name: n })), { transaction: t });
+    // Monde à factions : joueurs répartis à peu près également entre les quatre factions.
+    const factionOf = () => (cfg.factions.active ? FACTIONS[Math.floor(rng() * FACTIONS.length)].id : null);
+    await Player.bulkCreate(names.map((n) => ({ userId: byName.get(n), worldId: world.id, name: n, faction: factionOf() })), { transaction: t });
     return Player.findAll({ where: { worldId: world.id, name: names }, transaction: t });
   });
   const playerByName = new Map(players.map((p) => [p.name, p]));
@@ -241,7 +244,7 @@ async function populate(slug, count, { add = false } = {}) {
   const ranked = [...players].sort((a, b) => b.points - a.points);
   const founders = ranked.slice(0, tribeCount);
   const usedTags = new Set((await Tribe.findAll({ where: { worldId: world.id }, attributes: ['tag', 'name'], raw: true })).flatMap((x) => [x.tag, x.name]));
-  const tribeRows = founders.map(() => {
+  const tribeRows = founders.map((founder) => {
     let name; let tag;
     do {
       const word = pick(TRIBE_WORDS);
@@ -250,7 +253,8 @@ async function populate(slug, count, { add = false } = {}) {
     } while (usedTags.has(name) || usedTags.has(tag));
     usedTags.add(name);
     usedTags.add(tag);
-    return { worldId: world.id, name, tag, description: `Tribu ${name}. Recrutement ouvert aux joueurs actifs.` };
+    // Monde à factions : la tribu prend la faction de son fondateur.
+    return { worldId: world.id, name, tag, faction: founder.faction || null, description: `Tribu ${name}. Recrutement ouvert aux joueurs actifs.` };
   });
   const tribes = await sequelize.transaction(async (t) => {
     await Tribe.bulkCreate(tribeRows, { transaction: t });
@@ -262,9 +266,12 @@ async function populate(slug, count, { add = false } = {}) {
     founders.forEach((f, i) => members[i].push([f, 'duke']));
     const pool = ranked.slice(tribeCount).filter(() => rng() < 0.62);
     for (const p of pool) {
-      const i = Math.min(list.length - 1, Math.floor(Math.pow(rng(), 1.4) * list.length));
-      const slot = members[i].length < limit ? i : members.findIndex((m) => m.length < limit);
-      if (slot < 0) break;
+      // Seulement les tribus de sa faction (toutes sur un monde sans factions).
+      const open = list.map((tr, i) => i).filter((i) => (list[i].faction || null) === (p.faction || null));
+      if (!open.length) continue;
+      const i = open[Math.min(open.length - 1, Math.floor(Math.pow(rng(), 1.4) * open.length))];
+      const slot = members[i].length < limit ? i : open.find((j) => members[j].length < limit);
+      if (slot === undefined) continue;
       members[slot].push([p, members[slot].length < 3 ? 'baron' : 'member']);
     }
     for (const [i, tribe] of list.entries()) {

@@ -102,7 +102,7 @@ const loadVillage = ah(async (req, res, next) => {
   ]);
   Object.assign(res.locals, {
     unreadByFilter, unreadReports: unreadByFilter.all, myVillages, incomingAttacks, player, shopRights: rights,
-    gameStyle: gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights), gameLayout: gameLayoutFor(req.user),
+    gameStyle: gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights, asSitter ? null : player.faction), gameLayout: gameLayoutFor(req.user),
     quickbarPos: require('./quickbarPositions').quickbarPositionFor(req.user),
     playerRank: 1 + betterPlayers, tribeInvites, tribeForumUnread, unreadMessages,
   });

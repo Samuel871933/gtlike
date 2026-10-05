@@ -48,6 +48,9 @@
             <td class="text-parchment-500">Tribu</td>
             <td><%- subject.Tribe ? tribeLink(vid, subject.Tribe, { name: true, tagCls: ui.tagGold, avatar: true }) : '<span class="text-parchment-500">Sans tribu</span>' %></td>
           </tr>
+          <% if (subject.faction) { %>
+            <tr><td class="text-parchment-500">Faction</td><td class="font-semibold text-parchment-100"><%= factionName(subject.faction) %></td></tr>
+          <% } %>
         </tbody>
       </table>
     </section>

@@ -11,7 +11,11 @@
   Chaque case de village reçoit le design de son propriétaire (src/web/mapView.js, champ `design`).
   Le design par défaut est gratuit ; les autres s'achètent à la boutique (article « design:<id> », voir
   game/shopCatalog.js). Le compte choisit le sien (User.villageDesign), affiché là où il le possède.
+  Mondes à factions : le design de sa faction (game/factions.js) est offert sur ce monde et y remplace le design par
+  défaut ; ailleurs, les designs des factions s'achètent comme les autres.
 */
+
+const { factionDesign } = require('../game/factions');
 
 const VILLAGE_DESIGNS = {
   beige: { id: 'beige', name: 'Beige', description: 'Pierre blonde et toits de tuiles orangées.' },
@@ -35,6 +39,11 @@ const VILLAGE_DESIGNS = {
   noel: { id: 'noel', name: 'Noël', description: 'Villages enneigés, toits verts, guirlandes et châteaux illuminés.' },
   christianisme: { id: 'christianisme', name: 'Christianisme', description: 'Chapelles, églises et cathédrales au cœur de cités médiévales.' },
   islam: { id: 'islam', name: 'Islam', description: 'Mosquées aux coupoles bleues, minarets et cités de pierre claire.' },
+  // Designs des factions (mondes à factions : offerts au joueur de la faction, voir game/factions.js).
+  humains: { id: 'humains', name: 'Humains', description: 'Hameaux à colombages, bourgs fortifiés et citadelles royales aux bannières.' },
+  elfes: { id: 'elfes', name: 'Elfes', description: 'Demeures sylvestres, arches végétales et cités elfiques au cœur des grands arbres.' },
+  nains: { id: 'nains', name: 'Nains', description: 'Forges taillées dans la roche, remparts de pierre et cités naines à flanc de montagne.' },
+  orques: { id: 'orques', name: 'Orques', description: 'Huttes de peaux, palissades hérissées de pieux et forteresses de clan.' },
 };
 
 const DEFAULT_VILLAGE_DESIGN = 'beige';
@@ -44,12 +53,15 @@ const isVillageDesign = (id) => Object.prototype.hasOwnProperty.call(VILLAGE_DES
 
 /**
  * Design des villages d'un compte : son choix s'il existe encore et, si `rights` est donné (droits de la boutique sur
- * ce monde), s'il le possède ; sinon le design par défaut.
+ * ce monde), s'il le possède ; sinon le design par défaut. `faction` (joueur d'un monde à factions) : le design de sa
+ * faction remplace le design par défaut, et il est toujours possédé sur ce monde.
  */
-function villageDesignFor(user, rights = null) {
-  const id = user && user.villageDesign;
-  const ok = isVillageDesign(id) && (!rights || rights.has(`design:${id}`));
-  return VILLAGE_DESIGNS[ok ? id : DEFAULT_VILLAGE_DESIGN];
+function villageDesignFor(user, rights = null, faction = null) {
+  const base = factionDesign(faction) || DEFAULT_VILLAGE_DESIGN;
+  let id = user && user.villageDesign;
+  if (!isVillageDesign(id) || id === DEFAULT_VILLAGE_DESIGN) id = base;
+  const ok = id === base || !rights || rights.has(`design:${id}`);
+  return VILLAGE_DESIGNS[ok ? id : base];
 }
 
 module.exports = { VILLAGE_DESIGNS, DEFAULT_VILLAGE_DESIGN, isVillageDesign, villageDesignFor };

@@ -12,6 +12,7 @@
         <span class="flex min-w-0 flex-col gap-0.5">
           <span class="<%= ui.kicker %>">Tribu</span>
           <span class="truncate font-display text-[17px] font-semibold text-parchment-100"><%= tribe.name %></span>
+          <% if (tribe.faction) { %><span class="text-[13px] text-parchment-400">Faction des <%= factionName(tribe.faction).toLowerCase() %></span><% } %>
         </span>
       </div>
       <dl class="grid grid-cols-3 gap-2 sm:w-[420px]">
