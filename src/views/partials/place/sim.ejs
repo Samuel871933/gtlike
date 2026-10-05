@@ -30,6 +30,16 @@
         <label class="<%= ui.checkLabel %> h-[38px]" title="Village d’origine hors de la zone d’influence de vos églises : attaque à 50 %"><input type="checkbox" name="attFaithless" value="1" <%= inp.attFaithless ? 'checked' : '' %> class="<%= ui.checkbox %>"> Attaquant sans foi</label>
         <label class="<%= ui.checkLabel %> h-[38px]" title="Village défendu hors de la zone d’influence des églises de son propriétaire : défense à 50 %"><input type="checkbox" name="defFaithless" value="1" <%= inp.defFaithless ? 'checked' : '' %> class="<%= ui.checkbox %>"> Défenseur sans foi</label>
       <% } %>
+      <% if (ctx.cfg.features.seals) { %>
+        <% for (const [name, kind, label] of [['attSeal', 'attack', 'Sceau d’attaque'], ['defSeal', 'defense', 'Sceau de défense']]) { %>
+          <label class="<%= ui.label %>"><%= label %>
+            <select name="<%= name %>" class="<%= ui.input %> w-40">
+              <option value="0">Aucun</option>
+              <% for (let l = 1; l <= SEALS.MAX_LEVEL; l++) { %><option value="<%= l %>" <%= inp[name] === l ? 'selected' : '' %>>Niveau <%= l %> (+<%= SEALS.value(kind, l) %> %)</option><% } %>
+            </select>
+          </label>
+        <% } %>
+      <% } %>
       <button class="<%= btn('gold', 'md', 'sm:ml-auto') %>"><%- icon('sword', 'size-3.5', 2.2) %>Simuler</button>
     </div>
   </form>

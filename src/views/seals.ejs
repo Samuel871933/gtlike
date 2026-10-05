@@ -1,0 +1,224 @@
+<%- include('partials/header', { title: 'Sceaux' }) %>
+<%
+  // Sceaux (les drapeaux de GT, module features.seals ; routes/village/seals.js) : aperçu du sceau choisi et sceau du
+  // village à gauche, grille des 8 types × 9 niveaux à droite (sceaux libres, fusion possible), puis la progression
+  // vers les prochains sceaux, les sceaux des villages, les échanges en tribu et l'historique.
+  const vid = ctx.village.id;
+  const url = (q = '') => `/village/${vid}/seals${q}`;
+  const cell = (t, l) => inventory.get(`${t}:${l}`) || { count: 0, placed: 0, available: 0 };
+  const sel = selected;
+  const selDef = sel ? SEALS.type(sel.type) : null;
+  const selInv = sel ? cell(sel.type, sel.level) : null;
+  const effect = (s) => SEALS.type(s.type).effect(SEALS.value(s.type, s.level));
+  const totalSeals = [...inventory.values()].reduce((n, r) => n + r.count, 0);
+  const asSitterView = typeof asSitter !== 'undefined' && asSitter;
+  const freeSeals = [...inventory.values()].filter((r) => r.available > 0).sort((a, b) => a.level - b.level || a.type.localeCompare(b.type));
+  const bar = (value, from, goal) => {
+    const w = goal > from ? Math.max(0, Math.min(100, (100 * (value - from)) / (goal - from))) : 0;
+    return `<span class="relative flex h-5 items-center justify-center overflow-hidden border border-black bg-night shadow-[inset_0_1px_2px_#0006]">
+      <span class="absolute inset-y-0 left-0 bg-blood-700" style="width: ${w.toFixed(1)}%"></span>
+      <span class="relative text-xs font-semibold text-parchment-100 tabular-nums">${num(value)} / ${num(goal)}</span></span>`;
+  };
+%>
+<div class="flex flex-col gap-4 pb-4">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Sceaux', `<span class="${ui.headCount}">${num(totalSeals)}</span>`, { tag: 'h1' }) %>
+    <p class="border-b border-bronze-900 px-3.5 py-2 text-sm text-parchment-400">
+      Les sceaux de ton compte servent sur tous les mondes où ils sont actifs. Pose un sceau sur un village pour lui donner son bonus (un sceau par village, retirable <%= ctx.cfg.seals.lockHours %> h après sa pose). Trois sceaux identiques se fusionnent en un sceau du niveau supérieur.
+      <% if (!canEarn) { %><span class="text-gold-400">Sur un serveur privé, on ne gagne pas de sceaux : tu y utilises ceux gagnés sur les mondes officiels.</span><% } %>
+    </p>
+
+    <div class="grid gap-4 p-3.5 lg:grid-cols-[minmax(0,290px)_minmax(0,1fr)]">
+      <%# Colonne gauche : sceau choisi (actions) et sceau du village courant. %>
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-col items-center gap-2 border-2 border-black bg-night p-4 text-center shadow-[inset_0_0_0_1px_var(--color-bronze-700),4px_4px_0_#000]">
+          <% if (sel) { %>
+            <%- sealSvg(sel.type, sel.level, { cls: 'size-36' }) %>
+            <div class="font-display text-lg font-semibold text-parchment-100"><%= selDef.name %></div>
+            <div class="text-sm text-gold-400">Niveau <%= sel.level %> · sceau <%= SEALS.LEVEL_NAMES[sel.level - 1] %></div>
+            <div class="text-sm text-parchment-300"><%= effect(sel) %></div>
+            <div class="text-xs text-parchment-500"><%= num(selInv.count) %> au compte · <%= num(selInv.placed) %> posé<%= selInv.placed > 1 ? 's' : '' %> · <%= num(selInv.available) %> libre<%= selInv.available > 1 ? 's' : '' %></div>
+            <% if (!asSitterView) { %>
+              <div class="mt-1 flex w-full flex-col gap-1.5">
+                <% const locked = current && lockedUntil && lockedUntil > now; %>
+                <% if (selInv.available > 0 && locked && !(current.type === sel.type && current.level === sel.level)) { %>
+                  <p class="text-xs text-parchment-500">Le sceau du village pourra être remplacé <%= when(lockedUntil, now) %>.</p>
+                <% } else if (selInv.available > 0 && !(current && current.type === sel.type && current.level === sel.level)) { %>
+                  <form method="post" action="<%= url('/assign') %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="type" value="<%= sel.type %>"><input type="hidden" name="level" value="<%= sel.level %>">
+                    <button class="<%= btn('gold', 'sm', 'w-full') %>"><%= current ? 'Remplacer le sceau de' : 'Poser sur' %> <%= ctx.village.name %></button>
+                  </form>
+                <% } %>
+                <% if (selInv.available >= 3 && sel.level < SEALS.MAX_LEVEL) { %>
+                  <form method="post" action="<%= url('/merge') %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="type" value="<%= sel.type %>"><input type="hidden" name="level" value="<%= sel.level %>">
+                    <button class="<%= btn('dark', 'sm', 'w-full') %>"><%- icon('chevronUp', 'size-3.5', 2.4) %>Fusionner 3 sceaux en un niveau <%= sel.level + 1 %></button>
+                  </form>
+                <% } %>
+              </div>
+            <% } %>
+          <% } else { %>
+            <%- sealSvg('production', 1, { cls: 'size-36', muted: true, title: 'Aucun sceau choisi' }) %>
+            <p class="text-sm text-parchment-500">Choisis un sceau dans la grille.</p>
+          <% } %>
+        </div>
+
+        <div class="border border-bronze-800">
+          <div class="border-b border-bronze-800 bg-thead px-2.5 py-1 text-[13px] font-semibold">Sceau de <%= ctx.village.name %></div>
+          <div class="flex items-center gap-3 p-2.5">
+            <% if (current) { %>
+              <%- sealSvg(current.type, current.level, { cls: 'size-12' }) %>
+              <div class="flex min-w-0 flex-col gap-0.5 text-sm">
+                <span class="font-semibold text-parchment-100"><%= SEALS.type(current.type).name %> <%= current.level %></span>
+                <span class="text-parchment-400"><%= effect(current) %></span>
+                <% if (lockedUntil && lockedUntil > now) { %>
+                  <span class="text-xs text-parchment-500">Retirable <%= when(lockedUntil, now) %></span>
+                <% } else if (!asSitterView) { %>
+                  <form method="post" action="<%= url('/remove') %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= ui.link %> cursor-pointer text-[13px]">Retirer le sceau</button></form>
+                <% } %>
+              </div>
+            <% } else { %>
+              <span class="text-sm text-parchment-500">Aucun sceau sur ce village.</span>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <%# Grille : une ligne par type, une colonne par niveau ; nombre de sceaux libres, flèche quand une fusion est possible. %>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[560px] border-separate border-spacing-1">
+          <thead>
+            <tr><th class="text-left text-xs font-normal text-parchment-500">Type</th><% for (let l = 1; l <= SEALS.MAX_LEVEL; l++) { %><th class="text-center text-xs font-normal text-parchment-500"><%= l %></th><% } %></tr>
+          </thead>
+          <tbody>
+            <% for (const t of SEALS.TYPES) { %>
+              <tr>
+                <td class="pr-1 text-[13px] whitespace-nowrap text-parchment-300"><%= t.short %></td>
+                <% for (let l = 1; l <= SEALS.MAX_LEVEL; l++) { const c = cell(t.id, l); const on = sel && sel.type === t.id && sel.level === l; %>
+                  <td class="p-0">
+                    <a href="<%= url(`?t=${t.id}&l=${l}`) %>" class="relative flex aspect-square items-center justify-center border bg-night p-0.5 transition hover:border-gold-400 <%= on ? 'border-gold-400 shadow-[inset_0_0_0_1px_var(--color-gold-400)]' : 'border-bronze-800' %>" title="<%= t.name %> <%= l %> : <%= t.effect(t.values[l - 1]) %> (<%= c.available %> libre<%= c.available > 1 ? 's' : '' %>)">
+                      <%- sealSvg(t.id, l, { cls: 'size-full', muted: !c.count }) %>
+                      <% if (c.count) { %><span class="absolute right-0 bottom-0 min-w-4 border border-black bg-parchment-100 px-0.5 text-center text-[11px] leading-4 font-semibold text-night tabular-nums"><%= c.available %></span><% } %>
+                      <% if (c.available >= 3 && l < SEALS.MAX_LEVEL) { %><span class="absolute top-0 left-0 flex size-4 items-center justify-center border border-black bg-blood-700 text-parchment-100" title="Fusion possible"><%- icon('chevronUp', 'size-3', 3) %></span><% } %>
+                    </a>
+                  </td>
+                <% } %>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid items-start gap-4 lg:grid-cols-2">
+    <%# Progression vers les prochains sceaux (mondes officiels seulement), comme le bas de la page des drapeaux de GT. %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Gagner des sceaux') %>
+      <% if (!canEarn) { %>
+        <p class="p-3.5 text-sm text-parchment-400">On ne gagne des sceaux que sur les mondes officiels où ils sont actifs. Ils te suivent ensuite sur tous les mondes à sceaux, serveurs privés compris.</p>
+      <% } else { %>
+        <table class="<%= ui.table %>"><tbody>
+          <tr>
+            <td class="w-2/5"><div class="font-semibold text-parchment-100">Succès</div><div class="text-xs text-parchment-500">Un sceau du niveau du palier atteint (bois 1, bronze 2, argent 3, or 4).</div></td>
+            <td><% if (progress.achievement) { const a = progress.achievement; %><div class="mb-1 text-xs text-parchment-400">Prochain : <%= a.def.name %> (niveau <%= a.tier %>)</div><%- bar(a.value, 0, a.goal) %><% } else { %><span class="text-sm text-parchment-500">Tous les succès sont au maximum.</span><% } %></td>
+          </tr>
+          <tr>
+            <td><div class="font-semibold text-parchment-100">Unités vaincues</div><div class="text-xs text-parchment-500">Un sceau de niveau 2 à chaque palier, en attaque comme en défense.</div></td>
+            <td><%- bar(progress.kills.value, progress.kills.from, progress.kills.goal) %></td>
+          </tr>
+          <tr>
+            <td><div class="font-semibold text-parchment-100">Nobles formés</div><div class="text-xs text-parchment-500">Un sceau de niveau 1 par noble.</div></td>
+            <td class="text-sm text-parchment-400">À l’académie.</td>
+          </tr>
+          <tr>
+            <td><div class="font-semibold text-parchment-100">Succès quotidiens</div><div class="text-xs text-parchment-500">Un sceau de niveau 3 par succès du jour.</div></td>
+            <td class="text-sm text-parchment-400">Meilleur pillard, attaquant, défenseur… de la journée.</td>
+          </tr>
+        </tbody></table>
+        <p class="border-t border-bronze-900 px-3.5 py-2 text-xs text-parchment-500">Le type du sceau gagné est tiré au hasard ; seul son niveau dépend de la source.</p>
+      <% } %>
+    </section>
+
+    <%# Sceaux des villages du joueur sur ce monde. %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Sceaux de tes villages', `<span class="${ui.headCount}">${villages.filter((v) => v.sealType).length} / ${villages.length}</span>`) %>
+      <table class="<%= ui.table %>"><tbody>
+        <% for (const v of villages) { const s = SEALS.of(v, ctx.cfg); %>
+          <tr class="<%= v.id === vid ? ui.rowActive : '' %>">
+            <td><a href="/village/<%= v.id %>/seals" class="<%= ui.linkPlain %>"><%= v.name %></a> <span class="text-parchment-500 tabular-nums"><%= v.x %>|<%= v.y %></span></td>
+            <td class="text-right"><% if (s) { %><span class="inline-flex items-center gap-1.5"><%- sealSvg(s.type, s.level, { cls: 'size-6' }) %><%= SEALS.label(s) %></span><% } else { %><span class="text-parchment-500">Aucun</span><% } %></td>
+          </tr>
+        <% } %>
+      </tbody></table>
+    </section>
+  </div>
+
+  <% if (canEarn) { const incoming = trades.filter((x) => x.incoming); const outgoing = trades.filter((x) => !x.incoming); %>
+    <%# Échanges 1 contre 1, au même niveau, avec un membre de sa tribu (mondes officiels). %>
+    <section class="<%= ui.panel %>" id="echanges">
+      <%- panelHead('Échanges en tribu') %>
+      <div class="flex flex-col gap-3 p-3.5">
+        <% if (!player.tribeId) { %>
+          <p class="text-sm text-parchment-500">Rejoins une tribu pour échanger des sceaux avec ses membres.</p>
+        <% } else if (!members.length) { %>
+          <p class="text-sm text-parchment-500">Personne d’autre dans ta tribu pour le moment.</p>
+        <% } else if (!freeSeals.length) { %>
+          <p class="text-sm text-parchment-500">Tu n’as aucun sceau libre à proposer.</p>
+        <% } else if (!asSitterView) { %>
+          <form method="post" action="<%= url('/trades') %>" class="flex flex-wrap items-end gap-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="<%= ui.label %>">Je donne
+              <select name="give" class="<%= ui.input %> w-56" required>
+                <% for (const r of freeSeals) { %><option value="<%= r.type %>:<%= r.level %>"><%= SEALS.type(r.type).short %> niveau <%= r.level %> (<%= r.available %>)</option><% } %>
+              </select>
+            </label>
+            <label class="<%= ui.label %>">Contre (même niveau)
+              <select name="wantType" class="<%= ui.input %> w-48"><% for (const t of SEALS.TYPES) { %><option value="<%= t.id %>"><%= t.short %></option><% } %></select>
+            </label>
+            <label class="<%= ui.label %>">Avec
+              <select name="to" class="<%= ui.input %> w-48"><% for (const m of members) { %><option value="<%= m.id %>"><%= m.name %></option><% } %></select>
+            </label>
+            <button class="<%= btn('gold', 'sm') %>">Proposer l’échange</button>
+          </form>
+        <% } %>
+        <% if (incoming.length || outgoing.length) { %>
+          <table class="<%= ui.table %>">
+            <thead><tr><th>De</th><th>À</th><th>Proposition</th><th></th></tr></thead>
+            <tbody>
+              <% for (const x of [...incoming, ...outgoing]) { const tr = x.trade; %>
+                <tr>
+                  <td><%= x.from ? x.from.name : '—' %></td><td><%= x.to ? x.to.name : '—' %></td>
+                  <td><span class="inline-flex items-center gap-1.5"><%- sealSvg(tr.giveType, tr.level, { cls: 'size-6' }) %><%= SEALS.type(tr.giveType).short %> contre <%- sealSvg(tr.wantType, tr.level, { cls: 'size-6' }) %><%= SEALS.type(tr.wantType).short %>, niveau <%= tr.level %></span></td>
+                  <td class="text-right whitespace-nowrap">
+                    <% if (!asSitterView) { %>
+                      <% if (x.incoming) { %>
+                        <form method="post" action="<%= url(`/trades/${tr.id}/accept`) %>" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('gold', 'sm') %>">Accepter</button></form>
+                      <% } %>
+                      <form method="post" action="<%= url(`/trades/${tr.id}/cancel`) %>" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('dark', 'sm') %>"><%= x.incoming ? 'Refuser' : 'Retirer' %></button></form>
+                    <% } %>
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Historique des sceaux') %>
+    <% if (!history.length) { %>
+      <p class="p-3.5 text-sm text-parchment-500">Aucun sceau pour le moment.</p>
+    <% } else { %>
+      <table class="<%= ui.table %>"><tbody>
+        <% for (const e of history) { %>
+          <tr>
+            <td class="w-40 text-parchment-500"><%= when(e.createdAt, now) %></td>
+            <td><span class="inline-flex items-center gap-1.5"><%- sealSvg(e.type, e.level, { cls: 'size-6' }) %><%= SEALS.type(e.type).short %> <%= e.level %></span></td>
+            <td class="text-parchment-400"><%= SOURCES[e.source] || e.source %><%= e.detail ? ` · ${e.detail}` : '' %></td>
+          </tr>
+        <% } %>
+      </tbody></table>
+    <% } %>
+  </section>
+</div>
+<%- include('partials/footer') %>

@@ -66,6 +66,9 @@ function simulate(query, cfg) {
     // Mondes avec église : troupes sans foi (hors zone d'une église), cases cochées dans le simulateur.
     attFaithless: cfg.hasFeature('church') && query.attFaithless === '1',
     defFaithless: cfg.hasFeature('church') && query.defFaithless === '1',
+    // Sceaux (module features.seals) : niveau du sceau d'attaque de l'attaquant, de défense du défenseur (0 : aucun).
+    attSeal: cfg.features.seals ? Math.round(clamp(query.attSeal, 0, 9, 0)) : 0,
+    defSeal: cfg.features.seals ? Math.round(clamp(query.defSeal, 0, 9, 0)) : 0,
   };
   if (!Object.keys(input.attackers).length) return { input, result: null };
   const result = combat.resolve({
@@ -73,6 +76,8 @@ function simulate(query, cfg) {
     nightFactor: input.night ? cfg.night.defFactor : 1,
     attackerFaith: input.attFaithless ? cfg.church.faithless : 1,
     defenderFaith: input.defFaithless ? cfg.church.faithless : 1,
+    attackFactor: 1 + require('../../../game/seals').value('attack', input.attSeal) / 100,
+    defenseFactor: 1 + require('../../../game/seals').value('defense', input.defSeal) / 100,
   });
   return { input, result };
 }
@@ -145,7 +150,7 @@ router.post('/place/confirm', ah(async (req, res) => {
   const catapultTargets = registry.buildingsFor(req.ctx.cfg).filter((b) => !combat.UNDESTROYABLE.has(b.id));
   // Troupes en tableau, comme sur Guerre Tribale : toutes les unités du monde, même à 0 ; butin possible (attaque).
   res.render('place-confirm', {
-    page: 'place', plan, catapultTargets, worldUnits: registry.unitsFor(req.ctx.cfg), carry: combat.carryCapacity(plan.units),
+    page: 'place', plan, catapultTargets, worldUnits: registry.unitsFor(req.ctx.cfg), carry: Math.floor(combat.carryCapacity(plan.units) * (1 + require('../../../game/seals').bonus(req.ctx.state.seal, 'haul'))),
     // Attaques supplémentaires : troupes du village et écart entre deux arrivées.
     available: req.ctx.state.units, chainGapMs: CommandService.chainGapMs(req.ctx.world), maxChained: CommandService.MAX_CHAINED,
   });

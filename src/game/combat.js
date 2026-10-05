@@ -53,7 +53,8 @@ function siegeLevels(count, unitId, level, divisor) {
  * @param {number} [p.morale=1]
  * @param {number} [p.luck=0] entre -0.25 et 0.25
  * @param {number} [p.nightFactor=1]
- * @param {number} [p.defenseFactor=1] force de toute la défense (village de runes conquis : 0,5, voir game/runes.js)
+ * @param {number} [p.defenseFactor=1] force de toute la défense (village de runes conquis, sceau de défense)
+ * @param {number} [p.attackFactor=1] force de l'attaque (sceau d'attaque du village d'origine, voir game/seals.js)
  * @param {{ building: string, level: number } | null} [p.catapultTarget]
  */
 /** Bonus cumulés des armes de paladin présentes (une même arme ne compte qu'une fois). */
@@ -84,7 +85,7 @@ function mergeBonuses(base, extra) {
 function resolve({
   attackers, defenders, wall = 0, morale: mor = 1, luck = 0, nightFactor = 1, catapultTarget = null,
   attackerItems = [], defenderItems = [], attackerSkills = null, defenderSkills = null,
-  attackerFaith = 1, defenderFaith = 1, defenseFactor = 1,
+  attackerFaith = 1, defenderFaith = 1, defenseFactor = 1, attackFactor = 1,
 }) {
   const attBonus = mergeBonuses(itemBonuses(attackerItems), attackerSkills);
   const defBonus = mergeBonuses(itemBonuses(defenderItems), defenderSkills);
@@ -134,6 +135,7 @@ function resolve({
     attackerFaith,
     defenderFaith,
     defenseFactor,
+    attackFactor,
   };
   if (attSpies) result.attackerLosses.spy = spiesLost;
   if (!hasArmy) {
@@ -141,7 +143,7 @@ function resolve({
     return result;
   }
 
-  const attack = rawAttack * mor * (1 + luck) * attackerFaith;
+  const attack = rawAttack * mor * (1 + luck) * attackerFaith * attackFactor;
   const share = (type) => (rawAttack > 0 ? attByType[type] / rawAttack : 1 / 3);
   const weights = rawAttack > 0 ? { infantry: share('infantry'), cavalry: share('cavalry'), archer: share('archer') } : { infantry: 1, cavalry: 0, archer: 0 };
   const unitDefense = sumBy(defenders, (u) => (u.defense * weights.infantry + u.defenseCavalry * weights.cavalry + u.defenseArcher * weights.archer)

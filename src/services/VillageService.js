@@ -57,6 +57,9 @@ class VillageService {
     buildOrders = buildOrders.filter((o) => !finished.includes(o));
     const statue = finished.find((o) => o.building === 'statue');
     if (statue && village.playerId) await require('./KnightService').startClock(village.playerId, new Date(statue.endsAt), t);
+    // Sceaux : un sceau de niveau 1 par noble formé (mondes officiels avec le module).
+    const nobles = updates.filter((u) => u.order.unit === 'snob').reduce((n, u) => n + (u.done - u.order.done), 0);
+    if (village.playerId && nobles > 0) await require('./SealService').onNobles(village.playerId, nobles, { t, now });
     if (village.playerId && updates.some((u) => u.order.unit === 'knight')) {
       if (KnightSkillService.enabled(cfg)) await KnightSkillService.onRecruited(village, t);
       else await Player.update({ knightRecruited: true }, { where: { id: village.playerId }, transaction: t });
@@ -420,7 +423,7 @@ class VillageService {
       const reasons = missing.map((m) => `${registry.building(m.building).name} niveau ${m.level}`);
       if (!state.hasResearched(type)) reasons.push('Recherche à la forge');
       const locked = reasons.length > 0;
-      const duration = type.recruitTimeFor(buildingLevel, cfg) * (1 - (state.villageBonus?.recruitSpeed || 0));
+      const duration = type.recruitTimeFor(buildingLevel, cfg) * state.recruitFactor();
       const max = locked ? 0 : Math.max(0, Math.min(
         ...['wood', 'stone', 'iron'].map((r) => Math.floor(state.resources[r] / type.cost[r])),
         Math.floor(freePop / type.pop),
@@ -481,7 +484,7 @@ class VillageService {
       if (startsAt < ctx.now) startsAt = ctx.now;
       const created = [];
       for (const { type, n } of lines) {
-        const unitDurationMs = Math.round(type.recruitTimeFor(buildingLevel, cfg) * (1 - (state.villageBonus?.recruitSpeed || 0)) * 1000);
+        const unitDurationMs = Math.round(type.recruitTimeFor(buildingLevel, cfg) * state.recruitFactor() * 1000);
         const endsAt = new Date(startsAt.getTime() + unitDurationMs * n);
         created.push(await RecruitOrder.create({
           villageId: ctx.village.id, building: buildingId, unit: type.id, count: n, done: 0,

@@ -247,8 +247,34 @@ bâtiments ni aux unités : seulement les tribus et la fin du monde.
   s'achètent à la boutique comme les autres designs.
 - Monde officiel : `lotr1` (« LOTR 1 »). `npm run populate -- lotr1` répartit les joueurs fictifs entre les factions
   (tribus d'une seule faction) ; `scripts/seed-tribes.js` ne met dans une tribu que des joueurs de la faction du duc.
+- Carte : calque « Influence de ta faction » (zones bleues autour des villages des autres joueurs de sa faction ; la
+  zone de sa tribu reste prioritaire quand les deux calques sont affichés).
 - Faction affichée sur la fiche du monde, les infos du monde, le profil des joueurs et des tribus, et dans la fin du
   monde (« Top des factions par dominance », « Votre faction »).
+
+## Sceaux
+
+Les « drapeaux » de Guerre Tribale, sous le nom de sceaux : module de monde `features.seals` (case « Sceaux » à la
+création d'un serveur, actif sur `speed`). Règles et bonus : [src/game/seals.js](src/game/seals.js) ; service :
+[src/services/SealService.js](src/services/SealService.js) ; page `/village/:id/seals`.
+
+- 8 types sur 9 niveaux, valeurs du wiki GT : production (+4 → +18 %), recrutement (+6 → +20 % de vitesse), attaque
+  et défense (+2 → +10 %), chance (ramenée de 6 → 20 points vers 0, attaques du village), population de la ferme
+  (+2 → +10 %), coût des pièces d'or (−10 → −24 %), charge du butin (+2 → +10 %).
+- Les sceaux appartiennent au **compte** (table `Seals`) et servent sur tous les mondes où le module est actif. Un sceau
+  posé reste au compte : il est seulement indisponible tant qu'il est posé sur un village d'un monde en cours ; il
+  redevient libre si le village est conquis, abandonné, ou si le monde se termine. On ne perd jamais un sceau.
+- Un sceau par village (`Villages.sealType`, `sealLevel`, `sealAt`), retiré ou remplacé `seals.lockHours` (24) heures
+  après sa pose au plus tôt ; le sceau de population ne se retire pas si la ferme déborderait. Le remplaçant ne peut
+  rien changer.
+- Gains comme sur GT (type au hasard, niveau fixé), **seulement sur les mondes officiels** avec le module : succès
+  (niveau du palier, 1 à 4), succès quotidien (3), noble formé (1 chacun), paliers d'unités ennemies vaincues (2 ;
+  100, 150, 225… × 1,5). Rien sur un serveur privé, et les sceaux ne sont pas vendus à la boutique.
+- Fusion : 3 sceaux libres identiques → 1 sceau du niveau supérieur, même type (`SealService.merge`).
+- Échange 1 contre 1, au même niveau, avec un membre de sa tribu (mondes officiels, `SealTrades`).
+- Les sceaux d'attaque et de défense figurent dans les rapports de combat et dans le simulateur ; historique des gains
+  (`SealEvents`). Visuel provisoire en SVG ([src/web/sealSvg.js](src/web/sealSvg.js)) : cachet de cire à la couleur
+  du niveau (gris, bronze, rouge, or, vert, bleu, turquoise, pourpre, noir), icône du type au centre.
 
 ## Villages barbares, messagerie, profils
 

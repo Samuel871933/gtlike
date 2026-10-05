@@ -8,6 +8,7 @@ const {
 const registry = require('../game/registry');
 const combat = require('../game/combat');
 const runes = require('../game/runes');
+const seals = require('../game/seals');
 const { travelSeconds, distance, arrivalAt } = require('../game/movement');
 const VillageService = require('./VillageService');
 const KnightService = require('./KnightService');
@@ -399,6 +400,9 @@ class CommandService {
       defenderKnights = [...(await KnightSkillService.ofVillages(homes, t)).values()];
     }
 
+    // Sceaux (module features.seals) : attaque, chance et charge du village d'origine, défense du village attaqué.
+    const attackerSeal = seals.of(origin, cfg);
+    const defenderSeal = seals.of(target, cfg);
     const result = combat.resolve({
       attackers: cmd.units,
       defenders,
@@ -408,14 +412,15 @@ class CommandService {
       defenderSkills: defenderKnights.length ? knightSkills.bonuses(defenderKnights, 'defense') : null,
       wall: state.level('wall'),
       morale: defenderPlayer && runes.moraleApplies(cfg, target) ? combat.morale(origin.Player.points, defenderPlayer.points, cfg.moral) : 1,
-      luck: (rng() * 2 - 1) * cfg.luck,
+      luck: seals.reduceLuck((rng() * 2 - 1) * cfg.luck, attackerSeal),
       nightFactor: defenderPlayer && cfg.isNight(at) ? cfg.night.defFactor : 1,
       catapultTarget: cmd.catapultTarget ? { building: cmd.catapultTarget, level: state.level(cmd.catapultTarget) } : null,
       // Foi : l'attaque dépend de l'église du village d'origine, toute la défense (soutiens compris) de celle de la cible.
       attackerFaith: await FaithService.factor(origin, cfg, { t }),
       defenderFaith: await FaithService.factor(target, cfg, { t, buildings: state.buildings }),
       // Guerres runiques : un village de runes conquis se défend mal (soutiens compris).
-      defenseFactor: runes.defenseFactor(cfg, target),
+      defenseFactor: runes.defenseFactor(cfg, target) * (1 + seals.bonus(defenderSeal, 'defense')),
+      attackFactor: 1 + seals.bonus(attackerSeal, 'attack'),
     });
 
     // Pertes du défenseur : même proportion pour le village et chaque soutien.
@@ -453,7 +458,7 @@ class CommandService {
 
     const survivors = addUnits(cmd.units, result.attackerLosses, -1);
     let looted = { wood: 0, stone: 0, iron: 0 };
-    const carry = combat.carryCapacity(survivors);
+    const carry = Math.floor(combat.carryCapacity(survivors) * (1 + seals.bonus(attackerSeal, 'haul')));
     if (result.attackerWins && result.hasBattle && carry > 0) {
       looted = combat.loot(state.resources, state.hideCapacity(), carry);
       for (const r of RESOURCES) state.resources[r] -= looted[r];
@@ -550,6 +555,8 @@ class CommandService {
       battlesWon: result.hasBattle && result.attackerWins && pop(cmd.units) >= 20 ? 1 : 0,
       attacked: previousOwnerId && previousOwnerId !== origin.playerId ? previousOwnerId : null,
     }, t);
+    // Sceaux : un sceau de niveau 2 à chaque palier d'unités ennemies vaincues.
+    await require('./SealService').onKills(origin.playerId, { t, now: at });
     if (loyalty) {
       await AchievementService.addStats(origin.playerId, {
         luckyNoble: conquered && loyalty.exact === 0 ? 1 : 0,
@@ -579,6 +586,7 @@ class CommandService {
         noblesKilled: result.attackerLosses.snob || 0,
         spyDefenses: !result.hasBattle && result.spies.sent > 0 && result.spies.lost === result.spies.sent ? 1 : 0,
       }, t);
+      await require('./SealService').onKills(defenderPlayer.id, { t, now: at });
     }
     const supporterIds = [];
     for (const s of stackReports) {
@@ -600,7 +608,12 @@ class CommandService {
       attackerWins: result.hasBattle ? result.attackerWins : null,
       luck: result.luck, morale: result.morale, night: result.nightFactor > 1,
       ...(cfg.hasFeature('church') ? { faith: { attacker: result.attackerFaith, defender: result.defenderFaith } } : {}),
-      ...(result.defenseFactor !== 1 ? { runePenalty: result.defenseFactor } : {}),
+      ...(runes.defenseFactor(cfg, target) !== 1 ? { runePenalty: runes.defenseFactor(cfg, target) } : {}),
+      // Sceaux d'attaque et de défense, affichés dans le rapport comme sur GT (les autres ne se voient pas).
+      ...(attackerSeal?.type === 'attack' || defenderSeal?.type === 'defense' ? { seals: {
+        attacker: attackerSeal?.type === 'attack' ? seals.label(attackerSeal) : null,
+        defender: defenderSeal?.type === 'defense' ? seals.label(defenderSeal) : null,
+      } } : {}),
       wall: { before: result.wallBefore, after: result.wallAfter },
       catapult: result.catapult ? { ...result.catapult, name: registry.building(result.catapult.building).name } : null,
       attackerItem: attackerItem ? registry.ITEMS.get(attackerItem).name : null,
@@ -692,6 +705,8 @@ class CommandService {
    * et marchands hors du village et ses offres au marché.
    */
   static async handOver(village, t) {
+    // Le sceau de l'ancien propriétaire quitte le village : il redevient libre sur son compte.
+    village.set({ sealType: null, sealLevel: null, sealAt: null });
     await BuildOrder.destroy({ where: { villageId: village.id }, transaction: t });
     await RecruitOrder.destroy({ where: { villageId: village.id }, transaction: t });
     await ResearchOrder.destroy({ where: { villageId: village.id }, transaction: t });

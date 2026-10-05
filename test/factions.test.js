@@ -261,3 +261,20 @@ test('designs des factions : offerts et par défaut sur un monde à factions, en
   assert.equal(villageDesignFor(null, null, 'orc').id, 'orques', 'bots');
   assert.equal(villageDesignFor({ villageDesign: 'nains' }, await ShopService.rightsFor(u.id, other.id), null).id, 'beige');
 });
+
+test('carte : les villages de ta faction alimentent le calque « Influence de ta faction »', async () => {
+  const mapView = require('../src/web/mapView');
+  const { slug, world } = await factionWorld();
+  const me = await WorldService.join(await user('CarteA'), slug, { faction: 'elf' });
+  const ally = await WorldService.join(await user('CarteB'), slug, { faction: 'elf' });
+  const foe = await WorldService.join(await user('CarteC'), slug, { faction: 'orc' });
+  const vc = await mapView.viewContext(me.village, world.getConfig());
+  const cellAt = async (v) => {
+    const data = await mapView.sector(vc, Math.floor(v.x / mapView.SECTOR), Math.floor(v.y / mapView.SECTOR));
+    const sectors = Array.isArray(data) ? data : data.sectors || [data];
+    return sectors.flatMap((s) => s.cells || []).find((c) => c.x === v.x && c.y === v.y);
+  };
+  assert.equal((await cellAt(ally.village)).faction, 1);
+  assert.equal((await cellAt(foe.village)).faction, '');
+  assert.equal((await cellAt(me.village)).faction, '', 'ses propres villages relèvent du calque de la tribu');
+});

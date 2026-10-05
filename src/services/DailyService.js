@@ -56,6 +56,8 @@ class DailyService {
         data: { perspective: 'award', daily: true, key: def.key, tier: 4, tiers: 1, name: def.name, description: `Vous avez obtenu ${def.text} le ${day} (${first[def.field]}).` },
       }, { transaction: t });
       awarded.push({ def, playerId: first.playerId });
+      // Sceaux : un sceau de niveau 3 par succès du jour (mondes officiels avec le module).
+      await require('./SealService').onDailyAward(first.playerId, def.name, { t });
     }
     return awarded;
   }

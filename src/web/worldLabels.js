@@ -6,7 +6,7 @@
 const VICTORY_NAMES = { dominance: 'Domination', pointsVillages: 'Points et villages', runes: 'Guerres runiques', siege: 'Grand Siège', none: 'aucune' };
 // Position de départ sur la carte (MapPlacer.DIRECTIONS).
 const DIRECTION_NAMES = { random: 'Aléatoire', nw: 'Nord-Ouest', ne: 'Nord-Est', sw: 'Sud-Ouest', se: 'Sud-Est' };
-const FEATURE_NAMES = { knight: 'paladin', archer: 'archers', militia: 'milice', church: 'église' };
+const FEATURE_NAMES = { knight: 'paladin', archer: 'archers', militia: 'milice', church: 'église', seals: 'sceaux' };
 
 /** Modules actifs d'un monde (paladin, archers, milice, église, factions). */
 const worldModules = (cfg) => [

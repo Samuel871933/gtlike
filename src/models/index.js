@@ -332,6 +332,11 @@ const Village = sequelize.define(
     scavenging: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
     // Village spécial de fin de partie : 'rune' ou 'siege' (quartier du Grand Siège).
     special: { type: DataTypes.STRING(8), allowNull: true },
+    // Sceau posé sur le village (module features.seals, voir game/seals.js) : type, niveau et date de pose (on ne peut
+    // le retirer ou le déplacer qu'après 24 h). Le sceau appartient au compte du propriétaire (table Seals).
+    sealType: { type: DataTypes.STRING(12), allowNull: true },
+    sealLevel: { type: DataTypes.INTEGER, allowNull: true },
+    sealAt: { type: DataTypes.DATE, allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['worldId', 'x', 'y'] }, { fields: ['playerId'] }] },
 );
@@ -725,8 +730,39 @@ Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: fals
 // Boutique : droit acquis sur un monde (portées monde et serveur).
 Entitlement.belongsTo(World, { foreignKey: { name: 'worldId', allowNull: true }, onDelete: 'CASCADE' });
 
+/**
+ * Sceaux d'un compte (module de monde features.seals, voir game/seals.js et SealService) : nombre de sceaux de chaque
+ * type et niveau. Les sceaux posés sur des villages en font partie (ils ne sont pas retirés de ce total).
+ */
+const Seal = sequelize.define('Seal', {
+  userId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  type: { type: DataTypes.STRING(12), allowNull: false },
+  level: { type: DataTypes.INTEGER, allowNull: false },
+  count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+}, { indexes: [{ unique: true, fields: ['userId', 'type', 'level'] }] });
+
+/** Historique des sceaux d'un compte : gains (succès, nobles…), fusions et échanges. */
+const SealEvent = sequelize.define('SealEvent', {
+  userId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  worldId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Worlds', key: 'id' }, onDelete: 'SET NULL', onUpdate: 'CASCADE' },
+  type: { type: DataTypes.STRING(12), allowNull: false },
+  level: { type: DataTypes.INTEGER, allowNull: false },
+  source: { type: DataTypes.STRING(12), allowNull: false },
+  detail: { type: DataTypes.STRING(160), allowNull: true },
+}, { indexes: [{ fields: ['userId', 'createdAt'] }] });
+
+/** Échange proposé à un membre de sa tribu : un sceau contre un autre du même niveau (1 contre 1, comme sur GT). */
+const SealTrade = sequelize.define('SealTrade', {
+  worldId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Worlds', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  fromUserId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  toUserId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  giveType: { type: DataTypes.STRING(12), allowNull: false },
+  wantType: { type: DataTypes.STRING(12), allowNull: false },
+  level: { type: DataTypes.INTEGER, allowNull: false },
+}, { indexes: [{ fields: ['toUserId'] }, { fields: ['fromUserId'] }] });
+
 module.exports = {
-  sequelize, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
+  sequelize, Seal, SealEvent, SealTrade, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,

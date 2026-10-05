@@ -53,6 +53,13 @@ class NobleService {
     };
   }
 
+  /** Coût d'une pièce d'or dans ce village (sceau « coût réduit des pièces » : jusqu'à −24 %). */
+  static coinCost(cfg, state) {
+    const cut = 1 - require('../game/seals').bonus(state.seal, 'coin');
+    const c = cfg.snob.coin;
+    return { wood: Math.round(c.wood * cut), stone: Math.round(c.stone * cut), iron: Math.round(c.iron * cut) };
+  }
+
   /** Frappe des pièces d'or dans l'académie du village (paiement immédiat). */
   static async mint(villageId, count, { now } = {}) {
     const VillageService = require('./VillageService');
@@ -60,7 +67,7 @@ class NobleService {
     if (!Number.isFinite(n) || n < 1) throw new GameError('Nombre de pièces invalide.');
     return VillageService.withVillage(villageId, async (ctx, t) => {
       if (ctx.state.level('snob') < 1) throw new GameError("Il faut une académie.");
-      const c = ctx.cfg.snob.coin;
+      const c = NobleService.coinCost(ctx.cfg, ctx.state);
       const cost = { wood: c.wood * n, stone: c.stone * n, iron: c.iron * n };
       if (!ctx.state.canAfford(cost)) throw new GameError('Ressources insuffisantes.');
       ctx.state.pay(cost);

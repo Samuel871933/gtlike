@@ -182,7 +182,7 @@ router.get('/recruit/:building', ah(async (req, res) => {
   // Académie : les nobles sont en plus limités par les pièces d'or.
   const slots = await NobleService.slots(req.ctx.village.playerId);
   for (const o of locals.available) o.max = Math.min(o.max, slots.free);
-  const coin = req.ctx.cfg.snob.coin;
+  const coin = NobleService.coinCost(req.ctx.cfg, req.ctx.state);
   const maxCoins = Math.min(...['wood', 'stone', 'iron'].map((r) => Math.floor(req.ctx.state.resources[r] / coin[r])));
   res.render('academy', { ...locals, slots, coin, maxCoins });
 }));

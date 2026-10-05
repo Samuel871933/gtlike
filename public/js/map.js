@@ -128,6 +128,16 @@
   }
   // Taille de chaque décor (facteur min, max) : lacs et montagnes très variables, petits décors plus réguliers.
   const DECOR_SCALE = { hill: [0.78, 1.08], pine: [0.8, 1.2], default: [0.84, 1.06] };
+  // Villages d'autres joueurs de sa faction (mondes à factions), pour le calque « Influence de ta faction ».
+  const nearFaction = (x, y) => {
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const c = cells.get(ck(x + dx, y + dy));
+        if (c && c.faction) return true;
+      }
+    }
+    return false;
+  };
   const near = (x, y, kinds, radius = 1) => {
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dy = -radius; dy <= radius; dy++) {
@@ -210,8 +220,11 @@
         }
         const c = cells.get(ck(x, y));
         // Calques d'influence : cases voisines d'un village à soi ou de sa tribu, ou d'un ennemi.
-        if (near(x, y, ['current', 'own', 'tribe'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-blood-700/25 group-data-[layer-influence]/map:block" style="${at(x, y)}"></div>`);
-        else if (near(x, y, ['enemy'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-rel-enemy/20 group-data-[layer-enemy]/map:block" style="${at(x, y)}"></div>`);
+        // Calque de faction sous celui de la tribu : une case de ta tribu garde sa couleur quand les deux sont affichés.
+        const ownZone = near(x, y, ['current', 'own', 'tribe']);
+        if (ownZone) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-blood-700/25 group-data-[layer-influence]/map:block" style="${at(x, y)}"></div>`);
+        if (nearFaction(x, y)) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-[#4fb3e8]/30 group-data-[layer-faction]/map:block ${ownZone ? 'group-data-[layer-influence]/map:hidden!' : ''}" style="${at(x, y)}"></div>`);
+        if (!ownZone && near(x, y, ['enemy'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-rel-enemy/20 group-data-[layer-enemy]/map:block" style="${at(x, y)}"></div>`);
         // Sol des forêts assombri (fondu vers les lisières), villages compris : pas de clairières carrées.
         const woods = forestAt(x, y);
         if (woods) out.push(`<div class="pointer-events-none absolute w-(--tile-w) h-(--tile-h)" style="${at(x, y)};background:rgb(22 40 12 / ${(0.1 + 0.3 * woods).toFixed(2)})"></div>`);
@@ -1058,7 +1071,7 @@
 
   // ------------------------------------------------------------------ Calques (mémorisés sur le joueur)
   // Aussi appliqués à la mini-carte et à la carte du monde (public/js/minimap.js).
-  const LAYER_KEYS = ['markers', 'moves', 'church', 'influence', 'enemy', 'nobarb', 'grid', 'borders'];
+  const LAYER_KEYS = ['markers', 'moves', 'church', 'influence', 'faction', 'enemy', 'nobarb', 'grid', 'borders'];
   const layersOn = () => Object.fromEntries(LAYER_KEYS.map((k) => [k, frame.hasAttribute(`data-layer-${k}`)]));
   document.querySelectorAll('[data-map-layer]').forEach((b) => {
     b.addEventListener('click', () => {

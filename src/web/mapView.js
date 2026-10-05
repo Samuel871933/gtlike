@@ -74,6 +74,8 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), 
     owner: p ? p.name : 'Barbares', playerId: p ? p.id : '', bot: p && p.isBot ? 1 : '',
     ownerInfo: p ? `${p.isBot ? 'bot · ' : ''}${num(p.points)} points · ${num(p.villageCount)} village${p.villageCount > 1 ? 's' : ''}` : '',
     tribeId: t ? t.id : '', tribe: t ? t.tag : '', tribeName: t ? t.name : '',
+    // Monde à factions : village d'un autre joueur de ta faction (calque « Influence de ta faction »).
+    faction: vc.player.faction && p && p.faction === vc.player.faction && p.id !== vc.player.id ? 1 : '',
     tribeInfo: t && tribePoints.has(t.id) ? `${num(tribePoints.get(t.id))} points` : '',
     special: v.special === 'rune' ? 'Village de rune' : v.special === 'siege' ? 'Quartier du Grand Siège' : '',
     specialKind: v.special || '',

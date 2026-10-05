@@ -27,7 +27,7 @@ const WORLDS = [
       newbieDays: 0,
       commandCancelSeconds: 60,
       sleep: { active: true, delayMinutes: 1, minHours: 0.05, maxHours: 0.2, minAwakeHours: 0.1 },
-      features: { knight: true, archer: true, militia: true },
+      features: { knight: true, archer: true, militia: true, seals: true },
       // Milice de GT (20 par niveau de ferme jusqu'au niv. 15, production × 0,5, 2 villages max), 15 min pour tester.
       militia: { hours: 0.25 },
       // Villages barbares sans troupes (ni au peuplement, ni après l'abandon d'un joueur).

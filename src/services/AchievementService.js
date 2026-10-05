@@ -193,6 +193,10 @@ class AchievementService {
       if (current) await current.update({ tier, unlockedAt: now }, { transaction: t });
       else await PlayerAchievement.create({ playerId, key: def.key, tier, unlockedAt: now }, { transaction: t });
       unlocked.push({ def, tier });
+      // Sceaux (mondes officiels avec le module) : un sceau du niveau de chaque palier nouvellement atteint.
+      for (let reached = (current?.tier || 0) + 1; reached <= tier; reached++) {
+        await require('./SealService').onAchievement(player, def, reached, { t, now });
+      }
       const label = def.tiers.length > 1 ? ` (${TIER_NAMES[tier - 1]})` : '';
       await Report.create({
         playerId, type: 'award', happenedAt: now, title: `Succès débloqué : ${def.name}${label}`,

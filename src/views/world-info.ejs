@@ -68,6 +68,7 @@
       ['Archers', yes(cfg.features.archer)],
       ['Église', cfg.features.church ? `Oui, zone de ${cfg.church.radius.slice(1).join(', ')} cases (première église : ${cfg.church.firstRadius}), force hors zone ${Math.round(cfg.church.faithless * 100)} %` : 'Non'],
       ['Collecte', yes(cfg.scavenging.active)],
+      ['Sceaux', cfg.features.seals ? `Oui, un par village, retirable après ${cfg.seals.lockHours} h${world.isPrivate() ? ' (aucun gain sur un serveur privé)' : ''}` : 'Non'],
       ['Mode sommeil', cfg.sleep.active ? `${cfg.sleep.minHours} à ${cfg.sleep.maxHours} h, activé après ${h(cfg.sleep.delayMinutes)}` : 'Non'],
       ['Remplaçant (mode vacances)', cfg.sitter.allow ? `Oui, ${cfg.sitter.maxAccounts} comptes max` : 'Non'],
       ['Milice', cfg.features.militia ? `Oui, ${cfg.militia.perFarmLevel} par niveau de ferme (niv. ${cfg.militia.maxFarmLevel} max), ${cfg.militia.hours} h, production × ${cfg.militia.productionFactor}, ${cfg.militia.maxVillages} villages max` : 'Non'],

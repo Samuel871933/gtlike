@@ -2,6 +2,7 @@
 
 const formulas = require('./formulas');
 const registry = require('./registry');
+const seals = require('./seals');
 
 const RESOURCES = ['wood', 'stone', 'iron'];
 
@@ -27,6 +28,8 @@ class VillageState {
     this.villageBonus = data.villageBonus || null;
     // Milice stationnée jusqu'à cette date : production réduite (world.militia.productionFactor) jusque-là.
     this.militiaUntil = data.militiaUntil ? new Date(data.militiaUntil) : null;
+    // Sceau posé sur le village (module features.seals, voir game/seals.js) : { type, level } ou null.
+    this.seal = seals.of(data, world);
   }
 
   /** La milice est-elle stationnée à l'instant `at` (par défaut : l'heure des ressources) ? */
@@ -59,7 +62,7 @@ class VillageState {
   productionPerHour() {
     const p = {};
     const militia = this.militiaActive() ? this.world.militia.productionFactor : 1;
-    const bonus = (1 + (this.villageBonus?.production || 0)) * militia;
+    const bonus = (1 + (this.villageBonus?.production || 0) + seals.bonus(this.seal, 'production')) * militia;
     for (const r of RESOURCES) p[r] = formulas.production(this.level(r), this.world) * bonus;
     return p;
   }
@@ -69,7 +72,8 @@ class VillageState {
   }
 
   farmCapacity() {
-    return formulas.farmCapacity(this.level('farm'));
+    // Sceau de population : ferme agrandie.
+    return Math.floor(formulas.farmCapacity(this.level('farm')) * (1 + seals.bonus(this.seal, 'population')));
   }
 
   hideCapacity() {
@@ -94,9 +98,19 @@ class VillageState {
     this.resourcesAt = new Date(to);
   }
 
+  /** Facteur du temps de recrutement : compétence « recrutement » du paladin, sceau de recrutement (+20 % de vitesse). */
+  recruitFactor() {
+    return (1 - (this.villageBonus?.recruitSpeed || 0)) / (1 + seals.bonus(this.seal, 'recruit'));
+  }
+
+  /** Champs du sceau du village, pour une copie de l'état (ils ne font pas partie de toData). */
+  sealData() {
+    return this.seal ? { sealType: this.seal.type, sealLevel: this.seal.level } : {};
+  }
+
   /** Ressources à l'instant `at` sans modifier l'état. */
   resourcesAtTime(at) {
-    const copy = new VillageState({ ...this.toData(), villageBonus: this.villageBonus }, this.world);
+    const copy = new VillageState({ ...this.toData(), villageBonus: this.villageBonus, ...this.sealData() }, this.world);
     copy.accrue(at);
     return copy.resources;
   }

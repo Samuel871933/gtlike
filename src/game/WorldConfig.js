@@ -15,7 +15,10 @@ const DEFAULTS = {
   freeFinishSeconds: 180,
   // Démolition au quartier général (comme sur GT) : QG de ce niveau au moins, loyauté à 100 %.
   demolishMainLevel: 15,
-  features: { knight: false, archer: false, church: false },
+  features: { knight: false, archer: false, church: false, seals: false },
+  // Sceaux (module features.seals, les drapeaux de GT, voir game/seals.js) : heures avant de pouvoir retirer ou
+  // déplacer un sceau posé.
+  seals: { lockHours: 24 },
   // Église (module `features.church`, comme sur GT) : rayon d'influence en cases par niveau d'église, rayon de la
   // première église (niveau 1 seulement) ; hors de toute zone d'une de ses églises, les troupes d'un joueur se battent
   // avec `faithless` de leur force (attaque depuis ce village, défense de ce village).
@@ -140,6 +143,7 @@ class WorldConfig {
       sitter: { ...DEFAULTS.sitter, ...(raw.sitter || {}) },
       militia: { ...DEFAULTS.militia, ...(raw.militia || {}) },
       church: { ...DEFAULTS.church, ...(raw.church || {}) },
+      seals: { ...DEFAULTS.seals, ...(raw.seals || {}) },
       premium: { ...DEFAULTS.premium, ...(raw.premium || {}) },
       knightItems: { ...DEFAULTS.knightItems, ...(raw.knightItems || {}) },
       startBuildings: raw.startBuildings || DEFAULTS.startBuildings,

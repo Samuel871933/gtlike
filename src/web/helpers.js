@@ -518,6 +518,8 @@ const ImageService = require('../services/ImageService');
 
 module.exports = {
   ...require('./ui'),
+  // Tracés des icônes (grille 24 × 24), repris dans d'autres SVG (sceaux, voir sealSvg.js).
+  ICONS,
   asset: require('./assets').asset,
   // Taille maximale des images de profil (formulaire d'envoi) ; affichage : avatarThumb et avatarImage.
   // Listes à nombre de lignes par page réglable (partials/pagination).
@@ -535,6 +537,8 @@ module.exports = {
   ...require('./worldLabels'),
   factionName: require('../game/factions').factionName,
   factionDesign: require('../game/factions').factionDesign,
+  SEALS: require('../game/seals'),
+  sealSvg: require('./sealSvg').sealSvg,
   unitIcon,
   orderBadge,
   incomingBadge,

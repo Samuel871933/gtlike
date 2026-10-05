@@ -82,7 +82,8 @@ AccountService.removePlayer = async function removePlayer(playerId, t) {
     await ScavengeRun.destroy({ where: byVillage, transaction: t });
     const cfg = await AccountService.world(player, t);
     await Village.update(
-      { playerId: null, name: 'Village barbare', loyalty: 100, grownAt: new Date(), ...(cfg.barbarian.troops ? {} : { units: {} }) },
+      // Les sceaux reviennent au compte (libres pour ses autres mondes).
+      { playerId: null, name: 'Village barbare', loyalty: 100, grownAt: new Date(), sealType: null, sealLevel: null, sealAt: null, ...(cfg.barbarian.troops ? {} : { units: {} }) },
       { where: { id: { [Op.in]: ids } }, transaction: t },
     );
   }

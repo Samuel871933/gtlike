@@ -82,6 +82,10 @@
       <%# Mondes avec église : force des troupes selon la foi (50 % hors de la zone d'une église). %>
       <div class="<%= ui.tile %> sm:col-span-3"><dt class="<%= ui.tileLabel %>">Foi</dt><dd class="<%= ui.tileValue %>">Attaquant <span class="<%= d.faith.attacker < 1 ? 'text-blood-450' : '' %>"><%= Math.round(d.faith.attacker * 100) %> %</span> · défenseur <span class="<%= d.faith.defender < 1 ? 'text-blood-450' : '' %>"><%= Math.round(d.faith.defender * 100) %> %</span></dd></div>
     <% } %>
+    <% if (d.seals) { %>
+      <%# Sceaux d'attaque (village d'origine) et de défense (village attaqué), visibles dans le rapport comme sur GT. %>
+      <div class="<%= ui.tile %> sm:col-span-3"><dt class="<%= ui.tileLabel %>">Sceaux</dt><dd class="<%= ui.tileValue %>">Attaquant <%= d.seals.attacker || 'aucun' %> · défenseur <%= d.seals.defender || 'aucun' %></dd></div>
+    <% } %>
     <% if (d.runePenalty) { %>
       <%# Guerres runiques : un village de rune conquis se défend avec moins de force (game/runes.js). %>
       <div class="<%= ui.tile %> sm:col-span-3"><dt class="<%= ui.tileLabel %>">Village de rune</dt><dd class="<%= ui.tileValue %>">Défense <span class="text-blood-450"><%= Math.round(d.runePenalty * 100) %> %</span></dd></div>
