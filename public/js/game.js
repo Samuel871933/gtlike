@@ -935,4 +935,72 @@
       buttons.forEach((b) => { b.disabled = false; });
     }
   });
+
+  // Assistant de pillage : envoi d'un modèle favori, retrait d'une ligne et filtres sans recharger la page. Après un
+  // envoi, les troupes du village baissent, la ligne s'estompe et les boutons des modèles devenus trop gros se
+  // désactivent ; un filtre changé est enregistré puis la liste est relue.
+  const farmUnits = document.querySelectorAll('[data-farm-unit]');
+  if (farmUnits.length) {
+    const left = Object.fromEntries([...farmUnits].map((el) => [el.dataset.farmUnit, Number(el.textContent.replace(/\D/g, '')) || 0]));
+    const refresh = () => {
+      farmUnits.forEach((el) => {
+        const n = left[el.dataset.farmUnit];
+        el.textContent = n.toLocaleString('fr-FR');
+        el.classList.toggle('is-amount', n > 0);
+        el.classList.toggle('is-zero', !n);
+      });
+      document.querySelectorAll('[data-farm-units]').forEach((b) => {
+        const units = JSON.parse(b.dataset.farmUnits);
+        b.disabled = Object.entries(units).some(([id, n]) => (left[id] || 0) < n);
+      });
+    };
+    const filters = document.querySelector('[data-farm-filters]');
+    let reload = 0;
+    filters?.addEventListener('change', async () => {
+      const ticket = ++reload;
+      const list = document.querySelector('[data-farm-list]');
+      list?.classList.add('opacity-60');
+      try {
+        const res = await fetch(filters.action, { method: 'POST', body: new URLSearchParams(new FormData(filters)), headers: { accept: 'application/json' } });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Filtres non enregistrés.');
+        const page = await fetch(window.location.pathname, { headers: { accept: 'text/html' } });
+        const doc = new DOMParser().parseFromString(await page.text(), 'text/html');
+        if (ticket !== reload) return;
+        const next = doc.querySelector('[data-farm-list]');
+        if (list && next) list.replaceWith(next);
+        const total = doc.querySelector('[data-farm-total]');
+        if (total) document.querySelector('[data-farm-total]').textContent = total.textContent;
+        refresh();
+        if (window.location.search) window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+      } catch (err) {
+        window.adarmaToast?.(err.message, true);
+      } finally {
+        document.querySelector('[data-farm-list]')?.classList.remove('opacity-60');
+      }
+    });
+    document.addEventListener('submit', async (e) => {
+      const form = e.target;
+      const sending = form.matches('[data-farm-send]');
+      if (!sending && !form.matches('[data-farm-forget]')) return;
+      e.preventDefault();
+      const button = form.querySelector('button');
+      const row = form.closest('[data-farm-row]');
+      button.disabled = true;
+      try {
+        const res = await fetch(form.action, { method: 'POST', body: new URLSearchParams(new FormData(form)), headers: { accept: 'application/json' } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Envoi impossible.');
+        if (sending) {
+          for (const [id, n] of Object.entries(data.units || {})) left[id] = Math.max(0, (left[id] || 0) - n);
+          row?.classList.add('opacity-45');
+          window.adarmaToast?.(`Attaque envoyée sur ${data.target.x}|${data.target.y}.`);
+        } else row?.remove();
+      } catch (err) {
+        window.adarmaToast?.(err.message, true);
+      } finally {
+        button.disabled = false;
+        if (sending) refresh();
+      }
+    });
+  }
 })();

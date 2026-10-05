@@ -33,6 +33,8 @@ const VILLAGE_DESIGNS = {
   futuriste: { id: 'futuriste', name: 'Futuriste', description: 'Avant-poste modulaire, panneaux solaires et cité fortifiée de haute technologie.' },
   halloween: { id: 'halloween', name: 'Halloween', description: 'Hameaux hantés, citrouilles lumineuses et châteaux aux toits violets.' },
   noel: { id: 'noel', name: 'Noël', description: 'Villages enneigés, toits verts, guirlandes et châteaux illuminés.' },
+  christianisme: { id: 'christianisme', name: 'Christianisme', description: 'Chapelles, églises et cathédrales au cœur de cités médiévales.' },
+  islam: { id: 'islam', name: 'Islam', description: 'Mosquées aux coupoles bleues, minarets et cités de pierre claire.' },
 };
 
 const DEFAULT_VILLAGE_DESIGN = 'beige';

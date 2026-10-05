@@ -148,13 +148,14 @@
   }
 }
 
-/* Le thème garde ses textes sombres sur les panneaux clairs ; les aplats olive profonds reçoivent du texte crème. */
+/* Le thème garde ses textes sombres sur les panneaux clairs ; les aplats olive profonds reçoivent du texte crème,
+   sauf les éléments qui ont leur propre fond (boutons-icônes clairs bg-panel-hi, pastilles bg-night). */
 [data-game-style="adarma"] :is(.bg-head, .bg-head-dark),
 [data-game-style="adarma"] [class~="hover:bg-head-dark"]:hover {
   color: var(--color-on-accent);
 }
-[data-game-style="adarma"] :is(.bg-head, .bg-head-dark) > :is(.text-parchment-100, .text-parchment-300, .text-parchment-500, .text-gold-400):not(.bg-night),
-[data-game-style="adarma"] [class~="hover:bg-head-dark"]:hover > .text-gold-400:not(.bg-night),
+[data-game-style="adarma"] :is(.bg-head, .bg-head-dark) > :is(.text-parchment-100, .text-parchment-300, .text-parchment-500, .text-gold-400):not(.bg-night, .bg-panel-hi),
+[data-game-style="adarma"] [class~="hover:bg-head-dark"]:hover > .text-gold-400:not(.bg-night, .bg-panel-hi),
 [data-game-style="adarma"] .bg-head nav a:not(.bg-night) {
   color: var(--color-on-accent);
 }

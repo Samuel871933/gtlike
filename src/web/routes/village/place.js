@@ -106,6 +106,7 @@ router.get('/place', ah(async (req, res) => {
     sim: tab === 'sim' ? simulate(req.query, req.ctx.cfg) : null,
     query: req.query,
     templates,
+    farmLetter: ArmyTemplateService.letter,
   });
 }));
 

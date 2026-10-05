@@ -39,12 +39,14 @@
     <%# Carte : cadre de taille × taille cases ; les cases sont dessinées et déplacées par map.js. %>
     <section class="<%= ui.panel %> relative max-w-full p-2">
       <div class="map-frame group/map relative w-max max-w-full select-none"<%- Object.entries(layers).filter(([, on]) => on).map(([k]) => ` data-layer-${k}`).join('') %>
-           style="--tile-w:<%= TILE_W %>px;--tile-h:<%= TILE_H %>px;--tile:<%= TILE_H %>px" data-map data-size="<%= displaySize %>" data-tile-w="<%= TILE_W %>" data-tile-h="<%= TILE_H %>" data-cx="<%= cx %>" data-cy="<%= cy %>"
+           style="--tile-w:<%= TILE_W %>px;--tile-h:<%= TILE_H %>px;--tile:<%= TILE_H %>px" data-map data-size="<%= displaySize %>" data-step="<%= prefs.step %>" data-mini-step="<%= prefs.miniStep %>" data-mini-pos="<%= prefs.miniPos %>" data-tile-w="<%= TILE_W %>" data-tile-h="<%= TILE_H %>" data-cx="<%= cx %>" data-cy="<%= cy %>"
            data-me="<%= ctx.village.x %>|<%= ctx.village.y %>" data-sel="<%= sel ? `${sel.x}|${sel.y}` : '' %>" data-csrf="<%= csrfToken %>" data-spy="<%= spyCount %>">
         <div class="flex">
           <div class="map-viewport relative cursor-grab overflow-hidden bg-map-edge touch-none active:cursor-grabbing" style="width:calc(var(--tile-w) * <%= displaySize %>);height:calc(var(--tile-h) * <%= displaySize %>)" data-map-viewport>
             <div class="absolute top-0 left-0 will-change-transform" data-map-plane></div>
             <div class="map-vignette pointer-events-none absolute inset-0 shadow-[inset_0_0_50px_rgba(0,0,0,0.55)]"></div>
+            <%# Mini-carte posée dans le coin de la carte (position « Sur la carte ») : map.js y déplace le canevas. %>
+            <div class="map-controls absolute right-1 bottom-1 z-10 hidden shadow-[3px_3px_0_#000]" data-mini-over></div>
             <%# Niveau de zoom (molette en tenant la carte), affiché seulement quand on a zoomé (map.js). %>
             <span class="map-controls pointer-events-none absolute bottom-1 left-9 z-10 border border-black bg-night/80 px-1.5 py-px text-xs font-semibold text-gold-200 tabular-nums" data-map-zoom hidden></span>
             <%# Règles des coordonnées, posées sur les bords de la carte (elles ne lui prennent pas de place), fond transparent. %>
@@ -153,12 +155,12 @@
     </div>
   </div>
 
-  <%# Largeur de la mini-carte (cadre, marges du panneau : 28 px ; 250 px au moins pour la recherche) ; toute la ligne quand elle passe sous la carte (map.js). %>
+  <%# Largeur de la mini-carte (cadre, marges du panneau : 28 px ; 250 px au moins pour la recherche) ; sous la carte, à sa largeur, selon la position choisie (map.js). %>
   <aside class="flex max-w-full flex-none flex-col gap-4" style="width:<%= Math.max(250, miniSize * MINI_CELL + 28) %>px" data-map-aside>
     <%# Mini-carte : 6 px par case pour une vue d'ensemble lisible ; elle suit les déplacements de la carte. %>
     <section class="<%= ui.panel %> max-w-full">
       <%- panelHead('Mini-carte', `<span class="text-[13px] text-parchment-300 tabular-nums" data-mini-label>${miniSize} × ${miniSize}</span>`) %>
-      <div class="p-2">
+      <div class="p-2" data-mini-slot>
         <canvas class="box-content mx-auto block max-w-full cursor-grab touch-none border-2 border-black bg-mini-bg" style="width:<%= miniSize * MINI_CELL %>px;aspect-ratio:1" data-mini-map data-size="<%= miniSize %>" data-cell="<%= MINI_CELL %>" aria-label="Mini-carte : clique pour recentrer la carte, fais-la glisser pour déplacer la carte"></canvas>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 border-t border-bronze-800 px-3 py-2 text-[13px]">
@@ -232,6 +234,8 @@
           <% for (const tpl of templates) { %><option value="<%= tpl.id %>" data-units="<%= JSON.stringify(tpl.units) %>"><%= tpl.name %></option><% } %>
         </select>
         <% if (!templates.length) { %><p class="text-xs text-parchment-500">Crée tes modèles au point de ralliement.</p><% } %>
+        <% const favs = templates.filter((t) => t.favorite); %>
+        <p class="text-xs text-parchment-500"><%= favs.length ? `Favoris : ${favs.map((t) => t.name).join(', ')}. Clique un village puis la lettre d’un favori pour attaquer aussitôt.` : 'Mets jusqu’à 3 modèles en favori : leur lettre apparaît dans le menu d’un village et attaque aussitôt.' %></p>
         <div class="flex flex-wrap gap-3">
           <% for (const [k, label] of [['attack', 'Attaque'], ['support', 'Soutien'], ['spy', 'Espionnage']]) { %>
             <label class="flex cursor-pointer items-center gap-1.5 font-semibold">
@@ -267,21 +271,32 @@
       <% } %>
     </section>
 
-    <%# Tailles : appliquées en direct par map.js et mémorisées sur le joueur (sans JavaScript : formulaire). %>
+    <%# Tailles en sixièmes de la place disponible et position de la mini-carte : appliquées en direct par map.js et
+        mémorisées sur le joueur (sans JavaScript : formulaire). %>
     <section class="<%= ui.panel %>">
-      <%- panelHead('Taille de la carte') %>
-      <form method="get" class="grid grid-cols-2 gap-2.5 p-3" data-map-settings>
-        <input type="hidden" name="x" value="<%= cx %>"><input type="hidden" name="y" value="<%= cy %>">
+      <%- panelHead('Taille de la carte', `<span class="text-[13px] text-parchment-300 tabular-nums" data-map-size-label>${displaySize} × ${displaySize}</span>`) %>
+      <form method="post" action="/village/<%= vid %>/map/settings" class="grid grid-cols-2 gap-2.5 p-3" data-map-settings>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <label class="<%= ui.label %>">Carte
-          <select name="size" class="<%= ui.inputSm %>" data-map-resize="size">
-            <% for (const n of mapSizes) { %><option value="<%= n %>" <%= n === displaySize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
+          <select name="step" class="<%= ui.inputSm %>" data-map-resize="step">
+            <% for (const n of steps) { %><option value="<%= n %>" <%= n === prefs.step ? 'selected' : '' %> <%= n === 6 && ['side', 'left'].includes(prefs.miniPos) ? 'disabled' : '' %>><%= n %>/6</option><% } %>
           </select>
         </label>
         <label class="<%= ui.label %>">Mini-carte
-          <select name="mini" class="<%= ui.inputSm %>" data-map-resize="mini">
-            <% for (const n of miniSizes) { %><option value="<%= n %>" <%= n === miniSize ? 'selected' : '' %>><%= n %> × <%= n %></option><% } %>
+          <select name="miniStep" class="<%= ui.inputSm %>" data-map-resize="miniStep">
+            <% for (const n of steps) { %><option value="<%= n %>" <%= n === prefs.miniStep ? 'selected' : '' %> <%= n === 6 && ['side', 'left'].includes(prefs.miniPos) ? 'disabled' : '' %>><%= n %>/6</option><% } %>
           </select>
         </label>
+        <fieldset class="col-span-2 m-0 min-w-0 border-0 p-0">
+          <legend class="<%= ui.label %> mb-1 p-0">Position de la mini-carte</legend>
+          <div class="grid grid-cols-4 border-2 border-black">
+            <% for (const [k, label, title] of [['left', 'Gauche', 'À gauche de la carte'], ['side', 'Droite', 'À droite de la carte'], ['below', 'Dessous', 'Sous la carte'], ['over', 'Dessus', 'Sur la carte, dans un coin']]) { %>
+              <label title="<%= title %>" class="cursor-pointer border-r border-black bg-night px-0.5 py-1 text-center text-xs font-semibold whitespace-nowrap text-parchment-500 last:border-r-0 hover:text-parchment-100 has-checked:bg-head-dark has-checked:text-on-accent has-focus-visible:outline-2 has-focus-visible:outline-gold-200">
+                <input type="radio" name="miniPos" value="<%= k %>" class="sr-only" data-map-resize="miniPos" <%= k === prefs.miniPos ? 'checked' : '' %>><%= label %>
+              </label>
+            <% } %>
+          </div>
+        </fieldset>
         <noscript><button class="<%= btn('dark', 'sm') %>">Appliquer</button></noscript>
       </form>
     </section>

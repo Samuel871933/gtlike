@@ -10,10 +10,21 @@
   const boot = JSON.parse(document.querySelector('[data-map-boot]').textContent);
   const SECTOR = boot.sector;
   const WORLD = boot.worldSize;
-  // Taille de la carte (cases de côté) : modifiable en direct (« Taille de la carte »).
-  // `baseSize` : cases par côté choisies (réglage « Taille de la carte ») ; `size` : cases dessinées dans la fenêtre,
-  // moins quand on zoome (`zoom`, molette en tenant la carte, de 1 à 3) : les cases grandissent et la fenêtre de la
-  // carte garde sa taille.
+  // Tailles en sixièmes de la largeur de la page (réglage « Taille de la carte », modifiable en direct), jamais plus
+  // larges que le conteneur du site : la carte en prend `step`, la mini-carte `miniStep` ; à droite de la carte
+  // ou à gauche (`miniPos` side, left), les deux se partagent la largeur (5/6 + 1/6 : toute la page). Sinon elle est en
+  // dessous (below) ou par-dessus la carte, dans un coin (over). La fenêtre de la carte fait `viewW` × `viewH` px,
+  // au pixel près ; `baseSize` : cases de côté qui y tiennent ; `size` : cases dessinées (impair, pour centrer la
+  // case du centre ; moins nombreuses quand on zoome, plus quand on dézoome : `zoom`, molette en tenant la carte,
+  // de ×1/3 à ×3). `ox`, `oy` : décalage en px (à l'écran) qui centre ces cases dans la fenêtre.
+  let step = Number(frame.dataset.step) || 4;
+  let miniStep = Number(frame.dataset.miniStep) || 1;
+  let miniPos = frame.dataset.miniPos || 'side';
+  const beside = (pos) => pos === 'side' || pos === 'left';
+  let viewW = 0;
+  let viewH = 0;
+  let ox = 0;
+  let oy = 0;
   let baseSize = Number(frame.dataset.size);
   let zoom = 1;
   let size = baseSize;
@@ -37,9 +48,12 @@
   let cx = Number(frame.dataset.cx);
   let cy = Number(frame.dataset.cy);
   let sel = frame.dataset.sel ? frame.dataset.sel.split('|').map(Number) : null;
-  // Case de Guerre Tribale : 53 × 38 px (réduite sur petit écran, voir fit).
+  // Case de Guerre Tribale : 53 × 38 px (réduite sur petit écran, voir fit). La carte est toujours dessinée à cette
+  // taille ; le zoom agrandit ou réduit l'image entière (`sw` × `sh` : taille d'une case à l'écran).
   let tw = Number(frame.dataset.tileW);
   let th = Number(frame.dataset.tileH);
+  let sw = tw;
+  let sh = th;
   // Taille des cases sans zoom (celle de GT, réduite sur petit écran) : elle fixe la taille de la fenêtre de la carte.
   let baseTw = tw;
   let baseTh = th;
@@ -400,9 +414,12 @@
     const lab = (v, me) => `text-[11px] font-semibold tabular-nums [text-shadow:1px_1px_0_#000] ${v === me ? 'text-map-label-me' : 'text-map-label'}`;
     let hx = '';
     let hy = '';
+    // Dézoomé, les cases deviennent trop petites pour leur numéro : un numéro toutes les 2, 5 ou 10 cases.
+    const every = (px, need) => [1, 2, 5, 10, 20].find((n) => n * px >= need) || 50;
+    const stepX = every(sw, 26); const stepY = every(sh, 15);
     for (let i = 0; i < span; i++) {
-      hx += `<span class="absolute top-0 flex h-full items-center justify-center ${lab(baseX + i, meX)}" style="left:${i * tw}px;width:${tw}px">${baseX + i}</span>`;
-      hy += `<span class="absolute right-0 flex w-full items-center justify-center ${lab(baseY + i, meY)}" style="top:${i * th}px;height:${th}px">${baseY + i}</span>`;
+      if ((baseX + i) % stepX === 0) hx += `<span class="absolute top-0 flex h-full items-center justify-center ${lab(baseX + i, meX)}" style="left:${i * sw}px;width:${sw}px">${baseX + i}</span>`;
+      if ((baseY + i) % stepY === 0) hy += `<span class="absolute right-0 flex w-full items-center justify-center ${lab(baseY + i, meY)}" style="top:${i * sh}px;height:${sh}px">${baseY + i}</span>`;
     }
     // Calques à part (will-change) : leur décalage à chaque image d'un glisser ne fait rien repeindre.
     rulerX.innerHTML = `<div class="absolute inset-y-0 left-0 will-change-transform" data-inner>${hx}</div>`;
@@ -415,81 +432,143 @@
     const left = cx - half;
     const top = cy - half;
     if (left < baseX + 1 || top < baseY + 1 || left + size > baseX + span - 1 || top + size > baseY + span - 1) frameOverlay();
-    layer.style.transform = `translate3d(${-left * tw}px, ${-top * th}px, 0)`;
-    rulerX.firstChild.style.transform = `translateX(${-(left - baseX) * tw}px)`;
-    rulerY.firstChild.style.transform = `translateY(${-(top - baseY) * th}px)`;
+    layer.style.transform = `translate3d(${ox - left * sw}px, ${oy - top * sh}px, 0) scale(${zoom})`;
+    rulerX.firstChild.style.transform = `translateX(${ox - (left - baseX) * sw}px)`;
+    rulerY.firstChild.style.transform = `translateY(${oy - (top - baseY) * sh}px)`;
     syncChunks();
     drawMini();
   }
 
-  // Sur ordinateur, les cases gardent la taille de Guerre Tribale : augmenter le nombre de cases agrandit
-  // réellement la carte (et la page si besoin, voir widen). Seuls les petits écrans réduisent les cases.
+  // Les cases gardent la taille de Guerre Tribale (plus petites sur mobile) : c'est le nombre de cases qui suit la
+  // place disponible.
+  const isMobile = () => window.matchMedia('(max-width: 639px)').matches;
+  const odd = (n) => (n % 2 ? n : n + 1);
   function fit() {
-    const row = frame.closest('[data-map-row]');
-    const avail = (row ? row.clientWidth : window.innerWidth) - 16 - 8;
     const nominal = Number(frame.dataset.tileW);
-    const mobile = window.matchMedia('(max-width: 639px)').matches;
-    baseTw = mobile ? Math.max(34, Math.min(nominal, Math.floor(avail / Math.min(baseSize, 11)))) : nominal;
+    baseTw = isMobile() ? Math.round(nominal * 0.72) : nominal;
     baseTh = Math.round(baseTw * Number(frame.dataset.tileH) / nominal);
-    // Zoom : cases agrandies au pixel près ; assez de cases dessinées pour couvrir la fenêtre.
-    const next = zoom > 1 ? Math.round(baseTw * zoom) : baseTw;
-    size = zoom > 1 ? Math.ceil((baseSize * baseTw) / next) : baseSize;
-    half = Math.floor(size / 2);
-    MARGIN = Math.max(4, Math.ceil(size / 3));
-    if (next !== tw || !frame.style.getPropertyValue('--tile-w')) {
-      tw = next;
-      th = zoom > 1 ? Math.round(baseTh * zoom) : baseTh;
+    const lay = layout();
+    viewW = Math.max(1, lay.colW - chrome());
+    viewH = Math.round(viewW * baseTh / baseTw);
+    baseSize = Math.max(1, Math.round(viewW / baseTw));
+    frame.dataset.size = String(baseSize);
+    if (baseTw !== tw || !frame.style.getPropertyValue('--tile-w')) {
+      tw = baseTw;
+      th = baseTh;
       frame.style.setProperty('--tile-w', `${tw}px`);
       frame.style.setProperty('--tile-h', `${th}px`);
       frame.style.setProperty('--tile', `${th}px`);
     }
-    const vw = `${baseSize * baseTw}px`; const vh = `${baseSize * baseTh}px`;
+    scaleView();
+    const vw = `${viewW}px`; const vh = `${viewH}px`;
     if (viewport.style.width !== vw) viewport.style.width = vw;
     if (viewport.style.height !== vh) viewport.style.height = vh;
-    widen();
+    const label = document.querySelector('[data-map-size-label]');
+    if (label) label.textContent = `${baseSize} × ${baseSize}`;
+    layoutAside(lay);
   }
-  // Sur ordinateur, la carte et la mini-carte restent toujours côte à côte : la page s'élargit au-delà de sa
-  // largeur normale (1500 px, 1120 px en style de jeu minimaliste), quitte à dépasser de l'écran (défilement).
+  // Cases à l'écran avec le zoom, et cases à dessiner pour couvrir la fenêtre (la marge gardée autour de la vue ne
+  // grandit pas en dézoomant : elle suit la taille de la carte sans zoom).
+  function scaleView() {
+    sw = tw * zoom;
+    sh = th * zoom;
+    size = odd(Math.max(Math.ceil(viewW / sw), Math.ceil(viewH / sh)));
+    half = Math.floor(size / 2);
+    MARGIN = Math.max(4, Math.ceil(baseSize / 3));
+    ox = (viewW - size * sw) / 2;
+    oy = (viewH - size * sh) / 2;
+  }
+  // Mise en page à la taille du contenu, calculée ici (une ligne flexible à retour ne sait pas se mesurer), toujours
+  // dans la largeur de la page : la carte, puis la colonne de droite (mini-carte, 250 px au moins) à côté d'elle, ou
+  // dessous. Sur mobile, ou quand la carte n'aurait plus 5 cases, la colonne passe dessous.
   const main = frame.closest('main');
-  function widen() { layoutAside(); }
-  // Mise en page à la taille du contenu, calculée ici (une ligne flexible à retour ne sait pas se mesurer) :
-  // chaque colonne à la largeur exacte de sa carte (la carte, la mini-carte ; 250 px au moins). Sur mobile
-  // seulement, la colonne de droite passe dessous, sur toute la largeur, quand elles ne tiennent pas côte à côte.
   const aside = document.querySelector('[data-map-aside]');
   const pageBlock = frame.closest('[data-map-page]');
   const col = frame.closest('[data-map-col]');
   const row = frame.closest('[data-map-row]');
   const panel = frame.closest('section');
+  const miniSlot = document.querySelector('[data-mini-slot]');
+  const miniOver = frame.querySelector('[data-mini-over]');
+  // Cadre, marges et bordures du panneau de la mini-carte, autour du canevas.
+  const MINI_CHROME = 28;
   // Marges réelles (elles changent avec le style de jeu) : px(el, 'paddingLeft')…
   const px = (el, prop) => (el ? parseFloat(getComputedStyle(el)[prop]) || 0 : 0);
   const setWidth = (el, w) => { if (el.style.width !== w) el.style.width = w; };
-  let mainMax = null;
-  function layoutAside() {
-    if (!aside || !pageBlock || !main) return;
-    const cell = mini ? Number(mini.dataset.cell) : 5;
-    // 250 px au moins : largeur minimale de la recherche et des ordres rapides (petites mini-cartes centrées).
-    const asideW = Math.max(250, (mini ? Number(mini.dataset.size) : 0) * cell + 28);
-    // Carte, cadre de la carte (1 px) et marges et bordures du panneau.
-    const colW = baseSize * baseTw + 2 + 2 * (px(panel, 'paddingLeft') + px(panel, 'borderLeftWidth'));
+  const setStyle = (el, prop, v) => { if (el.style[prop] !== v) el.style[prop] = v; };
+  // Largeur de la page sans ses marges ; cadre de la carte (1 px), marges et bordures de son panneau.
+  const pageWidth = () => Math.floor(main ? main.clientWidth - px(main, 'paddingLeft') - px(main, 'paddingRight') : document.documentElement.clientWidth);
+  const chrome = () => 2 + 2 * (px(panel, 'paddingLeft') + px(panel, 'borderLeftWidth'));
+  // Position effective de la mini-carte : à côté de la carte (à droite, à gauche), elle passe dessous sur mobile ou
+  // si la carte n'aurait plus 5 cases.
+  function placement() {
+    if (!beside(miniPos)) return miniPos;
+    if (isMobile()) return 'below';
+    return pageWidth() - px(row, 'columnGap') - 250 - chrome() >= 5 * baseTw ? miniPos : 'below';
+  }
+  // Largeurs (px) de la colonne de la carte (panneau compris), de la colonne de droite et du panneau de la mini-carte.
+  function layout() {
+    const W = pageWidth();
     const gap = px(row, 'columnGap');
-    const pad = px(main, 'paddingLeft') + px(main, 'paddingRight');
-    const mobile = window.matchMedia('(max-width: 639px)').matches;
-    // Largeur de la page : la normale (max-width des classes, lue une fois avant tout style en ligne, bornée par
-    // la fenêtre), ou celle qu'il faut pour tout mettre côte à côte. Calculée sans rien réinitialiser : un style
-    // retiré puis remis ferait bouger la page à chaque rendu et fermerait les listes déroulantes ouvertes.
-    if (mainMax == null) mainMax = parseFloat(getComputedStyle(main).maxWidth) || Infinity;
-    const natural = Math.min(mainMax, document.documentElement.clientWidth);
-    const needed = colW + gap + asideW + pad;
-    const wide = !mobile && needed > natural ? `${needed}px` : '';
-    // Le corps suit : barres du haut, fond et pied de page couvrent toute la largeur défilée.
-    for (const [el, prop] of [[main, 'maxWidth'], [main, 'minWidth'], [document.body, 'minWidth']]) {
-      if (el.style[prop] !== wide) el.style[prop] = wide;
+    const least = Math.min(W, chrome() + 5 * baseTw);
+    const where = placement();
+    if (beside(where)) {
+      const unit = (W - gap) / 6;
+      let asideW = Math.round(Math.max(250, unit * miniStep));
+      const colW = Math.floor(Math.max(least, Math.min(unit * step, W - gap - asideW)));
+      // Toute la largeur : la colonne de droite prend le reste, au pixel près.
+      if (step + miniStep >= 6) asideW = W - gap - colW;
+      return { where, W, colW, asideW, miniW: asideW };
     }
-    const avail = (wide ? needed : natural) - pad;
-    const side = !mobile || colW + gap + asideW <= avail;
-    setWidth(pageBlock, `${side ? colW + gap + asideW : Math.min(avail, colW)}px`);
-    setWidth(aside, side ? `${asideW}px` : '100%');
-    setWidth(col, `${side ? colW : Math.min(avail, colW)}px`);
+    const unit = W / 6;
+    return { where, W, colW: Math.floor(Math.max(least, unit * step)), asideW: 0, miniW: Math.round(Math.min(W, Math.max(250, unit * miniStep))) };
+  }
+  function layoutAside(lay) {
+    if (!aside || !pageBlock || !main) return;
+    const side = beside(lay.where);
+    // À gauche : la colonne passe avant la carte.
+    setStyle(aside, 'order', lay.where === 'left' ? '-1' : '');
+    const gap = px(row, 'columnGap');
+    setWidth(pageBlock, `${side ? lay.colW + gap + lay.asideW : Math.min(lay.W, Math.max(lay.colW, lay.where === 'below' ? lay.miniW : 0))}px`);
+    setWidth(col, `${lay.colW}px`);
+    setWidth(aside, side ? `${lay.asideW}px` : '100%');
+    // Dessous : les panneaux se rangent côte à côte, celui de la mini-carte à sa largeur.
+    setStyle(aside, 'flexDirection', side ? '' : 'row');
+    setStyle(aside, 'flexWrap', side ? '' : 'wrap');
+    setStyle(aside, 'alignItems', side ? '' : 'flex-start');
+    const below = lay.where === 'below';
+    for (const el of aside.children) setStyle(el, 'flex', side ? '' : below && el.contains(mini) ? `0 1 ${lay.miniW}px` : '1 1 260px');
+    placeMini(lay);
+  }
+  // Mini-carte dans son panneau (carrée), ou par-dessus la carte, dans son coin bas-droit : là, `miniStep` sixièmes
+  // de la carte en largeur comme en hauteur (6/6 : toute la carte), à ses proportions. Le canevas est déplacé tel
+  // quel : ses gestes (glisser, clic) restent les mêmes. Ses cases gardent 5 px : leur nombre suit sa taille.
+  // Coin : 4 px de marge (right-1, bottom-1) ; canevas : 2 px de bordure.
+  const OVER_INSET = 4;
+  const MINI_BORDER = 4;
+  function placeMini(lay) {
+    if (!mini || !miniSlot || !miniOver) return;
+    const over = lay.where === 'over';
+    const host = over ? miniOver : miniSlot;
+    if (mini.parentElement !== host) host.appendChild(mini);
+    miniSlot.classList.toggle('hidden', over);
+    miniOver.classList.toggle('hidden', !over);
+    const part = (len) => Math.max(40, Math.round(((len - 2 * OVER_INSET) * miniStep) / 6) - MINI_BORDER);
+    const w = over ? part(viewW) : Math.max(60, Math.round(lay.miniW - MINI_CHROME));
+    const h = over ? part(viewH) : w;
+    setWidth(mini, `${w}px`);
+    setStyle(mini, 'height', over ? `${h}px` : '');
+    setStyle(mini, 'aspectRatio', over ? 'auto' : '1');
+    const cell = Number(mini.dataset.cell);
+    const cols = Math.max(8, Math.round(w / cell));
+    const rows = Math.max(8, Math.round(h / cell));
+    if (cols !== miniSize || rows !== miniRows) {
+      miniSize = cols;
+      miniRows = rows;
+      mini.dataset.size = String(cols);
+      const label = document.querySelector('[data-mini-label]');
+      if (label) label.textContent = `${cols} × ${rows}`;
+      recenterMini(Math.round(cx), Math.round(cy), true);
+    }
   }
 
   // ------------------------------------------------------------------ Déplacements
@@ -537,20 +616,17 @@
   viewport.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || e.target.closest('.map-controls')) return;
     cancelAnimationFrame(anim);
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, cx, cy, moved: false, tile: e.target.closest('[data-map-tile]') };
-    lastPointer.x = e.clientX; lastPointer.y = e.clientY;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, tile: e.target.closest('[data-map-tile]') };
     viewport.setPointerCapture(e.pointerId);
   });
   viewport.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    // Pendant un zoom, le glisser est suivi par le geste de zoom (voir plus bas).
-    if (zg) return;
-    const dx = e.clientX - drag.x;
-    const dy = e.clientY - drag.y;
-    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
     if (!drag.moved) { drag.moved = true; viewport.classList.add('is-dragging'); hideTip(); closeMenu(); }
-    cx = clampC(drag.cx - dx / tw);
-    cy = clampC(drag.cy - dy / th);
+    // Pas à pas depuis la dernière position : la taille des cases à l'écran change si l'on zoome en glissant.
+    cx = clampC(cx - (e.clientX - drag.lx) / sw);
+    cy = clampC(cy - (e.clientY - drag.ly) / sh);
+    drag.lx = e.clientX; drag.ly = e.clientY;
     place();
   });
   const endDrag = (e) => {
@@ -564,87 +640,65 @@
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
 
-  // Zoom : molette en tenant la carte cliquée (sans clic, la molette fait défiler la page), de ×1 à ×3, autour de la
-  // souris. Pendant le geste, le calque déjà dessiné est seulement agrandi (transformation, sans redessiner) et
-  // s'anime vers le zoom visé ; à l'arrêt (ou si l'écart devient trop grand), la carte est redessinée nette à la
-  // nouvelle taille des cases (commitZoom).
+  // Zoom : molette en tenant la carte cliquée (sans clic, la molette fait défiler la page), de ×1/3 à ×3 (autant
+  // de dézoom que de zoom), autour de la souris. La carte n'est jamais redessinée pour zoomer : l'image entière
+  // (terrain, décors, villages, notes, pastilles) est agrandie ou réduite d'un bloc ; en dézoomant, les blocs qui
+  // entrent dans la vue s'ajoutent comme en glissant. À l'arrêt, l'image est rafraîchie nette à sa taille (recrisp).
+  const MIN_ZOOM = 1 / 3;
   const MAX_ZOOM = 3;
   const zoomLabel = frame.querySelector('[data-map-zoom]');
   function showZoom(z = zoom) {
     if (!zoomLabel) return;
-    zoomLabel.hidden = z <= 1.001;
+    zoomLabel.hidden = Math.abs(z - 1) < 0.01;
     zoomLabel.textContent = `×${(Math.round(z * 10) / 10).toLocaleString('fr-FR')}`;
   }
-  // Geste en cours : zoom affiché et visé, coin visible (en cases), point fixe (souris, px dans la fenêtre).
+  layer.style.transformOrigin = '0 0';
+  // Zoom posé à `z`, le point du monde sous (px, py) (px dans la fenêtre) restant sous la souris : la case `cx` est
+  // au centre de la fenêtre, à (viewW / 2 + (X - cx - ½) · sw).
+  function setZoom(z, px, py) {
+    const [sw0, sh0] = [sw, sh];
+    zoom = z;
+    scaleView();
+    cx = clampC(cx + (px - viewW / 2) * (1 / sw0 - 1 / sw));
+    cy = clampC(cy + (py - viewH / 2) * (1 / sh0 - 1 / sh));
+    rulers();
+    place();
+    showZoom();
+  }
+  // Après un zoom, l'image du calque (gardée telle quelle pendant le geste, will-change) est refaite à la bonne
+  // échelle : sinon elle resterait floue en zoomant.
+  function recrisp() {
+    layer.style.willChange = 'auto';
+    requestAnimationFrame(() => requestAnimationFrame(() => { layer.style.willChange = ''; }));
+  }
+  // Geste en cours : zoom visé et point fixe (souris, px dans la fenêtre). Animation en échelle logarithmique.
   let zg = null;
   let zoomFrame = 0;
-  let commitTimer = 0;
-  function applyZoomView() {
-    const twV = baseTw * zg.zoom; const thV = baseTh * zg.zoom;
-    layer.style.transformOrigin = '0 0';
-    layer.style.transform = `translate3d(${-zg.left * twV}px, ${-zg.top * thV}px, 0) scale(${twV / tw}, ${thV / th})`;
-    showZoom(zg.zoom);
-  }
   function zoomStep() {
     zoomFrame = 0;
     if (!zg) return;
-    const prev = zg.zoom;
-    zg.zoom += (zg.target - zg.zoom) * 0.35;
-    if (Math.abs(zg.target - zg.zoom) < 0.002) zg.zoom = zg.target;
-    // Le point du monde sous la souris ne bouge pas.
-    zg.left += zg.px / (baseTw * prev) - zg.px / (baseTw * zg.zoom);
-    zg.top += zg.py / (baseTh * prev) - zg.py / (baseTh * zg.zoom);
-    applyZoomView();
-    // Trop loin de l'échelle dessinée (image floue, ou bords vides en dézoomant) : on redessine sans attendre.
-    const s = (baseTw * zg.zoom) / tw;
-    if (s > 1.45 || s < 0.72) commitZoom(true);
-    if (zg && zg.zoom !== zg.target) zoomFrame = requestAnimationFrame(zoomStep);
-    else { clearTimeout(commitTimer); commitTimer = setTimeout(() => commitZoom(false), 140); }
+    const ratio = zg.target / zoom;
+    const next = Math.abs(Math.log(ratio)) < 0.003 ? zg.target : zoom * ratio ** 0.35;
+    setZoom(next, zg.px, zg.py);
+    if (zoom !== zg.target) { zoomFrame = requestAnimationFrame(zoomStep); return; }
+    zg = null;
+    recrisp();
+    settle();
   }
-  function commitZoom(keep) {
-    if (!zg) return;
-    const g = zg;
-    zoom = g.zoom;
-    fit();
-    dropChunks();
-    cx = clampC(g.left + half);
-    cy = clampC(g.top + half);
-    layer.style.transformOrigin = '';
-    frameOverlay();
-    place();
-    showZoom();
-    rulerX.style.opacity = ''; rulerY.style.opacity = '';
-    // Le glisser repart d'ici, à la nouvelle échelle ; relâcher ne sera pas pris pour un clic sur une case.
-    if (drag) Object.assign(drag, { x: lastPointer.x, y: lastPointer.y, cx, cy, moved: true });
-    // Animation pas finie : le geste continue depuis la carte redessinée.
-    zg = keep && g.zoom !== g.target ? { ...g, left: cx - half, top: cy - half } : null;
-    if (!zg) settle();
-  }
-  const lastPointer = { x: 0, y: 0 };
-  viewport.addEventListener('pointermove', (e) => {
-    // Glisser pendant un zoom : le coin visible suit la souris à l'échelle affichée.
-    if (zg && drag && e.pointerId === drag.id) {
-      zg.left -= (e.clientX - lastPointer.x) / (baseTw * zg.zoom);
-      zg.top -= (e.clientY - lastPointer.y) / (baseTh * zg.zoom);
-      applyZoomView();
-    }
-    lastPointer.x = e.clientX; lastPointer.y = e.clientY;
-  });
   viewport.addEventListener('wheel', (e) => {
     if (!drag) return;
     e.preventDefault();
     const r = viewport.getBoundingClientRect();
     if (!zg) {
-      zg = { zoom, target: zoom, left: cx - half, top: cy - half, px: 0, py: 0 };
-      rulerX.style.opacity = '0'; rulerY.style.opacity = '0';
+      zg = { target: zoom, px: 0, py: 0 };
+      // La molette fait partie du geste : relâcher ne sera pas pris pour un clic sur une case.
       drag.moved = true;
       hideTip(); closeMenu();
     }
     zg.px = e.clientX - r.left; zg.py = e.clientY - r.top;
     // Un cran de molette ≈ ×1,2 ; un pavé tactile envoie de petits pas, d'autant plus fins.
     const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
-    zg.target = Math.max(1, Math.min(MAX_ZOOM, zg.target * Math.exp(-delta * 0.0018)));
-    clearTimeout(commitTimer);
+    zg.target = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zg.target * Math.exp(-delta * 0.0018)));
     if (!zoomFrame) zoomFrame = requestAnimationFrame(zoomStep);
   }, { passive: false });
 
@@ -836,10 +890,7 @@
   const closeMenu = () => { if (menu) menu.classList.add('hidden'); if (radial) radial.classList.add('hidden'); };
   const menuOpen = () => (menu && !menu.classList.contains('hidden')) || (radial && !radial.classList.contains('hidden'));
 
-  // Actions rapides d'un village, comme sur Guerre Tribale : une icône sur chaque
-  // pointe d'une étoile à 5 branches autour de la case (en haut les ressources, puis dans le sens des aiguilles
-  // d'une montre profil, message, favoris, et les troupes à gauche). Chaque action garde sa pointe : un barbare
-  // (sans profil ni message) laisse ces deux pointes vides.
+  // Actions rapides d'un village, comme sur Guerre Tribale : une roue d'icônes autour de la case (voir ORDER).
   function openRadial(el, d, { tplOption, target, mine }) {
     const actions = mine ? [
       ['troops', d.kind === 'current' ? 'Point de ralliement' : 'Envoyer des troupes vers ce village', d.kind === 'current' ? `${base}/place` : `${base}/place?${target}`],
@@ -855,25 +906,37 @@
       ['market', 'Envoyer des ressources', `${base}/market?tab=send&x=${d.x}&y=${d.y}`],
     ];
     // Cercle un peu aplati, à la forme de la case (53 × 38) : les icônes ne couvrent pas le village.
-    const rx = tw * 0.95 + 8; const ry = th * 0.95 + 12;
+    const rx = sw * 0.95 + 8; const ry = sh * 0.95 + 12;
     const btn = 'pointer-events-auto absolute flex size-[30px] -translate-1/2 cursor-pointer items-center justify-center border-2 border-black bg-panel-top no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000] transition hover:scale-110 hover:bg-head-dark hover:text-parchment-100';
     const svg = (ic) => `<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MENU_ICONS[ic]}</svg>`;
-    const POINT = { market: 0, profile: 1, recruit: 1, message: 2, center: 2, star: 3, troops: 4 };
-    // Au centre, sur le village, comme « Informations » sur GT : aperçu du village (fiche, trajets, derniers rapports).
-    actions.push(mine ? ['open', 'Ouvrir le village', `/village/${d.id}`, 'middle'] : ['eye', 'Aperçu du village', `${base}/villages/${d.id}`, 'middle']);
-    radial.querySelector('[data-radial-items]').innerHTML = actions.map(([ic, label, href, kind]) => {
-      const a = (-90 + POINT[ic] * 72) * (Math.PI / 180);
-      const at = kind === 'middle' ? 'left:0;top:0' : `left:${Math.round(Math.cos(a) * rx)}px;top:${Math.round(Math.sin(a) * ry)}px`;
+    const ORDER = { market: 0, profile: 1, recruit: 1, message: 2, center: 2, star: 3, troops: 4 };
+    // Roue comme sur GT : toutes les actions à intervalles égaux autour de la case, en commençant en haut, dans le
+    // sens des aiguilles d'une montre : ressources, modèles d'armée favoris (3 au plus, leur première lettre envoie
+    // l'attaque tout de suite), puis profil, message, favoris et troupes. Au centre, l'aperçu (ou l'ouverture) du village.
+    const farm = mine ? [] : (boot.farm || []).slice(0, 3);
+    const ring = actions.sort((p, q) => ORDER[p[0]] - ORDER[q[0]]);
+    ring.splice(1, 0, ...farm.map((t) => ['farm', `Attaquer avec « ${t.name} »`, null, 'farm', t]));
+    const middle = mine ? ['open', 'Ouvrir le village', `/village/${d.id}`, 'middle'] : ['eye', 'Aperçu du village', `${base}/villages/${d.id}`, 'middle'];
+    let bottom = 0;
+    radial.querySelector('[data-radial-items]').innerHTML = [...ring, middle].map(([ic, label, href, kind, tpl], i) => {
+      const a = (-90 + (i * 360) / ring.length) * (Math.PI / 180);
+      const top = Math.round(Math.sin(a) * ry);
+      if (kind !== 'middle') bottom = Math.max(bottom, top);
+      const at = kind === 'middle' ? 'left:0;top:0' : `left:${Math.round(Math.cos(a) * rx)}px;top:${top}px`;
       const cls = `${btn} ${MENU_COLORS[ic] || 'text-parchment-300'}`;
       const attrs = `style="${at}" title="${esc(label)}" aria-label="${esc(label)}" data-radial-action="${esc(label)}"`;
+      if (kind === 'farm') return `<button type="button" class="${btn} font-display text-[15px] text-gold-200" ${attrs} data-farm-send="${tpl.id}">${esc(tpl.letter)}</button>`;
       if (kind === 'post') return `<form method="post" action="${esc(href)}" class="contents"><input type="hidden" name="_csrf" value="${esc(frame.dataset.csrf)}"><button class="${cls}" ${attrs}>${svg(ic)}</button></form>`;
       if (kind === 'center') return `<button type="button" class="${cls}" ${attrs} data-map-center="${d.x}|${d.y}">${svg(ic)}</button>`;
       return `<a href="${esc(href)}" class="${cls}" ${attrs}>${svg(ic)}</a>`;
     }).join('');
+    radial.dataset.target = String(d.id);
+    radial.dataset.targetXy = `${d.x}|${d.y}`;
     const label = radial.querySelector('[data-radial-label]');
     const caption = `${d.name} (${d.x}|${d.y})${d.morale ? ` · morale ${d.morale}` : ''}`;
     label.textContent = caption;
-    label.style.top = `${Math.round(ry + 18)}px`;
+    // Nom du village sous le bouton le plus bas de la roue.
+    label.style.top = `${bottom + 24}px`;
     radial.dataset.caption = caption;
     // Centre du cercle : centre de la case, dans le cadre de la carte.
     const f = frame.getBoundingClientRect(); const r = el.getBoundingClientRect();
@@ -889,7 +952,31 @@
     radial.addEventListener('click', (e) => {
       const b = e.target.closest('[data-map-center]');
       if (b) moveTo(...b.dataset.mapCenter.split('|').map(Number));
+      const f = e.target.closest('[data-farm-send]');
+      if (f) sendFavorite(f);
     });
+  }
+  // Raccourci d'un modèle favori : l'attaque part du village courant (même envoi que l'assistant de pillage).
+  async function sendFavorite(button) {
+    const label = radial.querySelector('[data-radial-label]');
+    const [tx, ty] = radial.dataset.targetXy.split('|').map(Number);
+    button.disabled = true;
+    try {
+      const body = new URLSearchParams({ _csrf: frame.dataset.csrf, template: button.dataset.farmSend, target: radial.dataset.target });
+      const res = await fetch(`${base}/farm/send`, { method: 'POST', body, headers: { accept: 'application/json' } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Envoi impossible.');
+      boot.attacks.push([tx, ty]);
+      frameOverlay();
+      radial.dataset.caption = 'Attaque envoyée';
+      label.textContent = radial.dataset.caption;
+      window.adarmaToast?.(`Attaque envoyée sur ${tx}|${ty}.`);
+      setTimeout(closeMenu, 700);
+    } catch (err) {
+      window.adarmaToast?.(err.message, true);
+    } finally {
+      button.disabled = false;
+    }
   }
   function openMenu(el) {
     const d = cellOf(el);
@@ -986,10 +1073,12 @@
 
   // ------------------------------------------------------------------ Mini-carte (5 px par case), qui suit la carte
   const mini = document.querySelector('[data-mini-map]');
+  // Cases de côté de la mini-carte : `miniSize` en largeur, `miniRows` en hauteur (différents par-dessus la carte).
   let miniSize = mini ? Number(mini.dataset.size) : 0;
+  let miniRows = miniSize;
   let miniVillages = boot.mini;
   let miniX0 = Math.round(cx) - Math.floor(miniSize / 2);
-  let miniY0 = Math.round(cy) - Math.floor(miniSize / 2);
+  let miniY0 = Math.round(cy) - Math.floor(miniRows / 2);
   // Dessin commun à toutes les mini-cartes : public/js/minimap.js.
   let miniFrame = 0;
   function drawMini() {
@@ -997,7 +1086,7 @@
     miniFrame = requestAnimationFrame(() => {
       miniFrame = 0;
       window.GTMinimap.draw(mini, {
-        x0: miniX0, y0: miniY0, width: miniSize, height: miniSize, villages: miniVillages,
+        x0: miniX0, y0: miniY0, width: miniSize, height: miniRows, villages: miniVillages,
         frame: { x: cx - half, y: cy - half, size }, layers: layersOn(),
       });
     });
@@ -1005,11 +1094,13 @@
   // Points d'un carré de la mini-carte (/map/mini). Ils remplacent ceux de ce carré et s'ajoutent aux autres, pour
   // que la mini-carte reste remplie quand on la fait glisser. `move` : la mini-carte se cale ensuite sur ce carré.
   function loadMini(x0, y0, move) {
-    fetch(`${base}/map/mini?x0=${x0}&y0=${y0}&size=${miniSize}`, { headers: { accept: 'application/json' } })
+    // Le serveur renvoie un carré : celui qui couvre la mini-carte.
+    const side = Math.max(miniSize, miniRows);
+    fetch(`${base}/map/mini?x0=${x0}&y0=${y0}&size=${side}`, { headers: { accept: 'application/json' } })
       .then((r) => (r.ok ? r.json() : null))
       .then((list) => {
         if (!list) return;
-        const inside = ([x, y]) => x >= x0 && y >= y0 && x < x0 + miniSize && y < y0 + miniSize;
+        const inside = ([x, y]) => x >= x0 && y >= y0 && x < x0 + side && y < y0 + side;
         miniVillages = [...miniVillages.filter((v) => !inside(v)), ...list];
         if (move) { miniX0 = x0; miniY0 = y0; }
         drawMini();
@@ -1020,9 +1111,9 @@
   function recenterMini(x, y, force = false) {
     if (!mini || miniDrag) return;
     const mx = miniX0 + Math.floor(miniSize / 2);
-    const my = miniY0 + Math.floor(miniSize / 2);
-    if (!force && Math.abs(x - mx) < miniSize / 4 && Math.abs(y - my) < miniSize / 4) return;
-    loadMini(x - Math.floor(miniSize / 2), y - Math.floor(miniSize / 2), true);
+    const my = miniY0 + Math.floor(miniRows / 2);
+    if (!force && Math.abs(x - mx) < miniSize / 4 && Math.abs(y - my) < miniRows / 4) return;
+    loadMini(x - Math.floor(miniSize / 2), y - Math.floor(miniRows / 2), true);
   }
   // Glisser la mini-carte, comme sur Guerre Tribale : on l'attrape, elle suit la souris case par case et la carte
   // suit. Un appui sans déplacement recentre la carte sur la case visée.
@@ -1055,40 +1146,46 @@
       if (!d || e.pointerId !== d.id) return;
       miniDrag = null;
       mini.classList.remove('cursor-grabbing');
-      if (!d.moved) moveTo(...window.GTMinimap.cellAt(mini, { x0: miniX0, y0: miniY0, width: miniSize, height: miniSize }, e));
+      if (!d.moved) moveTo(...window.GTMinimap.cellAt(mini, { x0: miniX0, y0: miniY0, width: miniSize, height: miniRows }, e));
     };
     mini.addEventListener('pointerup', endMiniDrag);
     mini.addEventListener('pointercancel', endMiniDrag);
-    window.addEventListener('resize', () => { layoutAside(); drawMini(); });
+    window.addEventListener('resize', drawMini);
   }
 
   // ------------------------------------------------------------------ Tailles en direct (carte et mini-carte)
-  function resizeMap(n) {
-    baseSize = n;
-    size = n;
-    zoom = 1;
-    half = Math.floor(size / 2);
-    MARGIN = Math.max(4, Math.ceil(size / 3));
-    frame.dataset.size = String(size);
-    showZoom();
-    render();
-    settle();
+  // À droite de la carte, les deux tailles se partagent la page : 6/6 à elles deux au plus (5/6 chacune au plus),
+  // l'autre réglage est réduit au besoin (et mémorisé avec). Ailleurs, chacune peut aller jusqu'à 6/6.
+  const resizeSelect = (key) => document.querySelector(`[data-map-resize="${key}"]`);
+  function limitSteps() {
+    for (const key of ['step', 'miniStep']) {
+      const select = resizeSelect(key);
+      if (select) for (const o of select.options) o.disabled = beside(miniPos) && Number(o.value) === 6;
+    }
   }
-  function resizeMini(n) {
-    if (!mini) return;
-    miniSize = n;
-    mini.dataset.size = String(n);
-    mini.style.width = `${n * Number(mini.dataset.cell)}px`;
-    layoutAside();
-    const label = document.querySelector('[data-mini-label]');
-    if (label) label.textContent = `${n} × ${n}`;
-    recenterMini(Math.round(cx), Math.round(cy), true);
+  function share(changed) {
+    const fixes = [];
+    const set = (key, n) => { if (key === 'step') step = n; else miniStep = n; resizeSelect(key).value = String(n); fixes.push([key, n]); };
+    if (beside(miniPos)) {
+      if (step > 5) set('step', 5);
+      if (miniStep > 5) set('miniStep', 5);
+      if (step + miniStep > 6) { if (changed === 'miniStep') set('step', 6 - miniStep); else set('miniStep', 6 - step); }
+    }
+    limitSteps();
+    return fixes;
   }
+  limitSteps();
   document.querySelectorAll('[data-map-resize]').forEach((select) => {
     select.addEventListener('change', () => {
-      const n = Number(select.value);
-      if (select.dataset.mapResize === 'size') resizeMap(n); else resizeMini(n);
-      const body = new URLSearchParams({ _csrf: frame.dataset.csrf, [select.dataset.mapResize]: String(n) });
+      const key = select.dataset.mapResize;
+      if (key === 'step') step = Number(select.value);
+      else if (key === 'miniStep') miniStep = Number(select.value);
+      else miniPos = select.value;
+      const body = new URLSearchParams({ _csrf: frame.dataset.csrf, [key]: select.value });
+      for (const [k, n] of share(key)) body.set(k, String(n));
+      if (key === 'step') { zoom = 1; showZoom(); }
+      render();
+      settle();
       fetch(`${base}/map/settings`, { method: 'POST', body, headers: { accept: 'application/json' } }).catch(() => {});
     });
   });

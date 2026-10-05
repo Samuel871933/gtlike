@@ -1,11 +1,12 @@
-<%# Tableau d'unités commun (rapports, simulateur, ordres). `fit` : largeur du contenu, sans le minimum d'un rapport. %>
+<%# Tableau d'unités commun (rapports, simulateur, ordres). `fit` : largeur du contenu, sans le minimum d'un rapport.
+    `amountAttr` : attribut posé sur chaque quantité (valeur : l'unité), pour qu'un script la mette à jour. %>
 <div class="report-army-table-wrap<%= typeof fit !== 'undefined' && fit ? ' report-army-table-wrap--fit' : '' %>">
   <table class="report-army-table<%= typeof fit !== 'undefined' && fit ? ' report-army-table--fit' : '' %>">
     <thead><tr><th class="report-army-table__corner" scope="col">Unités</th>
       <% for (const id of ids) { %><th class="report-army-table__unit" scope="col" title="<%= unitName(id) %>"><span><%- unitIcon(id, 'size-8') %></span><small><%= unitName(id) %></small></th><% } %>
     </tr></thead>
     <tbody>
-      <tr><th class="report-army-table__label" scope="row">Quantité</th><% for (const id of ids) { const n = units?.[id] || 0; %><td class="<%= n ? 'is-amount' : 'is-zero' %>"><%= num(n) %></td><% } %></tr>
+      <tr><th class="report-army-table__label" scope="row">Quantité</th><% for (const id of ids) { const n = units?.[id] || 0; %><td class="<%= n ? 'is-amount' : 'is-zero' %>"<%- typeof amountAttr !== 'undefined' && amountAttr ? ` ${amountAttr}="${id}"` : '' %>><%= num(n) %></td><% } %></tr>
       <% if (losses) { %><tr><th class="report-army-table__label" scope="row">Pertes</th><% for (const id of ids) { const n = losses[id] || 0; %><td class="<%= n ? 'is-loss' : 'is-zero' %>"><%= num(n) %></td><% } %></tr><% } %>
     </tbody>
   </table>

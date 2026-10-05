@@ -18,29 +18,62 @@ const router = express.Router({ mergeParams: true });
 
 // ------------------------------------------------------------ Carte
 
-// Tailles proposées (comme sur Guerre Tribale) et calques de la carte, mémorisés sur le joueur (mapSettings).
-const MAP_SIZES = [4, 5, 7, 9, 11, 13, 15, 20, 30];
-const MINI_SIZES = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120];
+// Tailles en crans de 1/6 de la largeur de la page, jamais plus larges que le conteneur du site : la carte en prend
+// `step` sixièmes, la mini-carte `miniStep` ; à droite de la carte, les deux se partagent la page (6/6 à elles deux).
+// La mini-carte peut aussi passer sous la carte, ou par-dessus dans un coin. Cases de taille fixe (53 px sur la
+// carte, 5 px sur la mini-carte) : leur nombre suit la largeur, calculée par map.js. Mémorisés sur le joueur.
+const STEPS = [1, 2, 3, 4, 5, 6];
+// Mini-carte à droite de la carte (side), à gauche (left), en dessous (below) ou par-dessus, dans un coin (over).
+const MINI_POSITIONS = ['side', 'left', 'below', 'over'];
+const beside = (pos) => pos === 'side' || pos === 'left';
 const MAP_LAYERS = { influence: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true, moves: true, church: true };
+// Largeur utile d'une page (1500 px moins les marges) : estimation des cases pour le premier rendu ; map.js les
+// recalcule aussitôt sur la largeur réelle.
+const PAGE_W = 1476;
+function estimateSizes({ step, miniStep, miniPos }) {
+  let col;
+  let miniW;
+  if (beside(miniPos)) {
+    const unit = (PAGE_W - 16) / 6;
+    const aside = Math.max(250, unit * miniStep);
+    col = Math.min(unit * step, PAGE_W - 16 - aside);
+    miniW = aside - 28;
+  } else {
+    col = (PAGE_W * step) / 6;
+    miniW = miniPos === 'over' ? ((col - 22) * miniStep) / 6 : Math.max(250, (PAGE_W * miniStep) / 6) - 28;
+  }
+  return { displaySize: Math.max(5, Math.round((col - 22) / 53)), miniSize: Math.max(10, Math.round(miniW / 5)) };
+}
+// À côté de la carte, les deux tailles se partagent la page : 6/6 à elles deux (5/6 chacune au plus) ; l'autre
+// réglage que celui modifié (`changed`) est réduit au besoin.
+function share(prefs, changed = 'step') {
+  if (!beside(prefs.miniPos)) return prefs;
+  prefs.step = Math.min(5, prefs.step);
+  prefs.miniStep = Math.min(5, prefs.miniStep);
+  if (prefs.step + prefs.miniStep > 6) {
+    if (changed === 'miniStep') prefs.step = 6 - prefs.miniStep; else prefs.miniStep = 6 - prefs.step;
+  }
+  return prefs;
+}
+// Réglages mémorisés ; les anciens (size en cases, mini en cases) sont convertis au plus proche.
+function mapPrefs(saved) {
+  const pick = (value, list, fallback) => (list.includes(value) ? value : fallback);
+  const oldStep = saved.size ? Math.min(6, Math.max(1, Math.round(saved.size / 5))) : 4;
+  const prefs = {
+    step: pick(Number(saved.step), STEPS, oldStep),
+    miniStep: pick(Number(saved.miniStep), STEPS, 1),
+    miniPos: pick(saved.miniPos, MINI_POSITIONS, 'side'),
+  };
+  return share(prefs);
+}
 
 router.get('/map', ah(async (req, res) => {
   const { village, cfg } = req.ctx;
   const vc = await mapView.viewContext(village, cfg);
   const { player } = vc;
   const saved = player.mapSettings || {};
-  // Taille choisie dans « Taille de la carte » : appliquée puis mémorisée ; sinon celle mémorisée.
-  const pick = (value, list, fallback) => (list.includes(Number(value)) ? Number(value) : fallback);
-  // Les anciennes grandes tailles enregistrées donnaient une vue initiale trop éloignée. On les ramène
-  // une fois à 15 × 15 ; l'utilisateur peut toujours sélectionner explicitement 20 ou 30 ensuite.
-  const savedSize = pick(saved.size, MAP_SIZES, 13);
-  const normalizedSavedSize = saved.mapZoomV2 ? savedSize : Math.min(savedSize, 15);
-  const displaySize = pick(req.query.size, MAP_SIZES, normalizedSavedSize);
-  const savedMiniSize = pick(saved.mini, MINI_SIZES, 50);
-  const normalizedMiniSize = saved.mapMiniZoomV2 ? savedMiniSize : Math.min(savedMiniSize, 50);
-  const miniSize = pick(req.query.mini, MINI_SIZES, normalizedMiniSize);
-  if (displaySize !== saved.size || miniSize !== saved.mini || !saved.mapZoomV2 || !saved.mapMiniZoomV2) {
-    await player.update({ mapSettings: { ...saved, size: displaySize, mini: miniSize, mapZoomV2: true, mapMiniZoomV2: true } });
-  }
+  const prefs = mapPrefs(saved);
+  const { displaySize, miniSize } = estimateSizes(prefs);
   const layers = { ...MAP_LAYERS, ...(saved.layers || {}) };
   const clamp = (v, d) => {
     const n = Number.parseInt(v, 10);
@@ -68,6 +101,9 @@ router.get('/map', ah(async (req, res) => {
     mapView.mini(vc, cx - miniHalf, cy - miniHalf, miniSize),
     CommandService.overview(village.id),
   ]);
+  // Modèles favoris : raccourcis d'attaque du menu d'un village (première lettre du nom).
+  const farm = templates.filter((t) => t.favorite).sort((a, b) => a.favorite - b.favorite)
+    .map((t) => ({ id: t.id, name: t.name, letter: ArmyTemplateService.letter(t) }));
   const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => [c.target.x, c.target.y]);
   // Mondes avec église : zones d'influence de ses églises (calque « Zones de foi ») : [x, y, rayon].
   const churches = (await require('../../../services/FaithService').churches(village.playerId, cfg)).map((c) => [c.x, c.y, c.radius]);
@@ -78,9 +114,9 @@ router.get('/map', ah(async (req, res) => {
   const markMatch = /^(player|tribe|village):(\d+)$/.exec(String(req.query.mark || ''));
   const markForm = markMatch ? { type: markMatch[1], targetId: Number(markMatch[2]), label: String(req.query.label || '') } : null;
   res.render('map', {
-    page: 'map', cx, cy, sel, displaySize, miniSize, mapSizes: MAP_SIZES, miniSizes: MINI_SIZES, layers,
+    page: 'map', cx, cy, sel, displaySize, miniSize, prefs, steps: STEPS, layers,
     paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, markerColor: MarkerService.DEFAULT_COLOR, markForm,
-    mapBoot: { sector: mapView.SECTOR, sectors, mini: miniVillages, attacks, churches, worldSize: cfg.mapSize, attackDots: res.locals.attackDots(), attackIcon: res.locals.icon('attack', 'size-[10px]', 3) },
+    mapBoot: { sector: mapView.SECTOR, sectors, farm, mini: miniVillages, attacks, churches, worldSize: cfg.mapSize, attackDots: res.locals.attackDots(), attackIcon: res.locals.icon('attack', 'size-[10px]', 3) },
   });
 }));
 
@@ -104,20 +140,26 @@ router.get('/map/sectors', ah(async (req, res) => {
 
 // Mini-carte recentrée : points colorés des villages du carré.
 router.get('/map/mini', ah(async (req, res) => {
-  const size = MINI_SIZES.includes(Number(req.query.size)) ? Number(req.query.size) : 50;
+  // Côté en cases : il suit la largeur de la mini-carte (5 px par case).
+  const size = Math.min(300, Math.max(10, Number.parseInt(req.query.size, 10) || 50));
   const x0 = Number.parseInt(req.query.x0, 10) || 0;
   const y0 = Number.parseInt(req.query.y0, 10) || 0;
   res.json(await mapView.mini(await mapView.viewContext(req.ctx.village, req.ctx.cfg), x0, y0, size));
 }));
 
-// Tailles de la carte et de la mini-carte : appliquées en direct par map.js, puis mémorisées ici.
+// Tailles de la carte et de la mini-carte, position de la mini-carte : appliquées en direct par map.js, puis
+// mémorisées ici.
 router.post('/map/settings', ah(async (req, res) => {
   const player = await Player.findByPk(me(req));
   const saved = player.mapSettings || {};
-  const size = MAP_SIZES.includes(Number(req.body.size)) ? Number(req.body.size) : saved.size;
-  const mini = MINI_SIZES.includes(Number(req.body.mini)) ? Number(req.body.mini) : saved.mini;
-  await player.update({ mapSettings: { ...saved, size, mini } });
-  if (req.get('accept') === 'application/json') return res.json({ size, mini });
+  const prefs = mapPrefs(saved);
+  if (STEPS.includes(Number(req.body.step))) prefs.step = Number(req.body.step);
+  if (STEPS.includes(Number(req.body.miniStep))) prefs.miniStep = Number(req.body.miniStep);
+  if (MINI_POSITIONS.includes(req.body.miniPos)) prefs.miniPos = req.body.miniPos;
+  share(prefs, req.body.miniStep && !req.body.step ? 'miniStep' : 'step');
+  const { size, mini, mapZoomV2, mapMiniZoomV2, ...rest } = saved;
+  await player.update({ mapSettings: { ...rest, ...prefs } });
+  if (req.get('accept') === 'application/json') return res.json(prefs);
   res.redirect(`${base(req)}/map`);
 }));
 

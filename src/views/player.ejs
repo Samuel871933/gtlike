@@ -149,11 +149,11 @@
       <ul class="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
         <% for (const d of shownDaily) { %>
           <li class="flex items-center gap-2.5 border px-2.5 py-2 <%= d.count ? 'border-bronze-500 bg-linear-to-b from-gold-400/12 to-gold-400/2' : 'border-bronze-900 bg-black/25' %>" title="<%= d.def.text ? 'Avoir ' + d.def.text + ' dans la journée' : d.def.name %>">
-            <span class="<%= medal %> <%= d.count ? tierMedal[4] : tierMedal[0] %> achievement-art achievement-art--daily" data-achievement-tier="<%= d.count ? 4 : 0 %>"><img src="<%= achImage[d.def.key] %>" alt="" width="96" height="96"></span>
+            <span class="<%= medal %> shrink-0 <%= d.count ? tierMedal[4] : tierMedal[0] %> achievement-art achievement-art--daily" data-achievement-tier="<%= d.count ? 4 : 0 %>"><img src="<%= achImage[d.def.key] %>" alt="" width="96" height="96"></span>
             <span class="flex min-w-0 flex-col">
               <span class="text-lg leading-none font-semibold tabular-nums <%= d.count ? 'text-gold-200' : 'text-parchment-600' %>"><%= d.count %></span>
               <span class="truncate text-xs <%= d.count ? 'text-parchment-300' : 'text-parchment-500' %>"><%= d.def.name %></span>
-              <% if (d.last) { %><span class="truncate text-[11px] text-parchment-500">Dernier : <%= dayLabel(d.last, now) %></span><% } %>
+              <% if (d.best) { %><span class="text-[11px] leading-tight text-parchment-500">Meilleur score : <span class="tabular-nums text-parchment-300"><%= num(d.best.value) %></span><br><% const bestDay = dayLabel(d.best.day, now); %><%= /^\d/.test(bestDay) ? `le ${bestDay}` : bestDay %></span><% } %>
             </span>
           </li>
         <% } %>

@@ -1,0 +1,156 @@
+<%- include('partials/header', { title: 'Assistant de pillage' }) %>
+<%
+  // Assistant de pillage (FarmService), comme sur Guerre Tribale : les villages barbares déjà attaqués, filtrés d'après
+  // la dernière attaque sur chacun, et l'envoi d'un modèle d'armée favori en un clic (game.js : envoi sans recharger).
+  // À la différence de GT, pas de modèles A / B propres à l'assistant : les boutons sont les modèles favoris.
+  const vid = ctx.village.id;
+  const shopPremium = `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`;
+  const letterBtn = 'inline-flex size-8 cursor-pointer items-center justify-center border-2 border-black bg-panel-lo font-display text-base text-gold-200 shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000] transition hover:bg-head-dark hover:text-parchment-100 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-panel-lo';
+  const filters = [
+    ['here', 'N’afficher que les attaques parties de ce village'],
+    ['attacked', 'Inclure les villages vers lesquels une attaque est en route'],
+    ['partial', 'Inclure les attaques avec des pertes partielles'],
+    ['loss', 'Inclure les attaques avec des pertes totales'],
+    ['fullOnly', 'N’afficher que les attaques revenues avec un butin plein'],
+  ];
+  const have = (tpl) => Object.entries(tpl.units).every(([id, n]) => (ctx.state.units[id] || 0) >= n);
+%>
+<div class="flex flex-col gap-5">
+<%- include('partials/building-header', { buildingId: 'place', illustration: 'wide' }) %>
+
+<section class="<%= ui.panel %>">
+  <%- panelHead('Assistant de pillage', include('partials/place-tabs', { placeTab: 'farm' }), { tag: 'h1' }) %>
+  <div class="<%= ui.panelBody %>">
+    <p class="text-parchment-400">
+      Les villages barbares que tu as déjà attaqués, avec le résultat de ta dernière attaque sur chacun. Un clic sur la
+      lettre d’un modèle favori envoie aussitôt l’attaque depuis ce village.
+    </p>
+    <% if (!premium) { %>
+      <%- include('partials/premium-banner', {
+        href: shopPremium, highlight: true, cls: '-mx-3 -mb-3',
+        title: 'L’assistant de pillage est réservé au premium.', detail: 'Tous tes villages barbares attaqués, filtrés, et l’attaque en un clic · dès 30 Adartons',
+      }) %>
+    <% } %>
+  </div>
+</section>
+
+<%# Modèles d'armée (ceux du point de ralliement) : l'étoile en fait un favori (3 au plus), bouton de l'assistant et
+    raccourci de la carte ; capacité de butin de chacun. %>
+<section class="<%= ui.panel %>" id="modeles">
+  <%- panelHead("Modèles d'armée", `<span class="flex items-center gap-3"><span class="${ui.headCount}">${favorites.length} / 3 favoris</span><a href="/village/${vid}/place#modeles" class="${ui.link} font-sans text-xs">Créer un modèle</a></span>`) %>
+  <% if (!templates.length) { %>
+    <p class="<%= ui.empty %>">Aucun modèle d’armée. Crée tes modèles au point de ralliement, puis mets jusqu’à 3 d’entre eux en favori (☆) : ils deviennent les boutons de l’assistant et des raccourcis sur la carte.</p>
+  <% } else { %>
+    <table class="<%= ui.table %>">
+      <thead><tr><th class="w-10"><span class="sr-only">Favori</span></th><th class="w-12">Raccourci</th><th>Modèle</th><th>Unités</th><th class="text-right">Butin max.</th></tr></thead>
+      <tbody>
+        <% for (const tpl of templates) { %>
+          <tr>
+            <td>
+              <form method="post" action="/village/<%= vid %>/templates/<%= tpl.id %>/favorite" class="flex"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="cursor-pointer text-lg leading-none <%= tpl.favorite ? 'text-gold-200 hover:text-parchment-500' : 'text-parchment-700 hover:text-gold-400' %>" title="<%= tpl.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris' %>" aria-label="<%= tpl.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris' %>" aria-pressed="<%= tpl.favorite ? 'true' : 'false' %>"><%= tpl.favorite ? '★' : '☆' %></button>
+              </form>
+            </td>
+            <td><% if (tpl.favorite) { %><span class="<%= letterBtn %> pointer-events-none" aria-hidden="true"><%= farmLetter(tpl) %></span><% } else { %><span class="text-parchment-600">—</span><% } %></td>
+            <td class="font-semibold <%= tpl.favorite ? '' : 'text-parchment-300' %>"><%= tpl.name %></td>
+            <td class="text-parchment-300"><%- include('partials/units', { units: tpl.units, losses: null }) %></td>
+            <td class="text-right tabular-nums"><span class="inline-flex items-center gap-1.5"><img src="/img/reports/haul-full.png?v=1" class="size-5 shrink-0 object-contain" alt="Butin maximal" title="Butin maximal : ce que ces troupes peuvent rapporter"><%= num(carry(tpl.units)) %></span></td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%# Troupes du village (tableau d'unités commun) : game.js met les quantités à jour à chaque envoi. %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Troupes disponibles') %>
+  <div class="p-3">
+    <%- include('partials/report-army-table', { ids: worldUnits.map((u) => u.id), units: ctx.state.units, losses: null, amountAttr: 'data-farm-unit' }) %>
+  </div>
+</section>
+
+<% if (premium) { %>
+<section class="<%= ui.panel %>" id="pillages">
+  <%- panelHead('Derniers pillages', `<span class="${ui.headCount}" data-farm-total>${pagination.total}</span>`) %>
+  <form method="post" action="/village/<%= vid %>/farm/settings" class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 border-b border-bronze-800 px-3 py-2.5" data-farm-filters><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="grid gap-x-6 sm:grid-cols-2">
+      <% for (const [k, label] of filters) { %>
+        <label class="<%= ui.checkLabel %> text-sm"><input type="checkbox" name="<%= k %>" value="1" class="<%= ui.checkbox %>" <%= settings[k] ? 'checked' : '' %>><%= label %></label>
+      <% } %>
+    </div>
+    <div class="flex items-end gap-2">
+      <label class="<%= ui.label %>">Trier par
+        <select name="sort" class="<%= ui.inputSm %>">
+          <option value="distance" <%= settings.sort === 'distance' ? 'selected' : '' %>>Distance</option>
+          <option value="date" <%= settings.sort === 'date' ? 'selected' : '' %>>Date de l’attaque</option>
+        </select>
+      </label>
+      <noscript><button class="<%= btn('dark', 'sm') %>">Appliquer</button></noscript>
+    </div>
+  </form>
+
+  <%# Liste rechargée par game.js quand un filtre change (sans recharger la page). %>
+  <div data-farm-list>
+  <% if (!rows.length) { %>
+    <p class="<%= ui.empty %>">Aucun village barbare ne correspond. Attaque des villages barbares, ou change les filtres.</p>
+  <% } else { %>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.tableSm %> min-w-[760px]">
+        <thead>
+          <tr>
+            <th class="w-8"><span class="sr-only">Retirer</span></th>
+            <th class="w-16">Résultat</th>
+            <th>Village</th>
+            <th>Dernière attaque</th>
+            <th>Ressources espionnées</th>
+            <th class="text-center">Mur</th>
+            <th class="text-right">Distance</th>
+            <th class="text-center">Envoyer</th>
+            <th class="w-10"><span class="sr-only">Point de ralliement</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% for (const r of rows) { const v = r.village; %>
+            <tr data-farm-row="<%= v.id %>" class="transition-opacity">
+              <td>
+                <form method="post" action="/village/<%= vid %>/farm/<%= v.id %>/forget" class="flex" data-farm-forget><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="cursor-pointer text-blood-450 hover:text-blood-300" title="Retirer de la liste (jusqu’à la prochaine attaque)" aria-label="Retirer de la liste"><%- icon('close', 'size-3', 3) %></button>
+                </form>
+              </td>
+              <td><span class="inline-flex items-center gap-1.5"><%- attackDot(r.last.result) %><%- haulIcon(r.last.haul, 'size-5') %></span></td>
+              <td><%- villageLink(vid, v, { k: true }) %><% if (r.attacking) { %> <span class="ml-1 inline-flex items-center gap-1 text-xs text-blood-450" title="Attaques en route"><%- icon('attack', 'size-3', 2.4) %><%= r.attacking %></span><% } %></td>
+              <td class="whitespace-nowrap text-parchment-300 tabular-nums">
+                <% if (r.report) { %><a href="/village/<%= vid %>/reports/<%= r.report.id %>" class="<%= ui.linkPlain %>"><%= when(r.last.happenedAt, now).replace(/:\d{3}$/, '') %></a><% } else { %><%= when(r.last.happenedAt, now).replace(/:\d{3}$/, '') %><% } %>
+              </td>
+              <td class="whitespace-nowrap tabular-nums">
+                <% if (r.report && r.report.resources) { %>
+                  <span class="inline-flex items-center gap-2.5"><% for (const res of RESOURCES) { %><span class="inline-flex items-center gap-1"><%- resourceIcon(res.id, 'size-4') %><%= num(r.report.resources[res.id] || 0) %></span><% } %></span>
+                <% } else { %><span class="text-parchment-600">?</span><% } %>
+              </td>
+              <td class="text-center tabular-nums"><%= r.report && r.report.wall != null ? r.report.wall : '?' %></td>
+              <td class="text-right tabular-nums"><%= r.distance.toFixed(1).replace('.', ',') %></td>
+              <td class="text-center">
+                <span class="inline-flex gap-1.5">
+                  <% for (const tpl of favorites) { %>
+                    <form method="post" action="/village/<%= vid %>/farm/send" class="flex" data-farm-send><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="hidden" name="template" value="<%= tpl.id %>"><input type="hidden" name="target" value="<%= v.id %>">
+                      <button class="<%= letterBtn %>" title="Envoyer « <%= tpl.name %> »" aria-label="Envoyer « <%= tpl.name %> » sur <%= v.x %>|<%= v.y %>" data-farm-units="<%= JSON.stringify(tpl.units) %>" <%= have(tpl) ? '' : 'disabled' %>><%= farmLetter(tpl) %></button>
+                    </form>
+                  <% } %>
+                  <% if (!favorites.length) { %><span class="text-parchment-600">—</span><% } %>
+                </span>
+              </td>
+              <td><a href="/village/<%= vid %>/place?x=<%= v.x %>&y=<%= v.y %>" class="<%= ui.iconBtnSm %>" title="Point de ralliement vers ce village" aria-label="Point de ralliement vers ce village"><%- icon('attack', 'size-3.5', 2.2) %></a></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <%- include('partials/pagination', { list: 'farm', pagination, href: (n) => `/village/${vid}/farm?page=${n}#pillages` }) %>
+  </div>
+</section>
+<% } %>
+</div>
+<%- include('partials/footer') %>

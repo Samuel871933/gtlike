@@ -73,12 +73,16 @@ class DailyService {
     }
   }
 
-  /** Nombre de succès quotidiens par catégorie pour un joueur, avec la date du dernier obtenu (`last`, AAAA-MM-JJ). */
+  /**
+   * Nombre de succès quotidiens par catégorie pour un joueur, avec son meilleur score (`best` : { value, day }, la
+   * première journée en cas d'égalité) parmi les journées gagnées.
+   */
   static async countsFor(playerId) {
-    const rows = await DailyAward.findAll({ where: { playerId }, attributes: ['key', 'day'], raw: true });
+    const rows = await DailyAward.findAll({ where: { playerId }, attributes: ['key', 'day', 'value'], raw: true });
     return DAILY.map((def) => {
-      const days = rows.filter((r) => r.key === def.key).map((r) => r.day).sort();
-      return { def, count: days.length, last: days.at(-1) || null };
+      const won = rows.filter((r) => r.key === def.key);
+      const best = won.reduce((b, r) => (!b || r.value > b.value || (r.value === b.value && r.day < b.day) ? r : b), null);
+      return { def, count: won.length, best: best && { value: best.value, day: best.day } };
     });
   }
 

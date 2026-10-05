@@ -10,6 +10,7 @@ const LISTS = {
   messages: { field: 'messagesPerPage', default: 12, min: 5, max: 100, noun: 'messages' },
   market: { field: 'marketPerPage', default: 20, min: 5, max: 100, noun: 'offres' },
   incomings: { field: 'incomingsPerPage', default: 100, min: 20, max: 1000, noun: 'ordres' },
+  farm: { field: 'farmPerPage', default: 15, min: 5, max: 200, noun: 'entrées' },
 };
 
 class PaginationService {

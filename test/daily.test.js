@@ -78,5 +78,5 @@ test('record journalier : meilleure journée de chaque joueur, la première en c
   assert.deepEqual(rows.map((r) => [r.player.name, r.score, r.day]), [['Bob', 120, '2026-09-11'], ['Carol', 90, '2026-09-10']]);
 
   const counts = await DailyService.countsFor(p.Bob.id);
-  assert.equal(counts.find((c) => c.def.key === 'dailyRobber').last, '2026-09-20');
+  assert.deepEqual(counts.find((c) => c.def.key === 'dailyRobber').best, { value: 5000, day: '2026-09-20' });
 });

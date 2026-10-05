@@ -26,10 +26,11 @@ const SCOPES = {
 };
 
 // Premium : une file de construction plus longue (WorldConfig.premium.buildQueueBonus) et les archives de rapports
-// (dossiers hors de la limite de la boîte, ReportService) et l'image de profil, comme sur Guerre Tribale.
+// (dossiers hors de la limite de la boîte, ReportService), l'image de profil et l'assistant de pillage (FarmService),
+// comme sur Guerre Tribale.
 const PREMIUM = {
   key: 'premium', kind: 'premium', name: 'Premium',
-  description: 'File de construction plus longue : 3 emplacements de plus dans chaque village. Archives de rapports : des dossiers hors de la limite de la boîte, gardés jusqu’à 2 ans. Image de profil.',
+  description: 'File de construction plus longue : 3 emplacements de plus dans chaque village. Archives de rapports : des dossiers hors de la limite de la boîte, gardés jusqu’à 2 ans. Image de profil. Assistant de pillage : tous tes villages barbares attaqués, filtrés, et l’attaque en un clic.',
   offers: [
     { id: 'world-3', scope: 'world', days: 3, price: 30 },
     { id: 'world-7', scope: 'world', days: 7, price: 60 },

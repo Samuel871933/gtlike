@@ -243,6 +243,9 @@ const Player = sequelize.define(
     marketPerPage: { type: DataTypes.INTEGER, allowNull: true },
     // Ordres par page de l'aperçu Arrivant (nul : valeur par défaut).
     incomingsPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    // Assistant de pillage (premium) : lignes par page (nul : valeur par défaut) et filtres ({ here, attacked, … }).
+    farmPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    farmSettings: { type: DataTypes.JSON, allowNull: true },
     showTribeNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     shareTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     showTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
@@ -457,6 +460,8 @@ const LastAttack = sequelize.define(
     haul: { type: DataTypes.STRING(8), allowNull: true },
     happenedAt: { type: DataTypes.DATE, allowNull: false },
     reportId: { type: DataTypes.INTEGER, allowNull: true },
+    // Village d'où partait l'attaque (assistant de pillage : « attaques provenant de ce village ») ; nul avant.
+    originVillageId: { type: DataTypes.INTEGER, allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['playerId', 'villageId'] }] },
 );
@@ -571,6 +576,8 @@ const ArmyTemplate = sequelize.define(
   {
     name: { type: DataTypes.STRING(32), allowNull: false },
     units: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+    // Modèle favori : emplacement 1 à 3 (raccourcis de la carte, assistant de pillage) ; nul sinon.
+    favorite: { type: DataTypes.INTEGER, allowNull: true },
   },
   { indexes: [{ fields: ['playerId'] }] },
 );

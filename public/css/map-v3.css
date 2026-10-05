@@ -183,6 +183,18 @@
 .village-design--noel.village-marker--4 { --village-image: url('/img/map/villages/noel/level-4.webp'); }
 .village-design--noel.village-marker--5 { --village-image: url('/img/map/villages/noel/level-5.webp'); --village-scale: 1.17; }
 .village-design--noel.village-marker--6 { --village-image: url('/img/map/villages/noel/level-6.webp'); --village-scale: 1.29; }
+.village-design--christianisme.village-marker--1 { --village-image: url('/img/map/villages/christianisme/level-1.webp'); --village-scale: 1.17; }
+.village-design--christianisme.village-marker--2 { --village-image: url('/img/map/villages/christianisme/level-2.webp'); }
+.village-design--christianisme.village-marker--3 { --village-image: url('/img/map/villages/christianisme/level-3.webp'); --village-scale: 1.1; }
+.village-design--christianisme.village-marker--4 { --village-image: url('/img/map/villages/christianisme/level-4.webp'); --village-scale: 1.12; }
+.village-design--christianisme.village-marker--5 { --village-image: url('/img/map/villages/christianisme/level-5.webp'); --village-scale: 1.2; }
+.village-design--christianisme.village-marker--6 { --village-image: url('/img/map/villages/christianisme/level-6.webp'); --village-scale: 1.36; }
+.village-design--islam.village-marker--1 { --village-image: url('/img/map/villages/islam/level-1.webp'); --village-scale: 1.26; }
+.village-design--islam.village-marker--2 { --village-image: url('/img/map/villages/islam/level-2.webp'); }
+.village-design--islam.village-marker--3 { --village-image: url('/img/map/villages/islam/level-3.webp'); --village-scale: 1; }
+.village-design--islam.village-marker--4 { --village-image: url('/img/map/villages/islam/level-4.webp'); --village-scale: 1.1; }
+.village-design--islam.village-marker--5 { --village-image: url('/img/map/villages/islam/level-5.webp'); --village-scale: 1.2; }
+.village-design--islam.village-marker--6 { --village-image: url('/img/map/villages/islam/level-6.webp'); --village-scale: 1.36; }
 .village-marker { width: var(--tile-w, 53px); height: var(--tile-h, 38px); }
 .village-marker::after { display: none; }
 .village-relation-dot { position: absolute; z-index: 4; left: 1px; top: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }

@@ -608,7 +608,7 @@ class CommandService {
       data: { ...data, perspective: 'attacker', hideDefender: !attackerSeesDefense, intel },
     }, { transaction: t });
     // Gommette de la carte : dernière attaque de ce joueur sur ce village.
-    const last = { ...require('../game/lastAttack').outcome(data), happenedAt: at, reportId: attackReport.id };
+    const last = { ...require('../game/lastAttack').outcome(data), happenedAt: at, reportId: attackReport.id, originVillageId: origin.id };
     const [mark, created] = await LastAttack.findOrCreate({ where: { playerId: origin.playerId, villageId: target.id }, defaults: last, transaction: t });
     if (!created && new Date(mark.happenedAt) <= at) await mark.update(last, { transaction: t });
     if (defenderPlayer && defenderPlayer.id !== origin.playerId) {
