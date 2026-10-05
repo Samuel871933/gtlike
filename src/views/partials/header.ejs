@@ -43,7 +43,8 @@
 <div class="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(var(--color-grain)_1px,transparent_1.2px)] bg-size-[4px_4px] mix-blend-screen" aria-hidden="true"></div>
 <%
   const logo = (cls, style = '') => `<img src="/img/brand/adarma-logo-cream.png" alt="Adarma" width="1839" height="362" class="block w-auto ${cls}"${style ? ` style="${style}"` : ''}>`;
-  const navLink = 'flex shrink-0 items-center gap-[7px] border-r border-bronze-800 px-3.5 text-sm font-semibold tracking-[0.02em] whitespace-nowrap no-underline transition';
+  // Tablette et mobile : les six onglets se partagent toute la largeur d'une seconde ligne, icône au-dessus du libellé.
+  const navLink = 'relative flex shrink-0 items-center gap-[7px] border-r border-bronze-800 px-3.5 text-sm font-semibold tracking-[0.02em] whitespace-nowrap no-underline transition max-lg:min-w-0 max-lg:flex-1 max-lg:flex-col max-lg:justify-center max-lg:gap-0.5 max-lg:px-0.5 max-lg:py-1 max-lg:text-[11px] max-lg:last:border-r-0';
   // Onglet actif et survol : aplat rouge (couleur d'action dans les styles clairs), texte et icône clairs.
   // Égypte : barre noire au texte or, onglet actif or au texte noir.
   const navOn = 'bg-blood-800 text-on-accent shadow-[inset_0_-3px_0_var(--color-gold-400)] light:bg-action light:shadow-[inset_0_-3px_0_var(--color-action-line)] light:[&>span:first-child]:text-on-accent adarma:bg-action egypt:bg-head egypt:text-parchment-100 egypt:shadow-[inset_0_-3px_0_var(--color-action)] egypt:[&>span:first-child]:text-parchment-100';
@@ -62,30 +63,31 @@
   ];
 %>
 <%# 1. Barre du haut : logo et monde, menu principal, joueur et réglages. %>
-<header class="sticky top-0 z-40 border-b-[3px] border-bronze-500 bg-night shadow-[0_2px_0_var(--color-head-dark),0_6px_0_rgba(0,0,0,0.6)] egypt:border-action-line egypt:bg-action">
-<div class="mx-auto flex min-h-12 w-full max-w-[1500px] minimal:max-w-[1120px] items-stretch">
-  <a href="<%= v %>" class="flex shrink-0 items-center gap-2.5 border-r-[3px] border-black <%= gameStyle.id === 'medieval' || gameStyle.id === 'egypt' ? 'bg-[#3b3d2e]' : 'bg-head-dark' %> pr-6 pl-3 no-underline shadow-[inset_-1px_0_0_var(--color-bronze-500)] [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]" title="Aperçu du village">
+<%# Collée en haut de l'écran sur grand écran seulement : sur tablette et mobile, ses trois lignes prendraient un tiers de la hauteur. %>
+<header class="relative top-0 z-40 lg:sticky border-b-[3px] border-bronze-500 bg-night shadow-[0_2px_0_var(--color-head-dark),0_6px_0_rgba(0,0,0,0.6)] egypt:border-action-line egypt:bg-action">
+<div class="mx-auto flex min-h-12 w-full max-w-[1500px] minimal:max-w-[1120px] items-stretch max-lg:flex-wrap">
+  <a href="<%= v %>" class="flex min-h-11 shrink-0 items-center gap-2.5 border-r-[3px] border-black <%= gameStyle.id === 'medieval' || gameStyle.id === 'egypt' ? 'bg-[#3b3d2e]' : 'bg-head-dark' %> pr-6 pl-3 no-underline shadow-[inset_-1px_0_0_var(--color-bronze-500)] [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]" title="Aperçu du village">
     <%- logo('h-8 minimal:h-7', 'transform: translateY(-2px)') %>
     <span class="border border-bronze-500 bg-night px-[5px] py-px text-[11px] font-semibold tracking-[0.02em] text-gold-400 max-md:hidden" style="transform: translateY(1px)"><%= ctx.world.name %></span>
   </a>
-  <nav class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none]" aria-label="Menu principal">
+  <nav class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] max-lg:order-last max-lg:w-full max-lg:flex-none max-lg:overflow-visible max-lg:border-t-2 max-lg:border-black" aria-label="Menu principal">
     <%# Menus déroulants : Rapports, et Tribu quand le joueur en a une. %>
     <% for (const [href, label, ic, active, badge, badgeCls] of navItems) { const menu = ic === 'reports' || (ic === 'tribe' && player && player.tribeId) ? ic : null; %>
       <a href="<%= href %>" class="<%= navLink %> <%= active ? navOn : navOff %>"<%- active ? ' aria-current="page"' : '' %><%- menu ? ` data-menu-toggle="${menu}" aria-haspopup="true" aria-expanded="false"` : '' %>>
         <span class="text-gold-400"><%- icon(ic, 'size-4', 2.2) %></span><%= label %>
         <%# Rapports et messages non lus : relus toutes les 20 s par game.js (data-live-count), même à zéro (masqués). %>
         <% const live = ic === 'reports' || ic === 'messages' ? ic : null; %>
-        <% if (badge || live) { %><span class="<%= badgeCls %>"<%- live ? ` data-live-count="${live}"` : '' %><%- badge ? '' : ' hidden' %>><%= badge %></span><% } %>
+        <% if (badge || live) { %><span class="<%= badgeCls %> max-lg:absolute max-lg:top-0.5 max-lg:left-1/2 max-lg:ml-1.5"<%- live ? ` data-live-count="${live}"` : '' %><%- badge ? '' : ' hidden' %>><%= badge %></span><% } %>
         <%# Couleur du texte de l'onglet (claire sur l'onglet actif ou survolé, quel que soit le style de jeu). %>
-        <% if (menu) { %><span class="opacity-70"><%- icon('chevronDown', 'size-3', 3) %></span><% } %>
+        <% if (menu) { %><span class="opacity-70 max-lg:hidden"><%- icon('chevronDown', 'size-3', 3) %></span><% } %>
       </a>
     <% } %>
   </nav>
-  <div class="flex shrink-0 items-center gap-2 border-l-[3px] border-black px-2.5 shadow-[inset_1px_0_0_var(--color-bronze-800)]">
+  <div class="flex shrink-0 items-center gap-2 border-l-[3px] border-black px-2.5 shadow-[inset_1px_0_0_var(--color-bronze-800)] max-lg:ml-auto max-lg:min-w-0 max-lg:shrink">
     <% if (player) { %>
       <%# Pseudo : lien vers son profil (plus d'onglet « Profil » dans le menu) ; rang et points en dessous. %>
       <a href="<%= v %>/players/<%= ctx.village.playerId %>" class="group flex min-w-0 flex-col items-end leading-[1.05] no-underline" title="Votre profil"<%- page === 'profile' ? ' aria-current="page"' : '' %>>
-        <span class="max-w-32 truncate text-[15px] font-semibold group-hover:text-gold-200 <%= page === 'profile' ? 'text-gold-200' : 'text-parchment-100 egypt:text-on-accent' %>"><%= player.name %></span>
+        <span class="max-w-32 truncate text-[15px] max-sm:max-w-24 font-semibold group-hover:text-gold-200 <%= page === 'profile' ? 'text-gold-200' : 'text-parchment-100 egypt:text-on-accent' %>"><%= player.name %></span>
         <span class="text-[11px] text-parchment-500 tabular-nums max-md:hidden egypt:text-gold-700">#<%= num(playerRank) %> · <%= num(player.points) %> pts</span>
       </a>
     <% } %>
@@ -148,7 +150,8 @@
 <%# 2. Barre du village : changement de village, attaques entrantes, barre rapide, ressources. %>
 <div class="border-t border-black bg-panel-hi shadow-[inset_0_1px_0_var(--color-bronze-800)]">
 <div class="mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] flex-wrap items-center justify-between gap-1.5 px-2.5 py-[5px]">
-  <div class="flex min-w-0 flex-[1_1_520px] items-center gap-1.5">
+  <%# Écran étroit : les favoris passent sous le nom du village, sur toute la largeur. %>
+  <div class="flex min-w-0 flex-[1_1_520px] items-center gap-1.5 max-md:flex-wrap">
     <div class="flex shrink-0 items-center gap-1">
       <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
       <%# Nom du village : lien vers son aperçu. Le bouton à côté ouvre la liste des villages pour changer de village
@@ -176,20 +179,29 @@
     </div>
     <% if (quickbarPos === 'top') { %><%- include('quickbar') %><% } %>
   </div>
-  <div class="flex min-w-0 flex-[0_1_auto] gap-[3px] overflow-x-auto [scrollbar-width:none]">
+  <%# Écran étroit : les encarts se partagent la largeur et passent à la ligne au lieu d'être coupés (trois par ligne sur
+      mobile, l'alerte d'attaques sur toute la largeur) ; nombres abrégés (400k). %>
+  <div class="flex min-w-0 flex-[0_1_auto] gap-[3px] overflow-x-auto [scrollbar-width:none] max-md:w-full max-md:flex-wrap max-md:overflow-visible max-md:[&>a]:flex-auto max-md:[&>a]:justify-center max-md:[&>a]:px-1.5 max-sm:grid max-sm:grid-cols-3 max-sm:[&>a:last-child]:col-span-3">
     <% for (const r of RESOURCES) { const value = ctx.state.resources[r.id]; %>
       <a href="<%= bld(r.id) %>" class="<%= chip %>" title="<%= r.label %> · +<%= num(prod[r.id]) %>/h · entrepôt <%= num(cap) %>">
         <span><%- resourceIcon(r.id, 'size-5') %></span>
-        <span class="text-sm font-semibold tabular-nums <%= value >= cap ? 'text-blood-450' : 'text-parchment-100' %>" data-res="<%= value %>" data-rate="<%= prod[r.id] %>" data-cap="<%= cap %>"
+        <span class="text-sm font-semibold tabular-nums <%= value >= cap ? 'text-blood-450' : 'text-parchment-100' %>" data-res="<%= value %>" data-res-short data-rate="<%= prod[r.id] %>" data-cap="<%= cap %>"
               data-at="<%= ctx.state.resourcesAt.getTime() %>"><%= num(value) %></span>
       </a>
     <% } %>
     <a href="<%= bld('storage') %>" class="<%= chip %>" title="Capacité de l'entrepôt">
-      <span><%- resourceIcon('storage', 'size-5') %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(cap) %></span>
+      <span><%- resourceIcon('storage', 'size-5') %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><span class="md:hidden"><%= numShort(cap) %></span><span class="max-md:hidden"><%= num(cap) %></span></span>
     </a>
     <a href="<%= bld('farm') %>" class="<%= chip %>" title="Population utilisée / capacité de la ferme">
-      <span><%- resourceIcon('pop', 'size-5') %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><%= num(ctx.popUsed()) %>/<%= num(ctx.state.farmCapacity()) %></span>
+      <span><%- resourceIcon('pop', 'size-5') %></span><span class="text-sm font-semibold text-parchment-100 tabular-nums"><span class="md:hidden"><%= numShort(ctx.popUsed()) %>/<%= numShort(ctx.state.farmCapacity()) %></span><span class="max-md:hidden"><%= num(ctx.popUsed()) %>/<%= num(ctx.state.farmCapacity()) %></span></span>
     </a>
+    <%# Sceau du village (module features.seals) : vers la page des sceaux. %>
+    <% if (ctx.cfg.features.seals) { const seal = ctx.state.seal; %>
+      <a href="/village/<%= ctx.village.id %>/seals" class="<%= chip %>" title="<%= seal ? `Sceau ${SEALS.type(seal.type).name} ${seal.level} : ${SEALS.type(seal.type).effect(SEALS.value(seal.type, seal.level))}` : 'Aucun sceau sur ce village' %>">
+        <%# Image seule (pas de libellé) : la barre garde sa largeur et ne passe pas à la ligne. %>
+        <%- seal ? sealSvg(seal.type, seal.level, { cls: 'size-6' }) : sealSvg('production', 1, { cls: 'size-6', muted: true, blank: true, title: 'Aucun sceau' }) %>
+      </a>
+    <% } %>
     <%# Attaques en approche de tous les villages du compte : vers l'aperçu Arrivant. game.js relit le compte toutes les
         30 s (data-incoming-alerts) : compteur, titre de l'onglet et son d'une nouvelle attaque. %>
     <a href="/village/<%= ctx.village.id %>/incomings?type=attacks" class="flex shrink-0 items-center gap-1.5 border-2 border-black bg-blood-600 px-2.5 text-[15px] font-semibold text-on-accent no-underline shadow-[2px_2px_0_#000] transition hover:bg-blood-500" title="Attaques en approche" data-incoming-alerts="/village/<%= ctx.village.id %>/alerts" data-world="<%= ctx.village.worldId %>" <%= incomingAttacks ? '' : 'hidden' %>><%- icon('attack', 'size-[18px]', 2.4) %><span class="tabular-nums" data-incoming-count><%= incomingAttacks %></span></a>

@@ -117,27 +117,34 @@ test('fusion : 3 sceaux libres identiques donnent un sceau du niveau supérieur,
   await assert.rejects(SealService.merge(user.id, { type: 'coin', level: 9 }), /ne peut plus être fusionné/);
 });
 
-test('échange en tribu : 1 contre 1 au même niveau, mondes officiels seulement', async () => {
+test('échange en tribu : offre visible de toute la tribu, 1 contre 1 au même niveau, acceptée en partie', async () => {
   const w = await world();
   const a = await join(w, 'Troc');
   const b = await join(w, 'Troque');
-  await give(a.user.id, 'attack', 3, 1);
-  await give(b.user.id, 'haul', 3, 1);
-  await assert.rejects(SealService.propose(a.player.id, { to: b.player.id, giveType: 'attack', wantType: 'haul', level: 3 }), /membre de sa tribu/);
+  await give(a.user.id, 'attack', 3, 3);
+  await give(b.user.id, 'haul', 3, 2);
+  await assert.rejects(SealService.propose(a.player.id, { giveType: 'attack', wantType: 'haul', level: 3 }), /Rejoins une tribu/);
   const tribe = await TribeService.create(a.player.id, { name: `Troc ${n}`, tag: `T${n}` });
   await b.player.update({ tribeId: tribe.id, tribeRole: 'member' });
-  const trade = await SealService.propose(a.player.id, { to: b.player.id, giveType: 'attack', wantType: 'haul', level: 3 });
-  await SealService.accept(b.player.id, trade.id);
+  await assert.rejects(SealService.propose(a.player.id, { giveType: 'attack', wantType: 'haul', level: 3, count: 4 }), /pas assez/);
+  const offer = await SealService.propose(a.player.id, { giveType: 'attack', wantType: 'haul', level: 3, count: 3 });
+  const seen = await SealService.offers(await Player.findByPk(b.player.id));
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].canAccept, 2, 'b n’a que 2 sceaux demandés');
+  await assert.rejects(SealService.accept(a.player.id, offer.id, 1), /propre offre/);
+  await SealService.accept(b.player.id, offer.id, 2);
   const ia = await SealService.inventory(a.user.id);
   const ib = await SealService.inventory(b.user.id);
-  assert.equal(ia.get('haul:3').count, 1);
-  assert.equal(ia.get('attack:3')?.count || 0, 0);
-  assert.equal(ib.get('attack:3').count, 1);
+  assert.equal(ia.get('haul:3').count, 2);
+  assert.equal(ia.get('attack:3').count, 1);
+  assert.equal(ib.get('attack:3').count, 2);
+  assert.equal((await require('../src/models').SealOffer.findByPk(offer.id)).count, 1, 'reste 1 échange dans l’offre');
+  await SealService.cancel(a.player.id, offer.id);
 
   const priv = await world({ privateServer: true });
   const c = await join(priv, 'TrocPrive');
   await give(c.user.id, 'attack', 1, 1);
-  await assert.rejects(SealService.propose(c.player.id, { to: c.player.id, giveType: 'attack', wantType: 'haul', level: 1 }), /mondes officiels/);
+  await assert.rejects(SealService.propose(c.player.id, { giveType: 'attack', wantType: 'haul', level: 1 }), /mondes officiels/);
 });
 
 test('combat : sceau d’attaque dans le rapport, conquête qui libère le sceau du village', async () => {
@@ -196,7 +203,15 @@ test('page des sceaux : grille, sceau du village, pose depuis la page', async ()
     const page = await http(`/village/${vid}/seals?t=production&l=2`);
     assert.equal(page.status, 200);
     assert.match(page.html, /Production de ressources/);
-    assert.match(page.html, /Poser sur/);
+    assert.match(page.html, /Équiper sur ce village/, 'le sceau choisi propose « Équiper »');
+    assert.doesNotMatch((await http(`/village/${vid}/seals`)).html, /Équiper sur ce village/, 'sans choix, rien à équiper');
+    assert.match(page.html, /aria-label="Choisir Production de ressources 2"/);
+    for (const tab of ['trade', 'history', 'villages', 'help']) assert.equal((await http(`/village/${vid}/seals?tab=${tab}`)).status, 200, tab);
+    // Unités vaincues avant les sceaux : les paliers franchis sont rattrapés à l'ouverture de la page.
+    await player.update({ stats: { ...player.stats, unitsKilled: 841 } });
+    const caught = await http(`/village/${vid}/seals`);
+    assert.equal((await Player.findByPk(player.id)).stats.sealKillSteps, 4, '100, 250, 475, 813');
+    assert.match(caught.html, /vaincre 1\s319 unités au total \(palier 5\)/);
     const done = await http(`/village/${vid}/seals/assign`, { type: 'production', level: '2', _csrf: token(page.html) });
     assert.equal(done.status, 302);
     assert.equal((await Village.findByPk(vid)).sealType, 'production');
@@ -206,4 +221,46 @@ test('page des sceaux : grille, sceau du village, pose depuis la page', async ()
   } finally {
     server.close();
   }
+});
+
+test('retirer les sceaux de tous ses villages : ceux posés depuis moins de 24 h restent', async () => {
+  const w = await world();
+  const { user, player, village } = await join(w, 'Tous');
+  const v2 = await WorldService.createVillage(w, { x: village.x + 4, y: village.y + 4, player, name: 'B', buildings: { main: 1, farm: 1 }, now: new Date() });
+  await give(user.id, 'luck', 2, 2);
+  const t0 = new Date();
+  await SealService.assign(player.id, village.id, { type: 'luck', level: 2 }, { now: new Date(t0.getTime() - 30 * HOUR) });
+  await SealService.assign(player.id, v2.id, { type: 'luck', level: 2 }, { now: t0 });
+  const { removed, kept } = await SealService.removeAll(player.id, { now: new Date(t0.getTime() + HOUR) });
+  assert.equal(removed, 1);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].village.id, v2.id);
+  assert.equal((await Village.findByPk(village.id)).sealType, null);
+});
+
+test('historique des sceaux paginé', async () => {
+  const w = await world();
+  const { user } = await join(w, 'Histo');
+  for (let i = 0; i < 30; i++) await SealEvent.create({ userId: user.id, type: 'coin', level: 1, source: 'admin' });
+  const p1 = await SealService.history(user.id, { page: 1, perPage: 25 });
+  const p2 = await SealService.history(user.id, { page: 2, perPage: 25 });
+  assert.equal(p1.rows.length, 25);
+  assert.equal(p2.rows.length, 5);
+  assert.equal(p1.pagination.pages, 2);
+});
+
+test('favoris : la page des sceaux peut aller dans la barre d’accès rapide', () => {
+  const { favoriteEntries, favoritePage } = require('../src/web/helpers');
+  const cfg = new WorldConfig({ features: { seals: true } });
+  const ctx = { cfg, state: { level: () => 0 } };
+  assert.ok(favoritePage('seals', cfg));
+  assert.equal(favoritePage('seals', new WorldConfig({})), null);
+  const entries = favoriteEntries({ favoriteBuildings: ['seals'] }, ctx);
+  assert.deepEqual(entries.map((e) => [e.key, e.path, e.id]), [['seals', 'seals', null]]);
+  // Un onglet peut aussi être mis en favori, comme ceux des bâtiments.
+  const { favKey } = require('../src/web/helpers');
+  assert.equal(favKey('seals', 'trade', cfg), 'seals:trade');
+  assert.equal(favKey('seals', 'overview', cfg), 'seals');
+  const tabs = favoriteEntries({ favoriteBuildings: ['seals:trade', 'seals:history'] }, ctx);
+  assert.deepEqual(tabs.map((e) => [e.key, e.path, e.title]), [['seals:trade', 'seals?tab=trade', 'Sceaux · Échange'], ['seals:history', 'seals?tab=history', 'Sceaux · Historique']]);
 });

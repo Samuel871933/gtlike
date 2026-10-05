@@ -17,6 +17,13 @@
 @import "./game-styles/egypt.css";
 @import "./game-styles/adarma.css";
 
+/* Un fond de cire commun aux niveaux ; le sigle transparent reste indépendant. */
+.seal-art { position: relative; display: inline-block; flex-shrink: 0; vertical-align: middle; }
+.seal-art > img { position: absolute; display: block; object-fit: contain; pointer-events: none; }
+.seal-art__wax { inset: 0; width: 100%; height: 100%; }
+.seal-art__sigil { inset: 19.5%; width: 61%; height: 61%; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 60%)); }
+.seal-art[data-muted="true"] { opacity: .35; filter: grayscale(1); }
+
 /*
   Style de jeu « Minimaliste » (src/web/gameLayouts.js) : interface serrée à la Guerre Tribale, quel que soit le thème.
   L'échelle d'espacement de Tailwind passe de 4 px à 3 px : marges, écarts et hauteurs (p-3, gap-5, h-9…) rétrécissent
@@ -790,6 +797,27 @@ html.game_style body::before,
 [data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }
 [data-game-style="viking"] .village-design--futuriste .village-sprite { filter: none; }
 
+/* Bannières des listes de rapports et de messages : texte clair indépendant du thème actif. */
+.inbox-hero {
+  display: flex;
+  min-height: 180px;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-bottom: 1px solid var(--color-bronze-500);
+  background-image: linear-gradient(90deg, rgb(10 9 8 / 94%), rgb(10 9 8 / 68%) 43%, rgb(10 9 8 / 12%) 78%), var(--inbox-hero-image);
+  background-position: center, center 65%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  padding: 1.25rem 1.5rem;
+}
+.inbox-hero--reports { --inbox-hero-image: url('/img/reports/inbox.webp'); }
+.inbox-hero--messages { --inbox-hero-image: url('/img/messages/inbox.webp'); }
+.inbox-hero__title { color: #fff5df; font-family: var(--font-display); font-size: clamp(1.2rem, 2vw, 1.7rem); font-weight: 600; line-height: 1.15; text-shadow: 0 2px 4px #000; }
+.inbox-hero__subtitle { margin-top: .4rem; color: #eee1ca; font-size: .82rem; text-shadow: 0 1px 3px #000; }
+@media (max-width: 640px) {
+  .inbox-hero { min-height: 130px; background-image: linear-gradient(90deg, rgb(10 9 8 / 94%), rgb(10 9 8 / 68%) 70%, rgb(10 9 8 / 25%)), var(--inbox-hero-image); background-position: center, center 60%; padding: .9rem 1rem; }
+}
+
 /* Bannières narratives des rapports : le dégradé maintient le texte lisible sur les illustrations. */
 .report-hero {
   position: relative;
@@ -806,10 +834,10 @@ html.game_style body::before,
   inset: 0;
   z-index: -1;
   content: "";
-  background: linear-gradient(90deg, var(--color-plate-strong) 0%, var(--color-plate) 42%, transparent 82%), linear-gradient(0deg, var(--color-plate), transparent 55%);
+  background: linear-gradient(90deg, rgb(10 9 8 / 94%) 0%, rgb(10 9 8 / 78%) 42%, transparent 82%), linear-gradient(0deg, rgb(10 9 8 / 70%), transparent 55%);
 }
 .report-hero--conquest { background-position: 65% center; }
-.report-hero--conquest::before { background: linear-gradient(90deg, var(--color-plate-strong) 0%, var(--color-plate) 30%, transparent 62%), linear-gradient(0deg, var(--color-plate), transparent 40%); }
+.report-hero--conquest::before { background: linear-gradient(90deg, rgb(10 9 8 / 94%) 0%, rgb(10 9 8 / 78%) 30%, transparent 62%), linear-gradient(0deg, rgb(10 9 8 / 70%), transparent 40%); }
 .report-hero--victory { background-image: url('/img/reports/victory.png'); }
 .report-hero--espionage { background-image: url('/img/reports/espionage.png'); }
 .report-hero--defeat { background-image: url('/img/reports/defeat.png'); }
@@ -821,18 +849,18 @@ html.game_style body::before,
 .report-hero--visit { background-image: url('/img/reports/visit.png'); }
 .report-hero--world { background-image: url('/img/reports/world.png'); }
 .report-hero__content { display: flex; min-height: 240px; max-width: 62%; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: .35rem; padding: 1.25rem; }
-.report-hero__eyebrow { display: inline-flex; align-items: center; gap: .45rem; border-left: 3px solid var(--color-gold-300); background: var(--color-plate-strong); padding: .28rem .65rem; color: var(--color-gold-100); font-size: .7rem; font-weight: 800; letter-spacing: .14em; line-height: 1; text-transform: uppercase; }
-.report-hero--defeat .report-hero__eyebrow { border-left-color: var(--color-blood-300); color: var(--color-blood-200); }
-.report-hero--espionage .report-hero__eyebrow { border-left-color: var(--color-steel-300); color: var(--color-steel-300); }
-.report-hero--visit .report-hero__eyebrow { border-left-color: var(--color-steel-300); color: var(--color-steel-300); }
-.report-hero__title { max-width: 34rem; color: var(--color-parchment-50); font-family: var(--font-display); font-size: clamp(1.25rem, 3vw, 1.85rem); font-weight: 600; line-height: 1.12; text-wrap: balance; text-shadow: 0 2px 4px var(--color-title-shadow); }
-.report-hero__time { display: flex; align-items: center; gap: .4rem; color: var(--color-parchment-300); font-size: .78rem; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px var(--color-title-shadow); }
-.report-hero__conquest { margin-top: .25rem; border: 1px solid var(--color-gold-400); background: var(--color-plate-strong); padding: .25rem .55rem; color: var(--color-gold-100); font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.report-hero__eyebrow { display: inline-flex; align-items: center; gap: .45rem; border-left: 3px solid #d6aa68; background: rgb(10 9 8 / 88%); padding: .28rem .65rem; color: #f6e3bd; font-size: .7rem; font-weight: 800; letter-spacing: .14em; line-height: 1; text-transform: uppercase; }
+.report-hero--defeat .report-hero__eyebrow { border-left-color: #e29382; color: #ffd4c7; }
+.report-hero--espionage .report-hero__eyebrow { border-left-color: #9fbddd; color: #dbeaff; }
+.report-hero--visit .report-hero__eyebrow { border-left-color: #9fbddd; color: #dbeaff; }
+.report-hero__title { max-width: 34rem; color: #fff5df; font-family: var(--font-display); font-size: clamp(1.25rem, 3vw, 1.85rem); font-weight: 600; line-height: 1.12; text-wrap: balance; text-shadow: 0 2px 4px #000; }
+.report-hero__time { display: flex; align-items: center; gap: .4rem; color: #eee1ca; font-size: .78rem; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
+.report-hero__conquest { margin-top: .25rem; border: 1px solid #d6aa68; background: rgb(10 9 8 / 88%); padding: .25rem .55rem; color: #f6e3bd; font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 @media (max-width: 640px) {
   .report-hero { min-height: 185px; background-position: 62% center; }
-  .report-hero::before { background: linear-gradient(90deg, var(--color-plate-strong), var(--color-plate) 72%, transparent); }
+  .report-hero::before { background: linear-gradient(90deg, rgb(10 9 8 / 94%), rgb(10 9 8 / 78%) 72%, transparent); }
   .report-hero--conquest { background-position: 70% center; }
-  .report-hero--conquest::before { background: linear-gradient(90deg, var(--color-plate-strong), var(--color-plate) 35%, transparent 75%); }
+  .report-hero--conquest::before { background: linear-gradient(90deg, rgb(10 9 8 / 94%), rgb(10 9 8 / 78%) 35%, transparent 75%); }
   .report-hero__content { min-height: 185px; max-width: 84%; padding: 1rem; }
 }
 

@@ -272,6 +272,8 @@ création d'un serveur, actif sur `speed`). Règles et bonus : [src/game/seals.j
   100, 150, 225… × 1,5). Rien sur un serveur privé, et les sceaux ne sont pas vendus à la boutique.
 - Fusion : 3 sceaux libres identiques → 1 sceau du niveau supérieur, même type (`SealService.merge`).
 - Échange 1 contre 1, au même niveau, avec un membre de sa tribu (mondes officiels, `SealTrades`).
+- Tests : `node scripts/seals.js <pseudo> <type> <niveau> [nombre]`, ou `node scripts/seals.js <pseudo> --kit` (pour
+  chaque type, 3 sceaux de niveau 1 et un de niveau 3, 6 et 9).
 - Les sceaux d'attaque et de défense figurent dans les rapports de combat et dans le simulateur ; historique des gains
   (`SealEvents`). Visuel provisoire en SVG ([src/web/sealSvg.js](src/web/sealSvg.js)) : cachet de cire à la couleur
   du niveau (gris, bronze, rouge, or, vert, bleu, turquoise, pourpre, noir), icône du type au centre.
@@ -406,6 +408,8 @@ de la capacité de transport des troupes envoyées, réparti entre bois, argile 
 `((capacité² × 100 × taux²)^0.45 + 1800) × vitesse^-0.55` secondes. La première option est ouverte, les autres se
 débloquent dans l'ordre contre ressources et temps (valeurs estimées, `scavenging.options`). Une expédition par option,
 sans éclaireurs, béliers, catapultes ni nobles, sans annulation ; butin plafonné par l'entrepôt au retour, rapport.
+Un menu « Modèle » remplit la sélection avec un modèle d'armée du point de ralliement (au plus les troupes présentes ;
+les unités exclues de la collecte sont ignorées).
 
 ## Conditions de victoire (`victory.type`)
 
@@ -428,6 +432,12 @@ classements (`?type=victory`), nommée selon la condition (« Dominance du monde
 tribus, « Liste des conditions de fin de monde » en barres (âge, meneur, compte à rebours, votre tribu, votre
 contribution). Les seuils sont des paramètres du monde (`config.victory`, voir [scripts/seed.js](scripts/seed.js)),
 affichés dans « Réglages du monde ».
+
+## Assistant de pillage
+
+Page `/village/:id/farm` (premium) et raccourcis de la carte : envoi d'un modèle d'armée favori en un clic
+(`POST /farm/send`). Anti-script comme sur Guerre Tribale : au plus 5 attaques par seconde et par joueur
+([src/web/rateLimit.js](src/web/rateLimit.js), compté par processus) ; au-delà, refus 429 et message « Trop rapide ».
 
 ## Hors périmètre
 

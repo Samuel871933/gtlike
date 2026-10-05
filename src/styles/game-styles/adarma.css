@@ -148,14 +148,56 @@
   }
 }
 
-/* Le thème garde ses textes sombres sur les panneaux clairs ; les aplats olive profonds reçoivent du texte crème,
-   sauf les éléments qui ont leur propre fond (boutons-icônes clairs bg-panel-hi, pastilles bg-night). */
-[data-game-style="adarma"] :is(.bg-head, .bg-head-dark),
-[data-game-style="adarma"] [class~="hover:bg-head-dark"]:hover {
+/* Le thème garde ses textes sombres sur les panneaux clairs. Sur les aplats olive profonds (en-têtes, ligne active
+   ou survolée, étiquette olive, bulle de message), les encres parchment et gold passent en crème et or pâle : la
+   variable est redéfinie sur l'aplat, donc tout le contenu imbriqué suit, quel que soit son niveau. Les blocs clairs
+   posés dans un aplat (boutons-icônes, pastilles, menus, champs) retrouvent l'encre sombre. */
+[data-game-style="adarma"] :is(.bg-head, .bg-head-dark, [class~="bg-head-dark/70"], .bg-olive-500, .bg-olive-700, .report-section-title, .report-detail-page > section > :first-child:not(.report-hero)),
+[data-game-style="adarma"] :is([class~="hover:bg-head-dark"]:hover, .group:hover > [class~="group-hover:bg-head-dark"], [class~="has-checked:bg-head-dark"]:has(:checked)) {
+  --color-parchment-50: #fffaf0;
+  --color-parchment-100: #fff7e9;
+  --color-parchment-200: #f9f0de;
+  --color-parchment-300: #f1e8d3;
+  --color-parchment-350: #ebe1ca;
+  --color-parchment-400: #e6dcc3;
+  --color-parchment-500: #e0d6bc;
+  --color-parchment-600: #d8cdb1;
+  --color-parchment-700: #cdc2a4;
+  --color-gold-50: #fff8e2;
+  --color-gold-100: #fdf1d0;
+  --color-gold-200: #f8e6b8;
+  --color-gold-250: #f6e1ae;
+  --color-gold-300: #f3dca4;
+  --color-gold-400: #f0d699;
+  --color-gold-500: #ebcd8a;
+  --color-gold-600: #e3c27b;
+  --color-gold-700: #d8b56c;
   color: var(--color-on-accent);
 }
-[data-game-style="adarma"] :is(.bg-head, .bg-head-dark) > :is(.text-parchment-100, .text-parchment-300, .text-parchment-500, .text-gold-400):not(.bg-night, .bg-panel-hi),
-[data-game-style="adarma"] [class~="hover:bg-head-dark"]:hover > .text-gold-400:not(.bg-night, .bg-panel-hi),
-[data-game-style="adarma"] .bg-head nav a:not(.bg-night) {
-  color: var(--color-on-accent);
+/* La bulle de ses propres messages reste opaque : un olive voilé à 70 % donne un ton moyen illisible en clair comme en foncé. */
+[data-game-style="adarma"] [class~="bg-head-dark/70"] { background-color: var(--color-head-dark); }
+/* En couche base : la couleur par défaut cède aux classes text-* propres à ces blocs. */
+@layer base {
+[data-game-style="adarma"] :is(.bg-head, .bg-head-dark, [class~="bg-head-dark/70"], .bg-olive-500, .bg-olive-700, [class~="hover:bg-head-dark"]:hover)
+  :is(.bg-night, .bg-night-deep, [class~="bg-night/80"], [class~="bg-night/85"], [class~="bg-night/90"], .bg-panel-hi, .bg-panel-top, .bg-panel-lo, .bg-row-hover, .bg-row-alt, .bg-thead, input, select, textarea) {
+  --color-parchment-50: #202219;
+  --color-parchment-100: #292a20;
+  --color-parchment-200: #313329;
+  --color-parchment-300: #414336;
+  --color-parchment-350: #4d4f40;
+  --color-parchment-400: #595a4b;
+  --color-parchment-500: #68695a;
+  --color-parchment-600: #797a6a;
+  --color-parchment-700: #929180;
+  --color-gold-50: #242315;
+  --color-gold-100: #342c19;
+  --color-gold-200: #4e3a20;
+  --color-gold-250: #594324;
+  --color-gold-300: #634b28;
+  --color-gold-400: #71542d;
+  --color-gold-500: #87673a;
+  --color-gold-600: #a1804e;
+  --color-gold-700: #bda574;
+  color: var(--color-parchment-100);
+}
 }

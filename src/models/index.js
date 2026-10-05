@@ -751,18 +751,22 @@ const SealEvent = sequelize.define('SealEvent', {
   detail: { type: DataTypes.STRING(160), allowNull: true },
 }, { indexes: [{ fields: ['userId', 'createdAt'] }] });
 
-/** Échange proposé à un membre de sa tribu : un sceau contre un autre du même niveau (1 contre 1, comme sur GT). */
-const SealTrade = sequelize.define('SealTrade', {
+/**
+ * Offre d'échange de sceaux, visible de toute la tribu (comme sur GT) : `count` sceaux `giveType` contre autant de
+ * sceaux `wantType`, au même niveau. Chaque membre peut en accepter une partie.
+ */
+const SealOffer = sequelize.define('SealOffer', {
   worldId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Worlds', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
-  fromUserId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
-  toUserId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  tribeId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Tribes', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  userId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
   giveType: { type: DataTypes.STRING(12), allowNull: false },
   wantType: { type: DataTypes.STRING(12), allowNull: false },
   level: { type: DataTypes.INTEGER, allowNull: false },
-}, { indexes: [{ fields: ['toUserId'] }, { fields: ['fromUserId'] }] });
+  count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+}, { indexes: [{ fields: ['tribeId'] }, { fields: ['userId'] }] });
 
 module.exports = {
-  sequelize, Seal, SealEvent, SealTrade, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
+  sequelize, Seal, SealEvent, SealOffer, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,

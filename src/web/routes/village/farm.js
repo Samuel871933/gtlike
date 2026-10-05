@@ -11,6 +11,7 @@ const registry = require('../../../game/registry');
 const combat = require('../../../game/combat');
 const { ah, back, flash } = require('../../middleware');
 const { base, me } = require('./shared');
+const { hit } = require('../../rateLimit');
 
 const router = express.Router({ mergeParams: true });
 const wantsJson = (req) => req.get('accept') === 'application/json';
@@ -35,8 +36,14 @@ router.post('/farm/settings', ah(async (req, res) => {
   res.redirect(`${base(req)}/farm`);
 }));
 
+// Anti-script, comme sur Guerre Tribale : au plus 5 attaques par seconde et par joueur depuis l'assistant et la carte.
+const FARM_RATE = { max: 5, windowMs: 1000 };
+
 // Envoi d'un modèle d'armée sur un village : boutons de l'assistant et raccourcis de la carte (réponse JSON pour eux).
 router.post('/farm/send', ah(async (req, res) => {
+  if (!hit(`farm:${me(req)}`, FARM_RATE.max, FARM_RATE.windowMs)) {
+    throw new GameError(`Trop rapide : ${FARM_RATE.max} attaques par seconde au plus. Patiente un instant.`, 429);
+  }
   const { units, template, target } = await FarmService.send(req.ctx.village.id, me(req), req.body.template, req.body.target, req.ctx.cfg);
   if (wantsJson(req)) return res.json({ ok: true, units, target: { id: target.id, x: target.x, y: target.y } });
   flash(req, 'success', `Attaque « ${template.name} » envoyée sur ${target.x}|${target.y}.`);

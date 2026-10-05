@@ -44,7 +44,19 @@ function reduceLuck(luck, seal) {
   return Math.sign(luck) * Math.max(0, Math.abs(luck) - cut);
 }
 
+/**
+ * Effet d'un sceau découpé autour de sa valeur, pour la mettre en avant à l'affichage : { before, value, after }
+ * (« +18 % » de « +18 % de production de ressources », « 6 points » pour la chance).
+ */
+function effectParts(typeId, level) {
+  const def = BY_ID.get(typeId);
+  if (!def) return { before: '', value: '', after: '' };
+  const text = def.effect(value(typeId, level));
+  const m = /[+−-]?\d+ (?:%|points)/.exec(text);
+  return m ? { before: text.slice(0, m.index), value: m[0], after: text.slice(m.index + m[0].length) } : { before: text, value: '', after: '' };
+}
+
 /** Libellé court « Production 3 ». */
 const label = (seal) => (seal ? `${type(seal.type).short} ${seal.level}` : '');
 
-module.exports = { TYPES, MAX_LEVEL, LEVEL_COLORS, LEVEL_NAMES, isType, type, isLevel, value, of, bonus, reduceLuck, label };
+module.exports = { TYPES, MAX_LEVEL, LEVEL_COLORS, LEVEL_NAMES, isType, type, isLevel, value, of, bonus, reduceLuck, label, effectParts };

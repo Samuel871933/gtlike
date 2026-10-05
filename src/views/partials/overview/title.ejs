@@ -26,7 +26,8 @@
     <% } %>
     <%# Sceau du village (module features.seals) : lien vers la page des sceaux. %>
     <% if (ctx.cfg.features.seals) { const seal = ctx.state.seal; %>
-      <a href="/village/<%= vid %>/seals" class="flex min-w-16 items-center gap-2 border border-bronze-800 border-t-2 bg-night px-2 py-[3px] text-parchment-100 no-underline transition hover:border-gold-400" title="<%= seal ? `${SEALS.type(seal.type).name} ${seal.level} : ${SEALS.type(seal.type).effect(SEALS.value(seal.type, seal.level))}` : 'Poser un sceau sur ce village' %>">
+      <%# Liseré du haut comme les autres repères, à la couleur du niveau du sceau. %>
+      <a href="/village/<%= vid %>/seals" class="flex min-w-16 items-center gap-2 border border-t-2 border-bronze-800 border-t-bronze-500 bg-night px-2 py-[3px] text-parchment-100 no-underline transition hover:border-gold-400"<%- seal ? ` style="border-top-color: ${SEALS.LEVEL_COLORS[seal.level - 1]}"` : '' %> title="<%= seal ? `${SEALS.type(seal.type).name} ${seal.level} : ${SEALS.type(seal.type).effect(SEALS.value(seal.type, seal.level))}` : 'Poser un sceau sur ce village' %>">
         <%- seal ? sealSvg(seal.type, seal.level, { cls: 'size-7' }) : sealSvg('production', 1, { cls: 'size-7', muted: true, title: 'Aucun sceau' }) %>
         <span class="flex flex-col"><span class="text-[10px] tracking-[0.02em] text-parchment-500">Sceau</span><span class="text-sm font-semibold"><%= seal ? SEALS.label(seal) : 'Aucun' %></span></span>
       </a>

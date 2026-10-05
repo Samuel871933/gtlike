@@ -10,6 +10,12 @@
   const isOverview = Boolean(document.querySelector('[data-overview-page]'));
   const pad = (n) => String(n).padStart(2, '0');
   const fmt = (s) => `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+  // Barre des ressources sur écran étroit : nombres abrégés (8,4k, 400k), même règle que numShort (src/web/helpers.js).
+  const narrow = window.matchMedia('(max-width: 767px)');
+  const short = (n) => {
+    const cut = (x, unit) => `${(x < 10 ? Math.floor(x * 10) / 10 : Math.floor(x)).toLocaleString('fr-FR')}${unit}`;
+    return n < 1000 ? String(n) : n < 1e6 ? cut(n / 1000, 'k') : cut(n / 1e6, 'M');
+  };
   let reloading = false;
   let refreshingOverview = false;
   let nextOverviewRefresh = 0;
@@ -87,7 +93,7 @@
       const start = Number(el.dataset.res);
       const cap = Number(el.dataset.cap);
       const value = start >= cap ? start : Math.min(cap, start + (Number(el.dataset.rate) * (now - Number(el.dataset.at))) / 3600000);
-      el.textContent = Math.floor(value).toLocaleString('fr-FR');
+      el.textContent = 'resShort' in el.dataset && narrow.matches ? short(Math.floor(value)) : Math.floor(value).toLocaleString('fr-FR');
       el.classList.toggle('text-blood-450', value >= cap);
       const bar = el.parentElement.querySelector('[data-res-bar]');
       if (bar) bar.style.width = `${Math.min(100, Math.round((value / cap) * 100))}%`;
@@ -174,6 +180,57 @@
   }
   document.addEventListener('input', (e) => {
     if (e.target.closest('[data-scavenge-selection]')) document.querySelectorAll('[data-scavenge-preview]').forEach(scavengePreview);
+  });
+  // Sceaux : le grand sceau de gauche montre le sceau survolé dans la grille, puis revient à celui du village.
+  const sealBig = document.querySelector('[data-seal-big]');
+  if (sealBig) {
+    const wax = sealBig.querySelector('[data-seal-big-wax]');
+    const sigil = sealBig.querySelector('[data-seal-big-sigil]');
+    const caption = document.querySelector('[data-seal-caption]');
+    const initial = { wax: wax.src, sigil: sigil.src, caption: caption.textContent, empty: !sealBig.dataset.type };
+    const show = (w, s, text, empty) => {
+      wax.src = w; sigil.src = s; caption.textContent = text;
+      sigil.hidden = empty; wax.style.cssText = empty ? 'opacity:.45;filter:grayscale(1)' : '';
+    };
+    show(initial.wax, initial.sigil, initial.caption, initial.empty);
+    document.querySelectorAll('[data-seal-hover]').forEach((cell) => {
+      cell.addEventListener('mouseenter', () => show(`/img/seals/wax-${cell.dataset.level}.webp`, `/img/seals/sigil-${cell.dataset.type}.png`, cell.dataset.name, !cell.dataset.has));
+    });
+    document.querySelector('[data-seal-grid]')?.addEventListener('mouseleave', () => show(initial.wax, initial.sigil, initial.caption, initial.empty));
+  }
+  // Offre d'échange : « Contre » suit le niveau du sceau donné (cires), le type donné y est grisé, résumé à jour.
+  const offerForm = document.querySelector('[data-seal-offer]');
+  if (offerForm) {
+    const gives = [...offerForm.querySelectorAll('[data-offer-give]')];
+    const wants = [...offerForm.querySelectorAll('[data-offer-want]')];
+    const summary = offerForm.querySelector('[data-offer-summary]');
+    const nameOf = (input) => input.closest('label').title.replace(/ \d+ \(.*$/, '');
+    const update = () => {
+      const give = gives.find((g) => g.checked);
+      if (!give) return;
+      const level = give.dataset.level;
+      for (const w of wants) {
+        w.disabled = w.dataset.type === give.dataset.type;
+        const wax = w.closest('label').querySelector('.seal-art__wax');
+        if (wax) wax.src = `/img/seals/wax-${level}.webp`;
+      }
+      let want = wants.find((w) => w.checked && !w.disabled);
+      if (!want) { want = wants.find((w) => !w.disabled); if (want) want.checked = true; }
+      if (summary && want) summary.textContent = `${nameOf(give)} ${level} contre ${want.closest('label').title} ${level}`;
+    };
+    offerForm.addEventListener('change', update);
+    update();
+  }
+  // Modèle d'armée choisi : remplit la sélection (au plus les troupes présentes), les autres unités à 0.
+  const scavengeTemplates = JSON.parse(document.querySelector('[data-scavenge-templates]')?.textContent || '{}');
+  document.querySelector('[data-scavenge-template]')?.addEventListener('change', (e) => {
+    const tpl = scavengeTemplates[e.target.value];
+    if (!tpl) return;
+    scavengeSelection.querySelectorAll('input[type="number"]').forEach((input) => {
+      const max = Number(input.max) || 0;
+      input.value = Math.min(max, tpl[input.name] || 0) || '';
+    });
+    document.querySelectorAll('[data-scavenge-preview]').forEach(scavengePreview);
   });
   document.addEventListener('submit', (e) => {
     const form = e.target.closest('form[data-scavenge]');

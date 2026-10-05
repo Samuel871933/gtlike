@@ -8,10 +8,10 @@
 //   succès (niveau du palier, 1 à 4), succès quotidien (niveau 3), noble formé (niveau 1 chacun), paliers d'unités
 //   ennemies vaincues (niveau 2). Aucun gain sur un serveur privé, ni sceau vendu à la boutique.
 // - Un sceau par village, retiré ou déplacé 24 h après sa pose au plus tôt ; fusion de 3 sceaux identiques en un du
-//   niveau supérieur (même type) ; échange 1 contre 1 au même niveau avec un membre de sa tribu (mondes officiels).
+//   niveau supérieur (même type) ; offres d'échange 1 contre 1 au même niveau, visibles de toute la tribu (mondes officiels).
 
 const { Op } = require('sequelize');
-const { sequelize, User, World, Player, Village, Report, Seal, SealEvent, SealTrade } = require('../models');
+const { sequelize, User, World, Player, Village, Report, Seal, SealEvent, SealOffer } = require('../models');
 const seals = require('../game/seals');
 const GameError = require('./GameError');
 
@@ -187,6 +187,26 @@ class SealService {
     }, { now });
   }
 
+  /**
+   * Retire les sceaux de tous les villages du joueur sur ce monde. Ceux qui ne peuvent pas encore l'être (24 h après la
+   * pose, ferme qui déborderait) restent en place : renvoie { removed, kept: [{ village, reason }] }.
+   */
+  static async removeAll(playerId, { now = new Date() } = {}) {
+    const villages = await Village.findAll({ where: { playerId, sealType: { [Op.ne]: null } }, attributes: ['id', 'name'], order: [['name', 'ASC']] });
+    let removed = 0;
+    const kept = [];
+    for (const v of villages) {
+      try {
+        await SealService.remove(playerId, v.id, { now });
+        removed += 1;
+      } catch (err) {
+        if (!(err instanceof GameError)) throw err;
+        kept.push({ village: v, reason: err.message });
+      }
+    }
+    return { removed, kept };
+  }
+
   static checkVillage(ctx, playerId) {
     if (!SealService.enabled(ctx.cfg)) throw new GameError('Les sceaux ne sont pas actifs sur ce monde.');
     if (ctx.village.playerId !== playerId) throw new GameError('Ce village ne t’appartient pas.', 403);
@@ -231,81 +251,96 @@ class SealService {
     });
   }
 
-  // ---------------------------------------------------------------- Échanges en tribu
-
-  /** Échanges ouverts sur ce monde : reçus et envoyés par le compte. */
-  static async trades(userId, worldId) {
-    const rows = await SealTrade.findAll({ where: { worldId, [Op.or]: [{ fromUserId: userId }, { toUserId: userId }] }, order: [['createdAt', 'DESC']] });
-    const ids = [...new Set(rows.flatMap((r) => [r.fromUserId, r.toUserId]))];
-    const players = ids.length ? await Player.findAll({ where: { worldId, userId: ids }, attributes: ['id', 'name', 'userId'] }) : [];
-    const byUser = new Map(players.map((p) => [p.userId, p]));
-    return rows.map((r) => ({ trade: r, from: byUser.get(r.fromUserId) || null, to: byUser.get(r.toUserId) || null, incoming: r.toUserId === userId }));
-  }
+  // ---------------------------------------------------------------- Échanges en tribu (comme sur GT)
 
   static tradeContext(world) {
     if (!SealService.canEarn(world)) throw new GameError('Les échanges de sceaux se font sur les mondes officiels où les sceaux sont actifs.');
   }
 
-  /** Propose à un membre de sa tribu : mon sceau `giveType` contre son sceau `wantType`, au même niveau. */
-  static async propose(playerId, { to, giveType, wantType, level }) {
+  /**
+   * Offres de la tribu du joueur (celles de ses membres actuels) : { offer, author, mine, canAccept }, `canAccept` :
+   * nombre que le joueur peut accepter avec ses sceaux libres (0 : il ne possède pas le sceau demandé).
+   */
+  static async offers(player) {
+    if (!player.tribeId) return [];
+    const rows = await SealOffer.findAll({ where: { worldId: player.worldId, tribeId: player.tribeId }, order: [['createdAt', 'DESC'], ['id', 'DESC']] });
+    const authors = rows.length ? await Player.findAll({ where: { worldId: player.worldId, userId: [...new Set(rows.map((r) => r.userId))] }, attributes: ['id', 'name', 'userId', 'tribeId'] }) : [];
+    const byUser = new Map(authors.map((p) => [p.userId, p]));
+    const inv = await SealService.inventory(player.userId);
+    return rows
+      .filter((r) => byUser.get(r.userId)?.tribeId === player.tribeId)
+      .map((r) => ({
+        offer: r, author: byUser.get(r.userId), mine: r.userId === player.userId,
+        canAccept: Math.min(r.count, inv.get(`${r.wantType}:${r.level}`)?.available || 0),
+      }));
+  }
+
+  /** Nouvelle offre à sa tribu : `count` sceaux `giveType` contre autant de sceaux `wantType`, au même niveau. */
+  static async propose(playerId, { giveType, wantType, level, count = 1 }) {
     level = Number(level);
-    if (!seals.isType(giveType) || !seals.isType(wantType) || !seals.isLevel(level)) throw new GameError('Sceau inconnu.');
+    count = Math.floor(Number(count) || 1);
+    if (!seals.isType(giveType) || !seals.isType(wantType) || !seals.isLevel(level)) throw new GameError('Choisis le sceau offert et le sceau demandé.');
+    if (giveType === wantType) throw new GameError('Demande un autre type de sceau que celui que tu offres.');
+    if (count < 1 || count > 100) throw new GameError('Nombre de sceaux invalide.');
     return sequelize.transaction(async (t) => {
       const me = await Player.findByPk(playerId, { transaction: t });
-      const world = await World.findByPk(me.worldId, { transaction: t });
-      SealService.tradeContext(world);
-      const other = await Player.findOne({ where: { worldId: world.id, id: Number(to) }, transaction: t });
-      if (!other || other.id === me.id || !other.userId) throw new GameError('Choisis un membre de ta tribu.');
-      if (!me.tribeId || other.tribeId !== me.tribeId) throw new GameError('On n’échange des sceaux qu’avec un membre de sa tribu.');
-      if ((await SealService.available(me.userId, giveType, level, t)) < 1) throw new GameError('Tu n’as pas de sceau libre de ce type et de ce niveau.');
-      const open = await SealTrade.count({ where: { worldId: world.id, fromUserId: me.userId }, transaction: t });
-      if (open >= 10) throw new GameError('Tu as déjà 10 propositions d’échange en attente.');
-      return SealTrade.create({ worldId: world.id, fromUserId: me.userId, toUserId: other.userId, giveType, wantType, level }, { transaction: t });
+      SealService.tradeContext(await World.findByPk(me.worldId, { transaction: t }));
+      if (!me.tribeId) throw new GameError('Rejoins une tribu pour échanger des sceaux.');
+      if ((await SealService.available(me.userId, giveType, level, t)) < count) throw new GameError('Tu n’as pas assez de sceaux libres de ce type et de ce niveau.');
+      if ((await SealOffer.count({ where: { worldId: me.worldId, userId: me.userId }, transaction: t })) >= 20) throw new GameError('Tu as déjà 20 offres d’échange actives.');
+      return SealOffer.create({ worldId: me.worldId, tribeId: me.tribeId, userId: me.userId, giveType, wantType, level, count }, { transaction: t });
     });
   }
 
-  /** Le destinataire accepte : les deux sceaux changent de compte (s'ils sont toujours libres). */
-  static async accept(playerId, tradeId) {
+  /** Un membre de la tribu accepte `count` échanges de l'offre (s'ils sont toujours possibles des deux côtés). */
+  static async accept(playerId, offerId, count = 1) {
+    count = Math.floor(Number(count) || 1);
     return sequelize.transaction(async (t) => {
       const me = await Player.findByPk(playerId, { transaction: t });
-      const trade = await SealTrade.findOne({ where: { id: Number(tradeId), toUserId: me.userId, worldId: me.worldId }, transaction: t, lock: t.LOCK.UPDATE });
-      if (!trade) throw new GameError('Échange introuvable.', 404);
-      const world = await World.findByPk(me.worldId, { transaction: t });
-      SealService.tradeContext(world);
-      const from = await Player.findOne({ where: { worldId: world.id, userId: trade.fromUserId }, transaction: t });
-      if (!from || !me.tribeId || from.tribeId !== me.tribeId) throw new GameError('Vous n’êtes plus dans la même tribu : l’échange est impossible.');
-      await User.findAll({ where: { id: [trade.fromUserId, trade.toUserId] }, order: [['id', 'ASC']], transaction: t, lock: t.LOCK.UPDATE });
-      if ((await SealService.available(trade.fromUserId, trade.giveType, trade.level, t)) < 1) throw new GameError(`${from.name} n’a plus ce sceau de libre.`);
-      if ((await SealService.available(me.userId, trade.wantType, trade.level, t)) < 1) throw new GameError('Tu n’as pas de sceau libre de ce type et de ce niveau.');
-      await SealService.add(trade.fromUserId, trade.giveType, trade.level, -1, t);
-      await SealService.add(me.userId, trade.giveType, trade.level, 1, t);
-      await SealService.add(me.userId, trade.wantType, trade.level, -1, t);
-      await SealService.add(trade.fromUserId, trade.wantType, trade.level, 1, t);
-      await SealService.log(me.userId, world.id, trade.giveType, trade.level, 'trade', `avec ${from.name}`, t);
-      await SealService.log(trade.fromUserId, world.id, trade.wantType, trade.level, 'trade', `avec ${me.name}`, t);
-      await trade.destroy({ transaction: t });
+      const offer = await SealOffer.findOne({ where: { id: Number(offerId), worldId: me.worldId }, transaction: t, lock: t.LOCK.UPDATE });
+      if (!offer) throw new GameError('Cette offre n’existe plus.', 404);
+      SealService.tradeContext(await World.findByPk(me.worldId, { transaction: t }));
+      if (offer.userId === me.userId) throw new GameError('C’est ta propre offre.');
+      const author = await Player.findOne({ where: { worldId: me.worldId, userId: offer.userId }, transaction: t });
+      if (!me.tribeId || !author || author.tribeId !== me.tribeId || offer.tribeId !== me.tribeId) throw new GameError('Cette offre est réservée à une autre tribu.');
+      if (count < 1 || count > offer.count) throw new GameError(`Tu peux accepter de 1 à ${offer.count} échange${offer.count > 1 ? 's' : ''}.`);
+      await User.findAll({ where: { id: [offer.userId, me.userId] }, order: [['id', 'ASC']], transaction: t, lock: t.LOCK.UPDATE });
+      if ((await SealService.available(offer.userId, offer.giveType, offer.level, t)) < count) throw new GameError(`${author.name} n’a plus assez de sceaux libres pour cette offre.`);
+      if ((await SealService.available(me.userId, offer.wantType, offer.level, t)) < count) throw new GameError('Tu ne possèdes pas le sceau demandé (libre).');
+      await SealService.add(offer.userId, offer.giveType, offer.level, -count, t);
+      await SealService.add(me.userId, offer.giveType, offer.level, count, t);
+      await SealService.add(me.userId, offer.wantType, offer.level, -count, t);
+      await SealService.add(offer.userId, offer.wantType, offer.level, count, t);
+      await SealService.log(me.userId, me.worldId, offer.giveType, offer.level, 'trade', `${count} × avec ${author.name}`, t);
+      await SealService.log(offer.userId, me.worldId, offer.wantType, offer.level, 'trade', `${count} × avec ${me.name}`, t);
+      if (offer.count > count) await offer.update({ count: offer.count - count }, { transaction: t });
+      else await offer.destroy({ transaction: t });
     });
   }
 
-  /** Refus (destinataire) ou retrait (auteur) d'une proposition. */
-  static async cancel(playerId, tradeId) {
+  /** L'auteur retire son offre. */
+  static async cancel(playerId, offerId) {
     const me = await Player.findByPk(playerId);
-    const n = await SealTrade.destroy({ where: { id: Number(tradeId), worldId: me.worldId, [Op.or]: [{ fromUserId: me.userId }, { toUserId: me.userId }] } });
-    if (!n) throw new GameError('Échange introuvable.', 404);
+    const n = await SealOffer.destroy({ where: { id: Number(offerId), worldId: me.worldId, userId: me.userId } });
+    if (!n) throw new GameError('Offre introuvable.', 404);
   }
 
   // ---------------------------------------------------------------- Page des sceaux
 
-  /** Historique récent du compte. */
-  static async history(userId, limit = 15) {
-    return SealEvent.findAll({ where: { userId }, order: [['createdAt', 'DESC'], ['id', 'DESC']], limit });
+  /** Historique du compte, page `page` de `perPage` lignes : { rows, pagination }. */
+  static async history(userId, { page = 1, perPage = 25 } = {}) {
+    const PaginationService = require('./PaginationService');
+    const total = await SealEvent.count({ where: { userId } });
+    const pagination = PaginationService.paginate(total, page, perPage);
+    const rows = await SealEvent.findAll({ where: { userId }, order: [['createdAt', 'DESC'], ['id', 'DESC']], limit: perPage, offset: pagination.offset });
+    return { rows, pagination };
   }
 
   /** Progression vers les prochains sceaux : unités vaincues et succès le plus proche. */
   static async progress(player) {
     const stats = player.stats || {};
     const step = stats.sealKillSteps || 0;
-    const kills = { value: stats.unitsKilled || 0, from: step ? SealService.killsNeeded(step - 1) : 0, goal: SealService.killsNeeded(step) };
+    const kills = { value: stats.unitsKilled || 0, from: step ? SealService.killsNeeded(step - 1) : 0, goal: SealService.killsNeeded(step), step: step + 1 };
     const AchievementService = require('./AchievementService');
     const overview = await AchievementService.overview(player.id);
     let achievement = null;

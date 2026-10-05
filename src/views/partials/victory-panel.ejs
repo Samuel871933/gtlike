@@ -15,15 +15,8 @@
      ? { ones: 'factions', One: 'Faction', a: 'une faction', the: 'la faction', A: 'Une faction', The: 'La faction', first: 'la première faction', First: 'La première faction', yours: 'Votre faction', its: 'à sa faction', none: 'Aucune faction pour le moment.' }
      : { ones: 'tribus', One: 'Tribu', a: 'une tribu', the: 'la tribu', A: 'Une tribu', The: 'La tribu', first: 'la première tribu', First: 'La première tribu', yours: 'Votre tribu', its: 'à sa tribu', none: 'Aucune tribu pour le moment.' };
    const days = (ms) => Math.floor(ms / DAY);
-   // Barre de condition : remplissage `value / goal`, texte « valeur / objectif » au centre.
-   const bar = (value, goal, label) => {
-     const width = goal > 0 ? Math.max(0, Math.min(100, (100 * value) / goal)) : 0;
-     const done = goal > 0 && value >= goal;
-     return `<span class="relative flex h-6 min-w-44 items-center justify-center overflow-hidden border border-black bg-night shadow-[inset_0_1px_2px_#0006]">
-       <span class="absolute inset-y-0 left-0 ${done ? 'bg-olive-500' : 'bg-blood-700'}" style="width: ${width.toFixed(1)}%"></span>
-       <span class="relative text-[13px] font-semibold text-parchment-100 tabular-nums">${label}</span>
-     </span>`;
-   };
+   // Barre de condition : composant commun (ui.js, progressBar), texte « valeur / objectif » au centre.
+   const bar = (value, goal, label) => progressBar(value, goal, { label });
    const who = (r) => (r.faction ? `<span class="font-semibold">${esc(r.name)}</span>` : r.tag
      ? (vid ? `<a href="/village/${vid}/tribes/${r.id}" class="${ui.linkPlain} font-semibold" title="${esc(r.label)}">${esc(r.tag)}</a>` : `<span class="font-semibold" title="${esc(r.label)}">${esc(r.tag)}</span>`)
      : playerLink(vid, { id: r.id, name: r.label || r.name }, { cls: `${ui.linkPlain} font-semibold` }));

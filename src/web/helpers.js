@@ -242,6 +242,8 @@ const QUICKBAR = ['main', 'barracks', 'stable', 'garage', 'snob', 'smith', 'plac
  * étant la page par défaut du bâtiment. Rien pour un bâtiment sans onglet.
  */
 function buildingTabs(id, world) {
+  const pageDef = FAVORITE_PAGES.find((p) => p.key === id);
+  if (pageDef) return pageDef.tabs || [];
   if (id === 'place') {
     return [
       { key: 'commands', name: 'Commandes', path: 'place' },
@@ -262,6 +264,17 @@ function buildingTabs(id, world) {
   }
   return [];
 }
+
+// Pages du village qui ne sont pas des bâtiments mais peuvent aller dans la barre d'accès rapide (étoile de leur en-tête).
+// `tabs` : onglets qu'on peut aussi mettre en favori, le premier étant la page par défaut (comme buildingTabs).
+const FAVORITE_PAGES = [
+  {
+    key: 'seals', name: 'Sceaux', path: 'seals', available: (cfg) => Boolean(cfg && cfg.features && cfg.features.seals),
+    tabs: [['overview', 'Aperçu'], ['trade', 'Échange'], ['history', 'Historique'], ['villages', 'Mes villages'], ['help', 'Aide']]
+      .map(([key, name], i) => ({ key, name, path: i ? `seals?tab=${key}` : 'seals' })),
+  },
+];
+const favoritePage = (key, cfg) => FAVORITE_PAGES.find((p) => p.key === key && p.available(cfg)) || null;
 
 /** Clé d'un favori : le bâtiment seul pour sa page par défaut (ou un onglet inconnu), sinon « bâtiment:onglet ». */
 function favKey(id, tab, world) {
@@ -286,6 +299,14 @@ function favoriteEntries(player, ctx) {
     if (wanted.has(id)) out.push({ key: id, id, tab: null, name, title: name, path: buildingPath(id, ctx && ctx.cfg) });
     for (const t of buildingTabs(id, ctx && ctx.cfg).slice(1)) {
       if (wanted.has(`${id}:${t.key}`)) out.push({ key: `${id}:${t.key}`, id, tab: t.key, name: t.name, title: `${name} · ${t.name}`, path: t.path });
+    }
+  }
+  // Pages hors bâtiments (sceaux…), après les bâtiments ; `id` nul : la barre affiche leur propre vignette.
+  for (const p of FAVORITE_PAGES) {
+    if (!p.available(ctx && ctx.cfg)) continue;
+    if (wanted.has(p.key)) out.push({ key: p.key, id: null, tab: null, name: p.name, title: p.name, path: p.path });
+    for (const t of (p.tabs || []).slice(1)) {
+      if (wanted.has(`${p.key}:${t.key}`)) out.push({ key: `${p.key}:${t.key}`, id: null, tab: t.key, name: t.name, title: `${p.name} · ${t.name}`, path: t.path });
     }
   }
   return out;
@@ -486,6 +507,15 @@ function num(n) {
   return Math.floor(n).toLocaleString('fr-FR');
 }
 
+/** Nombre abrégé pour les barres étroites (mobile) : 950, 8,4k, 400k, 1,2M ; arrondi vers le bas, comme num. Même règle que short() dans public/js/game.js. */
+function numShort(n) {
+  const v = Math.floor(n);
+  const cut = (x, unit) => `${(x < 10 ? Math.floor(x * 10) / 10 : Math.floor(x)).toLocaleString('fr-FR')}${unit}`;
+  if (v < 1000) return String(v);
+  if (v < 1e6) return cut(v / 1000, 'k');
+  return cut(v / 1e6, 'M');
+}
+
 /** Journée AAAA-MM-JJ (heure du serveur) : « aujourd'hui », « hier » ou « 27.09.2026 », comme sur GT. */
 function dayLabel(day, now = new Date()) {
   if (!day) return '—';
@@ -548,6 +578,7 @@ module.exports = {
   QUICKBAR,
   favoriteBuildings,
   favoriteEntries,
+  favoritePage,
   buildingTabs,
   favKey,
   favStar,
@@ -560,6 +591,7 @@ module.exports = {
   whenShort,
   resourcesWhen,
   num,
+  numShort,
   dayLabel,
   playerLink,
   avatarThumb,

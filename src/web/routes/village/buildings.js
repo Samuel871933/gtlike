@@ -14,7 +14,7 @@ const scavenging = require('../../../game/scavenging');
 const knightSkills = require('../../../game/knightSkills');
 const GameError = require('../../../services/GameError');
 const registry = require('../../../game/registry');
-const { favoriteBuildings, favKey } = require('../../helpers');
+const { favoriteBuildings, favKey, favoritePage } = require('../../helpers');
 const { ah, back, flash } = require('../../middleware');
 const { base, me } = require('./shared');
 
@@ -87,7 +87,8 @@ function farmPopulation(ctx) {
 router.post('/buildings/:buildingId/favorite', ah(async (req, res) => {
   const id = req.params.buildingId;
   const type = registry.BUILDINGS.get(id);
-  if (!type || !type.isAvailableIn(req.ctx.cfg)) throw new GameError('Bâtiment inconnu.', 404);
+  // Une page hors bâtiment (sceaux…) peut aussi être mise en favori.
+  if ((!type || !type.isAvailableIn(req.ctx.cfg)) && !favoritePage(id, req.ctx.cfg)) throw new GameError('Bâtiment inconnu.', 404);
   // Favori d'un onglet (« Pillage » du point de ralliement…) : clé « bâtiment:onglet ».
   const key = favKey(id, req.body.tab, req.ctx.cfg);
   const player = await Player.findByPk(me(req));
@@ -279,8 +280,10 @@ router.post('/research/:orderId/cancel', ah(async (req, res) => {
 
 router.get('/scavenge', ah(async (req, res) => {
   if (!ScavengeService.enabled(req.ctx.cfg)) throw new GameError("La collecte n'existe pas sur ce monde.", 404);
+  // Modèles d'armée du joueur (point de ralliement) : choisir un modèle remplit la sélection de troupes.
+  const templates = await require('../../../services/ArmyTemplateService').list(me(req));
   res.render('scavenge', {
-    page: 'place', favTab: 'scavenge', options: await ScavengeService.overview(req.ctx), units: scavenging.unitsFor(req.ctx.cfg),
+    page: 'place', favTab: 'scavenge', options: await ScavengeService.overview(req.ctx), units: scavenging.unitsFor(req.ctx.cfg), templates,
   });
 }));
 

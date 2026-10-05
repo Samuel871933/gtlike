@@ -14,7 +14,14 @@
 </section>
 
 <section class="<%= ui.panel %>" data-scavenge-selection>
-  <%- panelHead('Troupes à envoyer') %>
+  <%# Modèle d'armée : remplit les quantités (au plus les troupes présentes ; les unités exclues de la collecte sont ignorées). %>
+  <% const usable = new Set(units.map((u) => u.id));
+     const tplUnits = templates.map((tpl) => ({ id: tpl.id, name: tpl.name, units: Object.fromEntries(Object.entries(tpl.units || {}).filter(([id, n]) => usable.has(id) && n > 0)) }))
+       .filter((tpl) => Object.keys(tpl.units).length); %>
+  <%- panelHead('Troupes à envoyer', `<span class="flex items-center gap-2 text-[13px]">${tplUnits.length
+    ? `<label class="flex items-center gap-2"><span class="text-parchment-300">Modèle</span><select class="${ui.inputSm} h-7 w-44" data-scavenge-template><option value="">Choisir un modèle…</option>${tplUnits.map((tpl) => `<option value="${tpl.id}">${esc(tpl.name)}</option>`).join('')}</select></label>`
+    : `<a href="/village/${vid}/place#modeles" class="${ui.link}">Créer un modèle d’armée</a>`}</span>`) %>
+  <script type="application/json" data-scavenge-templates><%- JSON.stringify(Object.fromEntries(tplUnits.map((tpl) => [tpl.id, tpl.units]))).replace(/</g, '\\u003c') %></script>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[344px] table-fixed border-collapse text-xs sm:min-w-[576px] sm:text-sm [&_td]:px-0.5 [&_td]:py-1 [&_td]:text-center [&_th]:px-0.5 [&_th]:py-1 [&_th]:text-center sm:[&_td]:px-1.5 sm:[&_th]:px-1.5 [&_tr>th:first-child]:w-14 [&_tr>th:first-child]:text-left sm:[&_tr>th:first-child]:w-24">
       <thead class="bg-thead"><tr class="border-b border-bronze-700/50"><th scope="col" class="font-medium text-gold-400">Unités</th><% for (const u of units) { %><th scope="col" title="<%= u.name %>"><span class="flex justify-center"><%- unitIcon(u.id, 'size-7') %></span><span class="sr-only"><%= u.name %></span></th><% } %></tr></thead>
