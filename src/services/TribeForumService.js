@@ -2,18 +2,22 @@
 
 const { Op } = require('sequelize');
 const {
-  sequelize, Player, TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
+  sequelize, Player, Tribe, TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
+  TribeForumShare,
 } = require('../models');
 const GameError = require('./GameError');
 const { paginate } = require('./PaginationService');
 const TribeService = require('./TribeService');
 
-// Forum interne d'une tribu (comme sur Guerre Tribale) : réservé à ses membres.
+// Forum interne d'une tribu (comme sur Guerre Tribale) : réservé à ses membres. Un sous-forum peut être caché (droit
+// « Forum caché ») ou partagé avec d'autres tribus, qui l'acceptent dans leurs réglages du forum ; seuls les
+// modérateurs de la tribu propriétaire modèrent un forum partagé.
 const PAGE_SIZE = 20;
 const TITLE_MAX = 80;
 const BODY_MAX = 5000;
 const SECTION_MAX = 40;
 const MAX_SECTIONS = 20;
+const MAX_SHARES = 10;
 const FLOOD_SECONDS = 10;
 const RECENT_PAGE = 5;
 const POLL_MIN = 2;
@@ -55,17 +59,49 @@ async function managerOf(playerId) {
   return player;
 }
 
+/**
+ * Sous-forums visibles du joueur : ceux de sa tribu, puis les forums partagés qu'elle a acceptés ; un forum caché
+ * (chez la tribu propriétaire, ou par la tribu invitée pour un forum reçu) seulement avec le droit « Forum caché ».
+ * Chaque sous-forum porte `isHidden` et `owner` (tribu propriétaire d'un forum reçu, sinon null).
+ */
+async function visibleSections(player) {
+  const secret = TribeService.can(player, 'hiddenForum');
+  const own = await tribeSections(player.tribeId);
+  const shares = await TribeForumShare.findAll({
+    where: { tribeId: player.tribeId, accepted: true },
+    include: [{ model: TribeForumSection, as: 'section', include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+    order: [['id', 'ASC']],
+  });
+  const list = [
+    ...own.map((x) => Object.assign(x, { isHidden: x.hidden, owner: null })),
+    ...shares.map((sh) => Object.assign(sh.section, { isHidden: sh.hidden, owner: sh.section.Tribe })),
+  ];
+  return list.filter((x) => secret || !x.isHidden);
+}
+
 async function sectionOf(player, sectionId) {
-  const section = await TribeForumSection.findByPk(Number(sectionId));
-  if (!section || section.tribeId !== player.tribeId) throw new GameError('Sous-forum introuvable.', 404);
+  const section = (await visibleSections(player)).find((x) => x.id === Number(sectionId));
+  if (!section) throw new GameError('Sous-forum introuvable.', 404);
+  return section;
+}
+
+/** Sous-forum de la tribu du joueur (pas un forum reçu d'une autre tribu). */
+async function ownSectionOf(player, sectionId) {
+  const section = await sectionOf(player, sectionId);
+  if (section.owner) throw new GameError('Ce forum appartient à une autre tribu : seuls ses modérateurs le gèrent.', 403);
   return section;
 }
 
 async function threadOf(player, threadId) {
-  const thread = await TribeForumThread.findByPk(Number(threadId), { include: [{ model: TribeForumSection, as: 'section' }, authorOf()] });
-  if (!thread || thread.section.tribeId !== player.tribeId) throw new GameError('Sujet introuvable.', 404);
+  const thread = await TribeForumThread.findByPk(Number(threadId), { include: [authorOf()] });
+  const section = thread && (await visibleSections(player)).find((x) => x.id === thread.sectionId);
+  if (!section) throw new GameError('Sujet introuvable.', 404);
+  thread.section = section;
   return thread;
 }
+
+/** Modérateur de ce sous-forum : modérateur de sa tribu propriétaire. */
+const moderates = (manager, section) => manager && !section.owner;
 
 async function assertNotFlooding(playerId, now) {
   const recent = await TribeForumPost.count({ where: { playerId, createdAt: { [Op.gt]: new Date(now - FLOOD_SECONDS * 1000) } } });
@@ -102,11 +138,13 @@ async function tribeSections(tribeId) {
   return TribeForumSection.findAll({ where: { tribeId }, order: [['position', 'ASC'], ['id', 'ASC']] });
 }
 
-/** Sujets de la tribu, au besoin hors sous-forums en sourdine. */
-async function tribeThreads(tribeId, exclude = new Set()) {
+/** Sujets des sous-forums visibles du joueur, au besoin hors sous-forums en sourdine. */
+async function visibleThreads(player, exclude = new Set()) {
+  const ids = (await visibleSections(player)).map((x) => x.id);
+  if (!ids.length) return [];
   return TribeForumThread.findAll({
     attributes: ['id', 'sectionId', 'title', 'lastPostAt', 'lastPostId', 'postCount'],
-    include: [{ model: TribeForumSection, as: 'section', attributes: ['id', 'name'], where: { tribeId } }],
+    include: [{ model: TribeForumSection, as: 'section', attributes: ['id', 'name'], where: { id: { [Op.in]: ids } } }],
     order: [['lastPostAt', 'DESC'], ['id', 'DESC']],
   }).then((rows) => rows.filter((t) => !exclude.has(t.sectionId)));
 }
@@ -121,13 +159,51 @@ function cleanOptions(input) {
   return unique;
 }
 
+const LAST_OPEN = 'La tribu doit garder au moins un sous-forum visible de tous.';
+
+/** Modérateur du forum qui a aussi le droit « Forum caché » (pour cacher un forum ou le rendre visible). */
+async function secretManagerOf(playerId) {
+  const manager = await managerOf(playerId);
+  if (!TribeService.can(manager, 'hiddenForum')) throw new GameError('Il faut le droit Forum caché.', 403);
+  return manager;
+}
+
+/** Partage proposé à la tribu du joueur. */
+async function receivedShare(player, shareId) {
+  const share = await TribeForumShare.findByPk(Number(shareId));
+  if (!share || share.tribeId !== player.tribeId) throw new GameError('Partage introuvable.', 404);
+  return share;
+}
+
+/** Fin d'un partage : les membres de la tribu invitée perdent aussi leur sourdine sur ce forum. */
+async function endShare(share, t) {
+  const members = await Player.findAll({ where: { tribeId: share.tribeId }, attributes: ['id'], transaction: t });
+  if (members.length) await TribeForumMute.destroy({ where: { sectionId: share.sectionId, playerId: { [Op.in]: members.map((m) => m.id) } }, transaction: t });
+  await share.destroy({ transaction: t });
+}
+
 class TribeForumService {
-  /** Accueil du forum : sous-forums (le premier est créé au besoin), sujets, non lus et dernier sujet actif. */
+  /**
+   * Réglages du forum : sous-forums de la tribu (sujets, non lus, dernier sujet actif, tribus avec qui ils sont
+   * partagés), forums partagés reçus d'autres tribus (acceptés ou en attente) et rangée des sous-forums (`nav`).
+   */
   static async overview(playerId) {
     const { player, manager } = await memberOf(playerId);
-    let sections = await TribeForumSection.findAll({ where: { tribeId: player.tribeId }, order: [['position', 'ASC'], ['id', 'ASC']] });
     // Tribu fondée avant le forum : elle reçoit les sous-forums par défaut à la première visite.
-    if (!sections.length) sections = await TribeForumService.createDefaults(player.tribeId);
+    if (!(await TribeForumSection.count({ where: { tribeId: player.tribeId } }))) await TribeForumService.createDefaults(player.tribeId);
+    const nav = await visibleSections(player);
+    const sections = nav.filter((x) => !x.owner);
+    const shares = await TribeForumShare.findAll({
+      where: { sectionId: { [Op.in]: sections.map((x) => x.id) } },
+      include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }],
+      order: [['id', 'ASC']],
+    });
+    const secret = TribeService.can(player, 'hiddenForum');
+    const received = (await TribeForumShare.findAll({
+      where: { tribeId: player.tribeId },
+      include: [{ model: TribeForumSection, as: 'section', attributes: ['id', 'name'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+      order: [['accepted', 'ASC'], ['id', 'ASC']],
+    })).filter((sh) => secret || !sh.accepted || !sh.hidden);
     const threads = await TribeForumThread.findAll({
       where: { sectionId: { [Op.in]: sections.map((s) => s.id) } },
       attributes: ['id', 'sectionId', 'title', 'lastPostAt', 'lastPostId'],
@@ -136,27 +212,35 @@ class TribeForumService {
     });
     const unread = await unreadIds(player.id, threads);
     return {
-      manager,
+      manager, secret, nav, received,
       sections: sections.map((s) => {
         const own = threads.filter((t) => t.sectionId === s.id);
-        return { section: s, threads: own.length, unread: own.filter((t) => unread.has(t.id)).length, last: own[0] || null };
+        return {
+          section: s, threads: own.length, unread: own.filter((t) => unread.has(t.id)).length, last: own[0] || null,
+          shares: shares.filter((sh) => sh.sectionId === s.id),
+        };
       }),
     };
   }
 
+  /** Demandes de partage de forum en attente pour la tribu (pastille des réglages du forum). */
+  static pendingShares(tribeId) {
+    return TribeForumShare.count({ where: { tribeId, accepted: false } });
+  }
+
   /** Nombre de sujets non lus de la tribu du joueur (pastille de l'onglet Tribu). */
-  /** `player` : identifiant, ou joueur déjà lu avec son `tribeId` (en-tête des pages). */
+  /** `player` : identifiant, ou joueur déjà lu avec son `tribeId` et ses droits (en-tête des pages). */
   static async unreadCount(playerOrId) {
-    const player = typeof playerOrId === 'object' ? playerOrId : await Player.findByPk(playerOrId, { attributes: ['id', 'tribeId'] });
+    const player = typeof playerOrId === 'object' ? playerOrId : await Player.findByPk(playerOrId, { attributes: ['id', 'tribeId', 'tribeRole', 'tribeRights'] });
     if (!player || !player.tribeId) return 0;
-    const threads = await tribeThreads(player.tribeId, await mutedIds(player.id));
+    const threads = await visibleThreads(player, await mutedIds(player.id));
     return (await unreadIds(player.id, threads)).size;
   }
 
   /** Encadré « Nouveaux messages du forum » : sujets non lus, 5 par page, hors sourdine si demandé. */
   static async recent(playerId, { excludeMuted = true, page = 1 } = {}) {
     const { player } = await memberOf(playerId);
-    const threads = await tribeThreads(player.tribeId, excludeMuted ? await mutedIds(player.id) : new Set());
+    const threads = await visibleThreads(player, excludeMuted ? await mutedIds(player.id) : new Set());
     const unread = await unreadIds(player.id, threads);
     const list = threads.filter((t) => unread.has(t.id));
     const pages = Math.max(1, Math.ceil(list.length / RECENT_PAGE));
@@ -171,7 +255,7 @@ class TribeForumService {
   static async markRead(playerId, sectionId = null, now = new Date()) {
     const { player } = await memberOf(playerId);
     if (sectionId != null) await sectionOf(player, sectionId);
-    const threads = (await tribeThreads(player.tribeId)).filter((t) => sectionId == null || t.sectionId === Number(sectionId));
+    const threads = (await visibleThreads(player)).filter((t) => sectionId == null || t.sectionId === Number(sectionId));
     await sequelize.transaction(async (t) => {
       for (const th of threads) await markRead(player.id, th.id, now, t);
     });
@@ -191,14 +275,14 @@ class TribeForumService {
     return true;
   }
 
-  /** Recherche dans les titres et les messages du forum de la tribu (au moins 2 caractères). */
+  /** Recherche dans les titres et les messages des sous-forums visibles du joueur (au moins 2 caractères). */
   static async search(playerId, text) {
     const { player } = await memberOf(playerId);
     const q = String(text || '').trim().toLowerCase().slice(0, 60);
     if (q.length < 2) return [];
     const pattern = `%${q.replace(/[%_\\]/g, '')}%`;
     const lower = (col) => sequelize.where(sequelize.fn('lower', sequelize.col(col)), { [Op.like]: pattern });
-    const sectionIds = (await tribeSections(player.tribeId)).map((x) => x.id);
+    const sectionIds = (await visibleSections(player)).map((x) => x.id);
     const inPosts = await TribeForumPost.findAll({ where: { [Op.and]: [lower('body')] }, attributes: ['threadId'], group: ['threadId'], raw: true });
     return TribeForumThread.findAll({
       where: { sectionId: { [Op.in]: sectionIds }, [Op.or]: [lower('TribeForumThread.title'), { id: { [Op.in]: inPosts.map((r) => r.threadId) } }] },
@@ -223,17 +307,18 @@ class TribeForumService {
     });
     const muted = await mutedIds(player.id);
     return {
-      manager, player, section, sections: await tribeSections(player.tribeId), muted, isMuted: muted.has(section.id),
+      manager: moderates(manager, section), player, section, sections: await visibleSections(player), muted, isMuted: muted.has(section.id),
       threads, unread: await unreadIds(player.id, threads), total: count, ...p,
     };
   }
 
-  /** Premier sous-forum de la tribu (ouvert par l'onglet Forum), créés au besoin. */
+  /** Premier sous-forum visible du joueur (ouvert par l'onglet Forum) ; ceux de la tribu sont créés au besoin. */
   static async firstSection(playerId) {
     const { player } = await memberOf(playerId);
-    let sections = await tribeSections(player.tribeId);
-    if (!sections.length) sections = await TribeForumService.createDefaults(player.tribeId);
-    return sections[0];
+    if (!(await TribeForumSection.count({ where: { tribeId: player.tribeId } }))) await TribeForumService.createDefaults(player.tribeId);
+    const [first] = await visibleSections(player);
+    if (!first) throw new GameError('Aucun forum accessible.', 404);
+    return first;
   }
 
   /** Un sujet et une page de ses messages (`'last'` : dernière page). L'ouvrir le marque comme lu. */
@@ -260,7 +345,7 @@ class TribeForumService {
       pollData = { options: poll.options, counts, total: votes.length, mine: mine ? mine.option : null };
     }
     return {
-      manager, player, thread, section: thread.section, sections: await tribeSections(player.tribeId), poll: pollData,
+      manager: moderates(manager, thread.section), player, thread, section: thread.section, sections: await visibleSections(player), poll: pollData,
       posts, firstPostId: first && first.id, total: count, ...p,
     };
   }
@@ -298,17 +383,20 @@ class TribeForumService {
 
   static async renameSection(managerId, sectionId, name) {
     const manager = await managerOf(managerId);
-    const section = await sectionOf(manager, sectionId);
+    const section = await ownSectionOf(manager, sectionId);
     return section.update({ name: cleanName(name, 1, SECTION_MAX, 'Nom du sous-forum') });
   }
 
-  /** Monter (-1) ou descendre (+1) un sous-forum dans la liste. */
+  /** Monter (-1) ou descendre (+1) un sous-forum dans la liste (en sautant les forums cachés que le modérateur ne voit pas). */
   static async moveSection(managerId, sectionId, dir) {
     const manager = await managerOf(managerId);
-    const sections = await TribeForumSection.findAll({ where: { tribeId: manager.tribeId }, order: [['position', 'ASC'], ['id', 'ASC']] });
-    const i = sections.findIndex((s) => s.id === Number(sectionId));
-    if (i < 0) throw new GameError('Sous-forum introuvable.', 404);
-    const j = i + (Number(dir) < 0 ? -1 : 1);
+    const section = await ownSectionOf(manager, sectionId);
+    const sections = await tribeSections(manager.tribeId);
+    const seen = TribeService.can(manager, 'hiddenForum') ? () => true : (s) => !s.hidden;
+    const i = sections.findIndex((s) => s.id === section.id);
+    const step = Number(dir) < 0 ? -1 : 1;
+    let j = i + step;
+    while (j >= 0 && j < sections.length && !seen(sections[j])) j += step;
     if (j < 0 || j >= sections.length) return;
     [sections[i], sections[j]] = [sections[j], sections[i]];
     await sequelize.transaction(async (t) => {
@@ -316,20 +404,81 @@ class TribeForumService {
     });
   }
 
-  /** Supprimer un sous-forum et tous ses sujets ; le dernier sous-forum ne peut pas être supprimé. */
+  /** Supprimer un sous-forum, ses sujets et ses partages ; la tribu garde au moins un sous-forum visible de tous. */
   static async deleteSection(managerId, sectionId) {
     const manager = await managerOf(managerId);
-    const section = await sectionOf(manager, sectionId);
-    if (await TribeForumSection.count({ where: { tribeId: manager.tribeId } }) <= 1) throw new GameError('La tribu doit garder au moins un sous-forum.');
+    const section = await ownSectionOf(manager, sectionId);
+    if (!section.hidden && await TribeForumSection.count({ where: { tribeId: manager.tribeId, hidden: false } }) <= 1) throw new GameError(LAST_OPEN);
     await sequelize.transaction(async (t) => {
       const ids = (await TribeForumThread.findAll({ where: { sectionId: section.id }, attributes: ['id'], transaction: t })).map((x) => x.id);
       await destroyPolls(ids, t);
+      await TribeForumShare.destroy({ where: { sectionId: section.id }, transaction: t });
       await TribeForumMute.destroy({ where: { sectionId: section.id }, transaction: t });
       await TribeForumRead.destroy({ where: { threadId: { [Op.in]: ids } }, transaction: t });
       await TribeForumPost.destroy({ where: { threadId: { [Op.in]: ids } }, transaction: t });
       await TribeForumThread.destroy({ where: { sectionId: section.id }, transaction: t });
       await section.destroy({ transaction: t });
     });
+  }
+
+  /** Faire d'un sous-forum de la tribu un forum caché, ou le rendre de nouveau visible de tous. */
+  static async setHidden(managerId, sectionId, on) {
+    const manager = await secretManagerOf(managerId);
+    const section = await ownSectionOf(manager, sectionId);
+    const hidden = Boolean(on);
+    if (hidden && !section.hidden && await TribeForumSection.count({ where: { tribeId: manager.tribeId, hidden: false } }) <= 1) throw new GameError(LAST_OPEN);
+    return section.update({ hidden });
+  }
+
+  // ---------------------------------------------------------------- Forums partagés
+
+  /** Proposer un sous-forum de la tribu à une autre tribu du monde (par son tag) ; elle doit l'accepter. */
+  static async share(managerId, sectionId, tag) {
+    const manager = await managerOf(managerId);
+    const section = await ownSectionOf(manager, sectionId);
+    const tribe = await Tribe.findOne({ where: { worldId: manager.worldId, tag: String(tag || '').trim() } });
+    if (!tribe) throw new GameError('Aucune tribu avec ce tag.');
+    if (tribe.id === manager.tribeId) throw new GameError('Ce forum appartient déjà à ta tribu.');
+    const existing = await TribeForumShare.findOne({ where: { sectionId: section.id, tribeId: tribe.id } });
+    if (existing) throw new GameError(existing.accepted ? 'Ce forum est déjà partagé avec cette tribu.' : 'Cette tribu a déjà une demande de partage pour ce forum.');
+    if (await TribeForumShare.count({ where: { sectionId: section.id } }) >= MAX_SHARES) throw new GameError(`Un forum se partage avec ${MAX_SHARES} tribus au maximum.`);
+    return TribeForumShare.create({ sectionId: section.id, tribeId: tribe.id });
+  }
+
+  /** Tribu propriétaire : retirer une demande de partage ou cesser de partager le forum avec une tribu. */
+  static async unshare(managerId, shareId) {
+    const manager = await managerOf(managerId);
+    const share = await TribeForumShare.findByPk(Number(shareId));
+    if (!share) throw new GameError('Partage introuvable.', 404);
+    await ownSectionOf(manager, share.sectionId);
+    await endShare(share);
+    return share;
+  }
+
+  /** Tribu invitée : accepter (le forum rejoint sa liste) ou refuser une demande de partage. */
+  static async answerShare(managerId, shareId, accept) {
+    const manager = await managerOf(managerId);
+    const share = await receivedShare(manager, shareId);
+    if (share.accepted) throw new GameError('Ce partage est déjà accepté.');
+    if (accept) return share.update({ accepted: true });
+    await share.destroy();
+    return share;
+  }
+
+  /** Tribu invitée : quitter un forum partagé accepté. */
+  static async leaveShare(managerId, shareId) {
+    const manager = await managerOf(managerId);
+    const share = await receivedShare(manager, shareId);
+    await endShare(share);
+    return share;
+  }
+
+  /** Tribu invitée : faire d'un forum partagé reçu un forum caché pour ses membres, ou non. */
+  static async setShareHidden(managerId, shareId, on) {
+    const manager = await secretManagerOf(managerId);
+    const share = await receivedShare(manager, shareId);
+    if (!share.accepted) throw new GameError("Accepte d'abord ce forum partagé.");
+    return share.update({ hidden: Boolean(on) });
   }
 
   // ---------------------------------------------------------------- Sujets et messages
@@ -356,7 +505,7 @@ class TribeForumService {
   static async reply(playerId, threadId, { body }, now = new Date()) {
     const { player, manager } = await memberOf(playerId);
     const thread = await threadOf(player, threadId);
-    if (thread.locked && !manager) throw new GameError('Ce sujet est verrouillé.');
+    if (thread.locked && !moderates(manager, thread.section)) throw new GameError('Ce sujet est verrouillé.');
     const text = cleanBody(body);
     await assertNotFlooding(player.id, now);
     return sequelize.transaction(async (t) => {
@@ -382,10 +531,11 @@ class TribeForumService {
    * un membre ne peut le faire que tant qu'il n'y a pas de réponse. Renvoie { threadDeleted, thread }.
    */
   static async remove(playerId, postId) {
-    const { player, manager } = await memberOf(playerId);
+    const { player, manager: mod } = await memberOf(playerId);
     const post = await TribeForumPost.findByPk(Number(postId));
     if (!post) throw new GameError('Message introuvable.', 404);
     const thread = await threadOf(player, post.threadId);
+    const manager = moderates(mod, thread.section);
     if (post.playerId !== player.id && !manager) throw new GameError('Tu ne peux supprimer que tes propres messages.', 403);
     const first = await TribeForumPost.findOne({ where: { threadId: thread.id }, order: [['createdAt', 'ASC'], ['id', 'ASC']] });
     return sequelize.transaction(async (t) => {
@@ -409,16 +559,20 @@ class TribeForumService {
     if (!['pinned', 'locked'].includes(flag)) throw new GameError('Action inconnue.');
     const manager = await managerOf(managerId);
     const thread = await threadOf(manager, threadId);
+    if (thread.section.owner) throw new GameError('Ce forum appartient à une autre tribu : seuls ses modérateurs le gèrent.', 403);
     await TribeForumThread.update({ [flag]: Boolean(on) }, { where: { id: thread.id } });
     return thread;
   }
 
   /** Dissolution d'une tribu : tout son forum disparaît. */
   static async destroyTribe(tribeId, t) {
+    // Forums partagés reçus : les membres n'y ont plus accès (sourdines retirées avec le partage).
+    for (const share of await TribeForumShare.findAll({ where: { tribeId }, transaction: t })) await endShare(share, t);
     const sectionIds = (await TribeForumSection.findAll({ where: { tribeId }, attributes: ['id'], transaction: t })).map((s) => s.id);
     if (!sectionIds.length) return;
     const threadIds = (await TribeForumThread.findAll({ where: { sectionId: { [Op.in]: sectionIds } }, attributes: ['id'], transaction: t })).map((x) => x.id);
     await destroyPolls(threadIds, t);
+    await TribeForumShare.destroy({ where: { sectionId: { [Op.in]: sectionIds } }, transaction: t });
     await TribeForumMute.destroy({ where: { sectionId: { [Op.in]: sectionIds } }, transaction: t });
     await TribeForumRead.destroy({ where: { threadId: { [Op.in]: threadIds } }, transaction: t });
     await TribeForumPost.destroy({ where: { threadId: { [Op.in]: threadIds } }, transaction: t });
@@ -427,6 +581,6 @@ class TribeForumService {
   }
 }
 
-Object.assign(TribeForumService, { DEFAULT_SECTIONS, RECENT_PAGE, POLL_MAX, PAGE_SIZE, TITLE_MAX, BODY_MAX, FLOOD_SECONDS, MAX_SECTIONS });
+Object.assign(TribeForumService, { DEFAULT_SECTIONS, RECENT_PAGE, POLL_MAX, PAGE_SIZE, TITLE_MAX, BODY_MAX, FLOOD_SECONDS, MAX_SECTIONS, MAX_SHARES });
 
 module.exports = TribeForumService;

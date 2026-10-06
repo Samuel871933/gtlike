@@ -1,46 +1,46 @@
 <%# Tribu, onglet « Droits des membres » (inclus par tribe.ejs, avec ses helpers : vid, t, relName, roleTag…). %>
-    <%# Droits : un formulaire par ligne (attribut form), comme l'onglet « Droits » des propriétés de tribu sur GT. %>
+    <%# Droits : un seul formulaire pour tous les membres modifiables (champs title-<id>, rights-<id>), un seul bouton
+        Enregistrer, comme l'onglet « Droits » des propriétés de tribu sur GT. %>
     <section class="<%= ui.panel %>">
       <%- panelHead('Droits') %>
+      <form method="post" action="<%= t %>/rights"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <div class="overflow-x-auto">
         <table class="<%= ui.table %>">
           <thead>
             <tr>
               <th>Joueur</th><th>Titre</th>
               <% for (const r of tribeRights.RIGHTS) { %><th class="text-center" title="<%= r.text %>"><%= r.name %></th><% } %>
-              <th></th>
             </tr>
           </thead>
           <tbody>
-          <% for (const m of members) { const editable = canEdit(m); const fid = `droits-${m.id}`; const titled = m.tribeRole !== 'member'; %>
+          <% for (const m of members) { const editable = canEdit(m); const titled = m.tribeRole !== 'member'; %>
             <tr>
-              <td class="font-semibold"><span class="inline-flex items-center gap-2"><%- avatarThumb('player', m) %><%= m.name %></span></td>
+              <td class="font-semibold"><span class="inline-flex items-center gap-2"><%- avatarThumb('player', m) %><%= m.name %></span><% if (editable) { %><input type="hidden" name="members" value="<%= m.id %>"><% } %></td>
               <td>
                 <% if (editable && isDuke) { %>
-                  <select name="title" form="<%= fid %>" class="<%= ui.inputSm %>" aria-label="Titre de <%= m.name %>">
+                  <select name="title-<%= m.id %>" class="<%= ui.inputSm %>" aria-label="Titre de <%= m.name %>">
                     <% for (const id of ['member', 'baron', 'duke']) { %><option value="<%= id %>" <%= m.tribeRole === id ? 'selected' : '' %>><%= tribeRights.TITLES[id] %></option><% } %>
                   </select>
                 <% } else { %>
                   <span class="<%= roleTag[m.tribeRole] %>"><%= tribeRights.TITLES[m.tribeRole] %></span>
-                  <% if (editable) { %><input type="hidden" name="title" value="<%= m.tribeRole %>" form="<%= fid %>"><% } %>
+                  <% if (editable) { %><input type="hidden" name="title-<%= m.id %>" value="<%= m.tribeRole %>"><% } %>
                 <% } %>
               </td>
               <% for (const r of tribeRights.RIGHTS) { %>
                 <td class="text-center">
-                  <input type="checkbox" name="rights" value="<%= r.id %>" form="<%= fid %>" class="<%= ui.checkbox %>" aria-label="<%= r.name %> : <%= m.name %>"
+                  <input type="checkbox" name="rights-<%= m.id %>" value="<%= r.id %>" class="<%= ui.checkbox %>" aria-label="<%= r.name %> : <%= m.name %>"
                     <%= tribeRights.has(m, r.id) ? 'checked' : '' %> <%= editable && !titled ? '' : 'disabled' %>>
                 </td>
               <% } %>
-              <td class="text-right">
-                <% if (editable) { %>
-                  <form id="<%= fid %>" method="post" action="<%= t %>/members/<%= m.id %>/rights" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></form>
-                <% } %>
-              </td>
             </tr>
           <% } %>
           </tbody>
         </table>
       </div>
+      <% if (members.some(canEdit)) { %>
+        <div class="flex justify-end border-t border-bronze-900 px-4.5 py-3"><button class="<%= btn('gold', 'sm') %>">Enregistrer</button></div>
+      <% } %>
+      </form>
       <ul class="flex flex-col gap-1 border-t border-bronze-900 px-4.5 py-3 text-[13px] text-parchment-500">
         <li><span class="font-semibold text-parchment-300">Duc</span> : tous les droits ; seul un duc nomme des ducs et des barons.</li>
         <li><span class="font-semibold text-parchment-300">Baron</span> : définit les droits des membres, les renvoie et a tous les autres droits.</li>

@@ -104,7 +104,8 @@ router.get('/map', ah(async (req, res) => {
   // Modèles favoris : raccourcis d'attaque du menu d'un village (première lettre du nom).
   const farm = templates.filter((t) => t.favorite).sort((a, b) => a.favorite - b.favorite)
     .map((t) => ({ id: t.id, name: t.name, letter: ArmyTemplateService.letter(t) }));
-  const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => [c.target.x, c.target.y]);
+  // Flèches des attaques en route : [x, y, arrivée en ms] ; map.js retire chacune à son arrivée.
+  const attacks = movements.outgoing.filter((c) => c.type === 'attack').map((c) => [c.target.x, c.target.y, new Date(c.arrivesAt).getTime()]);
   // Mondes avec église : zones d'influence de ses églises (calque « Zones de foi ») : [x, y, rayon].
   const churches = (await require('../../../services/FaithService').churches(village.playerId, cfg)).map((c) => [c.x, c.y, c.radius]);
   // Infobulle : durée du trajet de chaque unité (minutes par case) ; menu : éclaireurs proposés pour « Espionner ».

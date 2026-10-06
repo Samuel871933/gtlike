@@ -22,6 +22,7 @@ const DENIED = {
   diplomacy: 'Il faut le droit de diplomatie.',
   massMail: 'Il faut le droit de courrier circulaire.',
   forumMod: 'Il faut le droit de modérateur du forum.',
+  hiddenForum: 'Il faut le droit Forum caché.',
 };
 
 class TribeService {
@@ -184,15 +185,32 @@ class TribeService {
    * un duc qui nomme un autre duc le fait sans perdre son titre (plusieurs ducs possibles).
    */
   static async setRights(managerId, memberId, { title, rights } = {}) {
-    if (!RANK[title]) throw new GameError('Titre inconnu.');
+    return TribeService.setAllRights(managerId, [{ memberId, title, rights }]);
+  }
+
+  /**
+   * Droits de plusieurs membres d'un coup (onglet « Droits » : un seul bouton Enregistrer) : [{ memberId, title,
+   * rights }]. Tout ou rien ; seuls les membres dont le titre ou les droits changent sont modifiés (et journalisés).
+   */
+  static async setAllRights(managerId, entries = []) {
+    for (const { title } of entries) if (!RANK[title]) throw new GameError('Titre inconnu.');
     return sequelize.transaction(async (t) => {
       const manager = await TribeService.requireRight(managerId, 'baron', t);
-      const member = await Player.findOne({ where: { id: Number(memberId), tribeId: manager.tribeId }, transaction: t, lock: t.LOCK.UPDATE });
-      if (!member) throw new GameError('Membre introuvable.', 404);
-      if (!TribeService.canEdit(manager, member)) throw new GameError('Vous ne pouvez pas modifier les droits de ce membre.', 403);
-      if (title !== 'member' && manager.tribeRole !== 'duke') throw new GameError(DENIED.duke, 403);
-      await member.update({ tribeRole: title, tribeRights: title === 'member' ? tribeRights.clean(rights) : null }, { transaction: t });
-      await TribeEventService.log(manager.tribeId, 'rights', { actor: who(manager), target: who(member), title: tribeRights.label(member) }, { t });
+      let changed = 0;
+      for (const { memberId, title, rights } of entries) {
+        const member = await Player.findOne({ where: { id: Number(memberId), tribeId: manager.tribeId }, transaction: t, lock: t.LOCK.UPDATE });
+        if (!member) throw new GameError('Membre introuvable.', 404);
+        const next = title === 'member' ? tribeRights.clean(rights) : null;
+        // Inchangé : même titre et, pour un simple membre, mêmes droits.
+        const same = member.tribeRole === title && (title !== 'member' || tribeRights.clean(member.tribeRights).join() === next.join());
+        if (same) continue;
+        if (!TribeService.canEdit(manager, member)) throw new GameError('Vous ne pouvez pas modifier les droits de ce membre.', 403);
+        if (title !== 'member' && manager.tribeRole !== 'duke') throw new GameError(DENIED.duke, 403);
+        await member.update({ tribeRole: title, tribeRights: next }, { transaction: t });
+        await TribeEventService.log(manager.tribeId, 'rights', { actor: who(manager), target: who(member), title: tribeRights.label(member) }, { t });
+        changed++;
+      }
+      return changed;
     });
   }
 

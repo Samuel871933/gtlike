@@ -7,7 +7,7 @@ process.env.DB_DIALECT = 'sqlite';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { sequelize, Player, TribeForumSection, TribeForumThread, TribeForumPost, TribeForumPoll } = require('../src/models');
+const { sequelize, Player, TribeForumSection, TribeForumThread, TribeForumPost, TribeForumPoll, TribeForumShare } = require('../src/models');
 const AuthService = require('../src/services/AuthService');
 const WorldService = require('../src/services/WorldService');
 const TribeService = require('../src/services/TribeService');
@@ -133,6 +133,66 @@ test('recherche et sondage (un vote par membre, modifiable)', async () => {
   assert.equal(data.poll.mine, 1);
 });
 
+test('forum caché : réservé au droit Forum caché (ducs et barons compris)', async () => {
+  const annonces = (await TribeForumService.overview(p.Chef.id)).sections.find((s) => s.section.name === 'Annonces').section;
+  await assert.rejects(TribeForumService.setHidden(p.Membre.id, annonces.id, true), /modérateur du forum/);
+  await TribeForumService.setHidden(p.Chef.id, annonces.id, true);
+  const secret = await TribeForumService.createThread(p.Chef.id, annonces.id, { title: 'Plan secret', body: 'Chut' }, at(5000));
+  assert.ok(!(await names(p.Membre.id)).includes('Annonces'));
+  await assert.rejects(TribeForumService.section(p.Membre.id, annonces.id), /introuvable/);
+  await assert.rejects(TribeForumService.thread(p.Membre.id, secret.id), /introuvable/);
+  assert.ok(!(await TribeForumService.recent(p.Membre.id)).threads.some((r) => r.thread.id === secret.id));
+  assert.equal((await TribeForumService.search(p.Membre.id, 'secret')).length, 0);
+
+  await TribeService.setRights(p.Chef.id, p.Membre.id, { title: 'member', rights: ['hiddenForum'] });
+  assert.ok((await names(p.Membre.id)).includes('Annonces'));
+  assert.equal((await TribeForumService.thread(p.Membre.id, secret.id)).section.isHidden, true);
+  await TribeService.setRights(p.Chef.id, p.Membre.id, { title: 'member', rights: [] });
+  await TribeForumService.setHidden(p.Chef.id, annonces.id, false);
+  assert.ok((await names(p.Membre.id)).includes('Annonces'));
+
+  // La tribu garde au moins un sous-forum visible de tous.
+  const [last] = (await TribeForumService.overview(p.Ancien.id)).sections;
+  await assert.rejects(TribeForumService.setHidden(p.Ancien.id, last.section.id, true), /visible de tous/);
+});
+
+test('forum partagé : proposé par tag, accepté dans les réglages de l’autre tribu, modéré par la tribu propriétaire', async () => {
+  const ours = (await Player.findByPk(p.Autre.id)).tribeId;
+  await assert.rejects(TribeForumService.share(p.Chef.id, general.id, 'XXX'), /Aucune tribu/);
+  await assert.rejects(TribeForumService.share(p.Chef.id, general.id, 'LUP'), /déjà à ta tribu/);
+  const share = await TribeForumService.share(p.Chef.id, general.id, 'OURS');
+  await assert.rejects(TribeForumService.share(p.Chef.id, general.id, 'OURS'), /déjà une demande/);
+  assert.equal(await TribeForumService.pendingShares(ours), 1);
+  const before = await TribeForumService.overview(p.Autre.id);
+  assert.equal(before.received.length, 1);
+  assert.equal(before.received[0].section.Tribe.tag, 'LUP');
+  await assert.rejects(TribeForumService.section(p.Autre.id, general.id), /introuvable/, 'pas avant acceptation');
+  await assert.rejects(TribeForumService.answerShare(p.Chef.id, share.id, true), /introuvable/, 'seule la tribu invitée répond');
+
+  await TribeForumService.answerShare(p.Autre.id, share.id, true);
+  assert.equal(await TribeForumService.pendingShares(ours), 0);
+  const view = await TribeForumService.section(p.Autre.id, general.id);
+  assert.equal(view.section.owner.tag, 'LUP');
+  assert.equal(view.manager, false, 'les chefs invités ne modèrent pas');
+  const guest = await TribeForumService.createThread(p.Autre.id, general.id, { title: 'Bonjour voisins', body: 'Salut LUP' }, at(6000));
+  assert.ok((await TribeForumService.recent(p.Chef.id)).threads.some((r) => r.thread.id === guest.id));
+  await assert.rejects(TribeForumService.setFlag(p.Autre.id, guest.id, 'pinned', true), /autre tribu/);
+  await assert.rejects(TribeForumService.renameSection(p.Autre.id, general.id, 'À nous'), /autre tribu/);
+  await TribeForumService.setFlag(p.Chef.id, guest.id, 'locked', true);
+  await assert.rejects(TribeForumService.reply(p.Autre.id, guest.id, { body: 'Encore' }, at(6100)), /verrouillé/);
+
+  // La tribu invitée peut en faire un forum caché chez elle, sans effet chez la tribu propriétaire.
+  await TribeForumService.setShareHidden(p.Autre.id, share.id, true);
+  assert.equal((await TribeForumService.section(p.Autre.id, general.id)).section.isHidden, true);
+  assert.equal((await TribeForumService.section(p.Membre.id, general.id)).section.isHidden, false);
+
+  await TribeForumService.leaveShare(p.Autre.id, share.id);
+  await assert.rejects(TribeForumService.thread(p.Autre.id, guest.id), /introuvable/);
+  const again = await TribeForumService.share(p.Chef.id, general.id, 'OURS');
+  await TribeForumService.answerShare(p.Autre.id, again.id, false);
+  assert.equal((await TribeForumService.overview(p.Chef.id)).sections.find((s) => s.section.id === general.id).shares.length, 0);
+});
+
 test("un joueur qui quitte le monde laisse ses messages ; la dissolution efface le forum", async () => {
   await AccountService.leaveWorld(u.Membre.id, p.Membre.id, 'motdepasse');
   assert.ok(await TribeForumPost.count({ where: { playerId: null } }) >= 1);
@@ -144,4 +204,5 @@ test("un joueur qui quitte le monde laisse ses messages ; la dissolution efface 
   assert.equal(await TribeForumSection.count({ where: { tribeId: general.tribeId } }), 0);
   assert.equal(await TribeForumThread.count({ where: { id: thread.id } }), 0);
   assert.equal(await TribeForumPoll.count(), 0, 'les sondages partent avec le forum');
+  assert.equal(await TribeForumShare.count(), 0, 'les partages partent avec le forum');
 });

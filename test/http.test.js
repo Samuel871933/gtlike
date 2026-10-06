@@ -230,6 +230,13 @@ test('pages de la maquette Adarma : outils de la carte, contenus publics, mot de
   const tthread = await http(`${joined.location}/tribe/forum/${sectionId}`, { method: 'POST', form: { title: 'Plan', body: 'Attaque à 20 h', _csrf: tokenOf(overview.html) } });
   assert.match(tthread.location, /\/tribe\/forum\/t\/\d+$/);
   assert.match((await http(tthread.location)).html, /Attaque à 20 h/);
+  // Réglages du forum : forum caché et forums partagés.
+  const fsettings = await http(`${joined.location}/tribe/forum/settings`);
+  assert.equal(fsettings.status, 200);
+  assert.match(fsettings.html, /Forums partagés/);
+  const hidden = await http(`${joined.location}/tribe/forum/sections/${sectionId}/hidden`, { method: 'POST', form: { on: '1', _csrf: tokenOf(overview.html) } });
+  assert.match(hidden.location, /\/tribe\/forum\/settings$/);
+  assert.match((await http(tab.location)).html, /Caché/);
 
   const anon = client();
   const forgot = await anon('/password/forgot');
@@ -389,7 +396,8 @@ test('messagerie : boîte, écriture avec groupe de tribu, mail circulaire, effa
   assert.equal((await http(`${joined.location}/tribe?tab=properties`)).status, 200);
   const members = await http(`${joined.location}/tribe?tab=rights`);
   assert.match(members.html, /Courrier circulaire/);
-  await http(`${joined.location}/tribe/members/${bob.id}/rights`, { method: 'POST', form: { title: 'member', rights: 'forumMod', _csrf: tokenOf(members.html) } });
+  assert.equal((members.html.match(/>Enregistrer</g) || []).length, 1, 'un seul bouton Enregistrer pour tous les membres');
+  await http(`${joined.location}/tribe/rights`, { method: 'POST', form: { members: String(bob.id), [`title-${bob.id}`]: 'member', [`rights-${bob.id}`]: 'forumMod', _csrf: tokenOf(members.html) } });
   assert.deepEqual((await Player.findByPk(bob.id)).tribeRights, ['forumMod']);
 
   const form = await http(`${m}/new`);

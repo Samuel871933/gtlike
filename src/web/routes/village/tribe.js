@@ -36,6 +36,9 @@ async function renderTribe(res, player, tab, forum, status = 200, extra = {}) {
   const data = await TribeService.dashboard(player);
   const forumUnread = await TribeForumService.unreadCount(player.id);
   const can = (right) => TribeService.can(player, right);
+  // Pastille « Réglages du forum » : demandes de partage de forum en attente de réponse.
+  // Lien « Réglages du forum » : modérateurs de la tribu, même sur un forum partagé reçu (qu'ils ne modèrent pas).
+  if (forum && can('forumMod')) Object.assign(forum, { settings: true, pendingShares: await TribeForumService.pendingShares(player.tribeId) });
   res.status(status).render('tribe', { page: 'tribe', tab, player, can, canEdit: (m) => TribeService.canEdit(player, m), forum, forumUnread, feed: null, TribeCategories: require('../../../services/TribeEventService').CATEGORIES, ...data, ...extra });
 }
 
@@ -110,6 +113,27 @@ router.post('/tribe/forum/sections/:sectionId/delete', ah(async (req, res) => {
   res.redirect(`${tribeForumBase(req)}/settings`);
 }));
 
+const settingsAction = (fn, message) => ah(async (req, res) => {
+  await fn(req);
+  if (message) flash(req, 'success', typeof message === 'function' ? message(req) : message);
+  res.redirect(`${tribeForumBase(req)}/settings`);
+});
+const on = (req) => req.body.on === '1';
+
+router.post('/tribe/forum/sections/:sectionId/hidden', settingsAction(
+  (req) => TribeForumService.setHidden(me(req), req.params.sectionId, on(req)),
+  (req) => (on(req) ? 'Le forum est désormais caché.' : 'Le forum est de nouveau visible de tous.'),
+));
+router.post('/tribe/forum/sections/:sectionId/share', settingsAction((req) => TribeForumService.share(me(req), req.params.sectionId, req.body.tag), 'Demande de partage envoyée : la tribu doit l\'accepter dans ses réglages du forum.'));
+router.post('/tribe/forum/shares/:shareId/unshare', settingsAction((req) => TribeForumService.unshare(me(req), req.params.shareId), 'Partage retiré.'));
+router.post('/tribe/forum/shares/:shareId/accept', settingsAction((req) => TribeForumService.answerShare(me(req), req.params.shareId, true), 'Forum partagé accepté.'));
+router.post('/tribe/forum/shares/:shareId/decline', settingsAction((req) => TribeForumService.answerShare(me(req), req.params.shareId, false), 'Demande de partage refusée.'));
+router.post('/tribe/forum/shares/:shareId/leave', settingsAction((req) => TribeForumService.leaveShare(me(req), req.params.shareId), 'Ta tribu a quitté ce forum partagé.'));
+router.post('/tribe/forum/shares/:shareId/hidden', settingsAction(
+  (req) => TribeForumService.setShareHidden(me(req), req.params.shareId, on(req)),
+  (req) => (on(req) ? 'Le forum partagé est désormais caché.' : 'Le forum partagé est de nouveau visible de tous.'),
+));
+
 router.post('/tribe/forum/t/:threadId', ah(async (req, res) => {
   try {
     const post = await TribeForumService.reply(me(req), req.params.threadId, req.body);
@@ -174,7 +198,12 @@ router.post('/tribe/invites/:inviteId/decline', tribeAction((req) => TribeServic
 router.post('/tribe/invite', tribeAction((req) => TribeService.invite(me(req), req.body.name), 'Invitation envoyée.'));
 router.post('/tribe/invites/:inviteId/cancel', tribeAction((req) => TribeService.cancelInvite(me(req), req.params.inviteId), 'Invitation retirée.'));
 router.post('/tribe/members/:playerId/kick', tribeAction((req) => TribeService.kick(me(req), req.params.playerId), 'Membre exclu.'));
-router.post('/tribe/members/:playerId/rights', tribeAction((req) => TribeService.setRights(me(req), req.params.playerId, req.body), 'Droits modifiés.'));
+// Droits de tous les membres modifiables (onglet « Droits », un seul formulaire) : `members` (identifiants), puis
+// `title-<id>` et `rights-<id>` (cases cochées) pour chacun.
+router.post('/tribe/rights', tribeAction((req) => {
+  const ids = [].concat(req.body.members || []);
+  return TribeService.setAllRights(me(req), ids.map((id) => ({ memberId: id, title: req.body[`title-${id}`], rights: req.body[`rights-${id}`] })));
+}, 'Droits enregistrés.'));
 router.post('/tribe/description', tribeAction((req) => TribeService.updateDescription(me(req), req.body.description), 'Description enregistrée.'));
 router.post('/tribe/avatar', tribeAction((req) => {
   if (!req.file) throw new GameError('Choisissez une image.');

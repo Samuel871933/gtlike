@@ -9,10 +9,10 @@
       <button class="-ml-px inline-flex h-8 w-9 shrink-0 cursor-pointer items-center justify-center border border-black bg-head-dark text-parchment-100 transition hover:bg-night hover:text-gold-200" title="Rechercher" aria-label="Rechercher">${icon('search', 'size-4', 2.2)}</button>
     </form>`, { tag: 'h1' }) %>
   <%# Bandeau illustré sur toutes les pages de la messagerie (boîte de réception, circulaire, conversation, écriture). %>
-  <div class="inbox-hero inbox-hero--messages">
+  <div class="@container"><div class="inbox-hero inbox-hero--messages">
     <p class="inbox-hero__title">Correspondances du royaume</p>
     <p class="inbox-hero__subtitle">Messages des joueurs et de votre tribu</p>
-  </div>
+  </div></div>
   <div class="grid grid-cols-1 md:grid-cols-[180px_minmax(0,1fr)]">
     <%- sideNav(menu.map(([id, label, href]) => ({ href, label, active: id === active })), {
       label: 'Messagerie', cls: 'border-b border-bronze-800 md:border-r md:border-b-0',

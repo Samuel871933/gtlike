@@ -43,6 +43,12 @@
   const arrivalAt = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}:${String(d.getMilliseconds()).padStart(3, '0')}`;
   const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const continent = (x, y) => `K${Math.floor(y / 100)}${Math.floor(x / 100)}`;
+  // Texte mis à jour en continu (zoom, infobulle, titre) : nœud texte modifié, pas remplacé (une insertion fait
+  // recalculer les styles de toute la page, voir chunkEl).
+  const setText = (el, text) => {
+    const node = el.firstChild;
+    if (node && node === el.lastChild && node.nodeType === 3) { if (node.data !== text) node.data = text; } else if (el.textContent !== text) el.textContent = text;
+  };
 
   // État : centre de la vue (décimal pendant un glisser), case mise en évidence.
   let cx = Number(frame.dataset.cx);
@@ -104,7 +110,11 @@
       const batch = missing.slice(i, i + 16);
       fetch(`${base}/map/sectors?s=${batch.map(([sx, sy]) => `${sx}.${sy}`).join(',')}`, { headers: { accept: 'application/json' } })
         .then((r) => (r.ok ? r.json() : null))
-        .then((list) => { if (list) list.forEach(sectorLoaded); })
+        .then((list) => {
+          if (!list) return;
+          warmVillageSpecs(list.flatMap((sec) => sec.cells));
+          list.forEach(sectorLoaded);
+        })
         .catch(() => {})
         .finally(() => batch.forEach(([sx, sy]) => loading.delete(key(sx, sy))));
     }
@@ -140,21 +150,31 @@
   const resFor = () => RES_STEPS.find((s) => s >= (window.devicePixelRatio || 1) * zoom - 0.01) || 3;
   let res = resFor();
 
-  // Images : chargées une fois ; à leur arrivée, les blocs déjà dessinés sans elles sont refaits.
+  // Images : chargées une fois ; à leur arrivée, seuls les blocs dessinés sans elles sont refaits (`waiting` : blocs
+  // en attente de chaque image ; `drawing` : bloc en cours de dessin).
   const images = new Map();
-  let assetFrame = 0;
+  const waiting = new Map();
+  let drawing = null;
   function image(src) {
     let img = images.get(src);
     if (!img) {
       img = new Image();
       img.onload = () => {
-        if (assetFrame) return;
-        assetFrame = requestAnimationFrame(() => { assetFrame = 0; redrawAll(); });
+        const keys = waiting.get(src);
+        waiting.delete(src);
+        if (!keys) return;
+        for (const k of keys) if (chunks.has(k)) dirty.add(k);
+        schedule();
       };
       img.src = src;
       images.set(src, img);
     }
-    return img.complete && img.naturalWidth ? img : null;
+    if (img.complete && img.naturalWidth) return img;
+    if (drawing) {
+      if (!waiting.has(src)) waiting.set(src, new Set());
+      waiting.get(src).add(drawing);
+    }
+    return null;
   }
   const cssUrl = (v) => { const m = /url\(["']?([^"')]+)["']?\)/.exec(v || ''); return m ? m[1] : null; };
   // Position de fond CSS (« 50% », « 100% », « calc(50% + 1px) ») : décalage dans l'espace libre `free`.
@@ -171,7 +191,8 @@
 
   // Sondes : éléments invisibles portant les classes de la carte, dans le cadre (variables --tile-*, thème actif).
   const probeBox = document.createElement('div');
-  probeBox.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;pointer-events:none';
+  // Isolées (contain) : les lire ne recalcule que leurs styles et leur mise en page, pas celles de toute la page.
+  probeBox.style.cssText = 'position:absolute;left:-9999px;top:0;width:200px;height:200px;contain:strict;visibility:hidden;pointer-events:none';
   probeBox.setAttribute('aria-hidden', 'true');
   frame.append(probeBox);
   function probe(html) {
@@ -190,18 +211,35 @@
   const PAINT = { influence: 'bg-blood-700/25', faction: 'bg-[#4fb3e8]/30', enemy: 'bg-rel-enemy/20', edge: 'bg-map-edge' };
   // Village : image, boîte du sprite dans la case (marges, agrandissement), position du fond, filtres (barbares
   // grisés, halo du village courant, thème), couleur de la pastille de relation.
-  function villageSpec(kind, design, level) {
-    return spec(`v:${kind}|${design}|${level}`, () => {
-      const marker = probe(`<span class="village-marker village-marker--${kind} village-marker--${level} village-design--${design}" style="position:absolute"><span class="village-sprite"></span></span>`);
-      const sprite = marker.firstElementChild;
-      const ms = getComputedStyle(marker); const ss = getComputedStyle(sprite);
-      return {
-        src: cssUrl(ss.backgroundImage), box: relBox(sprite, marker), pos: [ss.backgroundPositionX, ss.backgroundPositionY],
-        filter: [ss.filter, ms.filter].filter((f) => f && f !== 'none').join(' '),
-        color: ms.getPropertyValue('--village-color').trim(),
-      };
-    });
+  const markerHtml = (kind, design, level) => `<span class="village-marker village-marker--${kind} village-marker--${level} village-design--${design}" style="position:absolute"><span class="village-sprite"></span></span>`;
+  function readVillageSpec(marker) {
+    const sprite = marker.firstElementChild;
+    const ms = getComputedStyle(marker); const ss = getComputedStyle(sprite);
+    return {
+      src: cssUrl(ss.backgroundImage), box: relBox(sprite, marker), pos: [ss.backgroundPositionX, ss.backgroundPositionY],
+      filter: [ss.filter, ms.filter].filter((f) => f && f !== 'none').join(' '),
+      color: ms.getPropertyValue('--village-color').trim(),
+    };
   }
+  function villageSpec(kind, design, level) {
+    return spec(`v:${kind}|${design}|${level}`, () => readVillageSpec(probe(markerHtml(kind, design, level))));
+  }
+  // Règles des villages d'un lot de cases lues d'un coup : une seule insertion dans la page (chaque insertion fait
+  // recalculer les styles de toute la page, voir chunkEl), au lieu d'une par sorte de village rencontrée en dessinant.
+  function warmVillageSpecs(list) {
+    const want = new Map();
+    for (const c of list) {
+      const design = c.design || 'beige';
+      const k = `v:${c.kind}|${design}|${c.level}`;
+      if (!specs.has(k) && !want.has(k)) want.set(k, markerHtml(c.kind, design, c.level));
+    }
+    if (!want.size) return;
+    probeBox.innerHTML = [...want.values()].join('');
+    const markers = [...probeBox.children];
+    [...want.keys()].forEach((k, i) => specs.set(k, readVillageSpec(markers[i])));
+  }
+  // Villages intégrés à la page.
+  warmVillageSpecs(cells.values());
   // Décor : image et taille à l'échelle 1 (largeur, hauteur, décalage vertical --decor-oy), voir .map-decor > span.
   function decorSpec(kind, flip) {
     return spec(`d:${kind}${flip}`, () => {
@@ -468,35 +506,50 @@
   const dirty = new Set();
   // Zone de blocs à garder dessinés (vue + MARGIN cases de chaque côté), en numéros de bloc.
   let zone = null;
+  // Blocs sortis de la zone, masqués et gardés pour resservir : en glissant, aucun élément n'est ajouté ni retiré de la
+  // page. Une insertion fait recalculer les styles de toute la page (règles :has(:checked)… des utilitaires has-*),
+  // un bloc déplacé seulement le sien.
+  const spare = [];
+  function chunkEl() {
+    const reused = spare.pop();
+    if (reused) { reused.hidden = false; return reused; }
+    const el = document.createElement('div');
+    el.className = 'absolute';
+    el.setAttribute('data-map-chunk', '');
+    const canvas = document.createElement('canvas');
+    canvas.className = 'absolute top-0 left-0 size-full';
+    el.append(canvas);
+    chunkBox.append(el);
+    return el;
+  }
+  function releaseChunk(k) {
+    const el = chunks.get(k);
+    chunks.delete(k);
+    dirty.delete(k);
+    el.hidden = true;
+    spare.push(el);
+  }
 
-  // Bloc (a, b) : cases a·CHUNK… et b·CHUNK…, texture d'herbe calée sur le monde. Hors du monde : simple bord.
+  // Bloc (a, b) : cases a·CHUNK… et b·CHUNK…, texture d'herbe calée sur le monde (hors du monde : bord, voir drawChunk).
   function buildChunk(a, b) {
     const k = key(a, b);
     let el = chunks.get(k);
     const x0 = a * CHUNK; const y0 = b * CHUNK;
-    const outside = x0 + CHUNK <= 0 || y0 + CHUNK <= 0 || x0 >= WORLD || y0 >= WORLD;
     if (!el) {
-      el = document.createElement('div');
-      el.className = outside ? 'absolute bg-map-edge' : 'absolute';
-      if (!outside) {
-        el.setAttribute('data-map-chunk', '');
-        const canvas = document.createElement('canvas');
-        canvas.className = 'absolute top-0 left-0 size-full';
-        el.append(canvas);
-      }
+      el = chunkEl();
       el.style.cssText = `left:${x0 * tw}px;top:${y0 * th}px;width:${CHUNK * tw}px;height:${CHUNK * th}px;--terrain-px:${texOffset(x0, tw)}px;--terrain-py:${texOffset(y0, th)}px`;
-      chunkBox.append(el);
       chunks.set(k, el);
     }
     dirty.delete(k);
-    if (outside) return;
     const canvas = el.firstElementChild;
     const W = Math.round(CHUNK * tw * res); const H = Math.round(CHUNK * th * res);
     const g = canvas.getContext('2d');
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; } else { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); }
     g.setTransform(W / (CHUNK * tw), 0, 0, H / (CHUNK * th), 0, 0);
+    drawing = k;
     drawChunk(g, x0, y0);
-    while (canvas.nextSibling) canvas.nextSibling.remove();
+    drawing = null;
+    // Pastilles d'ordres : touchées seulement si le bloc en avait ou en a (rares).
     const badges = [];
     for (let y = y0; y < y0 + CHUNK; y++) {
       for (let x = x0; x < x0 + CHUNK; x++) {
@@ -504,16 +557,23 @@
         if (c && !hiddenBarb(c)) badges.push(orderBadgesHtml(c, `left:${(x - x0) * tw}px;top:${(y - y0) * th}px`));
       }
     }
-    if (badges.join('')) el.insertAdjacentHTML('beforeend', badges.join(''));
+    const html = badges.join('');
+    if (el.dataset.badges !== html) {
+      while (canvas.nextSibling) canvas.nextSibling.remove();
+      if (html) el.insertAdjacentHTML('beforeend', html);
+      el.dataset.badges = html;
+    }
   }
 
   // Tout redessiner (taille des cases changée, carte agrandie…).
   function dropChunks() {
     chunkBox.textContent = '';
+    spare.length = 0;
     chunks.clear();
     dirty.clear();
     specs.clear();
     sprites.clear();
+    warmVillageSpecs(cells.values());
     zone = null;
   }
   // Tous les blocs gardés à refaire (calque basculé, image arrivée, résolution changée), du centre vers les bords.
@@ -532,10 +592,12 @@
     };
     if (zone && z.a0 === zone.a0 && z.a1 === zone.a1 && z.b0 === zone.b0 && z.b1 === zone.b1) return;
     zone = z;
-    ensure(z.a0 * CHUNK, z.b0 * CHUNK, (z.a1 + 1) * CHUNK - 1, (z.b1 + 1) * CHUNK - 1);
-    for (const [k, el] of chunks) {
+    // Villages demandés un secteur plus loin que la zone dessinée : ils arrivent avant que les blocs en aient besoin
+    // (sinon un bloc est dessiné vide, puis redessiné quand ses villages arrivent).
+    ensure(z.a0 * CHUNK - SECTOR, z.b0 * CHUNK - SECTOR, (z.a1 + 1) * CHUNK - 1 + SECTOR, (z.b1 + 1) * CHUNK - 1 + SECTOR);
+    for (const k of [...chunks.keys()]) {
       const [a, b] = k.split('|').map(Number);
-      if (a < z.a0 || a > z.a1 || b < z.b0 || b > z.b1) { el.remove(); chunks.delete(k); dirty.delete(k); }
+      if (a < z.a0 || a > z.a1 || b < z.b0 || b > z.b1) releaseChunk(k);
     }
     for (let b = Math.floor(top / CHUNK); b <= Math.floor((top + size) / CHUNK); b++) {
       for (let a = Math.floor(left / CHUNK); a <= Math.floor((left + size) / CHUNK); a++) if (!chunks.has(key(a, b))) buildChunk(a, b);
@@ -582,21 +644,43 @@
   }
 
   // Calque du dessus (quadrillage, frontières, zones de foi, flèches) et règles : posés sur une fenêtre autour de
-  // la vue, refaits quand la vue sort de sa marge (quelques éléments seulement).
+  // la vue, recalés quand la vue sort de sa marge. Leurs éléments sont créés une fois, puis seulement déplacés.
+  // Frontières de continent (tous les 100 cases) : 3 au plus par axe dans la fenêtre, même dézoomée.
+  const BORDERS = 3;
+  overlay.innerHTML = [
+    ...Array.from({ length: BORDERS }, () => '<div class="pointer-events-none absolute top-0 z-[5] hidden h-full border-l-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" data-border-x></div>'),
+    ...Array.from({ length: BORDERS }, () => '<div class="pointer-events-none absolute left-0 z-[5] hidden w-full border-t-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" data-border-y></div>'),
+    '<div class="map-grid-lines pointer-events-none absolute inset-0 z-[4] hidden group-data-[layer-grid]/map:block" data-grid></div>',
+    // Zones de foi : couleur de carte (--color-map-label, la même dans tous les styles) sur un liseré sombre.
+    `<svg class="pointer-events-none absolute inset-0 z-[4] hidden overflow-visible group-data-[layer-church]/map:block" width="100%" height="100%" aria-hidden="true"><g class="fill-map-label/15 stroke-black/45" stroke-width="5">${'<ellipse/>'.repeat((boot.churches || []).length)}</g><g class="fill-none stroke-map-label" stroke-width="2.5" stroke-dasharray="10 5">${'<ellipse/>'.repeat((boot.churches || []).length)}</g></svg>`,
+    '<svg class="pointer-events-none absolute inset-0 z-[7] hidden overflow-visible group-data-[layer-moves]/map:block" width="100%" height="100%" aria-hidden="true"><path class="stroke-blood-450" stroke-width="2" stroke-dasharray="6 5" fill="none" data-arrow-lines/><path class="fill-blood-450" data-arrow-heads/></svg>',
+  ].join('');
+  const borderX = [...overlay.querySelectorAll('[data-border-x]')];
+  const borderY = [...overlay.querySelectorAll('[data-border-y]')];
+  const gridEl = overlay.querySelector('[data-grid]');
+  const churchEls = [...overlay.querySelectorAll('ellipse')];
+  const arrowLines = overlay.querySelector('[data-arrow-lines]');
+  const arrowHeads = overlay.querySelector('[data-arrow-heads]');
+  const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
+
   function frameOverlay() {
     const x0 = Math.floor(cx) - half - MARGIN;
     const y0 = Math.floor(cy) - half - MARGIN;
     span = size + 2 * MARGIN;
     baseX = x0;
     baseY = y0;
-    const out = [];
-    // Frontières de continent (tous les 100 cases) et quadrillage de 5 cases (fond du calque).
-    for (let x = Math.ceil(x0 / 100) * 100; x < x0 + span; x += 100) out.push(`<div class="pointer-events-none absolute top-0 z-[5] hidden h-full border-l-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="left:${(x - x0) * tw}px"></div>`);
-    for (let y = Math.ceil(y0 / 100) * 100; y < y0 + span; y += 100) out.push(`<div class="pointer-events-none absolute left-0 z-[5] hidden w-full border-t-[3px] border-dashed border-gold-400/80 group-data-[layer-borders]/map:block" style="top:${(y - y0) * th}px"></div>`);
-    out.push(`<div class="map-grid-lines pointer-events-none absolute inset-0 z-[4] hidden group-data-[layer-grid]/map:block" style="--grid-x:${(5 - (((x0 % 5) + 5) % 5)) % 5};--grid-y:${(5 - (((y0 % 5) + 5) % 5)) % 5}"></div>`);
-    out.push(churchZones(x0, y0));
-    out.push(arrows(x0, y0));
-    overlay.innerHTML = out.join('');
+    const lines = (els, from, prop, px) => els.forEach((el, i) => {
+      const v = Math.ceil(from / 100) * 100 + i * 100;
+      const on = v < from + span;
+      el.style.display = on ? '' : 'none';
+      if (on) el.style[prop] = `${(v - from) * px}px`;
+    });
+    lines(borderX, x0, 'left', tw);
+    lines(borderY, y0, 'top', th);
+    gridEl.style.setProperty('--grid-x', String((5 - (((x0 % 5) + 5) % 5)) % 5));
+    gridEl.style.setProperty('--grid-y', String((5 - (((y0 % 5) + 5) % 5)) % 5));
+    churchZones(x0, y0);
+    arrows(x0, y0);
     overlay.style.cssText = `left:${x0 * tw}px;top:${y0 * th}px;width:${span * tw}px;height:${span * th}px`;
     rulers();
   }
@@ -614,46 +698,67 @@
   }
 
   // Zones d'influence de ses églises (mondes avec église, calque « Zones de foi ») : hors de ces cercles, ses villages se
-  // battent à 50 %.
+  // battent à 50 %. Deux ellipses par église (liseré sombre, trait clair).
   function churchZones(x0, y0) {
-    if (!boot.churches || !boot.churches.length) return '';
-    const circles = boot.churches.map(([x, y, r]) => `<ellipse cx="${((x - x0 + 0.5) * tw).toFixed(1)}" cy="${((y - y0 + 0.5) * th).toFixed(1)}" rx="${(r * tw).toFixed(1)}" ry="${(r * th).toFixed(1)}"/>`).join('');
-    // Couleur de carte (--color-map-label, la même dans tous les styles) sur un liseré sombre : lisible sur l'herbe.
-    return `<svg class="pointer-events-none absolute inset-0 z-[4] hidden overflow-visible group-data-[layer-church]/map:block" width="100%" height="100%" aria-hidden="true"><g class="fill-map-label/15 stroke-black/45" stroke-width="5">${circles}</g><g class="fill-none stroke-map-label" stroke-width="2.5" stroke-dasharray="10 5">${circles}</g></svg>`;
+    const list = boot.churches || [];
+    churchEls.forEach((el, i) => {
+      const [x, y, r] = list[i % list.length];
+      setAttr(el, 'cx', ((x - x0 + 0.5) * tw).toFixed(1));
+      setAttr(el, 'cy', ((y - y0 + 0.5) * th).toFixed(1));
+      setAttr(el, 'rx', (r * tw).toFixed(1));
+      setAttr(el, 'ry', (r * th).toFixed(1));
+    });
   }
 
-  // Flèches des attaques en cours depuis ce village (calque « Mouvements de troupes »).
+  // Flèches des attaques en route depuis ce village (calque « Mouvements de troupes ») : plus de flèche une fois
+  // l'attaque arrivée (le retour des troupes n'en a pas).
+  const liveAttacks = () => boot.attacks.filter(([, , at]) => !at || at > Date.now());
   function arrows(x0, y0) {
-    if (!boot.attacks.length) return '';
     const px = (x) => (x - x0 + 0.5) * tw;
     const py = (y) => (y - y0 + 0.5) * th;
     let line = '';
     let heads = '';
-    for (const [tx, ty] of boot.attacks) {
+    for (const [tx, ty] of liveAttacks()) {
       const [sx0, sy0, x1, y1] = [px(meX), py(meY), px(tx), py(ty)];
       const dx = x1 - sx0; const dy = y1 - sy0; const L = Math.hypot(dx, dy) || 1; const ux = dx / L; const uy = dy / L;
       const ex = x1 - ux * 13; const ey = y1 - uy * 13; const bx = ex - ux * 8; const by = ey - uy * 8;
       line += `M${(sx0 + ux * 18).toFixed(1)} ${(sy0 + uy * 18).toFixed(1)}L${ex.toFixed(1)} ${ey.toFixed(1)}`;
       heads += `M${ex.toFixed(1)} ${ey.toFixed(1)}L${(bx - uy * 5).toFixed(1)} ${(by + ux * 5).toFixed(1)}L${(bx + uy * 5).toFixed(1)} ${(by - ux * 5).toFixed(1)}Z`;
     }
-    return `<svg class="pointer-events-none absolute inset-0 z-[7] hidden overflow-visible group-data-[layer-moves]/map:block" width="100%" height="100%" aria-hidden="true"><path d="${line}" class="stroke-blood-450" stroke-width="2" stroke-dasharray="6 5" fill="none"/><path d="${heads}" class="fill-blood-450"/></svg>`;
+    setAttr(arrowLines, 'd', line);
+    setAttr(arrowHeads, 'd', heads);
   }
 
+  // Règles (coordonnées au bord de la carte) : un canevas par axe, redessiné quand la fenêtre est recalée et décalé
+  // à chaque image (calque à part, will-change). Couleurs de carte (--color-map-label*), les mêmes dans tous les
+  // styles : la règle est posée sur la carte.
+  rulerX.innerHTML = '<canvas class="absolute inset-y-0 left-0 will-change-transform" data-inner></canvas>';
+  rulerY.innerHTML = '<canvas class="absolute right-0 -top-5 will-change-transform" data-inner></canvas>';
   function rulers() {
-    // Couleurs de carte (--color-map-label*), les mêmes dans tous les styles : la règle est posée sur la carte.
-    const lab = (v, me) => `text-[11px] font-semibold tabular-nums [text-shadow:1px_1px_0_#000] ${v === me ? 'text-map-label-me' : 'text-map-label'}`;
-    let hx = '';
-    let hy = '';
     // Dézoomé, les cases deviennent trop petites pour leur numéro : un numéro toutes les 2, 5 ou 10 cases.
     const every = (px, need) => [1, 2, 5, 10, 20].find((n) => n * px >= need) || 50;
+    const ratio = window.devicePixelRatio || 1;
+    const font = `600 11px ${getComputedStyle(rulerX).fontFamily}`;
+    const draw = (canvas, w, h, labels) => {
+      canvas.width = Math.ceil(w * ratio); canvas.height = Math.ceil(h * ratio);
+      canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
+      const g = canvas.getContext('2d');
+      g.setTransform(ratio, 0, 0, ratio, 0, 0);
+      g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (const [text, x, y, me] of labels) {
+        g.fillStyle = '#000'; g.fillText(text, x + 1, y + 1);
+        g.fillStyle = cssVar(me ? '--color-map-label-me' : '--color-map-label'); g.fillText(text, x, y);
+      }
+    };
     const stepX = every(sw, 26); const stepY = every(sh, 15);
+    const rw = rulerY.clientWidth; const rh = rulerX.clientHeight;
+    const lx = []; const ly = [];
     for (let i = 0; i < span; i++) {
-      if ((baseX + i) % stepX === 0) hx += `<span class="absolute top-0 flex h-full items-center justify-center ${lab(baseX + i, meX)}" style="left:${i * sw}px;width:${sw}px">${baseX + i}</span>`;
-      if ((baseY + i) % stepY === 0) hy += `<span class="absolute right-0 flex w-full items-center justify-center ${lab(baseY + i, meY)}" style="top:${i * sh}px;height:${sh}px">${baseY + i}</span>`;
+      if ((baseX + i) % stepX === 0) lx.push([String(baseX + i), (i + 0.5) * sw, rh / 2, baseX + i === meX]);
+      if ((baseY + i) % stepY === 0) ly.push([String(baseY + i), rw / 2, (i + 0.5) * sh, baseY + i === meY]);
     }
-    // Calques à part (will-change) : leur décalage à chaque image d'un glisser ne fait rien repeindre.
-    rulerX.innerHTML = `<div class="absolute inset-y-0 left-0 will-change-transform" data-inner>${hx}</div>`;
-    rulerY.innerHTML = `<div class="absolute inset-x-0 -top-5 will-change-transform" data-inner>${hy}</div>`;
+    draw(rulerX.firstChild, span * sw, rh, lx);
+    draw(rulerY.firstChild, rw, span * sh, ly);
   }
 
   // Décale le calque (en coordonnées du monde) pour montrer la zone centrée sur (cx, cy), complète les blocs, et
@@ -694,7 +799,7 @@
     if (viewport.style.width !== vw) viewport.style.width = vw;
     if (viewport.style.height !== vh) viewport.style.height = vh;
     const label = document.querySelector('[data-map-size-label]');
-    if (label) label.textContent = `${baseSize} × ${baseSize}`;
+    if (label) setText(label, `${baseSize} × ${baseSize}`);
     layoutAside(lay);
   }
   // Cases à l'écran avec le zoom, et cases à dessiner pour couvrir la fenêtre (la marge gardée autour de la vue ne
@@ -832,9 +937,9 @@
       for (const p of ['sx', 'sy', 'mark', 'label', 'world', 'size', 'mini', 'q', 'find']) url.searchParams.delete(p);
       window.history.replaceState(null, '', url.toString() + (url.hash || ''));
       const title = document.querySelector('[data-map-title]');
-      if (title) title.textContent = `Continent ${continent(x, y)}`;
+      if (title) setText(title, `Continent ${continent(x, y)}`);
       const range = document.querySelector('[data-map-range]');
-      if (range) range.textContent = `${x - half}–${x - half + size - 1} × ${y - half}–${y - half + size - 1}`;
+      if (range) setText(range, `${x - half}–${x - half + size - 1} × ${y - half}–${y - half + size - 1}`);
       const go = document.querySelector('[data-map-goto]');
       if (go) { go.elements.x.value = x; go.elements.y.value = y; }
       recenterMini(x, y);
@@ -880,7 +985,7 @@
   function showZoom(z = zoom) {
     if (!zoomLabel) return;
     zoomLabel.hidden = Math.abs(z - 1) < 0.01;
-    zoomLabel.textContent = `×${(Math.round(z * 10) / 10).toLocaleString('fr-FR')}`;
+    setText(zoomLabel, `×${(Math.round(z * 10) / 10).toLocaleString('fr-FR')}`);
   }
   layer.style.transformOrigin = '0 0';
   // Zoom posé à `z`, le point du monde sous (px, py) (px dans la fenêtre) restant sous la souris : la case `cx` est
@@ -1006,7 +1111,7 @@
     const d = cellOf(el);
     if (!d || !tip) return;
     tipAt = [d.x, d.y];
-    const set = (k, v) => { const n = tip.querySelector(`[data-tip="${k}"]`); if (n) n.textContent = v; };
+    const set = (k, v) => { const n = tip.querySelector(`[data-tip="${k}"]`); if (n) setText(n, String(v)); };
     const show = (row, on) => tip.querySelectorAll(`[data-tip-row="${row}"]`).forEach((n) => n.classList.toggle('hidden', !on));
     const dist = Math.hypot(d.x - meX, d.y - meY);
     set('name', d.name);
@@ -1022,7 +1127,7 @@
     const travel = tip.querySelector('[data-tip-travel]');
     if (travel) {
       travel.classList.toggle('hidden', !dist);
-      travel.querySelectorAll('[data-tip-pace]').forEach((n) => { n.textContent = fmt(Math.round(dist * Number(n.dataset.tipPace) * 60)); });
+      travel.querySelectorAll('[data-tip-pace]').forEach((n) => { setText(n, fmt(Math.round(dist * Number(n.dataset.tipPace) * 60))); });
     }
     set('morale', d.morale || '');
     const mor = tip.querySelector('[data-tip="morale"]');
@@ -1077,7 +1182,7 @@
   setInterval(() => {
     if (!tip || tip.classList.contains('hidden')) return;
     tip.querySelectorAll('[data-order-arrival]').forEach((el) => {
-      el.textContent = fmt(Math.max(0, Math.ceil((Number(el.dataset.orderArrival) - Date.now()) / 1000)));
+      setText(el, fmt(Math.max(0, Math.ceil((Number(el.dataset.orderArrival) - Date.now()) / 1000))));
     });
   }, 1000);
 
@@ -1097,12 +1202,20 @@
     schedule();
     ensure(x0, y0, x1, y1);
   }
+  // Villages d'une case rechargés tout de suite (ordre envoyé depuis la carte) : son secteur est redemandé, ses
+  // blocs se redessinent à l'arrivée avec la pastille de l'ordre, et l'infobulle avec sa liste d'ordres.
+  function reloadAt(x, y) {
+    loaded.delete(key(Math.floor(x / SECTOR), Math.floor(y / SECTOR)));
+    ensure(x, y, x, y);
+  }
   function refreshTip() {
     if (!tip || tip.classList.contains('hidden') || !tipAt) return;
     const c = cells.get(ck(...tipAt));
     if (c && !hiddenBarb(c)) showTip(pointTile(...tipAt)); else hideTip();
   }
   setInterval(() => {
+    // Attaque arrivée : sa flèche disparaît.
+    if (boot.attacks.length !== liveAttacks().length) { boot.attacks = liveAttacks(); arrows(baseX, baseY); }
     if (Date.now() < nextArrival) return;
     nextArrival = Infinity;
     for (const c of cells.values()) noteArrivals(c);
@@ -1216,24 +1329,20 @@
   }
   // Raccourci d'un modèle favori : l'attaque part du village courant (même envoi que l'assistant de pillage).
   async function sendFavorite(button) {
-    const label = radial.querySelector('[data-radial-label]');
     const [tx, ty] = radial.dataset.targetXy.split('|').map(Number);
-    button.disabled = true;
+    const body = new URLSearchParams({ _csrf: frame.dataset.csrf, template: button.dataset.farmSend, target: radial.dataset.target });
+    // Roue fermée dès le clic (avant la réponse) : le résultat arrive par une notification.
+    closeMenu();
     try {
-      const body = new URLSearchParams({ _csrf: frame.dataset.csrf, template: button.dataset.farmSend, target: radial.dataset.target });
       const res = await fetch(`${base}/farm/send`, { method: 'POST', body, headers: { accept: 'application/json' } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Envoi impossible.');
-      boot.attacks.push([tx, ty]);
-      frameOverlay();
-      radial.dataset.caption = 'Attaque envoyée';
-      label.textContent = radial.dataset.caption;
+      boot.attacks.push([tx, ty, data.arrivesAt]);
+      arrows(baseX, baseY);
+      reloadAt(tx, ty);
       window.adarmaToast?.(`Attaque envoyée sur ${tx}|${ty}.`);
-      setTimeout(closeMenu, 700);
     } catch (err) {
       window.adarmaToast?.(err.message, true);
-    } finally {
-      button.disabled = false;
     }
   }
   function openMenu(el) {

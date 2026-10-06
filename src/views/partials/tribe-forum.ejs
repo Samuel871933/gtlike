@@ -2,7 +2,8 @@
   Forum de la tribu (onglet « Forum » de la page Tribu), agencement de Guerre Tribale dans la DA Adarma :
   rangée des sous-forums, encadré « Nouveaux messages du forum », titre du sous-forum et ses liens (lu, sourdine),
   Nouveau sujet / Créer un sondage / recherche, puis le tableau Sujets · Auteur · Dernier message · Réponses.
-  `forum.view` : 'section', 'thread' ou 'settings' (gestion des sous-forums par les chefs).
+  `forum.view` : 'section', 'thread' ou 'settings' (gestion des sous-forums par les chefs : forums cachés, partages).
+  Un sous-forum porte `isHidden` (forum caché) et `owner` (tribu propriétaire d'un forum partagé reçu).
 %>
 <%
   const f = `${t}/forum`;
@@ -18,23 +19,25 @@
     const shown = Array.from({ length: Math.min(n, 3) }, (_, i) => i + 1);
     return ` <span class="text-[11px] font-semibold text-parchment-500">( ${shown.map((p) => `<a href="${f}/t/${th.id}?page=${p}" class="${ui.link}">${p}</a>`).join(', ')}, <a href="${f}/t/${th.id}?page=last" class="${ui.link}">dernière page</a> )</span>`;
   };
-  const chip = 'inline-flex h-8 items-center gap-1.5 border-2 border-black px-3 text-[13px] font-semibold  no-underline shadow-[2px_2px_0_#000] transition';
+  const chip = 'inline-flex h-8 items-center gap-1.5 border-2 px-3 text-[13px] font-semibold  no-underline shadow-[2px_2px_0_#000] transition';
   const currentSection = forum.view === 'section' ? forum.section.id : forum.view === 'thread' ? forum.section.id : null;
   const mutedSet = forum.muted || new Set();
-  // Rangée des sous-forums : les réglages reçoivent { section, threads } par sous-forum.
-  const tabs = forum.view === 'settings' ? forum.sections.map((x) => x.section) : forum.sections;
+  // Rangée des sous-forums : les réglages la reçoivent à part (`nav`), leurs `sections` étant { section, threads… }.
+  const tabs = forum.view === 'settings' ? forum.nav : forum.sections;
+  const sharedTag = (s) => (s.owner ? `<span class="${ui.tagMuted}" title="Forum partagé par ${esc(s.owner.name)}">${esc(s.owner.tag)}</span>` : '');
 %>
 
 <%# Rangée des sous-forums (et réglages pour les chefs) %>
 <% if (tabs) { %>
   <nav class="flex flex-wrap gap-1.5" aria-label="Sous-forums">
     <% for (const s of tabs) { const on = s.id === currentSection; const mute = mutedSet.has(s.id); %>
-      <a href="<%= f %>/<%= s.id %>" class="<%= chip %> <%= on ? 'bg-head-dark text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000]' : 'bg-panel-hi text-gold-400 hover:bg-row-hover hover:text-parchment-100' %> <%= mute && !on ? 'opacity-60' : '' %>"<%- on ? ' aria-current="page"' : '' %> title="<%= mute ? 'Forum ignoré (en sourdine)' : s.name %>">
-        <% if (mute) { %><%- icon('moon', 'size-3', 2.4) %><% } %><%= s.name %>
+      <%# Forum partagé reçu : couleur des alliés de la diplomatie (pleine quand il est ouvert). %>
+      <a href="<%= f %>/<%= s.id %>" class="<%= chip %> <%= on && s.owner ? 'border-black bg-rel-ally text-[#0b1a22] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.35),2px_2px_0_#000]' : on ? 'border-black bg-head-dark text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000]' : s.owner ? 'border-black bg-rel-ally/55 text-[#0b1a22] shadow-[2px_2px_0_#000] hover:bg-rel-ally/80' : 'border-black bg-panel-hi text-gold-400 hover:bg-row-hover hover:text-parchment-100' %> <%= mute && !on ? 'opacity-60' : '' %>"<%- on ? ' aria-current="page"' : '' %> title="<%= [s.name, s.isHidden && 'forum caché', s.owner && `partagé par ${s.owner.name}`, mute && 'en sourdine'].filter(Boolean).join(' · ') %>">
+        <% if (mute) { %><%- icon('moon', 'size-3', 2.4) %><% } %><% if (s.isHidden) { %><%- icon('lock', 'size-3', 2.4) %><% } %><% if (s.owner) { %><%- icon('tribe', 'size-3', 2.4) %><% } %><%= s.name %>
       </a>
     <% } %>
-    <% if (forum.manager) { %>
-      <a href="<%= f %>/settings" class="<%= chip %> <%= forum.view === 'settings' ? 'bg-head-dark text-parchment-100' : 'bg-night text-parchment-500 hover:text-parchment-100' %>"><%- icon('settings', 'size-3.5', 2.2) %>Réglages du forum</a>
+    <% if (forum.settings) { %>
+      <a href="<%= f %>/settings" class="<%= chip %> border-black <%= forum.view === 'settings' ? 'bg-head-dark text-parchment-100' : 'bg-night text-parchment-500 hover:text-parchment-100' %>"<%- forum.pendingShares ? ` title="${forum.pendingShares} demande${forum.pendingShares > 1 ? 's' : ''} de partage de forum en attente"` : '' %>><%- icon('settings', 'size-3.5', 2.2) %>Réglages du forum<% if (forum.pendingShares) { %><span class="<%= ui.countBadge %>"><%= forum.pendingShares %></span><% } %></a>
     <% } %>
   </nav>
 <% } %>
@@ -78,7 +81,7 @@
 
   <%# Titre du sous-forum et liens %>
   <div class="flex flex-wrap items-end justify-between gap-3 pt-2">
-    <h2 class="m-0 font-display text-[26px] font-bold tracking-[0.02em] [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)]"><%= s.name %><% if (forum.isMuted) { %> <span class="<%= ui.tagMuted %> align-middle">En sourdine</span><% } %></h2>
+    <h2 class="m-0 font-display text-[26px] font-bold tracking-[0.02em] [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)]"><%= s.name %><% if (s.isHidden) { %> <span class="<%= ui.tagGold %> align-middle">Caché</span><% } %><% if (s.owner) { %> <span class="<%= ui.tagMuted %> align-middle">Partagé par <%= s.owner.tag %></span><% } %><% if (forum.isMuted) { %> <span class="<%= ui.tagMuted %> align-middle">En sourdine</span><% } %></h2>
     <div class="flex flex-col items-end gap-0.5 text-[13px] font-semibold">
       <span class="flex flex-wrap justify-end gap-x-4">
         <form method="post" action="<%= f %>/<%= s.id %>/read"><%- csrf %><button class="<%= ui.link %> cursor-pointer">» Marquer le forum comme lu</button></form>
@@ -151,17 +154,60 @@
   </section>
 <% } %>
 
-<% if (forum.view === 'settings') { %>
+<% if (forum.view === 'settings') { const vid = ctx.village.id; const pending = forum.received.filter((sh) => !sh.accepted); const accepted = forum.received.filter((sh) => sh.accepted);
+     // Bascule Visible / Caché (droit « Forum caché ») : deux boutons, l'actif ne renvoie rien.
+     const segCur = 'inline-flex h-7 items-center border border-black bg-head-dark px-2.5 text-sm font-semibold text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-500)]';
+     const hideToggle = (action, hidden) => `<span class="inline-flex gap-0.5">${[['', 'Visible', !hidden], ['1', 'Caché', hidden]].map(([v, label, cur]) => `<form method="post" action="${action}" class="inline">${csrf}<input type="hidden" name="on" value="${v}"><button class="${cur ? segCur : `${ui.segOff} cursor-pointer`}" ${cur ? 'disabled aria-current="true"' : ''}>${v ? icon('lock', 'size-3 mr-1', 2.4) : ''}${label}</button></form>`).join('')}</span>`;
+     // Bouton supprimer de la colonne Gestion : même taille que les autres boutons.
+     const deleteBtn = 'inline-flex size-[26px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-900 text-on-accent shadow-[inset_0_0_0_1px_var(--color-blood-600),2px_2px_0_#000] align-middle transition hover:bg-blood-600'; %>
+  <% if (pending.length) { %>
+    <section class="<%= ui.panel %>" id="partages">
+      <%- panelHead('Demandes de partage', `<span class="${ui.countBadge}">${pending.length}</span>`) %>
+      <ul class="flex flex-col">
+        <% for (const sh of pending) { %>
+          <li class="flex flex-wrap items-center justify-between gap-2 border-b border-bronze-800 px-3 py-2.5 last:border-b-0">
+            <span class="flex flex-wrap items-center gap-2"><%- tribeLink(vid, sh.section.Tribe, { name: true }) %><span class="text-parchment-300">propose de partager son forum</span><b class="font-display font-semibold text-gold-400"><%= sh.section.name %></b></span>
+            <span class="flex gap-2">
+              <form method="post" action="<%= f %>/shares/<%= sh.id %>/accept"><%- csrf %><button class="<%= btn('gold', 'sm') %>">Accepter</button></form>
+              <form method="post" action="<%= f %>/shares/<%= sh.id %>/decline"><%- csrf %><button class="<%= btn('dark', 'sm') %>">Refuser</button></form>
+            </span>
+          </li>
+        <% } %>
+      </ul>
+    </section>
+  <% } %>
+
   <section class="<%= ui.panel %>">
     <%- panelHead('Réglages du forum', `<span class="font-sans text-[11px] text-parchment-300">Sous-forums de la tribu</span>`) %>
-    <div class="overflow-x-auto">
-      <table class="<%= ui.table %> min-w-[520px]">
-        <thead><tr><th>Sous-forum</th><th class="text-right">Sujets</th><th class="text-right">Gestion</th></tr></thead>
+    <%# Pas de défilement horizontal à partir de sm : il couperait les fenêtres Partager / Renommer. %>
+    <div class="max-sm:overflow-x-auto">
+      <table class="<%= ui.table %> max-sm:min-w-[760px]">
+        <thead><tr><th>Sous-forum</th><th class="text-right">Sujets</th><th class="text-center">Visibilité</th><th>Partagé avec</th><th class="text-right">Gestion</th></tr></thead>
         <tbody>
-          <% forum.sections.forEach(({ section, threads }, i) => { %>
+          <% forum.sections.forEach(({ section, threads, shares }, i) => { %>
             <tr>
               <td><a href="<%= f %>/<%= section.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-display font-semibold "><span class="size-[7px] shrink-0 rotate-45 border border-black bg-gold-400"></span><%= section.name %></a></td>
               <td class="text-right font-semibold tabular-nums"><%= num(threads) %></td>
+              <td class="text-center whitespace-nowrap">
+                <% if (forum.secret) { %><%- hideToggle(`${f}/sections/${section.id}/hidden`, section.hidden) %><% } else { %><span class="text-parchment-300">Visible</span><% } %>
+              </td>
+              <td>
+                <span class="flex flex-wrap items-center gap-1.5">
+                  <% for (const sh of shares) { %>
+                    <span class="inline-flex items-center gap-1 <%= sh.accepted ? '' : 'opacity-70' %>" title="<%= sh.Tribe.name %><%= sh.accepted ? '' : ' : en attente de réponse' %>">
+                      <%- tribeLink(vid, sh.Tribe) %><% if (!sh.accepted) { %><span class="text-[11px] text-parchment-500">en attente</span><% } %>
+                      <form method="post" action="<%= f %>/shares/<%= sh.id %>/unshare" class="inline" data-confirm="<%= sh.accepted ? `Ne plus partager « ${section.name} » avec ${sh.Tribe.tag} ?` : `Retirer la demande de partage à ${sh.Tribe.tag} ?` %>"><%- csrf %><button class="<%= ui.iconBtnSm %> align-middle" title="<%= sh.accepted ? 'Ne plus partager' : 'Retirer la demande' %>" aria-label="<%= sh.accepted ? 'Ne plus partager' : 'Retirer la demande' %> avec <%= sh.Tribe.tag %>"><%- icon('close', 'size-[11px]', 3.4) %></button></form>
+                    </span>
+                  <% } %>
+                  <details class="relative inline-block">
+                    <summary class="<%= ui.link %> cursor-pointer list-none text-[13px] font-semibold [&::-webkit-details-marker]:hidden"><%- icon('plus', 'size-3 inline', 2.6) %> Partager</summary>
+                    <form method="post" action="<%= f %>/sections/<%= section.id %>/share" class="<%= ui.popover %> left-0 flex w-72 gap-2"><%- csrf %>
+                      <input name="tag" maxlength="6" required placeholder="Tag de la tribu" class="<%= ui.input %> min-w-0 flex-1" aria-label="Tag de la tribu invitée">
+                      <button class="<%= btn('gold', 'md') %>">Proposer</button>
+                    </form>
+                  </details>
+                </span>
+              </td>
               <td class="text-right whitespace-nowrap">
                 <form method="post" action="<%= f %>/sections/<%= section.id %>/move" class="inline"><%- csrf %><input type="hidden" name="dir" value="-1"><button class="<%= ui.iconBtn %> size-[26px] align-middle" title="Monter" aria-label="Monter" <%= i === 0 ? 'disabled' : '' %>><%- icon('chevronUp', 'size-3', 2.6) %></button></form>
                 <form method="post" action="<%= f %>/sections/<%= section.id %>/move" class="inline"><%- csrf %><input type="hidden" name="dir" value="1"><button class="<%= ui.iconBtn %> size-[26px] align-middle" title="Descendre" aria-label="Descendre" <%= i === forum.sections.length - 1 ? 'disabled' : '' %>><%- icon('chevronDown', 'size-3', 2.6) %></button></form>
@@ -173,7 +219,7 @@
                   </form>
                 </details>
                 <% if (forum.sections.length > 1) { %>
-                  <form method="post" action="<%= f %>/sections/<%= section.id %>/delete" class="inline" data-confirm="Supprimer « <%= section.name %> » et tous ses sujets ?"><%- csrf %><button class="<%= ui.iconBtnSm %> align-middle" title="Supprimer" aria-label="Supprimer le sous-forum"><%- icon('close', 'size-[11px]', 3.4) %></button></form>
+                  <form method="post" action="<%= f %>/sections/<%= section.id %>/delete" class="inline" data-confirm="Supprimer « <%= section.name %> » et tous ses sujets<%= shares.length ? ', y compris pour les tribus avec qui il est partagé' : '' %> ?"><%- csrf %><button class="<%= deleteBtn %>" title="Supprimer" aria-label="Supprimer le sous-forum"><%- icon('close', 'size-[11px]', 3.4) %></button></form>
                 <% } %>
               </td>
             </tr>
@@ -185,6 +231,33 @@
       <label class="<%= ui.label %> min-w-56 flex-1 sm:max-w-80">Nouveau sous-forum<input name="name" maxlength="40" required placeholder="Opérations, Diplomatie…" class="<%= ui.input %>"></label>
       <button class="<%= btn('dark', 'md') %>"><%- icon('plus', 'size-3.5', 2.6) %>Créer</button>
     </form>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Forums partagés', `<span class="font-sans text-[11px] text-parchment-300">Reçus d'autres tribus</span>`) %>
+    <% if (!accepted.length) { %>
+      <p class="px-3 py-2.5 text-[13px] text-parchment-500">Aucun forum partagé par une autre tribu. Quand une tribu propose de partager l'un de ses forums, la demande s'affiche en haut de cette page.</p>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %> min-w-[520px]">
+          <thead><tr><th>Forum</th><th>Tribu</th><th class="text-center">Visibilité</th><th class="text-right"></th></tr></thead>
+          <tbody>
+            <% for (const sh of accepted) { %>
+              <tr>
+                <td><a href="<%= f %>/<%= sh.section.id %>" class="<%= ui.linkPlain %> font-display font-semibold"><%= sh.section.name %></a></td>
+                <td><%- tribeLink(vid, sh.section.Tribe, { name: true }) %></td>
+                <td class="text-center whitespace-nowrap"><% if (forum.secret) { %><%- hideToggle(`${f}/shares/${sh.id}/hidden`, sh.hidden) %><% } else { %><span class="text-parchment-300">Visible</span><% } %></td>
+                <td class="text-right"><form method="post" action="<%= f %>/shares/<%= sh.id %>/leave" class="inline" data-confirm="Quitter le forum partagé « <%= sh.section.name %> » ?"><%- csrf %><button class="cursor-pointer text-[13px] font-semibold text-blood-500 hover:text-parchment-100">Quitter</button></form></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+    <ul class="flex flex-col gap-1 border-t border-bronze-900 px-4.5 py-3 text-[13px] text-parchment-500">
+      <li><span class="font-semibold text-parchment-300">Forum caché</span> : visible des seuls membres qui ont le droit Forum caché (ducs et barons compris).</li>
+      <li><span class="font-semibold text-parchment-300">Forum partagé</span> : la tribu invitée l'accepte dans ses réglages du forum ; seuls les modérateurs de la tribu propriétaire le modèrent.</li>
+    </ul>
   </section>
 <% } %>
 

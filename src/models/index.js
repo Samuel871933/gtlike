@@ -669,6 +669,8 @@ const TribeForumSection = sequelize.define(
   {
     name: { type: DataTypes.STRING(40), allowNull: false },
     position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    // Forum caché : réservé aux membres qui ont le droit « Forum caché » (ducs et barons compris).
+    hidden: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   { indexes: [{ fields: ['tribeId', 'position'] }] },
 );
@@ -715,6 +717,22 @@ TribeForumThread.belongsTo(TribeForumPost, { as: 'lastPost', foreignKey: { name:
 const TribeForumMute = sequelize.define('TribeForumMute', {}, { indexes: [{ unique: true, fields: ['playerId', 'sectionId'] }] });
 Player.hasMany(TribeForumMute, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 TribeForumSection.hasMany(TribeForumMute, { foreignKey: { name: 'sectionId', allowNull: false }, onDelete: 'CASCADE' });
+/**
+ * Forum partagé (comme sur GT) : la tribu propriétaire du sous-forum le propose à une autre tribu, qui l'accepte dans
+ * ses réglages du forum. `hidden` : la tribu invitée en fait un forum caché pour ses propres membres.
+ */
+const TribeForumShare = sequelize.define(
+  'TribeForumShare',
+  {
+    accepted: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    hidden: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  { indexes: [{ unique: true, fields: ['sectionId', 'tribeId'] }, { fields: ['tribeId'] }] },
+);
+TribeForumSection.hasMany(TribeForumShare, { as: 'shares', foreignKey: { name: 'sectionId', allowNull: false }, onDelete: 'CASCADE' });
+TribeForumShare.belongsTo(TribeForumSection, { as: 'section', foreignKey: 'sectionId' });
+Tribe.hasMany(TribeForumShare, { foreignKey: { name: 'tribeId', allowNull: false }, onDelete: 'CASCADE' });
+TribeForumShare.belongsTo(Tribe, { foreignKey: 'tribeId' });
 // Sondage d'un sujet : une question (le titre du sujet), 2 à 10 réponses, un vote par membre (modifiable).
 const TribeForumPoll = sequelize.define('TribeForumPoll', {
   options: { type: DataTypes.JSON, allowNull: false },
@@ -771,6 +789,6 @@ module.exports = {
   sequelize, Seal, SealEvent, SealOffer, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
-  TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote,
+  TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote, TribeForumShare,
   Entitlement, AdartonTransaction,
 };

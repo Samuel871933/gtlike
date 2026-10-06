@@ -18,6 +18,13 @@
   };
   let reloading = false;
   let refreshingOverview = false;
+  // Texte réécrit en continu (ressources, horloge, comptes à rebours) : le nœud texte existant est modifié au lieu
+  // d'être remplacé. Remplacer un nœud est une insertion, qui fait recalculer les styles de toute la page (règles
+  // :has(:checked)… des utilitaires has-*), une fois par seconde et par compteur.
+  const setText = (el, text) => {
+    const node = el.firstChild;
+    if (node && node === el.lastChild && node.nodeType === 3) { if (node.data !== text) node.data = text; } else if (el.textContent !== text) el.textContent = text;
+  };
   let nextOverviewRefresh = 0;
 
   // Une échéance met à jour les panneaux concernés sans recréer le décor et ses images.
@@ -93,7 +100,7 @@
       const start = Number(el.dataset.res);
       const cap = Number(el.dataset.cap);
       const value = start >= cap ? start : Math.min(cap, start + (Number(el.dataset.rate) * (now - Number(el.dataset.at))) / 3600000);
-      el.textContent = 'resShort' in el.dataset && narrow.matches ? short(Math.floor(value)) : Math.floor(value).toLocaleString('fr-FR');
+      setText(el, 'resShort' in el.dataset && narrow.matches ? short(Math.floor(value)) : Math.floor(value).toLocaleString('fr-FR'));
       el.classList.toggle('text-blood-450', value >= cap);
       const bar = el.parentElement.querySelector('[data-res-bar]');
       if (bar) bar.style.width = `${Math.min(100, Math.round((value / cap) * 100))}%`;
@@ -112,8 +119,7 @@
       const left = Math.ceil((Number(el.dataset.countdown) - now) / 1000);
       // Longues listes (aperçu Arrivant, 1 000 lignes) : seuls les comptes à rebours visibles sont réécrits.
       if (!many || onScreen.has(el) || left <= 0) {
-        const text = fmt(Math.max(0, left));
-        if (el.textContent !== text) el.textContent = text;
+        setText(el, fmt(Math.max(0, left)));
       }
       // Comptes à rebours sans rechargement à la fin (popup de l'happy hour ; aperçu Arrivant : la ligne de l'ordre
       // arrivé est retirée de la liste).
@@ -146,7 +152,7 @@
     });
 
     document.querySelectorAll('[data-clock]').forEach((el) => {
-      el.textContent = new Date(now).toLocaleString('fr-FR');
+      setText(el, new Date(now).toLocaleString('fr-FR'));
     });
   }
 
@@ -314,7 +320,7 @@
     document.querySelectorAll('form[data-travel]').forEach(travelPreview);
     document.querySelectorAll('[data-arrive-in]').forEach((el) => {
       const now = new Date(serverNow());
-      el.textContent = arrivalText(roundArrival(now.getTime() + Number(el.dataset.arriveIn), el.dataset.arrivalStep), now);
+      setText(el, arrivalText(roundArrival(now.getTime() + Number(el.dataset.arriveIn), el.dataset.arrivalStep), now));
     });
     requestAnimationFrame(arrivalFrame);
   }

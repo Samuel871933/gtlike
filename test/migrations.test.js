@@ -81,7 +81,7 @@ test('suppression du mur : les messages passent dans un sujet verrouillé de la 
   const [[player]] = await sequelize.query('SELECT id FROM "Players" WHERE name = \'Alice\'');
   await qi.bulkInsert('Tribes', [{ name: 'Les Loups', tag: 'LUP', description: '', worldId: world.id, createdAt: now, updatedAt: now }]);
   const [[tribe]] = await sequelize.query('SELECT id FROM "Tribes" WHERE tag = \'LUP\'');
-  await require('../src/services/TribeForumService').createDefaults(tribe.id);
+  await qi.bulkInsert('TribeForumSections', require('../src/services/TribeForumService').DEFAULT_SECTIONS.map((name, position) => ({ tribeId: tribe.id, name, position, createdAt: now, updatedAt: now })));
   for (const [i, body] of ['Premier message', 'Second message'].entries()) {
     await qi.bulkInsert('TribeMessages', [{ body, tribeId: tribe.id, playerId: player.id, createdAt: new Date(now.getTime() + i * 1000), updatedAt: now }]);
   }

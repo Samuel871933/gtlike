@@ -148,6 +148,10 @@
   // Sans calques (profil) : marquages et frontières de continent.
   const DEFAULT_LAYERS = { markers: true, borders: true };
 
+  // Fond déjà peint de chaque canevas (terrain, zones, quadrillage, villages) et ce qu'il représente : en glissant la
+  // carte, seul le cadre de la vue bouge, le fond est recopié tel quel au lieu d'être repeint case par case.
+  const bases = new WeakMap();
+
   function draw(canvas, v) {
     const ratio = window.devicePixelRatio || 1;
     const w = Math.round(canvas.clientWidth * ratio);
@@ -158,10 +162,20 @@
     const c = palette();
     const cell = w / v.width;
     const layers = v.layers || DEFAULT_LAYERS;
-    paintTerrain(g, c, v, cell, ratio);
-    paintZones(g, c, v, cell, layers);
-    paintGrid(g, c, v, cell, ratio, layers);
-    paintVillages(g, c, v, cell, ratio, layers);
+    const key = [w, h, v.x0, v.y0, v.width, v.height, JSON.stringify(layers)].join('|');
+    let base = bases.get(canvas);
+    if (!base || base.key !== key || base.villages !== v.villages) {
+      const img = (base && base.canvas) || document.createElement('canvas');
+      img.width = w; img.height = h;
+      const b = img.getContext('2d');
+      paintTerrain(b, c, v, cell, ratio);
+      paintZones(b, c, v, cell, layers);
+      paintGrid(b, c, v, cell, ratio, layers);
+      paintVillages(b, c, v, cell, ratio, layers);
+      base = { key, villages: v.villages, canvas: img };
+      bases.set(canvas, base);
+    }
+    g.drawImage(base.canvas, 0, 0);
     if (v.frame) {
       const { x, y, size } = v.frame;
       g.lineWidth = 2 * ratio; g.strokeStyle = '#000'; g.strokeRect((x - v.x0) * cell, (y - v.y0) * cell, size * cell, size * cell);

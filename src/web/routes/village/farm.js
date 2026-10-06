@@ -44,8 +44,8 @@ router.post('/farm/send', ah(async (req, res) => {
   if (!hit(`farm:${me(req)}`, FARM_RATE.max, FARM_RATE.windowMs)) {
     throw new GameError(`Trop rapide : ${FARM_RATE.max} attaques par seconde au plus. Patiente un instant.`, 429);
   }
-  const { units, template, target } = await FarmService.send(req.ctx.village.id, me(req), req.body.template, req.body.target, req.ctx.cfg);
-  if (wantsJson(req)) return res.json({ ok: true, units, target: { id: target.id, x: target.x, y: target.y } });
+  const { command, units, template, target } = await FarmService.send(req.ctx.village.id, me(req), req.body.template, req.body.target, req.ctx.cfg);
+  if (wantsJson(req)) return res.json({ ok: true, units, target: { id: target.id, x: target.x, y: target.y }, arrivesAt: new Date(command.arrivesAt).getTime() });
   flash(req, 'success', `Attaque « ${template.name} » envoyée sur ${target.x}|${target.y}.`);
   res.redirect(back(req, `${base(req)}/farm`));
 }));

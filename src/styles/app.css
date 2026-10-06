@@ -806,15 +806,18 @@ html.game_style body::before,
 [data-game-style="viking"] .village-sprite { filter: saturate(.72) hue-rotate(342deg) contrast(1.08); }
 [data-game-style="viking"] .village-design--futuriste .village-sprite { filter: none; }
 
-/* Bannières des listes de rapports et de messages : texte clair indépendant du thème actif. */
+/* Bannières des listes de rapports et de messages : texte clair indépendant du thème actif. Hauteur qui suit la
+   largeur de son conteneur (classe @container autour, unités cqw) : environ 270 px en pleine largeur, 200 px en
+   minimaliste, 180 px au moins ; image en 3:1, recadrée autour de son milieu (château et parchemins visibles). Pas de aspect-ratio : avec lui, la
+   hauteur minimale serait reportée sur la largeur et ferait déborder l'écran. Sur mobile, 130 px au moins. */
 .inbox-hero {
   display: flex;
-  min-height: 180px;
+  height: max(180px, 100cqw / 5.5);
   flex-direction: column;
   justify-content: flex-end;
   border-bottom: 1px solid var(--color-bronze-500);
   background-image: linear-gradient(90deg, rgb(10 9 8 / 94%), rgb(10 9 8 / 68%) 43%, rgb(10 9 8 / 12%) 78%), var(--inbox-hero-image);
-  background-position: center, center 65%;
+  background-position: center, center 45%;
   background-size: cover;
   background-repeat: no-repeat;
   padding: 1.25rem 1.5rem;
@@ -824,7 +827,7 @@ html.game_style body::before,
 .inbox-hero__title { color: #fff5df; font-family: var(--font-display); font-size: clamp(1.2rem, 2vw, 1.7rem); font-weight: 600; line-height: 1.15; text-shadow: 0 2px 4px #000; }
 .inbox-hero__subtitle { margin-top: .4rem; color: #eee1ca; font-size: .82rem; text-shadow: 0 1px 3px #000; }
 @media (max-width: 640px) {
-  .inbox-hero { min-height: 130px; background-image: linear-gradient(90deg, rgb(10 9 8 / 94%), rgb(10 9 8 / 68%) 70%, rgb(10 9 8 / 25%)), var(--inbox-hero-image); background-position: center, center 60%; padding: .9rem 1rem; }
+  .inbox-hero { height: auto; min-height: 130px; background-image: linear-gradient(90deg, rgb(10 9 8 / 94%), rgb(10 9 8 / 68%) 70%, rgb(10 9 8 / 25%)), var(--inbox-hero-image); background-position: center, center 60%; padding: .9rem 1rem; }
 }
 
 /* Bannières narratives des rapports : le dégradé maintient le texte lisible sur les illustrations. */
@@ -984,6 +987,10 @@ html.game_style body::before,
 .village-building-sprite { z-index: var(--plot-depth); }
 .village-building-level, .village-building-name, .village-building-favorite, .village-building-activities { z-index: calc(100 + var(--plot-depth)); }
 .village-building-favorite { top: auto; bottom: 24px; right: 4%; }
+/* Survol : étiquette sur l'aplat des en-têtes, avec leur encre (sombre ou claire selon le thème). Dans la règle et pas
+   en utilitaire : la règle de l'étiquette ci-dessus, hors calque, passerait devant. La classe group-hover:bg-head-dark
+   de l'étiquette reste : les thèmes clairs (Adarma) y éclaircissent leur encre, comme sur leurs en-têtes. */
+.group:hover > .village-building-name { background: var(--color-head-dark); color: var(--color-parchment-100); opacity: 1; }
 .village-building-plot a:focus-visible { outline: none; }
 .village-building-plot a:focus-visible .village-building-name { outline: 2px solid var(--color-gold-200); outline-offset: 2px; }
 .village-building-plot a[data-selected] .village-building-sprite { filter: drop-shadow(0 0 6px var(--color-gold-200)); }

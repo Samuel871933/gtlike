@@ -88,6 +88,8 @@ test('droits GT : le duc nomme barons et ducs, droits individuels, renvoi selon 
   // Droits individuels : diplomatie cochée, le titre reste « membre ».
   await TribeService.setRights(players.Alice.id, players.Bob.id, { title: 'member', rights: ['diplomacy', 'inconnu'] });
   assert.deepEqual((await reload('Bob')).tribeRights, ['diplomacy']);
+  // Enregistrement global de l'onglet Droits : un membre inchangé n'est ni modifié ni journalisé.
+  assert.equal(await TribeService.setAllRights(players.Alice.id, [{ memberId: players.Bob.id, title: 'member', rights: 'diplomacy' }]), 0);
   await TribeService.setRelation(players.Bob.id, 'OURS', 'ally');
   assert.equal(TribeService.can(players.Bob, 'invite'), false);
 

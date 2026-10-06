@@ -52,7 +52,7 @@
         <%- buildingImg(p.b.id, p.level, `village-building-sprite pointer-events-none absolute inset-0 size-full${p.level ? '' : ' opacity-40!'}`) %>
         <span class="village-building-level absolute z-[2] border-2 border-black px-1 text-[10px] font-bold"><%= p.level %></span>
         <span class="village-building-activities"><%- timer(p) %></span>
-        <span class="village-building-name absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold tracking-[0.02em] transition group-hover:bg-head-dark group-hover:text-on-accent"><%= p.b.name %></span>
+        <span class="village-building-name absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold tracking-[0.02em] transition group-hover:bg-head-dark"><%= p.b.name %></span>
       </a>
       <%- plotStar(p.b.id) %>
       </div>

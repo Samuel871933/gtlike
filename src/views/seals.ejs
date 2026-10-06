@@ -140,10 +140,10 @@
         </div>
       </div>
 
-      <%# Grille : une ligne par type, une colonne par niveau (couleur de la cire). Cases carrées de 73 px au plus,
-          rétrécies sur écran étroit pour que les neuf niveaux tiennent dans la largeur. %>
+      <%# Grille : une ligne par type, une colonne par niveau (couleur de la cire). Cases carrées qui se partagent toute
+          la largeur de l'encart, rétrécies sur écran étroit pour que les neuf niveaux y tiennent. %>
       <div>
-        <div class="grid w-full max-w-[705px] grid-cols-[repeat(9,minmax(0,1fr))] gap-1.5 max-sm:gap-1" data-seal-grid>
+        <div class="grid w-full grid-cols-[repeat(9,minmax(0,1fr))] gap-1.5 max-sm:gap-1" data-seal-grid>
           <% for (const t of SEALS.TYPES) { for (let l = 1; l <= SEALS.MAX_LEVEL; l++) {
                const c = cell(t.id, l); const isCurrent = current && current.type === t.id && current.level === l;
                const tip = `${t.name} ${l} : ${t.effect(t.values[l - 1])}${c.count ? ` · ${c.available} libre${c.available > 1 ? 's' : ''} sur ${c.count}` : ' · aucun'}`;
