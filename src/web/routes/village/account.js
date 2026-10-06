@@ -77,8 +77,18 @@ router.post('/account/game-layout', ah(async (req, res) => {
   const { isGameLayout, GAME_LAYOUTS } = require('../../gameLayouts');
   const id = String(req.body.layout || '');
   if (!isGameLayout(id)) throw new GameError('Style de jeu inconnu.');
-  await req.user.update({ gameLayout: id });
+  // Les ombres reviennent au choix par défaut du style (aucune en minimaliste) ; on peut les régler ensuite.
+  await req.user.update({ gameLayout: id, gameShadows: null });
   flash(req, 'success', `Style de jeu ${GAME_LAYOUTS[id].name.toLowerCase()} appliqué.`);
+  res.redirect(tabUrl(req, 'layout'));
+}));
+
+// Ombres portées : avec ou sans, quel que soit le style de jeu et le thème.
+router.post('/account/game-shadows', ah(async (req, res) => {
+  const on = req.body.shadows === 'on';
+  if (!on && req.body.shadows !== 'off') throw new GameError('Réglage inconnu.');
+  await req.user.update({ gameShadows: on });
+  flash(req, 'success', on ? 'Ombres portées affichées.' : 'Ombres portées retirées.');
   res.redirect(tabUrl(req, 'layout'));
 }));
 

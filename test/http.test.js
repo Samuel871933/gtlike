@@ -142,13 +142,26 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   await http(`${joined.location}/account/game-style`, { method: 'POST', form: { style: 'viking', _csrf: tokenOf(after.html) } });
 
   // Style de jeu (densité) : minimaliste par défaut, normal enregistré sur le compte (indépendant du thème), inconnu refusé.
-  assert.match(medieval, /data-game-layout="minimal"/);
+  assert.match(medieval, /data-game-layout="minimal" data-shadows="off"/);
   await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'normal', _csrf: tokenOf(after.html) } });
   await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'inconnu', _csrf: tokenOf(after.html) } });
   const normal = (await http(joined.location)).html;
-  assert.match(normal, /data-game-style="viking" data-game-layout="normal"/);
+  assert.match(normal, /data-game-style="viking" data-game-layout="normal">/);
   assert.doesNotMatch((await http('/worlds')).html, /data-game-layout/);
+
+  // Ombres portées : retirées en normal, puis rendues ; changer de style revient au réglage par défaut (sans en minimaliste).
+  const shadows = (v) => http(`${joined.location}/account/game-shadows`, { method: 'POST', form: { shadows: v, _csrf: tokenOf(after.html) } });
+  await shadows('off');
+  assert.match((await http(joined.location)).html, /data-game-layout="normal" data-shadows="off"/);
+  assert.equal((await shadows('peut-etre')).status, 302);
+  assert.match((await http(joined.location)).html, /data-shadows="off"/);
   await http(`${joined.location}/account/game-layout`, { method: 'POST', form: { layout: 'minimal', _csrf: tokenOf(after.html) } });
+  assert.match((await http(joined.location)).html, /data-game-layout="minimal" data-shadows="off"/);
+  await shadows('on');
+  const minimalShadows = (await http(`${joined.location}/account?tab=layout`)).html;
+  assert.match(minimalShadows, /data-game-layout="minimal">/);
+  assert.match(minimalShadows, /id="ombres-portees"/);
+  await shadows('off');
 
   // Design des villages : skin de ses villages, envoyé avec chaque case (vu par tous) ; beige par défaut, design inconnu refusé.
   assert.match((await http(`${joined.location}/map`)).html, /"design":"beige"/);

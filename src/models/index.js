@@ -15,6 +15,8 @@ const User = sequelize.define('User', {
   villageDesign: { type: DataTypes.STRING(16), allowNull: true },
   // Style de jeu (densité de l'interface) (src/web/gameLayouts.js) : normal ou minimaliste ; nul = minimaliste (par défaut).
   gameLayout: { type: DataTypes.STRING(16), allowNull: true },
+  // Ombres portées de l'interface : oui, non ; nul = selon le style de jeu (sans en minimaliste, avec en normal).
+  gameShadows: { type: DataTypes.BOOLEAN, allowNull: true },
   // Emplacement de la barre des favoris (src/web/quickbarPositions.js) : top, bottom, left, right ; nul = top.
   quickbarPosition: { type: DataTypes.STRING(8), allowNull: true },
   // Solde d'Adartons, la monnaie de la boutique (voir ShopService) ; chaque mouvement est inscrit dans AdartonTransactions.

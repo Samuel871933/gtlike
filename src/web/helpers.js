@@ -558,6 +558,7 @@ module.exports = {
   GAME_STYLES: require('./gameStyles').GAME_STYLES,
   VILLAGE_DESIGNS: require('./villageDesigns').VILLAGE_DESIGNS,
   GAME_LAYOUTS: require('./gameLayouts').GAME_LAYOUTS,
+  defaultShadows: require('./gameLayouts').defaultShadows,
   QUICKBAR_POSITIONS: require('./quickbarPositions').QUICKBAR_POSITIONS,
   RESOURCES,
   RESOURCE_ICONS,

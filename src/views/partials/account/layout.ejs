@@ -1,4 +1,4 @@
-<%# Compte, panneau « Style de jeu » (onglet de account.ejs, avec sleep, vid, scheduled, shopLink). %>
+<%# Compte, panneaux « Style de jeu » et « Ombres portées » (onglet de account.ejs, avec sleep, vid, scheduled, shopLink). %>
 <%# Style de jeu : densité de l'interface (src/web/gameLayouts.js), réglage du compte connecté. Aperçus en px fixes, pour ne pas suivre le style actif. %>
 <section class="<%= ui.panel %>" id="style-de-jeu">
   <%- panelHead('Style de jeu', `<span class="text-[13px] text-parchment-500">Gratuit · taille des encarts, quel que soit le thème</span>`) %>
@@ -27,6 +27,37 @@
             <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } %>
           </span>
           <span class="text-sm text-parchment-400"><%= l.description %></span>
+          <% if (!active) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
+        </div>
+      </form>
+    <% } %>
+  </div>
+</section>
+
+<%# Ombres portées : réglage à part du style de jeu (src/web/gameLayouts.js). Par défaut, elles suivent le style (aucune
+    en minimaliste) ; on peut les remettre en minimaliste ou les retirer en normal, ombres des thèmes comprises.
+    Aperçus en px fixes (data-layout-preview : jamais aplatis par le réglage en cours). %>
+<% const byDefault = gameLayout && defaultShadows(gameLayout); %>
+<section class="<%= ui.panel %>" id="ombres-portees">
+  <%- panelHead('Ombres portées', `<span class="text-[13px] text-parchment-500">Gratuit · ${byDefault ? 'affichées' : 'retirées'} par défaut en style ${esc(gameLayout ? gameLayout.name.toLowerCase() : '')}</span>`) %>
+  <p class="border-b border-bronze-900 px-4 py-2.5 text-sm text-parchment-400">Les ombres sous les encarts, boutons et pastilles, les reflets que certains thèmes ajoutent et les traits d’encre épais. Changer de style de jeu les remet à son réglage par défaut.</p>
+  <div class="grid gap-3 p-4.5 sm:grid-cols-2">
+    <% for (const [value, name, description] of [['on', 'Avec ombres', 'Encarts en relief, comme sur un plateau de jeu.'], ['off', 'Sans ombres', 'Interface à plat et traits fins, plus sobre.']]) { const on = value === 'on'; const active = gameShadows === on; %>
+      <form method="post" action="/village/<%= vid %>/account/game-shadows"
+            class="flex flex-col overflow-hidden border-2 border-black bg-panel-top text-parchment-200 <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),5px_5px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="shadows" value="<%= value %>">
+        <div class="m-1 flex h-[96px] items-center justify-center gap-[18px] border-2 border-black bg-night p-[10px]" aria-hidden="true" data-layout-preview>
+          <span class="flex h-[54px] w-[42%] flex-col border-2 border-black bg-panel-top <%= on ? 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#050505]' : '' %>">
+            <span class="h-[12px] border-b-2 border-b-bronze-500 bg-head"></span>
+          </span>
+          <span class="h-[24px] w-[22%] border-2 border-black bg-action <%= on ? 'shadow-[inset_0_0_0_1px_var(--color-gold-400),3px_3px_0_#000]' : '' %>"></span>
+        </div>
+        <div class="flex flex-1 flex-col gap-2 border-t-2 border-bronze-500 p-3">
+          <span class="flex items-center justify-between gap-2">
+            <span class="font-display text-lg font-semibold tracking-[0.02em] text-gold-400"><%= name %></span>
+            <% if (active) { %><span class="<%= ui.tagGold %>">Actif</span><% } else if (on === byDefault) { %><span class="text-[13px] text-parchment-500">Par défaut</span><% } %>
+          </span>
+          <span class="text-sm text-parchment-400"><%= description %></span>
           <% if (!active) { %><button class="<%= btn('gold', 'sm', 'mt-auto w-full') %>">Appliquer</button><% } %>
         </div>
       </form>

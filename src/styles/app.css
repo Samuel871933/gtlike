@@ -29,7 +29,7 @@
   Style de jeu « Minimaliste » (src/web/gameLayouts.js) : interface serrée à la Guerre Tribale, quel que soit le thème.
   L'échelle d'espacement de Tailwind passe de 4 px à 3 px : marges, écarts et hauteurs (p-3, gap-5, h-9…) rétrécissent
   partout sans toucher aux vues ; les tailles de texte et les valeurs en px ([34px]) ne changent pas. Les composants
-  plus visibles (en-têtes d'encarts, tableaux, ombres) sont ajustés dans src/web/ui.js avec la variante `minimal:`.
+  plus visibles (en-têtes d'encarts, tableaux) sont ajustés dans src/web/ui.js avec la variante `minimal:`.
 */
 @custom-variant minimal (&:where([data-game-layout="minimal"], [data-game-layout="minimal"] *));
 
@@ -105,17 +105,23 @@ html.lobby_style input[type="radio"] { accent-color: var(--color-action-hi); }
 .achievement-art--daily { width: 64px; height: 64px; }
 .achievement-art--report { width: 76px; height: 76px; }
 .achievement-art img { display: block; width: 88%; height: 88%; object-fit: contain; }
-/* Minimaliste : interface à plat, sans ombres portées ni filets intérieurs (encarts, boutons, pastilles…).
+/* Sans ombres portées (Compte → Style de jeu, par défaut en minimaliste, voir src/web/gameLayouts.js) : interface à
+   plat (traits fins, voir plus bas), sans ombres ni filets intérieurs (encarts, boutons, pastilles…), y compris ceux qu'un thème redessine (Futur).
    Le dessin de la carte (terrain et villages : [data-map-plane], filet intérieur .map-viewport, voile des bords
-   .map-vignette) et l'aperçu des styles (Compte) gardent leur rendu ; le cadre de la carte et l'interface posée dessus
-   (infobulle, actions rapides, menu, flèches) sont à plat comme le reste. Hors calque et !important : l'emporte sur les utilitaires shadow-* et sur les règles des
-   rapports. Les champs perdent leur filet de focus : un contour le remplace. */
-[data-game-layout="minimal"] :not(.map-viewport, .map-vignette, [data-map-plane] *, [data-layout-preview] *) {
-  box-shadow: none !important;
+   .map-vignette) et les aperçus du Compte ([data-layout-preview]) gardent leur rendu ; le cadre de la carte et
+   l'interface posée dessus (infobulle, actions rapides, menu, flèches) sont à plat comme le reste. Dans un calque et
+   !important : passe devant les !important hors calque des thèmes, quelle que soit leur spécificité, et devant les
+   utilitaires shadow-*. */
+@layer shadows-off {
+  [data-shadows="off"] :not(.map-viewport, .map-vignette, [data-map-plane] *, [data-layout-preview] *) {
+    box-shadow: none !important;
+  }
 }
-/* Minimaliste : traits fins. Les bordures de 2 et 3 px passent à 1 px ; les filets d'accent à gauche (border-l-4,
-   border-l-[3px]) restent. Même exclusions, plus les éléments dessinés au pixel (spacing-normal : plan, interrupteurs). */
-[data-game-layout="minimal"] :not(.map-frame, .map-viewport, [data-map-plane] *, [data-layout-preview] *, .spacing-normal, .spacing-normal *) {
+/* Minimaliste : les champs perdent leur filet de focus, un contour le remplace. */
+/* Sans ombres portées (donc en minimaliste par défaut) : traits fins, l'interface est à plat. Les bordures de 2 et 3 px
+   passent à 1 px ; les filets d'accent à gauche (border-l-4, border-l-[3px]) restent. Même exclusions, plus les éléments
+   dessinés au pixel (spacing-normal : plan, interrupteurs). Avec les ombres, les traits d'encre épais reviennent. */
+[data-shadows="off"] :not(.map-frame, .map-viewport, [data-map-plane] *, [data-layout-preview] *, .spacing-normal, .spacing-normal *) {
   &:is(.border-2, .border-\[3px\]) { border-width: 1px; }
   &:is(.border-t-2, .border-t-\[3px\]) { border-top-width: 1px; }
   &:is(.border-b-2, .border-b-\[3px\]) { border-bottom-width: 1px; }
@@ -574,9 +580,9 @@ html.game_style body::before,
 .map-shore--w { transform: translate(-50%, -50%) rotate(270deg) translateY(-19%); }
 .map-shore-corner--ne { transform: translate(-50%, -50%) rotate(90deg); }
 .map-shore-corner--sw { transform: translate(-50%, -50%) rotate(270deg); }
-.map-tile:hover { filter: brightness(1.16); box-shadow: inset 0 0 0 2px rgb(240 208 138 / .45); }
+/* Case survolée (un seul repère posé par map.js, les villages sont dessinés dans les canevas des blocs). */
+.map-hover { background: rgb(255 240 200 / .12); box-shadow: inset 0 0 0 2px rgb(240 208 138 / .45); }
 .map-tile[data-selected] { position: absolute; z-index: 4; box-shadow: inset 0 0 0 3px var(--color-gold-200), inset 0 0 14px rgb(244 219 160 / .5) !important; }
-.map-viewport.is-dragging .map-tile { pointer-events: none; }
 .map-decor { z-index: 1; width: var(--tile-w); height: var(--tile-h); }
 /* Sans transform (des centaines par carte, chacun coûtait un nœud de composition à chaque image d'un glisser) :
    image centrée sur la case (décalée de --decor-x / --decor-y), agrandie de --decor-scale autour d'un point situé aux
@@ -612,7 +618,6 @@ html.game_style body::before,
   display: none;
 }
 .village-relation-dot { position: absolute; z-index: 4; left: 1px; top: 1px; width: 8px; height: 8px; border: 1px solid #050505; background: var(--village-color); box-shadow: 1px 1px 0 rgb(0 0 0 / .7); }
-.map-tile--village { z-index: 3; }
 .village-sprite {
   position: absolute;
   /* 1 px de marge ; niveaux 1 et 2 : marge plus large, village plus petit. */
@@ -1051,8 +1056,8 @@ html.game_style body::before,
   overflow-x: auto; scrollbar-width: none;
 }
 [data-game-layout="minimal"] .quickbar-dock__inner { max-width: 1120px; }
-/* Minimaliste : trait fin, sans ombre, comme l'en-tête. */
-[data-game-layout="minimal"] .quickbar-dock { border-top-width: 1px; box-shadow: none; }
+/* Sans ombres : trait fin, comme l'en-tête. */
+[data-shadows="off"] .quickbar-dock { border-top-width: 1px; }
 .quickbar-dock__link {
   display: flex; flex-shrink: 0; align-items: center; gap: 5px; min-width: 0; padding: 4px 9px;
   border: 1px solid transparent; color: var(--color-gold-400); font-size: 13px; font-weight: 600;
@@ -1087,8 +1092,8 @@ body:has(.quickbar-dock) > footer:last-of-type { padding-bottom: 46px; }
   [data-game-layout="minimal"] :is(.quickbar-dock[data-pos="left"], .quickbar-dock[data-pos="right"]) {
     inset-inline: auto; bottom: auto; top: calc(var(--header-h, 100px) + 14px); width: 176px;
     max-height: calc(100vh - var(--header-h, 100px) - 28px); overflow-y: auto; padding: 0;
-    /* Comme les encarts minimalistes : trait fin bronze, sans ombre. */
-    border: 1px solid var(--color-bronze-500); background: var(--color-panel-top); box-shadow: none;
+    /* Comme les encarts minimalistes : trait fin bronze (l'ombre suit le réglage des ombres portées). */
+    border: 1px solid var(--color-bronze-500); background: var(--color-panel-top);
   }
   [data-game-layout="minimal"] .quickbar-dock[data-pos="left"] { left: calc((100vw - 1120px) / 2 - 176px - 14px); }
   [data-game-layout="minimal"] .quickbar-dock[data-pos="right"] { right: calc((100vw - 1120px) / 2 - 176px - 14px); }

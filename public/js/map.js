@@ -2,7 +2,7 @@
 
 // Carte du monde, façon Guerre Tribale : cases de taille fixe, villages chargés par secteurs de 20 × 20 cases
 // (/map/sector) et déplacement fluide (glisser, flèches, clavier, mini-carte) sans recharger la page.
-// Seuls les villages et le décor (forêts, collines, lacs) sont des éléments ; l'herbe est une texture unique.
+// Décor, eau et villages sont dessinés dans un canevas par bloc de cases ; l'herbe est une texture unique.
 (function () {
   const frame = document.querySelector('[data-map]');
   if (!frame) return;
@@ -115,19 +115,167 @@
   // les montagnes ni au cœur des forêts.
   const { rnd, forestAt, waterAt, terrain } = window.GTTerrain;
 
-  // Case d'eau d'une grande étendue : eau continue + vrais overlays de rive contenus dans la case.
-  function waterHtml(x, y, at) {
-    const n = !waterAt(x, y - 1); const e = !waterAt(x + 1, y); const s2 = !waterAt(x, y + 1); const w = !waterAt(x - 1, y);
-    const mask = Number(n) | (Number(e) << 1) | (Number(s2) << 2) | (Number(w) << 3);
-    const corner = mask === 9 ? 'nw' : mask === 3 ? 'ne' : mask === 6 ? 'se' : mask === 12 ? 'sw' : '';
-    const shore = corner
-      ? `<span class="map-shore-corner map-shore-corner--${corner}"></span>`
-      : `${n ? '<span class="map-shore map-shore--n"></span>' : ''}${e ? '<span class="map-shore map-shore--e"></span>' : ''}${s2 ? '<span class="map-shore map-shore--s"></span>' : ''}${w ? '<span class="map-shore map-shore--w"></span>' : ''}`;
-    const bx = texOffset(x, tw); const by = texOffset(y, th);
-    return `<div class="map-water pointer-events-none absolute w-(--tile-w) h-(--tile-h)" style="${at};--water-bg-x:${bx}px;--water-bg-y:${by}px">${shore}</div>`;
+  // ------------------------------------------------------------------ Rendu
+  // Comme sur Guerre Tribale : chaque bloc de la carte est une image (<canvas>), pas des centaines d'éléments par
+  // case ; la case visée se déduit de la position de la souris (cellAt). Restent des éléments : la texture d'herbe
+  // (fond CSS du bloc), les pastilles d'ordres (HTML du serveur), la case survolée et la case sélectionnée.
+  // Tailles, images et filtres viennent du CSS (src/styles/app.css), lus sur des éléments sonde : un design de
+  // village ou un thème qui change une règle n'a rien à changer ici.
+  let MARGIN = Math.max(4, Math.ceil(size / 3));
+  let baseX = 0;
+  let baseY = 0;
+  let span = 0;
+
+  // Gommette de la dernière attaque dans l'infobulle (comme sur GT) : composant du serveur (helpers.attackDot),
+  // le même que dans l'aperçu du village et les rapports. { win|partial|loss|spy: { html, label } }
+  const LAST = boot.attackDots || {};
+  const HAUL = { full: 'butin plein', partial: 'butin partiel' };
+  const lastDot = (last) => LAST[last.result].html;
+  const layerOn = (k) => frame.hasAttribute(`data-layer-${k}`);
+  const hiddenBarb = (c) => c.kind === 'barb' && layerOn('nobarb');
+
+  // Résolution des blocs : pixels du canevas par px CSS, selon l'écran et le zoom (dézoomé, moins de pixels ;
+  // zoomé, plus, pour rester net). Changée à la fin d'un zoom (recrisp) : les blocs sont alors redessinés.
+  const RES_STEPS = [0.5, 0.75, 1, 1.5, 2, 3];
+  const resFor = () => RES_STEPS.find((s) => s >= (window.devicePixelRatio || 1) * zoom - 0.01) || 3;
+  let res = resFor();
+
+  // Images : chargées une fois ; à leur arrivée, les blocs déjà dessinés sans elles sont refaits.
+  const images = new Map();
+  let assetFrame = 0;
+  function image(src) {
+    let img = images.get(src);
+    if (!img) {
+      img = new Image();
+      img.onload = () => {
+        if (assetFrame) return;
+        assetFrame = requestAnimationFrame(() => { assetFrame = 0; redrawAll(); });
+      };
+      img.src = src;
+      images.set(src, img);
+    }
+    return img.complete && img.naturalWidth ? img : null;
   }
+  const cssUrl = (v) => { const m = /url\(["']?([^"')]+)["']?\)/.exec(v || ''); return m ? m[1] : null; };
+  // Position de fond CSS (« 50% », « 100% », « calc(50% + 1px) ») : décalage dans l'espace libre `free`.
+  const bgPos = (v, free) => {
+    const p = /(-?[\d.]+)%/.exec(v); const n = /(-?[\d.]+)px/.exec(v);
+    return (p ? (free * Number(p[1])) / 100 : 0) + (n ? Number(n[1]) : 0);
+  };
+  // Image ajustée (contain) dans une boîte, centrée ou à la position de fond donnée.
+  function contain(img, x, y, w, h, pos = ['50%', '50%']) {
+    const f = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+    const iw = img.naturalWidth * f; const ih = img.naturalHeight * f;
+    return [x + bgPos(pos[0], w - iw), y + bgPos(pos[1], h - ih), iw, ih];
+  }
+
+  // Sondes : éléments invisibles portant les classes de la carte, dans le cadre (variables --tile-*, thème actif).
+  const probeBox = document.createElement('div');
+  probeBox.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;pointer-events:none';
+  probeBox.setAttribute('aria-hidden', 'true');
+  frame.append(probeBox);
+  function probe(html) {
+    probeBox.innerHTML = html;
+    return probeBox.firstElementChild;
+  }
+  const relBox = (el, root) => { const r = el.getBoundingClientRect(); const o = root.getBoundingClientRect(); return [r.left - o.left, r.top - o.top, r.width, r.height]; };
+  // Règles lues une fois par taille de case (vidées par dropChunks).
+  const specs = new Map();
+  function spec(k, read) {
+    if (!specs.has(k)) specs.set(k, read());
+    return specs.get(k);
+  }
+  // Couleurs des calques d'influence, du sous-bois et du bord du monde (classes d'origine, alpha compris).
+  const paint = (cls) => spec(`paint:${cls}`, () => getComputedStyle(probe(`<i class="${cls}"></i>`)).backgroundColor);
+  const PAINT = { influence: 'bg-blood-700/25', faction: 'bg-[#4fb3e8]/30', enemy: 'bg-rel-enemy/20', edge: 'bg-map-edge' };
+  // Village : image, boîte du sprite dans la case (marges, agrandissement), position du fond, filtres (barbares
+  // grisés, halo du village courant, thème), couleur de la pastille de relation.
+  function villageSpec(kind, design, level) {
+    return spec(`v:${kind}|${design}|${level}`, () => {
+      const marker = probe(`<span class="village-marker village-marker--${kind} village-marker--${level} village-design--${design}" style="position:absolute"><span class="village-sprite"></span></span>`);
+      const sprite = marker.firstElementChild;
+      const ms = getComputedStyle(marker); const ss = getComputedStyle(sprite);
+      return {
+        src: cssUrl(ss.backgroundImage), box: relBox(sprite, marker), pos: [ss.backgroundPositionX, ss.backgroundPositionY],
+        filter: [ss.filter, ms.filter].filter((f) => f && f !== 'none').join(' '),
+        color: ms.getPropertyValue('--village-color').trim(),
+      };
+    });
+  }
+  // Décor : image et taille à l'échelle 1 (largeur, hauteur, décalage vertical --decor-oy), voir .map-decor > span.
+  function decorSpec(kind, flip) {
+    return spec(`d:${kind}${flip}`, () => {
+      const el = probe(`<div class="map-decor map-decor--${kind}${flip ? ' map-decor--flip' : ''}" style="position:absolute;--decor-scale:1;--decor-x:0px;--decor-y:0px"><span></span></div>`);
+      const [, top, w, h] = relBox(el.firstElementChild, el);
+      return { src: cssUrl(getComputedStyle(el.firstElementChild).backgroundImage), w, h, oy: top - th / 2 + h / 2 };
+    });
+  }
+  const waterSpec = () => spec('water', () => {
+    // Décalage de la texture défini : sans lui, la règle de fond (qui l'utilise) serait ignorée.
+    const el = probe('<div class="map-water" style="--water-bg-x:0px;--water-bg-y:0px"><span class="map-shore"></span><span class="map-shore-corner"></span></div>');
+    const s = getComputedStyle(el);
+    return { color: s.backgroundColor, src: cssUrl(s.backgroundImage), shore: cssUrl(getComputedStyle(el.children[0]).backgroundImage), corner: cssUrl(getComputedStyle(el.children[1]).backgroundImage) };
+  });
+
+  // Sprite de village pré-rendu à la résolution courante, filtres CSS appliqués une fois pour toutes (ils coûtent
+  // cher à chaque dessin) ; `x`, `y` : position dans la case, en px CSS. Vidé quand la résolution change.
+  const sprites = new Map();
+  const PAD = 8;
+  function villageSprite(kind, design, level) {
+    const k = `${kind}|${design}|${level}`;
+    if (sprites.has(k)) return sprites.get(k);
+    const s = villageSpec(kind, design, level);
+    const img = s.src && image(s.src);
+    if (!img) return null;
+    const [ix, iy, iw, ih] = contain(img, ...s.box, s.pos);
+    const x = Math.floor(ix - PAD); const y = Math.floor(iy - PAD);
+    const c = document.createElement('canvas');
+    c.width = Math.ceil((ix + iw + PAD - x) * res);
+    c.height = Math.ceil((iy + ih + PAD - y) * res);
+    const g = c.getContext('2d');
+    // Les longueurs des filtres (ombres, flous) ne suivent pas l'échelle du canevas : mises à la résolution ici.
+    if (s.filter) g.filter = s.filter.replace(/(-?[\d.]+)px/g, (m, n) => `${Number(n) * res}px`);
+    g.drawImage(img, (ix - x) * res, (iy - y) * res, iw * res, ih * res);
+    const out = { canvas: c, x, y, w: c.width / res, h: c.height / res };
+    sprites.set(k, out);
+    return out;
+  }
+
+  // Décors d'une case (hors eau et villages) : biome, puis petits arbres et cailloux qui lient le paysage.
   // Taille de chaque décor (facteur min, max) : lacs et montagnes très variables, petits décors plus réguliers.
   const DECOR_SCALE = { hill: [0.78, 1.08], pine: [0.8, 1.2], default: [0.84, 1.06] };
+  function decorations(x, y, ground, woods) {
+    // En forêt : pas de lac ni de colline, mais bosquets et sapins, plus serrés au cœur du massif.
+    const t = ground === 'forest' ? (rnd(x, y, 141) < 0.25 + 0.45 * woods ? 'trees' : 'pine') : ground;
+    const list = t ? [t] : [];
+    const accent = rnd(x, y, 101);
+    const besideVillage = near(x, y, ['current', 'own', 'tribe', 'ally', 'nap', 'enemy', 'other', 'barb']);
+    const pineChance = besideVillage ? 0.34 : 0.16;
+    const rockChance = besideVillage ? 0.08 : 0.045;
+    if (accent < pineChance) list.push('pine');
+    else if (accent < pineChance + rockChance) list.push('rocks');
+    if (woods) {
+      // Arbres plus nombreux vers le cœur du massif : 1 à 5 par case.
+      const extra = Math.floor(woods * 3.2 + rnd(x, y, 107) * 1.4);
+      for (let k = 0; k < extra; k++) list.push(rnd(x, y, 151 + k) < 0.3 ? 'trees' : 'pine');
+    }
+    // Arbres seuls : parfois deux ou trois dans la même case (décalés, voir dx / dy).
+    if (list.includes('pine')) {
+      const more = rnd(x, y, 131);
+      if (more < 0.38) list.push('pine');
+      if (more < 0.14) list.push('pine');
+    }
+    return list.map((kind, i) => {
+      const [min, max] = DECOR_SCALE[kind] || DECOR_SCALE.default;
+      // Le décor principal reste centré ; les suivants (et tous les arbres seuls d'une case à plusieurs) sont décalés.
+      const shifted = i || (kind === 'pine' && list.length > 1);
+      return {
+        kind, scale: min + rnd(x, y, 37 + i * 7) * (max - min), flip: rnd(x, y, 41 + i * 11) > 0.5,
+        dx: shifted ? Math.round((rnd(x, y, 113 + i) - 0.5) * tw * 0.72) : 0,
+        dy: shifted ? Math.round((rnd(x, y, 127 + i) - 0.5) * th * 0.58) : 0,
+      };
+    });
+  }
   // Villages d'autres joueurs de sa faction (mondes à factions), pour le calque « Influence de ta faction ».
   const nearFaction = (x, y) => {
     for (let dx = -1; dx <= 1; dx++) {
@@ -148,36 +296,146 @@
     return false;
   };
 
-  // ------------------------------------------------------------------ Rendu
-  let MARGIN = Math.max(4, Math.ceil(size / 3));
-  let baseX = 0;
-  let baseY = 0;
-  let span = 0;
-
-  // Gommette de la dernière attaque dans l'infobulle (comme sur GT) : composant du serveur (helpers.attackDot),
-  // le même que dans l'aperçu du village et les rapports. { win|partial|loss|spy: { html, label } }
-  const LAST = boot.attackDots || {};
-  const HAUL = { full: 'butin plein', partial: 'butin partiel' };
-  const lastDot = (last) => LAST[last.result].html;
-  // Note du carnet sur ce village : petite feuille en haut à gauche de la case.
-  const NOTE_ICON = '<svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8 12h8M8 16h6"/></svg>';
-
-  function villageHtml(c) {
-    const relationHasDot = ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind);
-    // Une seule pastille par village : le marquage personnalisé remplace la relation. Les barbares,
-    // autres joueurs et PNA sans marquage n'affichent rien.
-    const dot = c.mark
-      ? `<span class="village-relation-dot hidden group-data-[layer-markers]/map:block" style="background:${esc(c.mark)}"></span>`
-      : relationHasDot ? '<span class="village-relation-dot"></span>' : '';
-    const fav = c.fav ? '<span class="pointer-events-none absolute right-0.5 bottom-0 z-[6] text-xs leading-none text-map-label-me [text-shadow:1px_1px_0_#000]" aria-hidden="true">★</span>' : '';
-    const barb = c.kind === 'barb' ? ' group-data-[layer-nobarb]/map:hidden' : '';
-    const note = c.note ? `<span class="pointer-events-none absolute bottom-0.5 left-0.5 z-[6] flex border border-black bg-[#f4e8c8] p-px text-[#3a2812] shadow-[1px_1px_0_#000]" title="Note">${NOTE_ICON}</span>` : '';
-    return `<span class="contents${barb}"><span class="village-marker village-marker--${c.kind} village-marker--${c.level} village-design--${c.design || 'beige'}" aria-hidden="true"><span class="village-sprite"></span>${dot}${c.special ? (c.specialKind === 'rune' ? '<span class="village-special village-special--rune"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v12M8 8 3.5 3.5M8 8l4.5-4.5"/></svg></span>' : '<span class="village-special">★</span>') : ''}</span>${note}</span>${fav}`;
+  // Case d'eau : eau continue (texture de 6 cases calée sur le monde) et rives contenues dans la case, tournées
+  // comme .map-shore--* / .map-shore-corner--* (rive droite repoussée de 19 % vers la terre).
+  function drawWater(g, x, y, X, Y, pattern) {
+    const w = waterSpec();
+    g.save();
+    g.beginPath(); g.rect(X, Y, tw, th); g.clip();
+    g.fillStyle = w.color; g.fillRect(X, Y, tw, th);
+    if (pattern) { g.fillStyle = pattern; g.fillRect(X, Y, tw, th); }
+    const n = !waterAt(x, y - 1); const e = !waterAt(x + 1, y); const s2 = !waterAt(x, y + 1); const wst = !waterAt(x - 1, y);
+    const mask = Number(n) | (Number(e) << 1) | (Number(s2) << 2) | (Number(wst) << 3);
+    const corner = { 9: 0, 3: 90, 6: 180, 12: 270 }[mask];
+    const shore = (src, angle, shift) => {
+      const im = src && image(src);
+      if (!im) return;
+      const turned = angle % 180 !== 0;
+      const sw2 = turned ? th : tw; const sh2 = turned ? tw : th;
+      g.save();
+      g.translate(X + tw / 2, Y + th / 2);
+      g.rotate((angle * Math.PI) / 180);
+      g.drawImage(im, -sw2 / 2, -sh2 / 2 + shift * sh2, sw2, sh2);
+      g.restore();
+    };
+    if (corner !== undefined) shore(w.corner, corner, 0);
+    else {
+      if (n) shore(w.shore, 0, -0.19);
+      if (e) shore(w.shore, 90, -0.19);
+      if (s2) shore(w.shore, 180, -0.19);
+      if (wst) shore(w.shore, 270, -0.19);
+    }
+    g.restore();
   }
 
-  // Pastilles des ordres en cours (en haut à droite, débordant sur la case voisine) : dans un calque au-dessus de
-  // tous les villages, et transparentes aux clics pour qu'on puisse toujours cliquer sur le village voisin. Dans
-  // la case, elles passeraient sous le village voisin (chaque case de village a son propre z-index).
+  // Marques d'un village, au-dessus de son image : pastille (marquage ou relation), village spécial (étoile ou rune),
+  // note du carnet (feuille en bas à gauche), favori (étoile en bas à droite). Mêmes tailles que l'ancien HTML.
+  const RUNE = typeof Path2D === 'function' ? new Path2D('M8 2v12M8 8 3.5 3.5M8 8l4.5-4.5') : null;
+  const NOTE = typeof Path2D === 'function' ? new Path2D('M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h6') : null;
+  const cssVar = (name) => spec(`var:${name}`, () => getComputedStyle(frame).getPropertyValue(name).trim());
+  function drawMarks(g, c, X, Y, color) {
+    const dot = c.mark ? (layerOn('markers') ? c.mark : null) : ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind) ? color : null;
+    if (dot) {
+      g.fillStyle = 'rgb(0 0 0 / .7)'; g.fillRect(X + 2, Y + 2, 8, 8);
+      g.fillStyle = '#050505'; g.fillRect(X + 1, Y + 1, 8, 8);
+      g.fillStyle = dot; g.fillRect(X + 2, Y + 2, 6, 6);
+    }
+    if (c.special && c.specialKind === 'rune' && RUNE) {
+      g.save();
+      g.translate(X + tw + 2 - 15, Y - 3); g.scale(15 / 16, 15 / 16);
+      g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.shadowColor = '#7b4dff'; g.shadowBlur = 6 * res;
+      g.strokeStyle = '#e4d8ff'; g.stroke(RUNE);
+      g.restore();
+    } else if (c.special) {
+      g.save();
+      g.font = '13px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'top';
+      g.shadowColor = '#000'; g.shadowOffsetY = res; g.shadowBlur = 2 * res;
+      g.fillStyle = cssVar('--color-gold-200') || '#f4dba0';
+      g.fillText('★', X + tw - 1, Y);
+      g.restore();
+    }
+    if (c.note && NOTE) {
+      const nx = X + 2; const ny = Y + th - 20;
+      g.fillStyle = '#000'; g.fillRect(nx + 1, ny + 1, 18, 18);
+      g.fillRect(nx, ny, 18, 18);
+      g.fillStyle = '#f4e8c8'; g.fillRect(nx + 1, ny + 1, 16, 16);
+      g.save();
+      g.translate(nx + 2, ny + 2); g.scale(14 / 24, 14 / 24);
+      g.lineWidth = 2.4; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#3a2812';
+      g.stroke(NOTE);
+      g.restore();
+    }
+    if (c.fav) {
+      g.save();
+      g.font = '12px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'bottom';
+      g.fillStyle = '#000'; g.fillText('★', X + tw - 1, Y + th + 1);
+      g.fillStyle = cssVar('--color-map-label-me') || '#e0b04a'; g.fillText('★', X + tw - 2, Y + th);
+      g.restore();
+    }
+  }
+
+  // Bloc (x0, y0) dans son canevas : sol (bord du monde, calques d'influence, sous-bois), puis eau et décors ligne
+  // par ligne, puis villages ligne par ligne (toujours au-dessus des décors). Décors et grands villages débordent
+  // sur les cases voisines : ceux des cases autour du bloc sont dessinés aussi (le canevas les coupe à son bord).
+  function drawChunk(g, x0, y0) {
+    const X = (x) => (x - x0) * tw; const Y = (y) => (y - y0) * th;
+    const inWorld = (x, y) => x >= 0 && y >= 0 && x < WORLD && y < WORLD;
+    const L = { influence: layerOn('influence'), faction: layerOn('faction'), enemy: layerOn('enemy') };
+    for (let y = y0; y < y0 + CHUNK; y++) {
+      for (let x = x0; x < x0 + CHUNK; x++) {
+        if (!inWorld(x, y)) { g.fillStyle = paint(PAINT.edge); g.fillRect(X(x), Y(y), tw, th); continue; }
+        // Calque de faction sous celui de la tribu : une case de ta tribu garde sa couleur quand les deux sont affichés.
+        const ownZone = near(x, y, ['current', 'own', 'tribe']);
+        if (ownZone && L.influence) { g.fillStyle = paint(PAINT.influence); g.fillRect(X(x), Y(y), tw, th); }
+        if (L.faction && !(ownZone && L.influence) && nearFaction(x, y)) { g.fillStyle = paint(PAINT.faction); g.fillRect(X(x), Y(y), tw, th); }
+        if (L.enemy && !ownZone && near(x, y, ['enemy'])) { g.fillStyle = paint(PAINT.enemy); g.fillRect(X(x), Y(y), tw, th); }
+        // Sol des forêts assombri (fondu vers les lisières), villages compris : pas de clairières carrées.
+        const woods = forestAt(x, y);
+        if (woods) { g.fillStyle = `rgb(22 40 12 / ${(0.1 + 0.3 * woods).toFixed(2)})`; g.fillRect(X(x), Y(y), tw, th); }
+      }
+    }
+    // Eau : texture calée sur le monde (même décalage que l'herbe, voir texOffset).
+    const w = waterSpec();
+    const wimg = w.src && image(w.src);
+    let pattern = null;
+    if (wimg) {
+      pattern = g.createPattern(wimg, 'repeat');
+      const T = texture();
+      pattern.setTransform(new DOMMatrix().translateSelf(texOffset(x0, tw), texOffset(y0, th)).scaleSelf(T / wimg.naturalWidth, T / wimg.naturalHeight));
+    }
+    const inside = (x, y) => x >= x0 && y >= y0 && x < x0 + CHUNK && y < y0 + CHUNK;
+    for (let y = y0 - 2; y < y0 + CHUNK + 2; y++) {
+      for (let x = x0 - 2; x < x0 + CHUNK + 2; x++) {
+        if (!inWorld(x, y) || cells.has(ck(x, y))) continue;
+        const ground = terrain(x, y);
+        if (ground === 'water') { if (inside(x, y)) drawWater(g, x, y, X(x), Y(y), pattern); continue; }
+        for (const d of decorations(x, y, ground, forestAt(x, y))) {
+          const s = decorSpec(d.kind, d.flip);
+          const img = s.src && image(s.src);
+          if (!img) continue;
+          // Comme .map-decor > span : boîte agrandie de `scale` autour d'un point aux trois quarts de sa hauteur.
+          const bw = s.w * d.scale; const bh = s.h * d.scale;
+          const left = X(x) + tw / 2 + d.dx - bw / 2;
+          const top = Y(y) + th / 2 + d.dy + s.oy + s.h * (0.25 - 0.75 * d.scale);
+          g.drawImage(img, ...contain(img, left, top, bw, bh));
+        }
+      }
+    }
+    for (let y = y0 - 1; y < y0 + CHUNK + 1; y++) {
+      for (let x = x0 - 1; x < x0 + CHUNK + 1; x++) {
+        const c = cells.get(ck(x, y));
+        if (!c || hiddenBarb(c)) continue;
+        const design = c.design || 'beige';
+        const sp = villageSprite(c.kind, design, c.level);
+        if (sp) g.drawImage(sp.canvas, X(x) + sp.x, Y(y) + sp.y, sp.w, sp.h);
+        drawMarks(g, c, X(x), Y(y), villageSpec(c.kind, design, c.level).color);
+      }
+    }
+  }
+
+  // Pastilles des ordres en cours (en haut à droite, débordant sur la case voisine) : HTML au-dessus de tous les
+  // canevas, transparent aux clics.
   function orderBadgesHtml(c, style) {
     const { own, tribe } = liveOrders(c);
     const orders = [...own, ...tribe];
@@ -193,89 +451,23 @@
 
   // La carte est découpée en blocs de CHUNK × CHUNK cases, posés en coordonnées du monde dans le calque. Un bloc
   // est dessiné une fois puis gardé : glisser ne fait qu'ajouter les blocs qui entrent dans la zone (et retirer ceux
-  // qui en sortent), au lieu de redessiner toute la carte. Un bloc n'est redessiné que si les villages de son
-  // secteur ou d'un secteur voisin changent (le décor et les zones d'influence dépendent des cases voisines).
-  // Les blocs ne créent pas de contexte d'empilement (ni z-index, ni transform) : villages, décors et pastilles
-  // de toute la carte se superposent comme s'ils étaient dans un seul calque.
-  // 5 cases : assez petit pour que la zone gardée colle à la vue (peu d'éléments), assez grand pour peu de blocs.
-  const CHUNK = 5;
+  // qui en sortent). Un bloc n'est redessiné que si les villages de son secteur ou d'un secteur voisin changent
+  // (le décor et les zones d'influence dépendent des cases voisines), si un calque change ou si la résolution change.
+  const CHUNK = 10;
   const chunkBox = document.createElement('div');
+  // Case survolée (repère et ancre de l'infobulle et du menu) et case sélectionnée, au-dessus des villages.
+  const hoverEl = document.createElement('div');
+  hoverEl.className = 'map-hover pointer-events-none absolute z-[4] hidden w-(--tile-w) h-(--tile-h)';
+  const selEl = document.createElement('div');
+  selEl.className = 'map-tile pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-none';
+  selEl.setAttribute('data-selected', '');
   const overlay = document.createElement('div');
   overlay.className = 'pointer-events-none absolute';
-  layer.append(chunkBox, overlay);
+  layer.append(chunkBox, selEl, hoverEl, overlay);
   const chunks = new Map();
   const dirty = new Set();
   // Zone de blocs à garder dessinés (vue + MARGIN cases de chaque côté), en numéros de bloc.
   let zone = null;
-
-  function chunkHtml(x0, y0) {
-    const out = [];
-    const badges = [];
-    const at = (x, y) => `left:${(x - x0) * tw}px;top:${(y - y0) * th}px`;
-    for (let y = y0; y < y0 + CHUNK; y++) {
-      for (let x = x0; x < x0 + CHUNK; x++) {
-        if (x >= WORLD || y >= WORLD) {
-          out.push(`<div class="absolute w-(--tile-w) h-(--tile-h) bg-map-edge" style="${at(x, y)}"></div>`);
-          continue;
-        }
-        const c = cells.get(ck(x, y));
-        // Calques d'influence : cases voisines d'un village à soi ou de sa tribu, ou d'un ennemi.
-        // Calque de faction sous celui de la tribu : une case de ta tribu garde sa couleur quand les deux sont affichés.
-        const ownZone = near(x, y, ['current', 'own', 'tribe']);
-        if (ownZone) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-blood-700/25 group-data-[layer-influence]/map:block" style="${at(x, y)}"></div>`);
-        if (nearFaction(x, y)) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-[#4fb3e8]/30 group-data-[layer-faction]/map:block ${ownZone ? 'group-data-[layer-influence]/map:hidden!' : ''}" style="${at(x, y)}"></div>`);
-        if (!ownZone && near(x, y, ['enemy'])) out.push(`<div class="pointer-events-none absolute hidden w-(--tile-w) h-(--tile-h) bg-rel-enemy/20 group-data-[layer-enemy]/map:block" style="${at(x, y)}"></div>`);
-        // Sol des forêts assombri (fondu vers les lisières), villages compris : pas de clairières carrées.
-        const woods = forestAt(x, y);
-        if (woods) out.push(`<div class="pointer-events-none absolute w-(--tile-w) h-(--tile-h)" style="${at(x, y)};background:rgb(22 40 12 / ${(0.1 + 0.3 * woods).toFixed(2)})"></div>`);
-        if (c) {
-          out.push(`<div class="map-tile map-tile--village absolute flex w-(--tile-w) h-(--tile-h) cursor-pointer items-center justify-center" style="${at(x, y)}" data-map-tile data-x="${x}" data-y="${y}"${sel && sel[0] === x && sel[1] === y ? ' data-selected' : ''} aria-label="${esc(`${c.name} ${x}|${y} · ${c.points} pts · ${c.owner}`)}">${villageHtml(c)}</div>`);
-          badges.push(orderBadgesHtml(c, at(x, y)));
-        } else {
-          const ground = terrain(x, y);
-          if (ground === 'water') {
-            out.push(waterHtml(x, y, at(x, y)));
-            if (sel && sel[0] === x && sel[1] === y) out.push(`<div class="map-tile pointer-events-none absolute w-(--tile-w) h-(--tile-h) bg-none" style="${at(x, y)}" data-selected></div>`);
-            continue;
-          }
-          // En forêt : pas de lac ni de colline, mais bosquets et sapins, plus serrés au cœur du massif.
-          const t = ground === 'forest' ? (rnd(x, y, 141) < 0.25 + 0.45 * woods ? 'trees' : 'pine') : ground;
-          // Le décor principal dessine les biomes. Une seconde couche, indépendante, ajoute de petits
-          // arbres et cailloux entre les villages et jusque dans les grands amas pour lier le paysage.
-          const decorations = t ? [t] : [];
-          const accent = rnd(x, y, 101);
-          const besideVillage = near(x, y, ['current', 'own', 'tribe', 'ally', 'nap', 'enemy', 'other', 'barb']);
-          const pineChance = besideVillage ? 0.34 : 0.16;
-          const rockChance = besideVillage ? 0.08 : 0.045;
-          if (accent < pineChance) decorations.push('pine');
-          else if (accent < pineChance + rockChance) decorations.push('rocks');
-          if (woods) {
-            // Arbres plus nombreux vers le cœur du massif : 1 à 5 par case.
-            const extra = Math.floor(woods * 3.2 + rnd(x, y, 107) * 1.4);
-            for (let k = 0; k < extra; k++) decorations.push(rnd(x, y, 151 + k) < 0.3 ? 'trees' : 'pine');
-          }
-          // Arbres seuls : parfois deux ou trois dans la même case (décalés, voir dx / dy).
-          if (decorations.includes('pine')) {
-            const more = rnd(x, y, 131);
-            if (more < 0.38) decorations.push('pine');
-            if (more < 0.14) decorations.push('pine');
-          }
-          decorations.forEach((kind, i) => {
-            const [min, max] = DECOR_SCALE[kind] || DECOR_SCALE.default;
-            const scale = (min + rnd(x, y, 37 + i * 7) * (max - min)).toFixed(2);
-            const flip = rnd(x, y, 41 + i * 11) > 0.5 ? ' map-decor--flip' : '';
-            // Le décor principal reste centré ; les suivants (et tous les arbres seuls d'une case à plusieurs) sont décalés.
-            const shifted = i || (kind === 'pine' && decorations.length > 1);
-            const dx = shifted ? Math.round((rnd(x, y, 113 + i) - 0.5) * tw * 0.72) : 0;
-            const dy = shifted ? Math.round((rnd(x, y, 127 + i) - 0.5) * th * 0.58) : 0;
-            out.push(`<div class="map-decor map-decor--${kind}${flip} pointer-events-none absolute" style="${at(x, y)};--decor-scale:${scale};--decor-x:${dx}px;--decor-y:${dy}px" aria-hidden="true"><span></span></div>`);
-          });
-          if (sel && sel[0] === x && sel[1] === y) out.push(`<div class="map-tile pointer-events-none absolute w-(--tile-w) h-(--tile-h) bg-none" style="${at(x, y)}" data-selected></div>`);
-        }
-      }
-    }
-    return out.join('') + badges.join('');
-  }
 
   // Bloc (a, b) : cases a·CHUNK… et b·CHUNK…, texture d'herbe calée sur le monde. Hors du monde : simple bord.
   function buildChunk(a, b) {
@@ -286,18 +478,33 @@
     if (!el) {
       el = document.createElement('div');
       el.className = outside ? 'absolute bg-map-edge' : 'absolute';
-      if (!outside) el.setAttribute('data-map-chunk', '');
+      if (!outside) {
+        el.setAttribute('data-map-chunk', '');
+        const canvas = document.createElement('canvas');
+        canvas.className = 'absolute top-0 left-0 size-full';
+        el.append(canvas);
+      }
       el.style.cssText = `left:${x0 * tw}px;top:${y0 * th}px;width:${CHUNK * tw}px;height:${CHUNK * th}px;--terrain-px:${texOffset(x0, tw)}px;--terrain-py:${texOffset(y0, th)}px`;
-      // Ordre du document : ligne par ligne, comme les cases, pour que les décors qui débordent sur le bloc
-      // suivant passent dessus comme avant.
-      const order = b * 100000 + a;
-      el.dataset.order = order;
-      const next = [...chunkBox.children].find((n) => Number(n.dataset.order) > order);
-      chunkBox.insertBefore(el, next || null);
+      chunkBox.append(el);
       chunks.set(k, el);
     }
     dirty.delete(k);
-    if (!outside) el.innerHTML = chunkHtml(x0, y0);
+    if (outside) return;
+    const canvas = el.firstElementChild;
+    const W = Math.round(CHUNK * tw * res); const H = Math.round(CHUNK * th * res);
+    const g = canvas.getContext('2d');
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; } else { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); }
+    g.setTransform(W / (CHUNK * tw), 0, 0, H / (CHUNK * th), 0, 0);
+    drawChunk(g, x0, y0);
+    while (canvas.nextSibling) canvas.nextSibling.remove();
+    const badges = [];
+    for (let y = y0; y < y0 + CHUNK; y++) {
+      for (let x = x0; x < x0 + CHUNK; x++) {
+        const c = cells.get(ck(x, y));
+        if (c && !hiddenBarb(c)) badges.push(orderBadgesHtml(c, `left:${(x - x0) * tw}px;top:${(y - y0) * th}px`));
+      }
+    }
+    if (badges.join('')) el.insertAdjacentHTML('beforeend', badges.join(''));
   }
 
   // Tout redessiner (taille des cases changée, carte agrandie…).
@@ -305,7 +512,14 @@
     chunkBox.textContent = '';
     chunks.clear();
     dirty.clear();
+    specs.clear();
+    sprites.clear();
     zone = null;
+  }
+  // Tous les blocs gardés à refaire (calque basculé, image arrivée, résolution changée), du centre vers les bords.
+  function redrawAll() {
+    for (const k of chunks.keys()) dirty.add(k);
+    schedule();
   }
 
   // Blocs de la zone autour de la vue : ceux qui touchent la partie visible sont dessinés tout de suite, les autres
@@ -391,9 +605,12 @@
     const [w, h] = [tw, th];
     fit();
     if (tw !== w || th !== h) dropChunks();
+    const r = resFor();
+    if (r !== res) { res = r; sprites.clear(); redrawAll(); }
     zone = null;
     frameOverlay();
     place();
+    applySelection();
   }
 
   // Zones d'influence de ses églises (mondes avec église, calque « Zones de foi ») : hors de ces cercles, ses villages se
@@ -590,7 +807,7 @@
   function moveTo(x, y, { animate = true } = {}) {
     x = clampC(x); y = clampC(y);
     cancelAnimationFrame(anim);
-    hideTip(); closeMenu();
+    hideTip(); hideHover(); closeMenu();
     if (!animate) { cx = x; cy = y; place(); settle(); return; }
     const [fx, fy] = [cx, cy];
     const start = performance.now();
@@ -629,13 +846,13 @@
   viewport.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || e.target.closest('.map-controls')) return;
     cancelAnimationFrame(anim);
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, tile: e.target.closest('[data-map-tile]') };
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, tile: villageAt(e) };
     viewport.setPointerCapture(e.pointerId);
   });
   viewport.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
-    if (!drag.moved) { drag.moved = true; viewport.classList.add('is-dragging'); hideTip(); closeMenu(); }
+    if (!drag.moved) { drag.moved = true; viewport.classList.add('is-dragging'); hideTip(); hideHover(); closeMenu(); }
     // Pas à pas depuis la dernière position : la taille des cases à l'écran change si l'on zoome en glissant.
     cx = clampC(cx - (e.clientX - drag.lx) / sw);
     cy = clampC(cy - (e.clientY - drag.ly) / sh);
@@ -648,7 +865,7 @@
     drag = null;
     viewport.classList.remove('is-dragging');
     if (d.moved) { settle(); return; }
-    if (d.tile) { selectTile(d.tile); openMenu(d.tile); } else closeMenu();
+    if (d.tile) { const el = pointTile(...d.tile); selectTile(el); openMenu(el); } else closeMenu();
   };
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
@@ -681,6 +898,8 @@
   // Après un zoom, l'image du calque (gardée telle quelle pendant le geste, will-change) est refaite à la bonne
   // échelle : sinon elle resterait floue en zoomant.
   function recrisp() {
+    const r = resFor();
+    if (r !== res) { res = r; sprites.clear(); redrawAll(); }
     layer.style.willChange = 'auto';
     requestAnimationFrame(() => requestAnimationFrame(() => { layer.style.willChange = ''; }));
   }
@@ -749,6 +968,27 @@
 
   // ------------------------------------------------------------------ Infobulle et menu d'actions
   const cellOf = (el) => cells.get(ck(Number(el.dataset.x), Number(el.dataset.y)));
+  // Case sous le pointeur, d'après sa position dans la fenêtre : la case `cx - half` commence à `ox` px.
+  function cellAt(e) {
+    const r = viewport.getBoundingClientRect();
+    return [Math.floor((e.clientX - r.left - ox) / sw + cx - half), Math.floor((e.clientY - r.top - oy) / sh + cy - half)];
+  }
+  // Village sous le pointeur (coordonnées), sauf barbare masqué.
+  function villageAt(e) {
+    const [x, y] = cellAt(e);
+    const c = cells.get(ck(x, y));
+    return c && !hiddenBarb(c) ? [x, y] : null;
+  }
+  // Repère de la case survolée : il sert aussi d'ancre à l'infobulle et au menu (data-x, data-y, position).
+  function pointTile(x, y) {
+    hoverEl.dataset.x = x;
+    hoverEl.dataset.y = y;
+    hoverEl.style.left = `${x * tw}px`;
+    hoverEl.style.top = `${y * th}px`;
+    hoverEl.classList.remove('hidden');
+    return hoverEl;
+  }
+  function hideHover() { hoverEl.classList.add('hidden'); hoverAt = ''; viewport.style.cursor = ''; }
   function placeBeside(el, target) {
     const f = frame.getBoundingClientRect();
     const r = target.getBoundingClientRect();
@@ -820,12 +1060,20 @@
     tip.classList.remove('hidden');
     placeBeside(tip, el);
   }
-  viewport.addEventListener('pointerover', (e) => {
-    const el = e.target.closest('[data-map-tile]');
-    if (!el || drag || menuOpen()) { if (!el) hideTip(); return; }
-    showTip(el);
+  // Survol : la case sous la souris est calculée (pas d'élément par case) ; sur un village, repère et infobulle.
+  let hoverAt = '';
+  viewport.addEventListener('pointermove', (e) => {
+    if (drag) return;
+    const v = e.target.closest('.map-controls, [data-mini-over]') ? null : villageAt(e);
+    viewport.style.cursor = v ? 'pointer' : '';
+    const k = v ? v.join('|') : '';
+    if (k === hoverAt) return;
+    hoverAt = k;
+    if (!v) { hideHover(); hideTip(); return; }
+    const el = pointTile(...v);
+    if (!menuOpen()) showTip(el);
   });
-  viewport.addEventListener('pointerleave', hideTip);
+  viewport.addEventListener('pointerleave', () => { hideHover(); hideTip(); });
   setInterval(() => {
     if (!tip || tip.classList.contains('hidden')) return;
     tip.querySelectorAll('[data-order-arrival]').forEach((el) => {
@@ -851,8 +1099,8 @@
   }
   function refreshTip() {
     if (!tip || tip.classList.contains('hidden') || !tipAt) return;
-    const el = layer.querySelector(`[data-map-tile][data-x="${tipAt[0]}"][data-y="${tipAt[1]}"]`);
-    if (el) showTip(el);
+    const c = cells.get(ck(...tipAt));
+    if (c && !hiddenBarb(c)) showTip(pointTile(...tipAt)); else hideTip();
   }
   setInterval(() => {
     if (Date.now() < nextArrival) return;
@@ -863,22 +1111,17 @@
     setTimeout(() => { reloadVisible(); }, RELOAD_AFTER_MS);
   }, 1000);
 
-  // Case sélectionnée par « Aller à » : marquée sur le bloc déjà dessiné (les blocs dessinés ensuite la marquent eux-mêmes).
+  // Case sélectionnée (« Aller à », résultat de recherche, village cliqué) : un seul cadre, posé sur la case.
   function applySelection() {
-    layer.querySelectorAll('[data-selected]').forEach((n) => { if (n.hasAttribute('data-map-tile')) n.removeAttribute('data-selected'); else n.remove(); });
+    selEl.classList.toggle('hidden', !sel);
     if (!sel) return;
-    const [x, y] = sel;
-    const tile = layer.querySelector(`[data-map-tile][data-x="${x}"][data-y="${y}"]`);
-    if (tile) { tile.setAttribute('data-selected', ''); return; }
-    const a = Math.floor(x / CHUNK); const b = Math.floor(y / CHUNK);
-    const el = chunks.get(key(a, b));
-    if (el && el.hasAttribute('data-map-chunk')) el.insertAdjacentHTML('beforeend', `<div class="map-tile pointer-events-none absolute w-(--tile-w) h-(--tile-h) bg-none" style="left:${(x - a * CHUNK) * tw}px;top:${(y - b * CHUNK) * th}px" data-selected></div>`);
+    selEl.style.left = `${sel[0] * tw}px`;
+    selEl.style.top = `${sel[1] * th}px`;
   }
 
   function selectTile(el) {
     sel = [Number(el.dataset.x), Number(el.dataset.y)];
-    layer.querySelectorAll('[data-selected]').forEach((n) => { if (n.hasAttribute('data-map-tile')) n.removeAttribute('data-selected'); else n.remove(); });
-    el.setAttribute('data-selected', '');
+    applySelection();
   }
 
   const MENU_ICONS = {
@@ -1079,6 +1322,7 @@
       const on = b.getAttribute('aria-pressed') !== 'true';
       frame.toggleAttribute(`data-layer-${k}`, on);
       b.setAttribute('aria-pressed', String(on));
+      if (['influence', 'faction', 'enemy', 'nobarb', 'markers'].includes(k)) { redrawAll(); hideHover(); hideTip(); }
       drawMini();
       if (modal && !modal.classList.contains('hidden')) drawWorld();
       const body = new URLSearchParams({ _csrf: frame.dataset.csrf, layer: k, on: on ? '1' : '0' });

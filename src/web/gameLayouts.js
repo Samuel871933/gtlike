@@ -7,6 +7,11 @@
   En jeu, <html> porte l'attribut data-game-layout="<id>" ; la variante Tailwind `minimal:` (src/styles/app.css)
   permet d'ajuster un composant, et l'échelle d'espacement (--spacing) y est réduite pour tout le jeu.
   Gratuit ; le compte choisit le sien (User.gameLayout).
+
+  Ombres portées (et filets intérieurs, y compris ceux redessinés par un thème) : réglage à part (User.gameShadows) ;
+  sans elles, l'interface est à plat et ses traits d'encre épais passent aussi à 1 px.
+  Sans choix du compte, elles suivent le style (sans en minimaliste, avec en normal) ; changer de style revient à ce
+  choix par défaut. Sans ombres, <html> porte data-shadows="off" (src/styles/app.css).
 */
 
 const GAME_LAYOUTS = {
@@ -34,4 +39,13 @@ function gameLayoutFor(user) {
   return GAME_LAYOUTS[isGameLayout(id) ? id : DEFAULT_GAME_LAYOUT];
 }
 
-module.exports = { GAME_LAYOUTS, DEFAULT_GAME_LAYOUT, isGameLayout, gameLayoutFor };
+/** Ombres par défaut d'un style de jeu : aucune en minimaliste. */
+const defaultShadows = (layout) => layout.id !== 'minimal';
+
+/** Ombres portées d'un compte : son choix, sinon celui de son style de jeu. */
+function shadowsFor(user) {
+  const chosen = user && user.gameShadows;
+  return typeof chosen === 'boolean' ? chosen : defaultShadows(gameLayoutFor(user));
+}
+
+module.exports = { GAME_LAYOUTS, DEFAULT_GAME_LAYOUT, isGameLayout, gameLayoutFor, defaultShadows, shadowsFor };

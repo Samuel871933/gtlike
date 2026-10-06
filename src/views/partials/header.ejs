@@ -1,6 +1,6 @@
 <!doctype html>
 <%# En jeu, <html> porte le thème choisi ; les pages publiques partagent une palette neutre inspirée des quatre époques. %>
-<html lang="fr" class="h-full scheme-dark light:scheme-light<%= ctx && gameStyle ? ' game_style' : ' lobby_style' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %><%- ctx && gameLayout ? ` data-game-layout="${gameLayout.id}"` : '' %>>
+<html lang="fr" class="h-full scheme-dark light:scheme-light<%= ctx && gameStyle ? ' game_style' : ' lobby_style' %>"<%- ctx && gameStyle ? ` data-game-style="${gameStyle.id}"` : '' %><%- ctx && gameLayout ? ` data-game-layout="${gameLayout.id}"` : '' %><%- ctx && gameLayout && !gameShadows ? ' data-shadows="off"' : '' %>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
