@@ -45,7 +45,7 @@
 <% if (forum.view === 'section') { const s = forum.section; const r = forum.recent; %>
   <%# Nouveaux messages du forum %>
   <details class="<%= ui.panel %> group" open>
-    <summary class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+    <summary data-panel-head class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
       <span class="<%= ui.panelTitle %>"><span class="<%= ui.diamond %>" aria-hidden="true"></span>Nouveaux messages du forum <% if (r.total) { %><span class="<%= ui.countBadge %> ml-1"><%= r.total %></span><% } %></span>
       <span class="flex size-5 items-center justify-center border border-black bg-night text-parchment-300" aria-hidden="true"><span class="group-open:hidden">+</span><span class="hidden group-open:inline">−</span></span>
     </summary>
@@ -156,7 +156,7 @@
 
 <% if (forum.view === 'settings') { const vid = ctx.village.id; const pending = forum.received.filter((sh) => !sh.accepted); const accepted = forum.received.filter((sh) => sh.accepted);
      // Bascule Visible / Caché (droit « Forum caché ») : deux boutons, l'actif ne renvoie rien.
-     const segCur = 'inline-flex h-7 items-center border border-black bg-head-dark px-2.5 text-sm font-semibold text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-500)]';
+     const segCur = ui.segOn;
      const hideToggle = (action, hidden) => `<span class="inline-flex gap-0.5">${[['', 'Visible', !hidden], ['1', 'Caché', hidden]].map(([v, label, cur]) => `<form method="post" action="${action}" class="inline">${csrf}<input type="hidden" name="on" value="${v}"><button class="${cur ? segCur : `${ui.segOff} cursor-pointer`}" ${cur ? 'disabled aria-current="true"' : ''}>${v ? icon('lock', 'size-3 mr-1', 2.4) : ''}${label}</button></form>`).join('')}</span>`;
      // Bouton supprimer de la colonne Gestion : même taille que les autres boutons.
      const deleteBtn = 'inline-flex size-[26px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-900 text-on-accent shadow-[inset_0_0_0_1px_var(--color-blood-600),2px_2px_0_#000] align-middle transition hover:bg-blood-600'; %>

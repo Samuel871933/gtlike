@@ -133,7 +133,7 @@
     <%# Carnet de notes (visible de toi seul) %>
     <section class="<%= ui.panel %>">
       <details class="group">
-        <summary class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <summary data-panel-head class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
           <span class="<%= ui.panelTitle %>"><span class="<%= ui.diamond %>" aria-hidden="true"></span>Carnet de notes</span>
           <span class="text-[13px] font-semibold text-gold-400 group-open:hidden">Modifier</span><span class="hidden text-[13px] font-semibold text-gold-400 group-open:inline">Fermer</span>
         </summary>

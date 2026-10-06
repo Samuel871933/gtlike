@@ -112,9 +112,16 @@ const ui = {
   iconBtnSm: 'inline-flex size-[22px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-900 text-on-accent shadow-[1px_1px_0_#000] transition hover:bg-blood-600',
 
   // Onglets segmentés (VUE VILLAGE / LISTE, SORTANTS / ENTRANTS…), posés sur un bandeau rouge.
+  // Puces de filtre (forum de la tribu, groupes de villages) : la puce active prend le fond du thème.
+  filterChip: 'inline-flex h-8 max-w-48 items-center gap-1.5 border-2 border-black bg-panel-hi px-3 text-[13px] font-semibold text-gold-400 no-underline shadow-[2px_2px_0_#000] transition hover:bg-row-hover hover:text-parchment-100',
+  filterChipOn: 'inline-flex h-8 max-w-48 items-center gap-1.5 border-2 border-black bg-head-dark px-3 text-[13px] font-semibold text-parchment-100 no-underline shadow-[inset_0_0_0_1px_var(--color-bronze-500),2px_2px_0_#000]',
   seg: 'flex flex-wrap gap-0.5',
-  segOn: 'inline-flex h-7 items-center border border-black bg-night px-2.5 text-sm font-semibold text-gold-200 no-underline',
-  segOff: 'inline-flex h-7 items-center border border-black px-2.5 text-sm font-medium text-parchment-300 no-underline transition hover:bg-head-dark hover:text-parchment-100',
+  // Onglet actif : fond clair sur le bandeau d'un panneau (déjà à la couleur du thème, data-panel-head), fond du thème
+  // ailleurs (comme les puces des forums de la tribu). Fond du thème en valeur arbitraire, pas la classe bg-head-dark :
+  // les thèmes clairs recolorent les textes de tout élément qui porte cette classe (adarma.css), même dans un bandeau.
+  // Un seul composant pour tous les onglets : segTabs / segMenu.
+  segOn: 'inline-flex h-7 items-center gap-1 border border-black bg-night px-2.5 text-sm font-semibold text-gold-200 no-underline not-in-data-panel-head:bg-[var(--color-head-dark)] not-in-data-panel-head:text-on-accent not-in-data-panel-head:shadow-[inset_0_0_0_1px_var(--color-bronze-500)]',
+  segOff: 'inline-flex h-7 items-center gap-1 border border-black px-2.5 text-sm font-medium text-parchment-300 no-underline transition hover:bg-head-dark hover:text-parchment-100',
 
   // Compteur à droite d'un en-tête de panneau (« 3 / 20 », « 12 rapports »).
   headCount: 'text-[13px] font-semibold text-parchment-500 tabular-nums',
@@ -156,12 +163,15 @@ const ui = {
  * panelHead('Chantiers', '<span>3 / 5</span>') ; panelHead('Carte', '', { tag: 'h1' }).
  */
 function panelHead(title, right = '', { tag = 'h2', id = '' } = {}) {
-  return `<div class="${ui.panelHead}"><${tag} class="${ui.panelTitle}"${id ? ` id="${esc(id)}"` : ''}><span class="${ui.diamond}" aria-hidden="true"></span><span class="min-w-0 truncate">${esc(title)}</span></${tag}>${right}</div>`;
+  return `<div class="${ui.panelHead}" data-panel-head><${tag} class="${ui.panelTitle}"${id ? ` id="${esc(id)}"` : ''}><span class="${ui.diamond}" aria-hidden="true"></span><span class="min-w-0 truncate">${esc(title)}</span></${tag}>${right}</div>`;
 }
 
-/** Onglets segmentés : [[href, libellé, actif], …]. */
+/**
+ * Onglets segmentés, composant commun de tous les onglets : [[href, libellé, actif, html], …]. `html` : libellé déjà
+ * en HTML (compteur tenu à jour par game.js…), sinon le libellé est échappé.
+ */
 function segTabs(items) {
-  return `<nav class="${ui.seg}">${items.map(([href, label, on]) => `<a href="${esc(href)}" class="${on ? ui.segOn : ui.segOff}"${on ? ' aria-current="page"' : ''}>${esc(label)}</a>`).join('')}</nav>`;
+  return `<nav class="${ui.seg}">${items.map(([href, label, on, html]) => `<a href="${esc(href)}" class="${on ? ui.segOn : ui.segOff}"${on ? ' aria-current="page"' : ''}>${html || esc(label)}</a>`).join('')}</nav>`;
 }
 
 /**

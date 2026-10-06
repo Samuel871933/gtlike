@@ -62,7 +62,8 @@ class TradeService {
 
   // ---------------------------------------------------------------- Envoi direct
 
-  static async send(villageId, { x, y, resources }, { now } = {}) {
+  /** Envoi de ressources. `source` : envoi du gestionnaire de compte (route, reserve), rapport à l'arrivée. */
+  static async send(villageId, { x, y, resources }, { now, source = null } = {}) {
     return VillageService.withVillage(villageId, async (ctx, t) => {
       TradeService.assertMarket(ctx);
       const amount = total(resources);
@@ -80,11 +81,11 @@ class TradeService {
 
       ctx.state.pay(resources);
       await ctx.village.update(ctx.state.resources, { transaction: t });
-      return TradeService.dispatch(ctx.village, target, resources, needed, ctx.now, ctx.cfg, t);
+      return TradeService.dispatch(ctx.village, target, resources, needed, ctx.now, ctx.cfg, t, source);
     }, { now });
   }
 
-  static dispatch(from, to, resources, merchants, now, cfg, t) {
+  static dispatch(from, to, resources, merchants, now, cfg, t, source = null) {
     const seconds = TradeService.travelSeconds(from, to, cfg);
     return Transport.create({
       worldId: from.worldId,
@@ -93,6 +94,7 @@ class TradeService {
       targetVillageId: to.id,
       resources,
       merchants,
+      source,
       startsAt: now,
       // Arrondie à la précision des arrivées du monde, comme les troupes.
       arrivesAt: arrivalAt(now.getTime() + seconds * 1000, cfg),
@@ -330,6 +332,19 @@ class TradeService {
     }, { transaction: t });
 
     const origin = await Village.findByPk(tr.originVillageId, { include: [Player], transaction: t });
+    // Envoi du gestionnaire de compte : rapport à son propriétaire (l'expéditeur), même entre ses propres villages.
+    if (tr.source && origin.playerId) {
+      const recipient = ctx.village.playerId ? await Player.findByPk(ctx.village.playerId, { transaction: t }) : null;
+      const label = tr.source === 'reserve' ? 'Réserve' : 'Route commerciale';
+      await Report.create({
+        playerId: origin.playerId, type: 'trade', happenedAt: at,
+        title: `${label} : ${origin.name} fournit ${ctx.village.name}`,
+        data: {
+          perspective: 'trade', kind: 'delivery', source: tr.source, from: villageLabel(origin), village: villageLabel(ctx.village),
+          sender: party(origin, origin.Player), recipient: party(ctx.village, recipient), received: tr.resources,
+        },
+      }, { transaction: t });
+    }
     if (ctx.village.playerId && ctx.village.playerId !== origin.playerId) {
       const recipient = await Player.findByPk(ctx.village.playerId, { transaction: t });
       await Report.create({

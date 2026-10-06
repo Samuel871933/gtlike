@@ -52,7 +52,8 @@ function filterHref(vid, filters) {
 router.get('/incomings', ah(async (req, res) => {
   const filters = readFilters(req.query);
   const [{ rows: all, counts, totals }, player] = await Promise.all([
-    IncomingService.list(me(req), filters, req.ctx.cfg),
+    // Groupe actif (menu des groupes) : ordres vers ses villages seulement.
+    IncomingService.list(me(req), { ...filters, villages: res.locals.activeGroup ? res.locals.navVillages.map((v) => v.id) : null }, req.ctx.cfg),
     Player.findByPk(me(req), { attributes: ['incomingLabelFormat', 'incomingsPerPage'] }),
   ]);
   // Compteurs seuls (game.js les relit régulièrement et après chaque action) : onglets, liste, ignorés et totaux.

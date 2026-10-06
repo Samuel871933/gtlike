@@ -102,44 +102,75 @@
 
     <%# Marquages puis calques, l'un sous l'autre ; w-0 min-w-full : largeur de la carte, sans l'élargir. %>
     <div class="flex w-0 min-w-full flex-col gap-4">
-        <%# Marquages : une couleur par joueur, tribu ou village (carte, mini-carte, légende). %>
+        <%# Marquages : une couleur, une icône d'unité ou les deux par joueur, tribu, village ou groupe de ses villages
+            (carte ; couleur seule sur la mini-carte ; légende). %>
+        <%
+          const MARK_TYPES = { player: ['joueur', 'Joueur'], tribe: ['tribu', 'Tribu'], village: ['village', 'Village'], group: ['groupe', 'Groupe'] };
+          const markColor = markForm && markForm.existing ? markForm.color || markerColor : markerColor;
+          const markWithColor = !(markForm && markForm.existing && !markForm.color);
+          const markIcon = markForm && markForm.icon ? markForm.icon : '';
+          // Aperçu d'un marquage : carré de couleur, icône d'unité, ou icône sur la couleur.
+          // Image d'unité sans la taille minimale de unitIcon : elle tient dans le carré de couleur.
+          const markImg = (id, cls) => `<img src="${UNIT_ICONS[id]}" class="${cls} block shrink-0 object-contain" alt="" aria-hidden="true">`;
+          const markSwatch = (m, size = 'size-5') => m.icon
+            ? (m.color ? `<span class="${size} flex shrink-0 items-center justify-center overflow-hidden border-2 border-black shadow-[1px_1px_0_#000]" style="background:${m.color}">${markImg(m.icon, 'size-full')}</span>` : markImg(m.icon, size))
+            : `<span class="${size === 'size-5' ? 'size-4' : size} shrink-0 border-2 border-black shadow-[1px_1px_0_#000]" style="background:${m.color}"></span>`;
+          const markHref = (m) => m.targetType === 'player' ? `/village/${vid}/players/${m.targetId}` : m.targetType === 'tribe' ? `/village/${vid}/tribes/${m.targetId}` : m.targetType === 'group' ? `/village/${vid}/villages?mode=combined&group=${m.targetId}` : `/village/${vid}/villages/${m.targetId}`;
+        %>
         <section class="<%= ui.panel %>" id="marquages">
           <%- panelHead('Marquages sur la carte', `<span class="text-[13px] text-parchment-300 tabular-nums">${markers.length} / 50</span>`) %>
-          <%# Une seule ligne : type, cible (place restante), couleur, bouton ; passe à la ligne sur petit écran. %>
-          <form method="post" action="/village/<%= vid %>/map/markers" class="flex flex-wrap items-end gap-2 border-b border-bronze-800 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <% if (markForm) { %>
-              <input type="hidden" name="type" value="<%= markForm.type %>"><input type="hidden" name="targetId" value="<%= markForm.targetId %>">
-              <p class="min-w-0 flex-1 self-center text-sm text-parchment-300">Nouveau marquage : <strong class="text-parchment-100"><%= { player: 'joueur', tribe: 'tribu', village: 'village' }[markForm.type] %> <%= markForm.label %></strong> <a href="<%= link(cx, cy) %>#marquages" class="ml-1 text-[13px] text-gold-400 no-underline hover:text-parchment-100">Annuler</a></p>
-            <% } else { %>
-              <label class="<%= ui.label %>">Marquer
-                <select name="type" class="<%= ui.inputSm %>">
-                  <option value="player">un joueur</option><option value="tribe">une tribu</option><option value="village">un village</option>
-                </select>
-              </label>
-              <label class="<%= ui.label %> min-w-48 flex-1">Nom, tag ou coordonnées<input name="target" required placeholder="Pseudo, tag de tribu ou 500|500" class="<%= ui.inputSm %> w-full"></label>
-            <% } %>
-            <label class="<%= ui.label %>">Couleur
-              <input type="color" name="color" value="<%= markerColor %>" class="block h-8 w-16 cursor-pointer border-2 border-black bg-night p-0.5 shadow-[1px_1px_0_#000] focus-visible:outline-2 focus-visible:outline-gold-200 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0">
-            </label>
-            <button class="<%= btn('gold', 'sm') %>">Enregistrer</button>
+          <form method="post" action="/village/<%= vid %>/map/markers" class="flex flex-col gap-2.5 border-b border-bronze-800 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="styleForm" value="1">
+            <div class="flex flex-wrap items-end gap-2">
+              <% if (markForm) { %>
+                <input type="hidden" name="type" value="<%= markForm.type %>"><input type="hidden" name="targetId" value="<%= markForm.targetId %>">
+                <p class="min-w-0 flex-1 self-center text-sm text-parchment-300"><%= markForm.existing ? 'Modifier le marquage' : 'Nouveau marquage' %> : <strong class="text-parchment-100"><%= MARK_TYPES[markForm.type][0] %> <%= markForm.label %></strong> <a href="<%= link(cx, cy) %>#marquages" class="ml-1 text-[13px] text-gold-400 no-underline hover:text-parchment-100">Annuler</a></p>
+              <% } else { %>
+                <label class="<%= ui.label %>">Marquer
+                  <select name="type" class="<%= ui.inputSm %>">
+                    <option value="player">un joueur</option><option value="tribe">une tribu</option><option value="village">un village</option>
+                    <% if (villageGroups.length) { %><option value="group">un de mes groupes</option><% } %>
+                  </select>
+                </label>
+                <label class="<%= ui.label %> min-w-48 flex-1">Nom, tag, coordonnées ou groupe<input name="target" required list="marker-groups" placeholder="Pseudo, tag de tribu, 500|500 ou nom du groupe" class="<%= ui.inputSm %> w-full"></label>
+                <datalist id="marker-groups"><% for (const g of villageGroups) { %><option value="<%= g.name %>"><% } %></datalist>
+              <% } %>
+              <%# Couleur facultative : décochée, le marquage n'est qu'une icône. %>
+              <div class="<%= ui.label %>">
+                <label class="flex cursor-pointer items-center gap-1.5"><input type="checkbox" name="withColor" value="1" class="<%= ui.checkbox %>"<%= markWithColor ? ' checked' : '' %>>Couleur</label>
+                <input type="color" name="color" value="<%= markColor %>" aria-label="Couleur du marquage" class="block h-8 w-16 cursor-pointer border-2 border-black bg-night p-0.5 shadow-[1px_1px_0_#000] focus-visible:outline-2 focus-visible:outline-gold-200 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0">
+              </div>
+              <button class="<%= btn('gold', 'sm') %>">Enregistrer</button>
+            </div>
+            <%# Icône d'unité facultative : seule, ou posée sur la couleur. %>
+            <fieldset class="flex flex-wrap items-center gap-1">
+              <legend class="mb-1 text-[13px] text-parchment-400">Icône</legend>
+              <% for (const u of [{ id: '', name: 'Aucune icône' }].concat(markerIcons)) { %>
+                <label class="cursor-pointer" title="<%= u.name %>">
+                  <input type="radio" name="icon" value="<%= u.id %>" class="peer sr-only"<%= markIcon === u.id ? ' checked' : '' %>>
+                  <span class="flex size-9 items-center justify-center border-2 border-black bg-night text-parchment-500 shadow-[inset_0_0_0_1px_var(--color-bronze-700)] transition peer-checked:bg-head-dark peer-checked:shadow-[inset_0_0_0_2px_var(--color-gold-400)] peer-focus-visible:outline-2 peer-focus-visible:outline-gold-200 hover:bg-row-hover">
+                    <% if (u.id) { %><%- unitIcon(u.id, 'size-6 min-h-6 min-w-6') %><% } else { %><%- icon('close', 'size-3.5', 2.6) %><% } %>
+                  </span>
+                  <span class="sr-only"><%= u.name %></span>
+                </label>
+              <% } %>
+            </fieldset>
           </form>
           <% if (!markers.length) { %>
-            <p class="px-3 py-2.5 text-[13px] text-parchment-500">Aucun marquage. Tu peux aussi cliquer un village de la carte puis « Marquer ».</p>
+            <p class="px-3 py-2.5 text-[13px] text-parchment-500">Aucun marquage. Tu peux aussi cliquer un village de la carte puis « Marquer », ou marquer un groupe depuis l’onglet Groupes de l’aperçu.</p>
           <% } else { %>
             <ul class="max-h-72 overflow-y-auto">
-              <% for (const m of markers) {
-                   const href = m.targetType === 'player' ? `/village/${vid}/players/${m.targetId}` : m.targetType === 'tribe' ? `/village/${vid}/tribes/${m.targetId}` : `/village/${vid}/villages/${m.targetId}`; %>
+              <% for (const m of markers) { %>
                 <li class="flex items-center gap-2.5 border-b border-bronze-800 px-3 py-1.5 last:border-b-0 hover:bg-row-hover">
-                  <span class="size-4 shrink-0 border-2 border-black shadow-[1px_1px_0_#000]" style="background:<%= m.color %>"></span>
-                  <span class="w-14 shrink-0 text-[13px] text-parchment-500"><%= { player: 'Joueur', tribe: 'Tribu', village: 'Village' }[m.targetType] %></span>
-                  <a href="<%= href %>" class="<%= ui.linkPlain %> min-w-0 flex-1 truncate font-semibold"><%= m.label %></a>
+                  <span class="flex w-5 shrink-0 justify-center"><%- markSwatch(m) %></span>
+                  <span class="w-14 shrink-0 text-[13px] text-parchment-500"><%= MARK_TYPES[m.targetType][1] %></span>
+                  <a href="<%= markHref(m) %>" class="<%= ui.linkPlain %> min-w-0 flex-1 truncate font-semibold"><%= m.label %><% if (m.targetType === 'group') { %> <span class="font-normal text-parchment-500 tabular-nums">· <%= m.villageIds.length %> village<%= m.villageIds.length > 1 ? 's' : '' %></span><% } %></a>
+                  <a href="/village/<%= vid %>/map?<%= new URLSearchParams({ x: cx, y: cy, mark: `${m.targetType}:${m.targetId}` }) %>#marquages" class="inline-flex size-[22px] shrink-0 items-center justify-center border-2 border-black bg-night text-gold-400 no-underline shadow-[1px_1px_0_#000] transition hover:bg-head-dark hover:text-parchment-100" title="Modifier le marquage" aria-label="Modifier le marquage"><%- icon('edit', 'size-[11px]', 2.6) %></a>
                   <form method="post" action="/village/<%= vid %>/map/markers/<%= m.id %>/delete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <button class="<%= ui.iconBtnSm %>" title="Supprimer le marquage" aria-label="Supprimer le marquage"><%- icon('close', 'size-[11px]', 3.4) %></button>
                   </form>
                 </li>
               <% } %>
             </ul>
-            <p class="border-t border-bronze-800 px-3 py-2 text-xs text-parchment-600">Pour changer une couleur, marque à nouveau la même cible.</p>
           <% } %>
         </section>
         <%# Calques de carte : interrupteurs mémorisés sur le joueur (game.js). %>
@@ -188,7 +219,7 @@
           <% if (markers.length) { %>
             <div class="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-bronze-800 pt-2">
               <span class="text-[13px] text-parchment-500">Marquages :</span>
-              <% for (const m of markers) { %><span class="flex items-center gap-1.5 text-[13px] text-parchment-300"><span class="size-[11px] shrink-0 border-2 border-black shadow-[1px_1px_0_#000]" style="background:<%= m.color %>"></span><%= m.label %></span><% } %>
+              <% for (const m of markers) { %><span class="flex items-center gap-1.5 text-[13px] text-parchment-300"><%- markSwatch(m, 'size-[18px]') %><%= m.targetType === 'group' ? `Groupe ${m.label}` : m.label %></span><% } %>
             </div>
           <% } %>
         </div>

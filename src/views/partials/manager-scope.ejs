@@ -1,0 +1,9 @@
+<%# Villages visés par les actions groupées du gestionnaire : les cases cochées, tout le groupe actif ou tout le compte
+    (au-delà de la page affichée), voir targetIds dans routes/village/manager.js. %>
+<label class="<%= ui.label %>">Pour
+  <select name="scope" class="<%= ui.inputSm %> max-w-64">
+    <option value="checked">les villages cochés</option>
+    <% if (activeGroup) { %><option value="group">tout le groupe « <%= activeGroup.name %> » (<%= navVillages.length %>)</option><% } %>
+    <option value="all">tous mes villages (<%= myVillages.length %>)</option>
+  </select>
+</label>

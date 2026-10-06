@@ -1,0 +1,69 @@
+<%# Aperçus des villages, onglet Groupes (inclus par villages.ejs) : comme « Groupes » sur Guerre Tribale, une colonne par
+    groupe et une case par village. On coche, puis Appliquer enregistre toute la grille (POST /groups/matrix) ; les cases
+    modifiées sont signalées en attendant (game.js, data-group-matrix). La case d'en-tête coche toute la colonne. Un
+    village peut être dans plusieurs groupes. Groupes eux-mêmes : encart « Mes groupes » (villages-groups-aside). %>
+<%
+  const vid = ctx.village.id;
+  const lg = lazy('villages', rows);
+  const th = 'border-r border-bronze-800 last:border-r-0';
+  const td = 'border-r border-bronze-900 last:border-r-0';
+  // Beaucoup de groupes (50 au plus) : le tableau défile en largeur, la colonne Village reste en place.
+  const stick = 'sticky left-0 z-[1] shadow-[2px_0_0_var(--color-bronze-800)]';
+%>
+<% if (!villageGroups.length) { %>
+  <div class="flex flex-col items-center gap-2 px-6 py-8 text-center">
+    <span class="flex size-12 items-center justify-center border-[3px] border-black bg-panel-hi text-gold-400 shadow-[3px_3px_0_rgba(0,0,0,0.6)]"><%- icon('flag', 'size-6', 1.8) %></span>
+    <p class="font-display text-lg text-parchment-100">Aucun groupe pour l’instant</p>
+    <p class="max-w-md text-sm text-parchment-400">Crée un groupe dans l’encart « Mes groupes » : une colonne apparaîtra ici, avec une case à cocher pour chacun de tes villages.</p>
+  </div>
+<% } else { %>
+  <form method="post" action="/village/<%= vid %>/groups/matrix" data-group-matrix><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <p class="<%= ui.panelNote %> border-b border-bronze-800">Coche les groupes de chaque village, puis <strong class="font-semibold text-parchment-200">Appliquer</strong>. La case sous le nom d’un groupe coche toute sa colonne<%= villageGroups.length > 6 ? ' ; fais défiler le tableau pour voir tous tes groupes' : '' %>.</p>
+    <div class="overflow-x-auto">
+      <table class="<%= ui.table %> text-[13px] whitespace-nowrap [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1">
+        <thead><tr>
+          <th class="<%= th %> <%= stick %>">Village</th><th class="<%= th %> text-right">Points</th>
+          <% for (const g of villageGroups) { %>
+            <th class="<%= th %> w-px text-center align-bottom">
+              <span class="flex flex-col items-center gap-1">
+                <span class="flex max-w-32 items-center gap-1.5" title="<%= g.name %>"><span class="<%= ui.diamond %>" aria-hidden="true"></span><span class="truncate"><%= g.name %></span></span>
+                <input type="checkbox" class="<%= ui.checkbox %> cursor-pointer" data-group-col="<%= g.id %>" title="Cocher ou décocher toute la colonne" aria-label="Tous les villages dans <%= g.name %>">
+              </span>
+            </th>
+          <% } %>
+          <th class="w-full"></th>
+        </tr></thead>
+        <tbody data-lazy-list="villages">
+          <% for (const r of lg.items) { const v = r.village; %>
+            <tr>
+              <td class="<%= td %> <%= stick %> bg-panel-top [tr:nth-child(even)>&]:bg-row-alt [tr:hover>&]:bg-row-hover"><input type="hidden" name="shown" value="<%= v.id %>">
+                <a href="/village/<%= v.id %>" class="<%= ui.linkPlain %> block min-w-0" title="<%= v.name %> (<%= v.x %>|<%= v.y %>)">
+                  <span class="block max-w-44 truncate font-semibold"><%= v.name %></span><span class="block text-xs font-semibold tabular-nums"><%= v.x %>|<%= v.y %> <%= continent(v.x, v.y) %></span>
+                </a>
+              </td>
+              <td class="<%= td %> text-right font-semibold tabular-nums"><%= num(v.points) %></td>
+              <% for (const g of villageGroups) { %>
+                <td class="<%= td %> text-center transition-colors data-dirty:bg-gold-400/25">
+                  <input type="checkbox" name="m" value="<%= g.id %>:<%= v.id %>" class="<%= ui.checkbox %> cursor-pointer align-middle" data-group-cell="<%= g.id %>"<%= r.groups.includes(g.id) ? ' checked' : '' %> aria-label="<%= v.name %> dans <%= g.name %>">
+                </td>
+              <% } %>
+              <td></td>
+            </tr>
+          <% } %>
+          <%- lazyMore(lg, { colspan: 3 + villageGroups.length, label: 'villages' }) %>
+        </tbody>
+        <tfoot><tr class="border-t-2 border-black bg-thead font-semibold">
+          <td class="<%= stick %> bg-thead px-2 py-1.5" colspan="2">Villages dans le groupe</td>
+          <% for (const g of villageGroups) { %><td class="px-2 py-1.5 text-center tabular-nums" data-group-count="<%= g.id %>" data-count="<%= g.count %>"><%= g.count %></td><% } %>
+          <td></td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <%# Barre d'actions, comme celle du gestionnaire : modifications en attente, Annuler, Appliquer. %>
+    <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-bronze-800 px-3 py-2.5">
+      <span class="mr-auto text-[13px] text-parchment-500" data-group-status aria-live="polite">Aucune modification.</span>
+      <button type="reset" class="<%= btn('dark', 'sm') %>" data-group-reset>Annuler les modifications</button>
+      <button class="<%= btn('gold', 'sm') %>" data-group-apply><%- icon('check', 'size-3.5', 2.2) %>Appliquer</button>
+    </div>
+  </form>
+<% } %>

@@ -31,9 +31,8 @@
   const soonest = fills.reduce((a, b) => (b.h < a.h ? b : a));
   const hm = (h) => `${Math.floor(h)} h ${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
   const item = player && player.knightItem && ctx.cfg.hasFeature('knight') ? registry.ITEMS.get(player.knightItem) : null;
-  const idx = myVillages.findIndex((x) => x.id === ctx.village.id);
-  const prev = myVillages.length > 1 ? myVillages[(idx - 1 + myVillages.length) % myVillages.length] : null;
-  const next = myVillages.length > 1 ? myVillages[(idx + 1) % myVillages.length] : null;
+  // Villages parcourus par les flèches : ceux du groupe actif (voir villageNav, middleware.js).
+  const { idx, prev, next } = villageNav;
   const loyalty = Math.floor(ctx.state.loyalty);
   const meta = [
     ['Coordonnées', `${ctx.village.x} | ${ctx.village.y}`, 'border-t-gold-400'],
@@ -72,6 +71,8 @@
     <%- include('partials/overview/troops', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
 
     <%- include('partials/overview/knight-item', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+
+    <%- include('partials/overview/groups', { vid }) %>
   </aside>
 </div>
 <%- include('partials/footer') %>

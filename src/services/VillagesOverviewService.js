@@ -30,8 +30,9 @@ class VillagesOverviewService {
    * transaction par village, des centaines pour un gros joueur).
    * @returns {Promise<object[]>} une ligne par village, dans l'ordre du sélecteur de villages (nom, puis id)
    */
-  static async rows(playerId, now = new Date()) {
-    let villages = await Village.findAll({ where: { playerId }, attributes: ['id'], order: [['name', 'ASC'], ['id', 'ASC']], raw: true });
+  static async rows(playerId, now = new Date(), { ids: only = null } = {}) {
+    // `only` : ces villages du joueur seulement (une page du gestionnaire de compte).
+    let villages = await Village.findAll({ where: { playerId, ...(only ? { id: { [Op.in]: only } } : {}) }, attributes: ['id'], order: [['name', 'ASC'], ['id', 'ASC']], raw: true });
     const ids = villages.map((v) => v.id);
     if (!ids.length) return [];
 

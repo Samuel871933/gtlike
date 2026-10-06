@@ -436,6 +436,59 @@
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
+  // Gestionnaire de compte : total des troupes saisies (population, ressources) sous les champs d'unités, et aperçu d'un
+  // lot par bâtiment (même découpe que managerTemplates.splitBatch : coût au plus la taille des lots, à proportion de
+  // ce qui manque, dizaine supérieure, une dizaine de l'unité qui manque le plus si tout s'arrondit à zéro).
+  const fr = (n) => n.toLocaleString('fr-FR');
+  function troopForm(form) {
+    const box = form.querySelector('[data-troop-total]');
+    if (!box) return;
+    const inputs = [...box.querySelectorAll('input[data-pop]')];
+    const sum = { pop: 0, wood: 0, stone: 0, iron: 0 };
+    for (const input of inputs) {
+      const n = Math.max(0, Math.floor(Number(input.value) || 0));
+      for (const k of Object.keys(sum)) sum[k] += n * Number(input.dataset[k]);
+    }
+    box.querySelectorAll('[data-troop-sum]').forEach((el) => { el.textContent = fr(sum[el.dataset.troopSum]); });
+    const preview = box.querySelector('[data-batch-preview]');
+    const budgetInput = form.querySelector('[data-batch-cost]');
+    if (!preview || !budgetInput) return;
+    const budget = Math.max(1, Number(budgetInput.value) || 0);
+    const groups = new Map();
+    for (const input of inputs) {
+      const need = Math.max(0, Math.floor(Number(input.value) || 0));
+      if (!need) continue;
+      const price = Number(input.dataset.wood) + Number(input.dataset.stone) + Number(input.dataset.iron);
+      const b = input.dataset.building;
+      if (!groups.has(b)) groups.set(b, { name: input.dataset.buildingName, items: [] });
+      groups.get(b).items.push({ need, price, icon: input.dataset.icon });
+    }
+    const parts = [];
+    for (const { name, items } of groups.values()) {
+      const total = items.reduce((n, i) => n + i.need * i.price, 0);
+      let counts = items.map((i) => i.need);
+      if (total > budget) {
+        const k = budget / total;
+        counts = items.map((i) => Math.min(i.need, Math.ceil(Math.floor(i.need * k) / 10) * 10));
+        if (!counts.some((n) => n > 0)) {
+          const most = items.reduce((x, y, j) => (y.need > items[x].need ? j : x), 0);
+          counts[most] = Math.min(items[most].need, 10);
+        }
+      }
+      const cost = items.reduce((n, i, j) => n + counts[j] * i.price, 0);
+      const units = items.map((i, j) => (counts[j] ? `<span class="inline-flex items-center gap-1"><img src="${i.icon}" class="size-5 min-h-5 min-w-5 shrink-0 object-contain" alt="" aria-hidden="true">${fr(counts[j])}</span>` : '')).join('');
+      const label = document.createElement('span');
+      label.textContent = `${name} :`;
+      parts.push(`<span class="inline-flex flex-wrap items-center gap-x-2"><span class="text-parchment-400">${label.innerHTML}</span>${units}<span class="text-parchment-500">(${fr(cost)} ressources)</span></span>`);
+    }
+    preview.innerHTML = parts.length ? parts.join('<span class="text-parchment-600">·</span>') : '<span class="text-parchment-500">aucune unité</span>';
+  }
+  document.addEventListener('input', (e) => {
+    if (!e.target.matches('[data-troop-total] input[data-pop], input[data-batch-cost]')) return;
+    const form = e.target.closest('form');
+    if (form) troopForm(form);
+  });
+
   // Case « Tout » des listes à sélection multiple : data-check-all coche les cases « ids » de son formulaire,
   // data-select-all="id" celles reliées au formulaire id par l'attribut form (tableaux hors du formulaire).
   document.addEventListener('change', (e) => {
@@ -446,6 +499,47 @@
       document.querySelectorAll(`[form="${box.dataset.selectAll}"][data-select-item]`).forEach((b) => { b.checked = box.checked; });
     }
   });
+
+  // Groupes de villages (aperçus, onglet Groupes) : les cases modifiées sont signalées et comptées jusqu'à Appliquer
+  // (envoi du formulaire). La case d'en-tête coche sa colonne ; le pied du tableau suit le nombre de villages.
+  const groupMatrix = document.querySelector('[data-group-matrix]');
+  if (groupMatrix) {
+    const status = groupMatrix.querySelector('[data-group-status]');
+    const apply = groupMatrix.querySelector('[data-group-apply]');
+    const reset = groupMatrix.querySelector('[data-group-reset]');
+    const cells = (gid) => [...groupMatrix.querySelectorAll(gid ? `[data-group-cell="${gid}"]` : '[data-group-cell]')];
+    const sync = () => {
+      let dirty = 0;
+      for (const c of cells()) {
+        const changed = c.checked !== c.defaultChecked;
+        c.closest('td').toggleAttribute('data-dirty', changed);
+        if (changed) dirty += 1;
+      }
+      groupMatrix.querySelectorAll('[data-group-col]').forEach((col) => {
+        const list = cells(col.dataset.groupCol);
+        col.checked = list.length > 0 && list.every((c) => c.checked);
+        col.indeterminate = !col.checked && list.some((c) => c.checked);
+        const total = groupMatrix.querySelector(`[data-group-count="${col.dataset.groupCol}"]`);
+        if (total) total.textContent = Number(total.dataset.count) + list.filter((c) => c.checked).length - list.filter((c) => c.defaultChecked).length;
+      });
+      status.textContent = dirty ? `${dirty} modification${dirty > 1 ? 's' : ''} à appliquer` : 'Aucune modification.';
+      status.classList.toggle('text-gold-400', dirty > 0);
+      apply.disabled = !dirty;
+      reset.disabled = !dirty;
+    };
+    groupMatrix.addEventListener('change', (e) => {
+      const col = e.target.closest('[data-group-col]');
+      if (col) cells(col.dataset.groupCol).forEach((c) => { c.checked = col.checked; });
+      sync();
+    });
+    groupMatrix.addEventListener('reset', () => setTimeout(sync));
+    // Lignes chargées plus tard (liste progressive) : comptées aussi.
+    new MutationObserver(sync).observe(groupMatrix.querySelector('tbody'), { childList: true });
+    // Quitter la page avec des cases non appliquées : confirmation du navigateur.
+    window.addEventListener('beforeunload', (e) => { if (!apply.disabled && !groupMatrix.dataset.sending) e.preventDefault(); });
+    groupMatrix.addEventListener('submit', () => { groupMatrix.dataset.sending = '1'; });
+    sync();
+  }
 
   // Renommer sur place (village, ordres de l'aperçu Arrivant) : le titre devient un champ ; Annuler ou Échap le
   // rétablit. Plusieurs sur une page : chacun dans son conteneur [data-rename-scope].

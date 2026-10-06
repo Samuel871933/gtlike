@@ -2,7 +2,7 @@
 <% if (pages > 1) { %>
   <nav class="flex flex-wrap items-center gap-1" aria-label="Pages">
     <% for (let n = 1; n <= pages; n += 1) { if (pages > 9 && n > 2 && n < pages - 1 && Math.abs(n - page) > 2) { if (n === 3 || n === pages - 2) { %><span class="px-1 text-parchment-600">…</span><% } continue; } %>
-      <a href="<%= href(n) %>" class="flex h-6 min-w-6 items-center justify-center border border-black px-1.5 text-xs font-semibold no-underline tabular-nums <%= n === page ? 'bg-night text-gold-200' : 'bg-panel-hi text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>"<%- n === page ? ' aria-current="page"' : '' %>><%= n %></a>
+      <a href="<%= href(n) %>" class="flex h-6 min-w-6 items-center justify-center border border-black px-1.5 text-xs font-semibold no-underline tabular-nums <%= n === page ? 'bg-head-dark text-parchment-100 shadow-[inset_0_0_0_1px_var(--color-bronze-500)]' : 'bg-panel-hi text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>"<%- n === page ? ' aria-current="page"' : '' %>><%= n %></a>
     <% } %>
   </nav>
 <% } %>

@@ -1,0 +1,74 @@
+<%#
+  Gabarit commun des e-mails (voir services/Mailer.js, sendTemplate) : HTML pour messageries (tableaux, styles en
+  ligne, largeur 600 px), bandeau au logo, image d'en-tête dédiée aux e-mails, titre, contenu, bouton d'action,
+  pied de page. Les images sont jointes au message (cid:logo, cid:header) : elles s'affichent sans site public.
+  Paramètres : subject, preheader, title, intro (texte), body (HTML déjà échappé), action ({ label, url }), footer (texte).
+%>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title><%= subject %></title>
+</head>
+<body style="margin:0;padding:0;background:#e9dfc8;">
+  <%# Texte d'aperçu (affiché par la messagerie à côté de l'objet), invisible dans le message. %>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;"><%= preheader || intro || '' %></div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e9dfc8;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;border:2px solid #1b1715;background:#fbf6ea;">
+          <tr>
+            <td style="background:#1b1715;padding:14px 20px;border-bottom:3px solid #a07a3c;">
+              <img src="cid:logo" width="180" height="36" alt="Adarma" style="display:block;border:0;width:180px;height:auto;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0;line-height:0;border-bottom:2px solid #1b1715;">
+              <img src="cid:header" width="600" alt="" style="display:block;border:0;width:100%;max-width:600px;height:auto;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 28px 8px 28px;font-family:'Marcellus',Georgia,'Times New Roman',serif;font-size:26px;line-height:1.25;font-weight:normal;color:#1b1715;">
+              <%= title %>
+            </td>
+          </tr>
+          <% if (intro) { %>
+          <tr>
+            <td style="padding:4px 28px 12px 28px;font-family:'Barlow Semi Condensed','Barlow',Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#3a3229;">
+              <%= intro %>
+            </td>
+          </tr>
+          <% } %>
+          <% if (body) { %>
+          <tr>
+            <td style="padding:4px 28px 12px 28px;font-family:'Barlow Semi Condensed','Barlow',Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#3a3229;">
+              <%- body %>
+            </td>
+          </tr>
+          <% } %>
+          <% if (action && action.url) { %>
+          <tr>
+            <td style="padding:12px 28px 24px 28px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background:#8c2f1f;border:2px solid #1b1715;">
+                    <a href="<%= action.url %>" style="display:inline-block;padding:11px 20px;font-family:'Barlow Semi Condensed','Barlow',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;color:#fbf6ea;text-decoration:none;"><%= action.label %></a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <% } %>
+          <tr>
+            <td style="padding:14px 28px 18px 28px;border-top:1px solid #d8c9a8;font-family:'Barlow Semi Condensed','Barlow',Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#7a6e5e;">
+              <%= footer || 'Adarma, jeu de stratégie médiéval.' %>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

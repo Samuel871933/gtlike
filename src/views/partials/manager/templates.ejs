@@ -1,0 +1,183 @@
+<%# Gestionnaire de compte, onglet Modèles de construction (inclus par manager.ejs avec ses helpers h) : liste des
+    modèles (système et les siens), création, et la liste de construction du modèle ouvert (`edit`). Chaque action
+    sur la liste est enregistrée aussitôt. %>
+<%
+  const { m, csrf } = h;
+  // Niveaux de départ d'un nouveau village (QG, ferme, entrepôt au niveau 1).
+  const base = Object.fromEntries(buildings.filter((b) => b.minLevel > 0).map((b) => [b.id, b.minLevel]));
+  const shown = buildings.filter((b) => b.maxLevel > 1 || b.id === 'snob' || b.id === 'place');
+  const summary = (steps) => {
+    const t = targetsOf(steps, base);
+    return shown.filter((b) => t[b.id]).map((b) => ({ b, level: t[b.id] }));
+  };
+  // Points, population des bâtiments et place qui reste pour les troupes, une fois la liste finie.
+  // Listes de modèles (construction et troupes, même gabarit) : une ligne par modèle, colonnes secondaires masquées
+  // sur écran étroit, défilement horizontal du tableau en dernier recours.
+  const listCls = 'whitespace-nowrap [&_td]:h-[44px] [&_td]:py-1 [&_td_img]:min-h-0 [&_td_img]:min-w-0';
+  // Bâtiments du monde : un modèle du compte peut viser un bâtiment absent ici (église, statue…), ignoré sur ce monde.
+  const here = new Set(buildings.map((b) => b.id));
+  const totals = (steps) => buildStats(Object.fromEntries(Object.entries(targetsOf(steps, base)).filter(([id]) => here.has(id))));
+  const statLine = (st, cls = 'text-sm') => `<span class="flex flex-wrap items-center gap-x-4 gap-y-1 ${cls} tabular-nums">`
+    + `<span title="Points du village"><span class="text-parchment-400">Points</span> <strong class="font-semibold text-parchment-100">${num(st.points)}</strong></span>`
+    + `<span class="inline-flex items-center gap-1" title="Population prise par les bâtiments / capacité de la ferme">${resourceIcon('pop', 'size-4')}<strong class="font-semibold text-parchment-100">${num(st.pop)}</strong><span class="text-parchment-400">/ ${num(st.farm)}</span></span>`
+    + `<span title="Place à la ferme qui reste pour les troupes"><span class="text-parchment-400">Pour les troupes</span> <strong class="font-semibold ${st.free > 0 ? 'text-olive-300' : 'text-blood-450'}">${num(st.free)}</strong></span></span>`;
+  const stepBtn = 'inline-flex size-7 cursor-pointer items-center justify-center text-parchment-400 hover:bg-head-dark hover:text-parchment-100 disabled:opacity-30';
+%>
+<% if (typeof edit !== 'undefined' && edit) { const steps = withLevels(edit.steps, base, here); const own = !edit.system; %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead(`Modèle « ${edit.name} »`, `<a href="${m}?tab=templates" class="${ui.link} font-sans text-xs">Tous les modèles</a>`) %>
+    <div class="<%= ui.panelBody %>">
+      <% if (edit.system) { %>
+        <p class="text-parchment-400"><%= edit.description %> Les modèles système ne se modifient pas : copie-le pour l’adapter.</p>
+        <form method="post" action="<%= m %>/templates" class="flex flex-wrap items-end gap-2"><%- csrf %><input type="hidden" name="from" value="<%= edit.key %>">
+          <label class="<%= ui.label %>">Nom de la copie<input name="name" maxlength="32" required value="<%= edit.name %> (copie)" class="<%= ui.inputSm %>"></label>
+          <button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('plus', 'size-3.5', 2.2) %>Copier</button>
+        </form>
+      <% } else { %>
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <form method="post" action="<%= m %>/templates/<%= edit.id %>/rename" class="flex flex-wrap items-end gap-2"><%- csrf %>
+            <label class="<%= ui.label %>">Nom<input name="name" maxlength="32" required value="<%= edit.name %>" class="<%= ui.inputSm %>"></label>
+            <button class="<%= btn('dark', 'sm') %>" <%= h.disabled %>><%- icon('edit', 'size-3.5', 2.2) %>Renommer</button>
+          </form>
+          <form method="post" action="<%= m %>/templates/<%= edit.id %>/steps" class="flex items-center gap-2"><%- csrf %><input type="hidden" name="op" value="demolish">
+            <label class="<%= ui.checkLabel %> text-sm"><input type="checkbox" name="on" value="1" class="<%= ui.checkbox %>" <%= edit.demolish ? 'checked' : '' %> onchange="this.form.requestSubmit()" <%= h.disabled %>>Démolir les bâtiments plus hauts que le modèle</label>
+            <noscript><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></noscript>
+          </form>
+        </div>
+        <p class="text-[13px] text-parchment-500">La démolition ne se fait qu’une fois la liste terminée, avec un quartier général niveau <%= ctx.cfg.demolishMainLevel %> et une loyauté de 100 %.</p>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Sommaire', `<span class="font-sans text-[11px] text-parchment-300">${own ? 'niveaux visés · clic : un niveau de plus en fin de liste' : 'niveaux visés'}</span>`) %>
+    <%
+      // Modèle à soi : chaque bâtiment du monde est un raccourci « +1 niveau » (ajouté en fin de liste), y compris ceux
+      // pas encore dans le modèle (niveau 0) ; au niveau maximum, le bouton est inactif et marqué « max ».
+      const reached = targetsOf(edit.steps, base);
+      const chips = own ? buildings.map((b) => ({ b, level: reached[b.id] || 0 })) : summary(edit.steps);
+      const chipCls = 'relative flex items-center gap-1.5 border px-1.5 py-1 text-sm';
+    %>
+    <form method="post" action="<%= m %>/templates/<%= edit.id %>/steps" class="flex flex-wrap gap-1.5 p-3" id="sommaire"><%- csrf %>
+      <input type="hidden" name="op" value="add"><input type="hidden" name="levels" value="1"><input type="hidden" name="anchor" value="sommaire">
+      <% for (const { b, level } of chips) { const max = level >= b.maxLevel; const img = buildingImg(b.id, Math.max(1, level), `h-6 w-7 max-w-none${level ? '' : ' opacity-40 grayscale'}`); %>
+        <% const label = `<span class="tabular-nums ${level ? '' : 'text-parchment-500'}">${level}</span>${max ? '<span class="text-[11px] font-semibold text-gold-400">max</span>' : ''}`; %>
+        <% if (own) { %>
+          <button name="building" value="<%= b.id %>" class="<%= chipCls %> <%= max ? 'cursor-default border-gold-400 bg-night' : 'cursor-pointer border-bronze-800 bg-night hover:border-gold-400 hover:bg-row-hover' %>"
+            title="<%= max ? `${b.name} : niveau maximum (${b.maxLevel}) atteint` : `${b.name} : niveau ${level} → ajouter le niveau ${level + 1}` %>" aria-label="<%= max ? `${b.name}, niveau maximum` : `${b.name} niveau ${level}, ajouter un niveau` %>" <%= max || !premium ? 'disabled' : '' %>><%- img %><%- label %></button>
+        <% } else { %>
+          <span class="<%= chipCls %> <%= max ? 'border-gold-400' : 'border-bronze-800' %> bg-night" title="<%= b.name %><%= max ? ' : niveau maximum' : '' %>"><%- img %><%- label %></span>
+        <% } %>
+      <% } %>
+    </form>
+    <div class="border-t border-bronze-800 px-3 py-2"><%- statLine(totals(edit.steps)) %></div>
+  </section>
+
+  <section class="<%= ui.panel %>" id="liste">
+    <%- panelHead('Liste de construction', `<span class="${ui.headCount}">${steps.length}</span>`) %>
+    <% if (!steps.length) { %>
+      <p class="<%= ui.empty %>">Liste vide. Ajoute des ordres ci-dessous.</p>
+    <% } else { %>
+      <div class="max-h-[640px] overflow-y-auto">
+        <table class="<%= ui.tableSm %>">
+          <thead class="sticky top-0 z-10"><tr><th class="w-10 text-right">N°</th><th>Bâtiment</th><th class="text-right">Niveaux</th><th class="text-right">Niveau après</th><th class="text-right" title="Points du village après cette étape">Points</th><th class="text-right" title="Population prise par les bâtiments / capacité de la ferme, après cette étape">Population</th><% if (own) { %><th class="w-40 text-right"><span class="sr-only">Actions</span></th><% } %></tr></thead>
+          <tbody>
+            <% steps.forEach((s, i) => { %>
+              <tr class="<%= s.levels && here.has(s.building) ? '' : 'text-parchment-600' %>"<%- here.has(s.building) ? '' : ' title="Bâtiment absent de ce monde : ignoré ici"' %>>
+                <td class="text-right text-parchment-500 tabular-nums"><%= i + 1 %></td>
+                <td><span class="inline-flex items-center gap-2"><%- buildingImg(s.building, s.level, 'h-6 w-7 max-w-none') %><%= buildingName(s.building) %><% if (!here.has(s.building)) { %> <span class="text-xs">absent de ce monde</span><% } %></span></td>
+                <td class="text-right tabular-nums"><%= s.levels ? `+${s.levels}` : '—' %></td>
+                <td class="text-right font-semibold tabular-nums"><%= s.level %></td>
+                <td class="text-right tabular-nums"><%= num(s.points) %></td>
+                <td class="text-right tabular-nums <%= s.free <= 0 ? 'text-blood-450' : '' %>"><%= num(s.pop) %> <span class="text-parchment-500">/ <%= num(s.farm) %></span></td>
+                <% if (own) { %>
+                  <td class="text-right">
+                    <span class="inline-flex">
+                      <% for (const [op, ic, label, off] of [['top', 'chevronUp', 'Tout en haut', i === 0], ['up', 'chevronUp', 'Monter', i === 0], ['down', 'chevronDown', 'Descendre', i === steps.length - 1], ['bottom', 'chevronDown', 'Tout en bas', i === steps.length - 1]]) { %>
+                        <form method="post" action="<%= m %>/templates/<%= edit.id %>/steps" class="flex"><%- csrf %><input type="hidden" name="op" value="<%= op %>"><input type="hidden" name="index" value="<%= i %>">
+                          <button class="<%= stepBtn %>" title="<%= label %>" aria-label="<%= label %> (étape <%= i + 1 %>)" <%= off || !premium ? 'disabled' : '' %>><%- op === 'top' || op === 'bottom' ? `<span class="flex flex-col leading-none">${icon(ic, 'size-3 -mb-1.5', 2.6)}${icon(ic, 'size-3', 2.6)}</span>` : icon(ic, 'size-3.5', 2.6) %></button>
+                        </form>
+                      <% } %>
+                      <form method="post" action="<%= m %>/templates/<%= edit.id %>/steps" class="flex"><%- csrf %><input type="hidden" name="op" value="remove"><input type="hidden" name="index" value="<%= i %>">
+                        <button class="<%= stepBtn %> text-blood-450 hover:text-blood-300" title="Supprimer" aria-label="Supprimer l’étape <%= i + 1 %>" <%= h.disabled %>><%- icon('close', 'size-3', 3) %></button>
+                      </form>
+                    </span>
+                  </td>
+                <% } %>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+    <% if (own) { %>
+      <form method="post" action="<%= m %>/templates/<%= edit.id %>/steps" class="flex flex-wrap items-end gap-3 border-t border-bronze-800 px-3 py-2.5"><%- csrf %><input type="hidden" name="op" value="add">
+        <span class="w-full font-display text-sm text-parchment-200">Ajouter un ordre</span>
+        <label class="<%= ui.label %>">Bâtiment
+          <select name="building" class="<%= ui.inputSm %>">
+            <% for (const b of buildings) { %><option value="<%= b.id %>"><%= b.name %></option><% } %>
+          </select>
+        </label>
+        <label class="<%= ui.label %>">Niveaux<input type="number" name="levels" min="1" max="30" value="1" class="<%= ui.inputSm %> w-20 text-right tabular-nums"></label>
+        <label class="<%= ui.label %>">Position
+          <select name="at" class="<%= ui.inputSm %>">
+            <option value="">À la fin</option>
+            <% steps.forEach((s, i) => { %><option value="<%= i %>">Avant le n° <%= i + 1 %> (<%= buildingName(s.building) %> <%= s.level %>)</option><% }) %>
+          </select>
+        </label>
+        <button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('plus', 'size-3.5', 2.2) %>Ajouter</button>
+      </form>
+    <% } %>
+  </section>
+
+<% } else { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Créer un modèle') %>
+    <form method="post" action="<%= m %>/templates" class="flex flex-wrap items-end gap-3 p-3"><%- csrf %>
+      <label class="<%= ui.label %>">Nom<input name="name" maxlength="32" required class="<%= ui.inputSm %>"></label>
+      <label class="<%= ui.label %>">À partir de
+        <select name="from" class="<%= ui.inputSm %>">
+          <option value="">Modèle vide</option>
+          <% for (const tpl of templates.build) { %><option value="<%= tpl.key %>"><%= tpl.name %><%= tpl.system ? ' (système)' : '' %></option><% } %>
+        </select>
+      </label>
+      <button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('plus', 'size-3.5', 2.2) %>Créer</button>
+    </form>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Modèles de construction', `<span class="${ui.headCount}">${templates.build.length}</span>`) %>
+    <p class="<%= ui.panelNote %>">Les niveaux affichés sont ceux qu’aura le village quand le gestionnaire aura fini la liste.</p>
+    <%# Une ligne par modèle : niveaux visés en pastilles compactes, points, population des bâtiments, villages. %>
+    <div class="relative overflow-x-auto">
+      <table class="<%= ui.table %> <%= listCls %>">
+        <thead><tr><th>Modèle</th><th>Niveaux visés</th><th class="text-right">Points</th><th class="text-right max-xl:hidden" title="Population prise par les bâtiments / capacité de la ferme">Population</th><th class="text-right max-lg:hidden" title="Place à la ferme qui reste pour les troupes">Troupes</th><th class="text-right max-sm:hidden">Villages</th><th class="w-8"><span class="sr-only">Supprimer</span></th></tr></thead>
+        <tbody>
+          <% for (const tpl of templates.build) { const n = (usage.build.get(tpl.key) || { villages: 0 }).villages; const st = totals(tpl.steps); %>
+            <tr>
+              <td title="<%= tpl.system ? tpl.description : `${tpl.steps.length} étapes` %>">
+                <a href="<%= m %>?tab=templates&id=<%= encodeURIComponent(tpl.key) %>" class="<%= ui.link %> font-semibold"><%= tpl.name %></a><% if (tpl.system) { %> <span class="text-xs text-parchment-500">système</span><% } %>
+              </td>
+              <td>
+                <span class="inline-flex items-center gap-x-2.5 align-middle">
+                  <% for (const { b, level } of summary(tpl.steps)) { %><span class="inline-flex items-center gap-1 tabular-nums" title="<%= b.name %> <%= level %>"><%- buildingImg(b.id, level, 'h-5 w-6 max-w-none', { lazy: true }) %><%= level %></span><% } %>
+                </span>
+              </td>
+              <td class="text-right font-semibold tabular-nums"><%= num(st.points) %></td>
+              <td class="text-right tabular-nums max-xl:hidden"><%= num(st.pop) %> <span class="text-parchment-500">/ <%= num(st.farm) %></span></td>
+              <td class="text-right tabular-nums max-lg:hidden <%= st.free > 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= num(st.free) %></td>
+              <td class="text-right tabular-nums max-sm:hidden"><%= n %></td>
+              <td>
+                <% if (!tpl.system) { %>
+                  <form method="post" action="<%= m %>/templates/<%= tpl.id %>/delete" class="flex" onsubmit="return confirm('Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de modèle.')"><%- csrf %>
+                    <button class="cursor-pointer text-blood-450 hover:text-blood-300 disabled:opacity-40" title="Supprimer le modèle" aria-label="Supprimer « <%= tpl.name %> »" <%= h.disabled %>><%- icon('trash', 'size-3.5', 2.2) %></button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>

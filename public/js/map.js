@@ -411,8 +411,27 @@
 
   function drawMarks(g, c, X, Y, color) {
     // Cible d'opération (calque « Opérations », indépendant de celui des marquages personnels).
-    if (c.op && layerOn('operations')) { drawOperation(g, c, X, Y); c = { ...c, mark: null, kind: 'other' }; }
-    const dot = c.mark ? (layerOn('markers') ? c.mark : null) : ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind) ? color : null;
+    if (c.op && layerOn('operations')) { drawOperation(g, c, X, Y); c = { ...c, mark: null, markIcon: null, kind: 'other' }; }
+    // Marquage avec icône d'unité : l'icône (18 px) en haut à gauche, sur la couleur du marquage s'il en a une.
+    const iconSrc = c.markIcon && layerOn('markers') && boot.unitIcons && boot.unitIcons[c.markIcon];
+    const unitImg = iconSrc && image(iconSrc);
+    if (iconSrc) {
+      const S = 18;
+      if (c.mark) {
+        g.fillStyle = '#000'; g.fillRect(X + 2, Y + 2, S, S);
+        g.fillRect(X + 1, Y + 1, S, S);
+        g.fillStyle = c.mark; g.fillRect(X + 3, Y + 3, S - 4, S - 4);
+      }
+      if (unitImg) {
+        g.save();
+        if (!c.mark) { g.shadowColor = '#000'; g.shadowBlur = 2 * res; g.shadowOffsetY = res; }
+        const pad = c.mark ? 2 : 0;
+        g.drawImage(unitImg, X + 1 + pad, Y + 1 + pad, S - 2 * pad, S - 2 * pad);
+        g.restore();
+      }
+    }
+    // Pastille : couleur du marquage (sauf sous une icône), sinon de la relation ; rien si le calque masque le marquage.
+    const dot = c.mark || c.markIcon ? (layerOn('markers') && !iconSrc ? c.mark : null) : ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind) ? color : null;
     if (dot) {
       g.fillStyle = 'rgb(0 0 0 / .7)'; g.fillRect(X + 2, Y + 2, 8, 8);
       g.fillStyle = '#050505'; g.fillRect(X + 1, Y + 1, 8, 8);

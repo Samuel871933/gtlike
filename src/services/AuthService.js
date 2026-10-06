@@ -56,10 +56,16 @@ class AuthService {
     if (recent >= RESET_MAX_PER_HOUR) return;
     const token = crypto.randomBytes(32).toString('hex');
     await PasswordReset.create({ userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + RESET_TTL_MS) });
-    await Mailer.send({
+    const link = `${baseUrl}/password/reset/${token}`;
+    await Mailer.sendTemplate({
       to: user.email,
       subject: 'Adarma : réinitialisation du mot de passe',
-      text: `Bonjour ${user.username},\n\nPour choisir un nouveau mot de passe, ouvre ce lien (valable une heure) :\n${baseUrl}/password/reset/${token}\n\nSi tu n'es pas à l'origine de cette demande, ignore ce message.`,
+      header: 'account',
+      title: 'Nouveau mot de passe',
+      intro: `Bonjour ${user.username}, pour choisir un nouveau mot de passe, ouvre ce lien : il est valable une heure.`,
+      action: { label: 'Choisir un nouveau mot de passe', url: link },
+      footer: 'Si tu n’es pas à l’origine de cette demande, ignore ce message : ton mot de passe ne change pas.',
+      text: `Bonjour ${user.username},\n\nPour choisir un nouveau mot de passe, ouvre ce lien (valable une heure) :\n${link}\n\nSi tu n'es pas à l'origine de cette demande, ignore ce message.`,
     });
   }
 

@@ -1,0 +1,80 @@
+<%- include('partials/header', { title: 'Gestionnaire de compte' }) %>
+<%
+  // Gestionnaire de compte (AccountManagerService), comme sur Guerre Tribale mais sans minimum de villages : un onglet
+  // par gestionnaire. Les actions demandent le premium ; sans lui, la page présente le gestionnaire.
+  const vid = ctx.village.id;
+  const m = `/village/${vid}/manager`;
+  // Onglets : ceux qu'on peut mettre en favori (helpers.js, FAVORITE_PAGES), le premier étant la page par défaut.
+  const TABS = favoritePage('manager', ctx.cfg).tabs;
+  // Villages : ses deux sous-onglets (Construction, Troupes) gardent l'onglet actif et son étoile de favori.
+  const mainTab = tab === 'units' ? 'buildings' : tab;
+  const tabs = segMenu(TABS.map((t) => [`/village/${vid}/${t.path}`, t.name, mainTab === t.key]), { label: 'Gestionnaire de compte' });
+  const starKey = favKey('manager', mainTab, ctx.cfg);
+  const starTab = starKey.includes(':') ? starKey.split(':')[1] : null;
+  const shopPremium = `/shop/item/premium?world=${encodeURIComponent(ctx.world.slug)}`;
+  const csrf = `<input type="hidden" name="_csrf" value="${csrfToken}">`;
+  // Pastilles d'état, comme l'aperçu du gestionnaire de GT : vert actif, jaune en pause, gris rien de prévu.
+  const DOTS = { active: ['bg-[#4fa33a]', 'actif'], paused: ['bg-[#d9a520]', 'en pause'], none: ['bg-transparent border-dashed', 'rien de prévu'] };
+  const dot = (state, label) => `<span class="inline-block size-3 rounded-full border border-black align-middle shadow-[1px_1px_0_#000] ${DOTS[state][0]}" title="${esc(label)} : ${DOTS[state][1]}" aria-label="${esc(label)} : ${DOTS[state][1]}"></span>`;
+  const stateLabel = (state) => ({ active: 'Actif', paused: 'En pause', none: '—' })[state];
+  const stateTag = (state) => state === 'active' ? '<span class="font-semibold text-olive-300">Actif</span>' : state === 'paused' ? '<span class="font-semibold text-gold-400">En pause</span>' : '<span class="text-parchment-600">—</span>';
+  const unitsLine = (units) => Object.entries(units || {}).filter(([, n]) => n > 0).map(([id, n]) => `<span class="inline-flex items-center gap-1">${unitIcon(id, 'size-5 min-h-5 min-w-5')}${num(n)}</span>`).join(' ') || '<span class="text-parchment-600">—</span>';
+  const disabled = premium ? '' : 'disabled';
+  const h = { vid, m, csrf, dot, stateLabel, stateTag, unitsLine, disabled };
+%>
+<div class="flex flex-col gap-5">
+  <%# En-tête comme les pages de bâtiment et les sceaux : vignette, titre, étoile des favoris (de l'onglet affiché), repères. %>
+  <section class="<%= ui.panel %>">
+    <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-action)_0_8px,var(--color-action-deep)_8px_16px)]" aria-hidden="true"></div>
+    <div class="flex flex-col gap-3 py-2.5 pr-3.5 pl-5 sm:flex-row sm:items-center sm:gap-5">
+      <div class="flex min-w-0 flex-1 items-center gap-3.5">
+        <span class="flex size-14 shrink-0 items-center justify-center border-[3px] border-black bg-panel-hi shadow-[4px_4px_0_rgba(0,0,0,0.6)]"><img src="/img/manager/account-manager.webp" width="48" height="48" alt="" class="size-12 object-contain"></span>
+        <div class="flex min-w-0 flex-col gap-0.5">
+          <div class="flex items-center gap-1.5">
+            <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[28px]">Gestionnaire de compte</h1>
+            <%- favStar(vid, 'manager', favoriteBuildings(player, ctx).includes(starKey), csrfToken, 'size-8', starTab) %>
+          </div>
+          <p class="text-sm text-parchment-500">Construit, recrute, envoie et équilibre tes ressources à ta place, même quand tu n’es pas connecté.</p>
+        </div>
+      </div>
+      <div class="flex shrink-0 flex-wrap gap-1.5">
+        <dl class="flex flex-col border border-bronze-800 border-t-2 border-t-bronze-500 bg-night px-2.5 py-1 sm:min-w-40 sm:text-right">
+          <dt class="text-[10px] tracking-[0.02em] text-parchment-500">Villages gérés</dt>
+          <dd class="text-lg font-semibold text-parchment-100 tabular-nums"><%= num(managed) %> <span class="text-sm font-normal text-parchment-500">/ <%= num(pagination.total) %></span></dd>
+        </dl>
+        <dl class="flex flex-col border border-bronze-800 border-t-2 border-t-gold-400 bg-night px-2.5 py-1 sm:text-right">
+          <dt class="text-[10px] tracking-[0.02em] text-parchment-500">Premium</dt>
+          <dd class="text-lg font-semibold <%= premium ? 'text-olive-300' : 'text-parchment-500' %>"><%= premium ? 'actif' : 'inactif' %></dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Gestionnaire', tabs) %>
+    <%# Onglets à liste de villages : filtrés par le groupe actif. %>
+    <% if (['overview', 'buildings', 'units', 'market'].includes(tab)) { %><%- include('partials/group-filter', { cls: tab === 'overview' || !premium ? '' : 'border-b-0' }) %><% } %>
+    <% if (tab === 'overview' || !premium) { %>
+    <div class="<%= ui.panelBody %>">
+      <% if (tab === 'overview') { %>
+        <p class="text-parchment-400">
+          Le gestionnaire s’occupe de tes villages à ta place, même quand tu n’es pas connecté : il construit selon tes
+          modèles, recrute les troupes que tu veux, envoie tes ressources par routes commerciales et équilibre tes
+          entrepôts. Il peut aussi te prévenir par e-mail des attaques. Il passe toutes les quelques minutes ; il ne
+          contourne aucune règle (ressources, ferme, bâtiments requis) et n’utilise que les places de la file au prix normal.
+        </p>
+      <% } %>
+      <% if (!premium) { %>
+        <%- include('partials/premium-banner', {
+          href: shopPremium, highlight: true, cls: tab === 'overview' ? '-mx-3 -mb-3' : '-m-3',
+          title: 'Le gestionnaire de compte est inclus dans le premium.', detail: 'Constructions, recrutements, routes commerciales, réserve et alertes par e-mail, quel que soit ton nombre de villages · dès 30 Adartons',
+        }) %>
+      <% } %>
+    </div>
+    <% } %>
+  </section>
+
+  <%# Construction et Troupes : même vue, pour l'un ou l'autre gestionnaire. %>
+  <%- include(`partials/manager/${tab === 'units' ? 'buildings' : tab}`, { h, which: tab === 'units' ? 'troops' : 'build' }) %>
+</div>
+<%- include('partials/footer') %>

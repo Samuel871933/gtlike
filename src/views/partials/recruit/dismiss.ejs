@@ -17,7 +17,13 @@
                 </span>
               </td>
               <td class="text-right font-semibold tabular-nums"><%= num(have) %></td>
-              <td class="text-right"><input type="number" name="<%= o.type.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Renvoyer : <%= o.type.name %>"></td>
+              <td class="text-right">
+                <span class="inline-flex items-center justify-end gap-2 whitespace-nowrap">
+                  <input type="number" name="<%= o.type.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Renvoyer : <%= o.type.name %>">
+                  <%# Comme au recrutement : un clic met toutes les unités présentes (game.js, data-fill). %>
+                  <button type="button" class="<%= maxBtn %> min-w-12 text-left" data-fill="<%= o.type.id %>" data-max="<%= have %>" title="Toutes les unités au village">(<%= num(have) %>)</button>
+                </span>
+              </td>
             </tr>
           <% } %>
           </tbody>

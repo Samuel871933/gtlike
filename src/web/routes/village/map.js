@@ -112,12 +112,20 @@ router.get('/map', ah(async (req, res) => {
   const paces = registry.unitsFor(cfg).map((u) => ({ id: u.id, name: u.name, minutes: u.minutesPerField(cfg) }));
   const spyCount = Math.min(req.ctx.state.units.spy || 0, 5);
   // Marquage à créer depuis le menu d'un village (?mark=player:12) : formulaire pré-rempli.
-  const markMatch = /^(player|tribe|village):(\d+)$/.exec(String(req.query.mark || ''));
+  // Un marquage existant (lien « Modifier ») pré-remplit aussi sa couleur et son icône.
+  const markMatch = /^(player|tribe|village|group):(\d+)$/.exec(String(req.query.mark || ''));
   const markForm = markMatch ? { type: markMatch[1], targetId: Number(markMatch[2]), label: String(req.query.label || '') } : null;
+  if (markForm) {
+    const existing = vc.markers.find((m) => m.targetType === markForm.type && m.targetId === markForm.targetId);
+    if (existing) Object.assign(markForm, { label: existing.label, color: existing.color, icon: existing.icon, existing: true });
+  }
+  // Icônes de marquage : les unités du monde qui ont une image.
+  const markerIcons = registry.unitsFor(cfg).filter((u) => MarkerService.ICONS.includes(u.id)).map((u) => ({ id: u.id, name: u.name }));
   res.render('map', {
     page: 'map', cx, cy, sel, displaySize, miniSize, prefs, steps: STEPS, layers,
-    paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, markerColor: MarkerService.DEFAULT_COLOR, markForm,
-    mapBoot: { sector: mapView.SECTOR, sectors, farm, mini: miniVillages, attacks, churches, worldSize: cfg.mapSize, attackDots: res.locals.attackDots(), attackIcon: res.locals.icon('attack', 'size-[10px]', 3) },
+    paces, spyCount, search, templates, favorites: vc.favorites, markers: vc.markers, markerColor: MarkerService.DEFAULT_COLOR, markForm, markerIcons,
+    mapBoot: { sector: mapView.SECTOR, sectors, farm, mini: miniVillages, attacks, churches, worldSize: cfg.mapSize, attackDots: res.locals.attackDots(), attackIcon: res.locals.icon('attack', 'size-[10px]', 3),
+      unitIcons: Object.fromEntries(markerIcons.map((u) => [u.id, res.locals.UNIT_ICONS[u.id]])) },
   });
 }));
 
@@ -181,10 +189,13 @@ router.post('/map/layers', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// Marquages de la carte : ajout (ou changement de couleur) et suppression.
+// Marquages de la carte : ajout (ou changement de couleur et d'icône) et suppression.
 router.post('/map/markers', ah(async (req, res) => {
+  // Formulaire de la carte : la case « Couleur » décochée (styleForm présent, withColor absent) enregistre un marquage
+  // sans couleur (icône seule).
+  const color = req.body.styleForm && !req.body.withColor ? '' : req.body.color;
   await MarkerService.set(me(req), req.ctx.village.worldId, {
-    type: req.body.type, targetId: req.body.targetId, target: req.body.target, color: req.body.color,
+    type: req.body.type, targetId: req.body.targetId, target: req.body.target, color, icon: req.body.icon,
   });
   // Le nouveau marquage doit se voir : le calque Marquages est réactivé s'il était masqué.
   const player = await Player.findByPk(me(req));

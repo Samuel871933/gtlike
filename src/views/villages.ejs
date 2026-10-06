@@ -3,9 +3,7 @@
   // Aperçus des villages de Guerre Tribale : un onglet par vue, une ligne par village. Le nom d'un village mène à son
   // aperçu ; les pastilles, chiffres et marchands mènent au bâtiment concerné de ce village.
   const vid = ctx.village.id;
-  const tabs = segMenu([
-    ['combined', 'Combiné'], ['prod', 'Production'], ['units', 'Troupes'], ['buildings', 'Bâtiments'],
-  ].map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, mode === m]).concat([[`/village/${vid}/incomings`, 'Arrivant', false]]), { label: 'Aperçu' });
+  const tabs = overviewMenu(vid, mode);
   const units = registry.unitsFor(ctx.cfg);
   const buildings = registry.buildingsFor(ctx.cfg);
   const at = (r, path = '') => `/village/${r.village.id}${path}`;
@@ -38,13 +36,22 @@
   // Chargement progressif des comptes à beaucoup de villages (lazyLists) ; les totaux portent sur tous.
   const lv = lazy('villages', rows);
   const full = (r, id) => r.resources[id] >= r.storage * 0.9;
+  // Totaux : sur la page affichée (seuls ses villages sont calculés).
+  const totalLabel = pagination.pages > 1 ? 'Total de la page' : 'Total';
   const sum = (key, id) => rows.reduce((n, r) => n + (r[key][id] || 0), 0);
 %>
 <div class="flex flex-col gap-5">
   <h1 class="<%= ui.h1 %>">Aperçus des villages</h1>
 
-  <section class="<%= ui.panel %>">
-    <%- panelHead(`Villages (${rows.length})`, tabs) %>
+  <%# Onglet Groupes : la grille, et à côté l'encart « Mes groupes » (créer, renommer, marquer, supprimer). %>
+  <div class="flex flex-wrap items-start gap-4">
+  <section class="<%= ui.panel %> min-w-0 flex-[999_1_640px]">
+    <%- panelHead(`Villages (${pagination.total}${activeGroup && mode !== 'groups' ? ` · ${activeGroup.name}` : ''})`, tabs) %>
+    <% if (mode !== 'groups') { %><%- include('partials/group-filter') %><% } %>
+    <% if (mode === 'groups') { %>
+      <%- include('partials/villages-groups') %>
+    <% } else { %>
+    <% if (!pagination.total) { %><p class="<%= ui.panelNote %>">Aucun village dans ce groupe. Ajoute-lui des villages depuis l’onglet <a href="/village/<%= vid %>/villages?mode=groups" class="<%= ui.link %>">Groupes</a>.</p><% } %>
     <div class="overflow-x-auto">
       <table class="<%= ui.table %> text-[13px] [&_td]:px-1.5 [&_td]:py-1 [&_th]:px-1 [&_th]:py-1 whitespace-nowrap">
         <% if (mode === 'combined') { %>
@@ -105,7 +112,7 @@
           </tbody>
           <% if (rows.length > 1) { %>
             <tfoot><tr class="border-t-2 border-black bg-thead font-semibold">
-              <td class="px-2 py-1.5">Total</td><td class="px-2 py-1.5 text-right tabular-nums"><%= num(rows.reduce((n, r) => n + r.points, 0)) %></td>
+              <td class="px-2 py-1.5"><%= totalLabel %></td><td class="px-2 py-1.5 text-right tabular-nums"><%= num(rows.reduce((n, r) => n + r.points, 0)) %></td>
               <td class="px-2 py-1.5" colspan="5"><span class="flex items-center gap-3"><% for (const res of RESOURCES) { %><span class="inline-flex items-center gap-1 tabular-nums"><%- resourceIcon(res.id, 'size-4 min-h-4 min-w-4') %><%= num(Math.floor(sum('resources', res.id))) %></span><% } %></span></td>
             </tr></tfoot>
           <% } %>
@@ -130,7 +137,7 @@
           </tbody>
           <% if (rows.length > 1) { %>
             <tfoot><tr class="border-t-2 border-black bg-thead font-semibold">
-              <td class="px-2 py-1.5" colspan="2">Total</td>
+              <td class="px-2 py-1.5" colspan="2"><%= totalLabel %></td>
               <% for (const u of units) { %><td class="px-2 py-1.5 text-center tabular-nums"><%= num(sum('units', u.id) + sum('away', u.id)) %></td><% } %>
             </tr></tfoot>
           <% } %>
@@ -156,6 +163,10 @@
         <% } %>
       </table>
     </div>
+    <% } %>
+    <% if (pagination.total) { %><%- include('partials/pagination', { list: 'villages', pagination, href: pageHref }) %><% } %>
   </section>
+  <% if (mode === 'groups') { %><%- include('partials/villages-groups-aside') %><% } %>
+  </div>
 </div>
 <%- include('partials/footer') %>

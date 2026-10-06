@@ -64,7 +64,7 @@ function kindOf(vc, v) {
   return rel === 'own' ? 'tribe' : rel || 'other';
 }
 
-/** Couleur de marquage : celle du village, sinon de son propriétaire, sinon de sa tribu. */
+/** Couleur de marquage : celle du village, sinon d'un de ses groupes, de son propriétaire, de sa tribu. */
 const markOf = (vc, v) => MarkerService.colorOf(vc.colors, v);
 /** Couleur de l'opération de tribu la plus récente qui cible le village (calque « Opérations »). */
 const opColorOf = (vc, v) => (vc.ops && vc.ops.has(v.id) ? vc.ops.get(v.id)[0].color : null);
@@ -89,7 +89,8 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), 
     // Seulement s'il le possède sur ce monde (boutique) ; `rights` : droits par compte (ShopService.rightsByUser).
     // Monde à factions : le design de sa faction par défaut (bots compris).
     design: p ? villageDesignFor(p.User, p.User ? rights.get(p.userId) || rights.server || null : null, p.faction).id : DEFAULT_VILLAGE_DESIGN,
-    mark: markOf(vc, v),
+    // Marquage : couleur (pastille) et icône d'unité, ensemble ou seules (village, groupe, joueur, tribu).
+    ...(({ color, icon }) => ({ mark: color || null, ...(icon ? { markIcon: icon } : {}) }))(MarkerService.styleOf(vc.colors, v) || {}),
     // Morale de tes attaques contre ce joueur (rien contre les barbares et tes propres villages).
     morale: vc.moraleOf && p && kind !== 'own' && kind !== 'current' ? `${Math.round((runes.moraleApplies(vc.cfg, v) ? vc.moraleOf(p.points) : 1) * 100)} %` : '',
     // Dernière attaque du joueur sur ce village (gommette et infobulle, comme sur GT) : résultat, butin, date, rapport.

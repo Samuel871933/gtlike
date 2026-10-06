@@ -4,7 +4,7 @@ const registry = require('../game/registry');
 const incomingLabel = require('../game/incomingLabel');
 const lastAttack = require('../game/lastAttack');
 const tribeRights = require('../game/tribeRights');
-const { ui, esc } = require('./ui');
+const { ui, esc, segMenu } = require('./ui');
 const { continent } = require('../game/MapPlacer');
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -175,6 +175,9 @@ const ICONS = {
   edit: '<path d="M14 4l6 6-9 9H5v-6z"/><path d="M12 6l6 6"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   check: '<path d="M5 12l5 5 9-10"/>',
+  // Pause et reprise (gestionnaire de compte).
+  pause: '<path d="M9 5v14M15 5v14"/>',
+  play: '<path d="M7 5l12 7-12 7z"/>',
   send: '<path d="M4 12l16-8-6 16-3-7z"/><path d="M11 13l9-9"/>',
   expand: '<path d="M4 20L10 14M14 4h6v6M20 4l-7 7M4 14v6h6"/>',
   // Mouvements
@@ -273,6 +276,12 @@ const FAVORITE_PAGES = [
     tabs: [['overview', 'Aperçu'], ['trade', 'Échange'], ['history', 'Historique'], ['villages', 'Mes villages'], ['help', 'Aide']]
       .map(([key, name], i) => ({ key, name, path: i ? `seals?tab=${key}` : 'seals' })),
   },
+  {
+    key: 'manager', name: 'Gestionnaire de compte', path: 'manager', available: () => true,
+    // Villages : sous-onglets Construction (buildings) et Troupes (units, voir manager.ejs).
+    tabs: [['overview', 'Aperçu'], ['buildings', 'Villages'], ['templates', 'Modèles de construction'], ['troops', 'Modèles de troupes'], ['market', 'Marché'], ['notify', 'Notifications']]
+      .map(([key, name], i) => ({ key, name, path: i ? `manager?tab=${key}` : 'manager' })),
+  },
 ];
 const favoritePage = (key, cfg) => FAVORITE_PAGES.find((p) => p.key === key && p.available(cfg)) || null;
 
@@ -304,9 +313,9 @@ function favoriteEntries(player, ctx) {
   // Pages hors bâtiments (sceaux…), après les bâtiments ; `id` nul : la barre affiche leur propre vignette.
   for (const p of FAVORITE_PAGES) {
     if (!p.available(ctx && ctx.cfg)) continue;
-    if (wanted.has(p.key)) out.push({ key: p.key, id: null, tab: null, name: p.name, title: p.name, path: p.path });
+    if (wanted.has(p.key)) out.push({ key: p.key, id: null, page: p.key, tab: null, name: p.name, title: p.name, path: p.path });
     for (const t of (p.tabs || []).slice(1)) {
-      if (wanted.has(`${p.key}:${t.key}`)) out.push({ key: `${p.key}:${t.key}`, id: null, tab: t.key, name: t.name, title: `${p.name} · ${t.name}`, path: t.path });
+      if (wanted.has(`${p.key}:${t.key}`)) out.push({ key: `${p.key}:${t.key}`, id: null, page: p.key, tab: t.key, name: t.name, title: `${p.name} · ${t.name}`, path: t.path });
     }
   }
   return out;
@@ -357,6 +366,16 @@ function buildingStat(id, level, world) {
     case 'church_f': return world ? { label: 'Zone d’influence', value: `${world.church.firstRadius} cases` } : null;
     default: return null;
   }
+}
+
+/**
+ * Menu « Aperçu » commun à ses pages (aperçus des villages, Arrivant) : mêmes onglets partout. `active` : mode des
+ * aperçus des villages (combined, prod, units, buildings, groups) ou 'incomings'.
+ */
+function overviewMenu(vid, active) {
+  const modes = [['combined', 'Combiné'], ['prod', 'Production'], ['units', 'Troupes'], ['buildings', 'Bâtiments'], ['groups', 'Groupes']]
+    .map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, active === m]);
+  return segMenu(modes.concat([[`/village/${vid}/incomings`, 'Arrivant', active === 'incomings'], [`/village/${vid}/manager`, 'Gestionnaire', false]]), { label: 'Aperçu' });
 }
 
 /** Chemin (relatif au village) de la page d'un bâtiment. */
@@ -590,6 +609,7 @@ module.exports = {
   RESOURCES,
   RESOURCE_ICONS,
   UNIT_ICONS,
+  overviewMenu,
   buildingImg,
   VILLAGE_PLAN: require('./villagePlan'),
   ...require('./worldLabels'),

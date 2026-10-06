@@ -1,0 +1,115 @@
+<%# Gestionnaire de compte, onglet Aperçu (inclus par manager.ejs avec ses helpers h) : état des trois gestionnaires
+    par village, modèles de construction, avertissements et recommandations. %>
+<%
+  const { m, csrf, dot } = h;
+  const MANAGERS = [['build', 'Construction', 'buildings'], ['troops', 'Troupes', 'units'], ['market', 'Marché', 'market']];
+  const stateOf = (row, which) => (which === 'build' ? row.build : which === 'troops' ? row.troopsState : row.market);
+  // Usage des modèles sur tous les villages (pas seulement la page affichée).
+  const used = templates.build.map((tpl) => ({ tpl, ...(usage.build.get(tpl.key) || { villages: 0, paused: 0, built: 0 }) }));
+  // Chargement progressif dans la page (comme l'aperçu Arrivant), pages de « villages par page » en dessous.
+  const lv = lazy('manager', villages, { chunk: 50 });
+  const mr = marketReport;
+%>
+<div class="grid items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Aperçu des villages', `<span class="${ui.headCount}">${num(pagination.total)}</span>`) %>
+    <p class="<%= ui.panelNote %>">Une pastille verte ou jaune met en pause ou relance le gestionnaire de ce village ; une pastille grise mène à son réglage.</p>
+    <div class="relative overflow-x-auto">
+      <table class="<%= ui.table %> text-sm">
+        <thead><tr><th>Village</th><% for (const [, label] of MANAGERS) { %><th class="w-24 text-center"><%= label %></th><% } %><th>Construction</th></tr></thead>
+        <tbody data-lazy-list="manager">
+          <% for (const row of lv.items) { const v = row.village; %>
+            <tr>
+              <td><%- villageLink(h.vid, v, { k: false, truncate: true }) %></td>
+              <% for (const [which, label, tabId] of MANAGERS) { const state = stateOf(row, which); %>
+                <td class="text-center">
+                  <% if (state === 'none') { %>
+                    <a href="<%= m %>?tab=<%= tabId %>" class="inline-flex p-1"><%- dot(state, label) %></a>
+                  <% } else { %>
+                    <form method="post" action="<%= m %>/toggle" class="inline-flex"><%- csrf %><input type="hidden" name="village" value="<%= v.id %>"><input type="hidden" name="which" value="<%= which %>">
+                      <button class="cursor-pointer p-1" <%= h.disabled %>><%- dot(state, label) %></button>
+                    </form>
+                  <% } %>
+                </td>
+              <% } %>
+              <td class="text-parchment-300">
+                <% if (row.buildTemplate) { %>
+                  <span class="text-parchment-100"><%= row.buildTemplate.name %></span>
+                  <% const s = row.status.build; if (s && s.done) { %><span class="text-olive-300"> · terminé</span><% } else if (s && s.queued && s.queued.length) { %><span class="text-parchment-500"> · lancé : <%= s.queued.join(', ') %></span><% } else if (s && s.reason) { %><span class="text-parchment-500"> · <%= s.reason %></span><% } %>
+                <% } else { %><span class="text-parchment-600">—</span><% } %>
+              </td>
+            </tr>
+          <% } %>
+          <%- lazyMore(lv, { colspan: 5, label: 'villages' }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('../pagination', { list: 'manager', pagination, href: pageHref }) %>
+  </section>
+
+  <div class="flex flex-col gap-5">
+    <section class="<%= ui.panel %>">
+      <%- panelHead(pagination.pages > 1 ? 'Avertissements (cette page)' : 'Avertissements et recommandations', warnings.length ? `<span class="${ui.headCount}">${warnings.length}</span>` : '') %>
+      <% if (!warnings.length) { %>
+        <p class="<%= ui.empty %>">Rien à signaler.</p>
+      <% } else { %>
+        <ul class="flex flex-col">
+          <% for (const w of warnings) { %>
+            <li class="flex flex-wrap items-baseline gap-x-2 border-b border-bronze-900 px-3 py-1.5 text-sm last:border-b-0">
+              <span class="<%= w.kind === 'premium' || w.kind === 'build' ? 'text-blood-450' : 'text-gold-400' %>"><%- icon(w.kind === 'farm' ? 'farm' : w.kind === 'storage' ? 'storage' : 'alert', 'size-3.5', 2.2) %></span>
+              <%- villageLink(h.vid, w.village, { k: false, truncate: true }) %>
+              <span class="text-parchment-300"><%= w.text %></span>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </section>
+
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Modèles de construction', `<a href="${m}?tab=templates" class="${ui.link} font-sans text-xs">Gérer les modèles</a>`) %>
+      <table class="<%= ui.table %> text-sm">
+        <thead><tr><th>Modèle</th><th class="text-right">Villages</th><th class="text-right">En pause</th><th class="text-right" title="Améliorations déjà mises en file par le gestionnaire">Lancées</th></tr></thead>
+        <tbody>
+          <% for (const u of used) { %>
+            <tr>
+              <td><a href="<%= m %>?tab=templates&id=<%= encodeURIComponent(u.tpl.key) %>" class="<%= ui.linkPlain %>"><%= u.tpl.name %></a><% if (u.tpl.system) { %> <span class="text-xs text-parchment-500">système</span><% } %></td>
+              <td class="text-right tabular-nums"><%= u.villages %></td>
+              <td class="text-right tabular-nums"><%= u.paused %></td>
+              <td class="text-right tabular-nums"><%= num(u.built) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </section>
+
+    <%# Compte rendu du gestionnaire de marché : routes (dernier passage), prochain envoi, réserve. %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Gestionnaire de marché', `<a href="${m}?tab=market" class="${ui.link} font-sans text-xs">Gérer</a>`) %>
+      <ul class="flex flex-col text-sm">
+        <li class="flex flex-wrap justify-between gap-x-3 border-b border-bronze-900 px-3 py-1.5">
+          <span>Routes commerciales</span>
+          <span class="tabular-nums"><%= mr.routes %> route<%= mr.routes > 1 ? 's' : '' %><% if (mr.sent) { %> · <span class="text-olive-300"><%= mr.sent %> envoyée<%= mr.sent > 1 ? 's' : '' %></span><% } %><% if (mr.failed) { %> · <span class="text-blood-450"><%= mr.failed %> en échec</span><% } %></span>
+        </li>
+        <% if (mr.next) { %><li class="flex justify-between gap-3 border-b border-bronze-900 px-3 py-1.5"><span>Prochain envoi</span><span class="tabular-nums"><%= when(mr.next, now).replace(/:\d{2}:\d{3}$/, '') %></span></li><% } %>
+        <li class="flex flex-wrap justify-between gap-x-3 border-b border-bronze-900 px-3 py-1.5 last:border-b-0">
+          <span>Réserve</span>
+          <span class="text-parchment-300"><% if (!mr.reserve.enabled) { %>désactivée<% } else if (mr.reserve.lastRunAt) { %>dernier équilibrage <%= when(mr.reserve.lastRunAt, now).replace(/:\d{2}:\d{3}$/, '') %> · <%= mr.reserve.lastSent || 0 %> livraison<%= mr.reserve.lastSent > 1 ? 's' : '' %><% } else { %>activée, premier équilibrage au prochain passage<% } %></span>
+        </li>
+        <% for (const r of mr.recent) { const ok = r.lastResult === 'Envoyée'; %>
+          <li class="flex items-center gap-2 border-b border-bronze-900 px-3 py-1.5 last:border-b-0">
+            <span class="shrink-0 <%= ok ? 'text-olive-300' : 'text-blood-450' %>"><%- icon(ok ? 'check' : 'alert', 'size-3.5', 2.4) %></span>
+            <span class="min-w-0 truncate text-parchment-300" title="<%= r.lastResult %>"><%= r.origin ? r.origin.name : '?' %> → <%= r.target ? r.target.name : '?' %><span class="text-parchment-500"> · <%= ok ? when(r.updatedAt, now).replace(/:\d{2}:\d{3}$/, '') : r.lastResult.replace(/^Non envoyée : /, '') %></span></span>
+          </li>
+        <% } %>
+      </ul>
+    </section>
+
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Réglages') %>
+      <ul class="flex flex-col text-sm">
+        <li class="flex justify-between gap-3 border-b border-bronze-900 px-3 py-1.5"><span>Réserve du marché</span><a href="<%= m %>?tab=market#reserve" class="<%= ui.link %>"><%= settings.reserve.enabled ? 'activée' : 'désactivée' %></a></li>
+        <li class="flex justify-between gap-3 px-3 py-1.5"><span>Notifications d’attaque</span><a href="<%= m %>?tab=notify" class="<%= ui.link %>"><%= settings.notify.enabled ? 'activées' : 'désactivées' %></a></li>
+      </ul>
+    </section>
+  </div>
+</div>

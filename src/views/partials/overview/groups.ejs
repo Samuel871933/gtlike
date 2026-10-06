@@ -1,0 +1,20 @@
+<%# Aperçu du village, groupes du village (inclus par overview.ejs) : comme l'encart « Groupes » de Guerre Tribale, une
+    case par groupe du joueur ; Enregistrer range le village dans les groupes cochés. %>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Groupes', `<a href="/village/${vid}/villages?mode=groups" class="${ui.link} font-sans text-xs">${villageGroups.length ? 'Gérer' : 'Créer'}</a>`) %>
+  <% if (!villageGroups.length) { %>
+    <p class="px-2.5 py-2 text-[13px] text-parchment-500">Range tes villages en groupes (défense, front, production…) pour filtrer les aperçus et le gestionnaire, et ne parcourir qu’eux d’un village à l’autre.</p>
+  <% } else { %>
+    <form method="post" action="/village/<%= vid %>/groups/village" class="flex flex-col"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="flex max-h-56 flex-col overflow-y-auto">
+        <% for (const g of villageGroups) { %>
+          <label class="flex cursor-pointer items-center gap-2 border-b border-bronze-900 px-2.5 py-[5px] hover:bg-row-hover">
+            <input type="checkbox" name="groups" value="<%= g.id %>" class="<%= ui.checkbox %>"<%= villageGroupIds.includes(g.id) ? ' checked' : '' %>>
+            <span class="min-w-0 flex-1 truncate font-semibold"><%= g.name %> <span class="font-normal text-parchment-500 tabular-nums">(<%= g.count %>)</span></span>
+          </label>
+        <% } %>
+      </div>
+      <div class="flex justify-end px-2.5 py-2"><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></div>
+    </form>
+  <% } %>
+</section>

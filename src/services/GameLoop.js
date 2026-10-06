@@ -10,10 +10,12 @@ const { World } = require('../models');
  * rafraîchissement du village à la lecture : la boucle n'est pas nécessaire à l'exactitude.
  */
 class GameLoop {
-  constructor(intervalMs, { barbarianEveryMs = 10 * 60000, imageSweepEveryMs = 60 * 60000 } = {}) {
+  constructor(intervalMs, { barbarianEveryMs = 10 * 60000, imageSweepEveryMs = 60 * 60000, managerEveryMs = 60000 } = {}) {
     this.intervalMs = intervalMs;
     this.barbarianEveryMs = barbarianEveryMs;
     this.imageSweepEveryMs = imageSweepEveryMs;
+    this.managerEveryMs = managerEveryMs;
+    this.lastManagerRun = 0;
     this.lastBarbarianGrowth = 0;
     this.lastImageSweep = 0;
     this.timer = null;
@@ -40,6 +42,12 @@ class GameLoop {
       const ids = await VillageService.dueVillageIds(now);
       for (const id of ids) {
         await VillageService.withVillage(id, async () => {});
+      }
+      // Gestionnaire de compte (premium) : constructions et recrutements des modèles, routes commerciales, réserve du
+      // marché, notifications d'attaque. Chaque village géré a sa prochaine vérification (1 à 15 minutes).
+      if (now - this.lastManagerRun >= this.managerEveryMs) {
+        this.lastManagerRun = now.getTime();
+        await require('./AccountManagerService').runDue(now);
       }
       if (now - this.lastBarbarianGrowth >= this.barbarianEveryMs) {
         this.lastBarbarianGrowth = now.getTime();

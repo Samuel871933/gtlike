@@ -54,7 +54,7 @@
 <% if (ctx) {
   const v = `/village/${ctx.village.id}`;
   const navItems = [
-    [`${v}/villages`, 'Aperçu', 'overview', page === 'overview' || page === 'villages', 0, ui.countBadge],
+    [`${v}/villages`, 'Aperçu', 'overview', page === 'overview' || page === 'villages' || page === 'manager', 0, ui.countBadge],
     [`${v}/map`, 'Carte', 'map', page === 'map', 0, ui.countBadge],
     [`${v}/reports`, 'Rapports', 'reports', page === 'reports', unreadReports, ui.countBadge],
     [`${v}/messages`, 'Messages', 'messages', page === 'messages', unreadMessages, `${ui.countBadge} bg-gold-400 text-night`],
@@ -138,9 +138,8 @@
 <%
   const cap = ctx.state.storageCapacity();
   const prod = ctx.state.productionPerHour();
-  const idx = myVillages.findIndex((x) => x.id === ctx.village.id);
-  const prev = myVillages.length > 1 ? myVillages[(idx - 1 + myVillages.length) % myVillages.length] : null;
-  const next = myVillages.length > 1 ? myVillages[(idx + 1) % myVillages.length] : null;
+  // Villages parcourus par les flèches et la liste : ceux du groupe actif (contexte choisi dans la liste ou les aperçus).
+  const { prev, next } = villageNav;
   // Barre rapide de Guerre Tribale : accès direct aux bâtiments construits.
   const chip = 'flex items-center gap-[5px] border border-bronze-800 bg-night px-2 py-[3px] whitespace-nowrap no-underline shadow-[inset_0_-2px_0_var(--color-panel-lo),1px_1px_0_#000] transition hover:border-bronze-500 hover:bg-row-hover';
   // Chaque encart mène à son bâtiment : camp de bois, carrière d'argile, mine de fer (même identifiant que la
@@ -161,18 +160,33 @@
         <a href="/village/<%= ctx.village.id %>" class="flex h-[26px] items-center gap-1.5 border border-bronze-500 bg-night px-2 text-sm font-semibold text-parchment-100 no-underline hover:text-gold-200" title="Aperçu du village">
           <span class="max-w-44 truncate"><%= ctx.village.name %></span><span class="text-xs text-gold-400 tabular-nums"><%= ctx.village.x %>|<%= ctx.village.y %></span>
         </a>
-        <% if (myVillages.length > 1) { %>
+        <% if (myVillages.length > 1 || villageGroups.length) { %>
           <details class="group">
-            <summary class="flex h-[26px] cursor-pointer list-none items-center border border-l-0 border-bronze-500 bg-night px-1.5 text-parchment-500 hover:bg-head-dark hover:text-gold-200 [&::-webkit-details-marker]:hidden" title="Changer de village" aria-label="Changer de village">
+            <summary class="flex h-[26px] cursor-pointer list-none items-center gap-1 border border-l-0 border-bronze-500 bg-night px-1.5 text-parchment-500 hover:bg-head-dark hover:text-gold-200 [&::-webkit-details-marker]:hidden" title="Changer de village<%= activeGroup ? ` (groupe ${activeGroup.name})` : '' %>" aria-label="Changer de village">
+              <% if (activeGroup) { %><span class="max-w-28 truncate text-xs text-gold-400"><%= activeGroup.name %></span><% } %>
               <%- icon('chevronDown', 'size-3 transition group-open:rotate-180', 3) %>
             </summary>
-            <ul class="<%= ui.popover %> top-full left-0 max-h-80 w-72 overflow-y-auto p-0">
-              <% for (const mv of myVillages) { %>
-                <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 border-b border-bronze-800 px-2.5 py-1.5 text-sm font-semibold no-underline <%= mv.id === ctx.village.id ? 'bg-head-dark text-parchment-100' : 'text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>">
-                  <span class="flex items-center gap-1.5 truncate"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= mv.name %></span><span class="shrink-0 text-xs text-gold-400 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
-                </a></li>
+            <div class="<%= ui.popover %> top-full left-0 w-72 p-0">
+              <%# Groupes de villages : « Tous » et les groupes du village courant (plus le groupe actif) ; le groupe choisi
+                  devient le contexte (flèches, liste, aperçus, gestionnaire). %>
+              <% if (headerGroups.length || activeGroup) { %>
+                <%# Beaucoup de groupes : la liste des puces défile. %>
+                <div class="flex max-h-28 flex-wrap gap-1 overflow-y-auto border-b-2 border-bronze-700 p-2" aria-label="Groupe de villages">
+                  <% for (const [id, label] of [[0, 'Tous']].concat(headerGroups.map((g) => [g.id, g.name]))) { const on = (activeGroup ? activeGroup.id : 0) === id; %>
+                    <a href="<%= groupHref(id) %>" class="<%= (on ? ui.filterChipOn : ui.filterChip).replace('h-8', 'h-6').replace('px-3', 'px-2').replace('text-[13px]', 'text-xs').replace('max-w-48', 'max-w-full') %>"<%- on ? ' aria-current="true"' : '' %>><span class="truncate"><%= label %></span></a>
+                  <% } %>
+                </div>
               <% } %>
-            </ul>
+              <ul class="max-h-80 overflow-y-auto">
+                <% for (const mv of navVillages) { %>
+                  <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 border-b border-bronze-800 px-2.5 py-1.5 text-sm font-semibold no-underline <%= mv.id === ctx.village.id ? 'bg-head-dark text-parchment-100' : 'text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>">
+                    <span class="flex items-center gap-1.5 truncate"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= mv.name %></span><span class="shrink-0 text-xs text-gold-400 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
+                  </a></li>
+                <% } %>
+                <% if (!navVillages.length) { %><li class="px-2.5 py-2 text-[13px] text-parchment-500">Aucun village dans ce groupe.</li><% } %>
+              </ul>
+              <a href="/village/<%= ctx.village.id %>/villages?mode=groups" class="block border-t border-bronze-800 px-2.5 py-1.5 text-[13px] text-gold-400 no-underline hover:bg-head-dark hover:text-parchment-100">Gérer les groupes</a>
+            </div>
           </details>
         <% } %>
       </div>

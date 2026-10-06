@@ -11,6 +11,8 @@ const LISTS = {
   market: { field: 'marketPerPage', default: 20, min: 5, max: 100, noun: 'offres' },
   incomings: { field: 'incomingsPerPage', default: 100, min: 20, max: 1000, noun: 'ordres' },
   farm: { field: 'farmPerPage', default: 15, min: 5, max: 200, noun: 'entrées' },
+  manager: { field: 'managerPerPage', default: 100, min: 20, max: 1000, noun: 'villages' },
+  villages: { field: 'villagesPerPage', default: 100, min: 20, max: 1000, noun: 'villages' },
 };
 
 class PaginationService {

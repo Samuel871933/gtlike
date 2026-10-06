@@ -6,16 +6,23 @@
     <%- panelHead('Recrutement') %>
     <div class="flex flex-col">
       <% for (const o of ctx.recruitOrders) { const running = new Date(o.startsAt) <= now; const end = new Date(o.endsAt).getTime(); %>
-        <a href="/village/<%= vid %>/recruit/<%= o.building %>" class="flex items-center gap-2 border-b border-bronze-800 px-2.5 py-1.5 text-parchment-100 no-underline hover:bg-row-hover">
-          <span class="text-gold-400"><%- unitIcon(o.unit, 'size-4', 2) %></span>
-          <span class="flex min-w-0 flex-1 flex-col">
-            <span class="truncate font-semibold"><span class="tabular-nums"><%= num(o.count - o.done) %></span> <%= unitName(o.unit) %></span>
-            <span class="text-[11px] text-parchment-500"><%= buildingName(o.building) %> · <%= running ? 'en cours' : 'en file' %></span>
-          </span>
-          <span class="text-[15px] font-semibold tabular-nums <%= running ? 'text-parchment-100' : 'text-parchment-500' %>"<%- running ? ` data-countdown="${end}"` : '' %>><%= duration(((running ? end - now : end - new Date(o.startsAt))) / 1000) %></span>
-        </a>
+        <%# Ligne : lien vers le bâtiment de recrutement, et à côté (hors du lien) l'annulation du lot, comme les chantiers. %>
+        <div class="flex items-center gap-2 border-b border-bronze-800 px-2.5 py-1.5 hover:bg-row-hover">
+          <a href="/village/<%= vid %>/recruit/<%= o.building %>" class="flex min-w-0 flex-1 items-center gap-2 text-parchment-100 no-underline">
+            <span class="text-gold-400"><%- unitIcon(o.unit, 'size-4', 2) %></span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span class="truncate font-semibold"><span class="tabular-nums"><%= num(o.count - o.done) %></span> <%= unitName(o.unit) %></span>
+              <span class="text-[11px] text-parchment-500"><%= buildingName(o.building) %> · <%= running ? 'en cours' : 'en file' %></span>
+            </span>
+            <span class="text-[15px] font-semibold tabular-nums <%= running ? 'text-parchment-100' : 'text-parchment-500' %>"<%- running ? ` data-countdown="${end}"` : '' %>><%= duration(((running ? end - now : end - new Date(o.startsAt))) / 1000) %></span>
+          </a>
+          <form method="post" action="/village/<%= vid %>/recruit-order/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= ui.iconBtnSm %>" title="Annuler le recrutement" aria-label="Annuler le recrutement : <%= num(o.count - o.done) %> <%= unitName(o.unit) %>"><%- icon('close', 'size-[11px]', 3.4) %></button>
+          </form>
+        </div>
       <% } %>
     </div>
+    <p class="px-2.5 py-1.5 text-[11px] text-parchment-600">Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des unités restantes ; l’unité en cours est perdue.</p>
   </section>
 <% } %>
 </div>

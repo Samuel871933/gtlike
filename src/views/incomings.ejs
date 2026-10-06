@@ -4,16 +4,12 @@
   // et filtrables, avec les actions groupées (étiqueter, renommer, ignorer) sur les cases cochées.
   // qs(patch) : adresse de l'aperçu avec ces filtres changés (voir routes/village/incomings.js).
   const vid = ctx.village.id;
-  const overviewTabs = segMenu([
-    ['combined', 'Combiné'], ['prod', 'Production'], ['units', 'Troupes'], ['buildings', 'Bâtiments'],
-  ].map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, false]).concat([[`/village/${vid}/incomings`, 'Arrivant', true]]), { label: 'Aperçu' });
+  const overviewTabs = overviewMenu(vid, 'incomings');
   // Onglets Tous / Attaques / Soutiens (mêmes classes que segTabs) ; les nombres [data-count] sont tenus à jour par
   // game.js (arrivées, actions, relecture régulière).
   const countSpan = (key, n) => `<span class="tabular-nums" data-count="${key}">${n}</span>`;
-  const typeTabs = `<nav class="${ui.seg}">${[['all', 'Tous'], ['attacks', 'Attaques'], ['supports', 'Soutiens']].map(([type, label]) => {
-    const on = filters.type === type;
-    return `<a href="${esc(qs({ type }))}" class="${on ? ui.segOn : ui.segOff}"${on ? ' aria-current="page"' : ''}>${label} (${countSpan(type, counts[type])})</a>`;
-  }).join('')}</nav>`;
+  const typeTabs = segTabs([['all', 'Tous'], ['attacks', 'Attaques'], ['supports', 'Soutiens']]
+    .map(([type, label]) => [qs({ type }), label, filters.type === type, `${label} (${countSpan(type, counts[type])})`]));
   // En-tête triable : un clic trie, un second inverse l'ordre.
   const th = 'border-r border-bronze-800 last:border-r-0';
   const td = 'border-r border-bronze-900 last:border-r-0';
@@ -51,6 +47,7 @@
 
   <section class="<%= ui.panel %>">
     <%- panelHead('Arrivant', `<span class="flex flex-wrap items-center gap-3"><span class="${ui.headCount}" title="Ordres de cette liste">${countSpan('total', total)}</span>${overviewTabs}</span>`) %>
+    <%- include('partials/group-filter') %>
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-bronze-800 px-3 py-2">
       <%- typeTabs %>
       <form method="get" action="/village/<%= vid %>/incomings" class="flex flex-wrap items-center gap-2">

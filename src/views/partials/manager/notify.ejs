@@ -1,0 +1,36 @@
+<%# Gestionnaire de compte, onglet Notifications (inclus par manager.ejs avec ses helpers h) : e-mail à l'adresse du
+    compte quand des attaques arrivent, comme sur Guerre Tribale. %>
+<%
+  const { m, csrf } = h;
+  const { notify } = settings;
+  const radio = (name, value, current) => `<input type="radio" name="${name}" value="${value}" class="accent-gold-400" ${current === value ? 'checked' : ''}>`;
+  const numIn = (name, value, max) => `<input type="number" name="${name}" min="1" max="${max}" value="${value}" class="${ui.inputSm} w-20 text-right tabular-nums">`;
+%>
+<section class="<%= ui.panel %>">
+  <%- panelHead('Notifications d’attaque', notify.enabled ? '<span class="font-sans text-xs font-semibold text-olive-300">activées</span>' : '<span class="font-sans text-xs text-parchment-500">désactivées</span>') %>
+  <form method="post" action="<%= m %>/notify" class="<%= ui.panelBody %>"><%- csrf %>
+    <p class="text-sm text-parchment-400">
+      Le gestionnaire t’envoie un e-mail<% if (!asSitter && user) { %> à <strong class="font-semibold text-parchment-200"><%= user.email %></strong><% } %> quand de nouvelles attaques arrivent sur tes villages.
+    </p>
+    <label class="<%= ui.checkLabel %>"><input type="checkbox" name="enabled" value="1" class="<%= ui.checkbox %>" <%= notify.enabled ? 'checked' : '' %>>Activer les notifications en cas d’attaque</label>
+
+    <fieldset class="flex flex-col gap-1.5 border-t border-bronze-800 pt-3">
+      <legend class="mb-1.5 font-display text-sm text-parchment-200">À quelle fréquence ?</legend>
+      <label class="<%= ui.checkLabel %> text-sm"><%- radio('when', 'first', notify.when) %>À chaque première attaque (le compteur d’attaques passe de 0 à 1)</label>
+      <label class="<%= ui.checkLabel %> flex-wrap text-sm"><%- radio('when', 'count', notify.when) %>Toutes les <%- numIn('count', notify.count, 1000) %> nouvelles attaques</label>
+      <label class="<%= ui.checkLabel %> flex-wrap text-sm"><%- radio('when', 'hours', notify.when) %>Au plus une fois toutes les <%- numIn('hours', notify.hours, 72) %> heure(s), s’il y a de nouvelles attaques</label>
+      <label class="<%= ui.checkLabel %> mt-1.5 text-sm"><input type="checkbox" name="offlineOnly" value="1" class="<%= ui.checkbox %>" <%= notify.offlineOnly ? 'checked' : '' %>>Seulement si je ne suis pas connecté (aucune page vue depuis 10 minutes)</label>
+    </fieldset>
+
+    <fieldset class="flex flex-col gap-1.5 border-t border-bronze-800 pt-3">
+      <legend class="mb-1.5 font-display text-sm text-parchment-200">Comment regrouper les attaques ?</legend>
+      <label class="<%= ui.checkLabel %> text-sm"><%- radio('group', 'none', notify.group) %>Ne pas regrouper les attaques</label>
+      <label class="<%= ui.checkLabel %> text-sm"><%- radio('group', 'attacker', notify.group) %>Par attaquant</label>
+      <label class="<%= ui.checkLabel %> text-sm"><%- radio('group', 'target', notify.group) %>Par village visé</label>
+      <label class="<%= ui.checkLabel %> mt-1.5 flex-wrap text-sm">Ne montrer que <%- numIn('perGroup', notify.perGroup, 100) %> attaques par groupe</label>
+    </fieldset>
+
+    <div><button class="<%= btn('gold', 'sm') %>" <%= premium && !asSitter ? '' : 'disabled' %>><%- icon('check', 'size-3.5', 2.2) %>Enregistrer</button>
+      <% if (asSitter) { %><span class="ml-2 text-sm text-parchment-500">Réglage réservé au titulaire du compte.</span><% } %></div>
+  </form>
+</section>

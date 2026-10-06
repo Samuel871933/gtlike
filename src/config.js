@@ -29,4 +29,14 @@ module.exports = {
   gameLoop: process.env.GAME_LOOP !== '0',
   // Tests : happy hour des Adartons forcée en permanence (HAPPY_HOUR_FORCE=1), jamais en production.
   happyHourForce: process.env.NODE_ENV !== 'production' && process.env.HAPPY_HOUR_FORCE === '1',
+  // E-mails (services/Mailer.js) : envoi SMTP dès que SMTP_HOST est renseigné, sinon écrits dans les logs.
+  mail: {
+    host: process.env.SMTP_HOST || null,
+    port: Number(process.env.SMTP_PORT) || 587,
+    // true : TLS dès la connexion (port 465) ; sinon STARTTLS si le serveur le propose (port 587).
+    secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1',
+    user: process.env.SMTP_USER || null,
+    pass: process.env.SMTP_PASS || null,
+    from: process.env.MAIL_FROM || 'Adarma <no-reply@localhost>',
+  },
 };

@@ -1,0 +1,112 @@
+<%# Gestionnaire de compte, onglet Villages et ses sous-onglets Construction et Troupes (inclus par manager.ejs avec ses helpers h et `which` :
+    build | troops) : le seul endroit où l'on assigne les modèles, comme les gestionnaires de villages et de troupes
+    de Guerre Tribale. Une ligne par village (modèle, état, dernier passage, boutons du village) ; en bas, le modèle à
+    appliquer et l'action groupée. Un seul formulaire : le bouton pressé porte l'action (`op`, POST /manager/apply). %>
+<%
+  const { m } = h;
+  const troops = which === 'troops';
+  const label = troops ? 'Troupes' : 'Construction';
+  const BULK = [['pause', 'Mettre en pause'], ['resume', 'Reprendre'], ['remove', 'Retirer le modèle']];
+  const STATE = { active: ['Actif', 'text-olive-300'], paused: ['En pause', 'text-gold-400'] };
+  const stateCell = (state) => (STATE[state] ? `<span class="font-semibold ${STATE[state][1]}">${STATE[state][0]}</span>` : '<span class="text-parchment-600">—</span>');
+  // Dernier passage, coupé si trop long (texte complet au survol).
+  const info = (state, s, doneText, launched) => {
+    if (state === 'none' || !s) return '<span class="text-parchment-600">—</span>';
+    const text = s.done ? doneText : [launched, s.reason].filter(Boolean).join(' · ');
+    return text ? `<span class="block min-w-0 truncate ${s.done ? 'text-olive-300' : 'text-parchment-500'}" title="${esc(text)}">${esc(text)}</span>` : '<span class="text-parchment-600">—</span>';
+  };
+  // Boutons d'un village : pause ou reprise selon l'état, retrait du modèle ; inactifs s'il n'y a pas de modèle.
+  const iconBtn = 'inline-flex size-7 cursor-pointer items-center justify-center border border-bronze-800 bg-night text-gold-400 hover:border-gold-400 hover:text-parchment-100 disabled:cursor-default disabled:opacity-30 disabled:hover:border-bronze-800 disabled:hover:text-gold-400';
+  const rowActions = (v, state) => {
+    const none = state === 'none' || !premium;
+    const op = (a) => `village:${v.id}:${which}:${a}`;
+    const toggle = state === 'paused' ? ['resume', 'play', 'Reprendre'] : ['pause', 'pause', 'Mettre en pause'];
+    return `<span class="inline-flex items-center gap-1">`
+      + `<button name="op" value="${op(toggle[0])}" class="${iconBtn}" title="${toggle[2]}" aria-label="${toggle[2]} : ${esc(v.name)}" ${none ? 'disabled' : ''}>${icon(toggle[1], 'size-3.5', 2.4)}</button>`
+      + `<button name="op" value="${op('remove')}" class="${iconBtn} hover:text-blood-300" title="Retirer le modèle" aria-label="Retirer le modèle : ${esc(v.name)}" ${none ? 'disabled' : ''}>${icon('close', 'size-3', 2.6)}</button></span>`;
+  };
+  const list = (o) => Object.entries(o).map(([id, n]) => `${num(n)} ${unitName(id)}`).join(', ');
+  // Chargement progressif dans la page (comme l'aperçu Arrivant), pages de « villages par page » sous le tableau.
+  const lv = lazy('manager', villages, { chunk: 50 });
+  const cols = troops ? 7 : 6;
+%>
+<section class="<%= ui.panel %>">
+  <%# Onglet Villages : sous-onglets Construction et Troupes, et le lien vers les modèles du gestionnaire affiché. %>
+  <%- panelHead('Villages', `<span class="flex flex-wrap items-center gap-3"><a href="${m}?tab=${troops ? 'troops' : 'templates'}" class="${ui.link} font-sans text-xs">${troops ? 'Modèles de troupes' : 'Modèles de construction'}</a>${segTabs([[`${m}?tab=buildings`, 'Construction', !troops], [`${m}?tab=units`, 'Troupes', troops]])}</span>`) %>
+  <form method="post" action="<%= m %>/apply"><%- h.csrf %>
+    <p class="<%= ui.panelNote %>">
+      <% if (troops) { %>
+        Le gestionnaire recrute ce qui manque pour atteindre les troupes du modèle, par petits lots (le coût de 50 lanciers
+        par défaut, réglable dans le modèle), après la prochaine construction.
+      <% } else { %>
+        Le gestionnaire met en file, dans l’ordre du modèle, ce que le village peut se payer, au prix normal.
+      <% } %>
+    </p>
+    <div class="relative overflow-x-auto">
+      <table class="<%= ui.table %> whitespace-nowrap [&_td]:h-[44px] [&_td]:py-1">
+        <thead><tr>
+          <th class="w-8"><input type="checkbox" class="<%= ui.checkbox %>" data-check-all aria-label="Tout sélectionner"></th>
+          <th>Village</th><th>Modèle</th><th>État</th>
+          <% if (troops) { %><th class="text-right" title="Population prise à la ferme par les troupes du modèle">Population</th><% } %>
+          <th class="w-full">Dernier passage</th><th class="w-px">Actions</th>
+        </tr></thead>
+        <tbody data-lazy-list="manager">
+          <% for (const row of lv.items) { const v = row.village; %>
+            <tr>
+              <td><input type="checkbox" name="ids" value="<%= v.id %>" class="<%= ui.checkbox %>" aria-label="<%= v.name %>"></td>
+              <td><%- villageLink(h.vid, v, { k: false, truncate: true }) %></td>
+              <% if (troops) { const st = row.status.troops; %>
+                <td>
+                  <% if (!row.troops) { %><span class="text-parchment-600">aucun modèle</span>
+                  <% } else if (row.troopsTemplate) { %><a href="<%= m %>?tab=troops&id=<%= encodeURIComponent(row.troopsKey) %>" class="<%= ui.linkPlain %>"><%= row.troopsTemplate %></a>
+                  <% } else { %><span class="text-parchment-300">troupes propres</span><% } %>
+                </td>
+                <td><%- stateCell(row.troopsState) %></td>
+                <td class="text-right tabular-nums"><%= row.troops ? num(troopStats(row.troops.units).pop) : '' %></td>
+                <% const recruited = [st && st.recruited && Object.keys(st.recruited).length ? `recruté : ${list(st.recruited)}` : '', st && st.dismissed ? `renvoyé : ${list(st.dismissed)}` : ''].filter(Boolean).join(' · '); %>
+                <td class="max-w-0"><%- info(row.troopsState, st, 'troupes au complet', recruited) %></td>
+                <td><%- rowActions(v, row.troopsState) %></td>
+              <% } else { const sb = row.status.build; %>
+                <td>
+                  <% if (row.buildTemplate) { %><a href="<%= m %>?tab=templates&id=<%= encodeURIComponent(row.buildTemplate.key) %>" class="<%= ui.linkPlain %>"><%= row.buildTemplate.name %></a>
+                  <% } else { %><span class="text-parchment-600">aucun modèle</span><% } %>
+                </td>
+                <td><%- stateCell(row.build) %></td>
+                <td class="max-w-0"><%- info(row.build, sb, 'modèle terminé', sb && sb.queued && sb.queued.length ? `lancé : ${sb.queued.join(', ')}` : '') %></td>
+                <td><%- rowActions(v, row.build) %></td>
+              <% } %>
+            </tr>
+          <% } %>
+          <%- lazyMore(lv, { colspan: cols, label: 'villages' }) %>
+        </tbody>
+      </table>
+    </div>
+    <%# Barre d'actions : le modèle à appliquer, une action groupée, et les villages visés. %>
+    <div class="flex flex-wrap items-end gap-x-5 gap-y-2.5 border-t border-bronze-800 px-3 py-2.5">
+      <label class="<%= ui.label %>"><%= troops ? 'Modèle de troupes' : 'Modèle de construction' %>
+        <span class="flex items-center gap-2">
+          <% if (troops) { %>
+            <select name="troopTemplate" class="<%= ui.inputSm %> max-w-64">
+              <% for (const tpl of templates.troops) { %><option value="<%= tpl.key %>"><%= tpl.name %><%= tpl.system ? ' (système)' : '' %> · <%= num(troopStats(tpl.units).pop) %> hab.</option><% } %>
+            </select>
+          <% } else { %>
+            <select name="buildTemplate" class="<%= ui.inputSm %> max-w-56">
+              <% for (const tpl of templates.build) { %><option value="<%= tpl.key %>"><%= tpl.name %><%= tpl.system ? ' (système)' : '' %></option><% } %>
+            </select>
+          <% } %>
+          <button name="op" value="<%= which %>:use" class="<%= btn('gold', 'sm') %>" <%= h.disabled %>>Appliquer</button>
+        </span>
+      </label>
+      <label class="<%= ui.label %>">Action
+        <span class="flex items-center gap-2">
+          <select name="bulk" class="<%= ui.inputSm %>">
+            <% for (const [a, al] of BULK) { %><option value="<%= which %>:<%= a %>"><%= al %></option><% } %>
+          </select>
+          <button name="op" value="bulk" class="<%= btn('dark', 'sm') %>" <%= h.disabled %>>OK</button>
+        </span>
+      </label>
+      <%- include('../manager-scope') %>
+    </div>
+  </form>
+  <%- include('../pagination', { list: 'manager', pagination, href: pageHref }) %>
+</section>

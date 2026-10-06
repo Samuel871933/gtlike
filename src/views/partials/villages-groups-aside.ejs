@@ -1,0 +1,47 @@
+<%# Aperçus des villages, onglet Groupes : encart « Mes groupes » à côté de la grille (inclus par villages.ejs). Créer un
+    groupe ; pour chacun : nombre de villages, marquage de carte (aperçu), renommer sur place, marquer, supprimer. %>
+<%
+  const vid = ctx.village.id;
+  const smallBtn = 'inline-flex size-[22px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-night text-gold-400 no-underline shadow-[1px_1px_0_#000] transition hover:bg-head-dark hover:text-parchment-100';
+  // Aperçu du marquage d'un groupe : icône d'unité sur sa couleur, ou l'une des deux.
+  const swatch = (m) => m.icon
+    ? (m.color
+      ? `<span class="flex size-[18px] shrink-0 items-center justify-center overflow-hidden border-2 border-black" style="background:${m.color}"><img src="${UNIT_ICONS[m.icon]}" class="block size-full object-contain" alt=""></span>`
+      : `<img src="${UNIT_ICONS[m.icon]}" class="block size-[18px] shrink-0 object-contain" alt="">`)
+    : `<span class="size-3 shrink-0 border-2 border-black" style="background:${m.color}"></span>`;
+%>
+<aside class="<%= ui.panel %> w-full flex-[1_1_300px] lg:max-w-sm">
+  <%- panelHead('Mes groupes', `<span class="${ui.headCount}">${villageGroups.length} / ${groupsMax}</span>`) %>
+  <form method="post" action="/village/<%= vid %>/groups" class="flex items-end gap-2 border-b border-bronze-800 p-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label class="<%= ui.label %> min-w-0 flex-1">Nouveau groupe<input name="name" maxlength="32" required placeholder="Défense, front nord…" class="<%= ui.inputSm %> w-full"></label>
+    <button class="<%= btn('gold', 'sm') %>"><%- icon('plus', 'size-3.5', 2.6) %>Créer</button>
+  </form>
+  <% if (!villageGroups.length) { %>
+    <p class="px-3 py-2.5 text-[13px] text-parchment-500">Range tes villages par usage (défense, attaque, production…) : les aperçus, le gestionnaire et les flèches de village pourront ne montrer qu’un groupe.</p>
+  <% } else { %>
+    <ul>
+      <% for (const g of villageGroups) { const mark = groupMarks.get(g.id); %>
+        <li class="flex items-center gap-2 border-b border-bronze-800 px-3 py-1.5 last:border-b-0 hover:bg-row-hover" data-rename-scope>
+          <span class="flex min-w-0 flex-1 items-center gap-2" data-rename-title>
+            <span class="<%= ui.diamond %>" aria-hidden="true"></span>
+            <a href="<%= groupHref(g.id) %>" class="<%= ui.linkPlain %> min-w-0 truncate font-semibold" title="Afficher seulement ce groupe"><%= g.name %></a>
+            <span class="shrink-0 text-parchment-500 tabular-nums" title="<%= g.count %> village<%= g.count > 1 ? 's' : '' %>">(<%= g.count %>)</span>
+            <% if (mark) { %><%- swatch(mark) %><% } %>
+          </span>
+          <form method="post" action="/village/<%= vid %>/groups/<%= g.id %>/rename" class="flex min-w-0 flex-1 items-center gap-1.5" data-rename-form hidden><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input name="name" value="<%= g.name %>" maxlength="32" required aria-label="Nouveau nom du groupe" class="<%= ui.inputSm %> h-7 min-w-0 flex-1">
+            <button class="<%= btn('gold', 'sm') %> h-7 px-2">OK</button>
+            <button type="button" class="<%= btn('dark', 'sm') %> h-7 px-2" data-rename-cancel aria-label="Annuler"><%- icon('close', 'size-3', 3) %></button>
+          </form>
+          <span class="flex shrink-0 items-center gap-1">
+            <a href="/village/<%= vid %>/map?<%= new URLSearchParams({ mark: `group:${g.id}`, label: g.name }) %>#marquages" class="<%= smallBtn %>" title="<%= mark ? 'Modifier le marquage sur la carte' : 'Marquer sur la carte (couleur, icône)' %>" aria-label="Marquer sur la carte"><%- icon('map', 'size-3', 2.4) %></a>
+            <button type="button" class="<%= smallBtn %>" title="Renommer le groupe" aria-label="Renommer le groupe" data-rename-open><%- icon('edit', 'size-[11px]', 2.6) %></button>
+            <form method="post" action="/village/<%= vid %>/groups/<%= g.id %>/delete" data-confirm="Supprimer le groupe « <%= g.name %> » ? Ses villages ne sont pas touchés."><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="<%= ui.iconBtnSm %>" title="Supprimer le groupe" aria-label="Supprimer le groupe"><%- icon('close', 'size-[11px]', 3.4) %></button>
+            </form>
+          </span>
+        </li>
+      <% } %>
+    </ul>
+  <% } %>
+</aside>

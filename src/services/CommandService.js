@@ -2,7 +2,7 @@
 
 const { Op } = require('sequelize');
 const {
-  sequelize, World, Player, Village, Command, SupportStack, Report, LastAttack, BuildOrder, RecruitOrder, ResearchOrder, Transport, MarketOffer, TribeRelation,
+  sequelize, World, Player, Village, Command, SupportStack, Report, LastAttack, BuildOrder, RecruitOrder, ResearchOrder, Transport, MarketOffer, TribeRelation, ManagerVillage, TradeRoute, VillageGroupMember,
   Knight, ScavengeRun,
 } = require('../models');
 const registry = require('../game/registry');
@@ -714,6 +714,11 @@ class CommandService {
     await SupportStack.destroy({ where: { originVillageId: village.id }, transaction: t });
     await Transport.destroy({ where: { originVillageId: village.id }, transaction: t });
     await MarketOffer.destroy({ where: { villageId: village.id }, transaction: t });
+    // Gestionnaire de compte de l'ancien propriétaire : le village n'est plus suivi, ses routes commerciales s'arrêtent.
+    await ManagerVillage.destroy({ where: { villageId: village.id }, transaction: t });
+    await TradeRoute.destroy({ where: { originVillageId: village.id }, transaction: t });
+    // Groupes de villages de l'ancien propriétaire : le village les quitte.
+    await VillageGroupMember.destroy({ where: { villageId: village.id }, transaction: t });
     await Knight.destroy({ where: { homeVillageId: village.id }, transaction: t });
     await ScavengeRun.destroy({ where: { villageId: village.id }, transaction: t });
     // Village conquis : la milice de l'ancien propriétaire disparaît.

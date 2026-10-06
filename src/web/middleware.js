@@ -9,9 +9,10 @@ const TribeForumService = require('../services/TribeForumService');
 const { gameStyleFor } = require('./gameStyles');
 const { villageDesignFor } = require('./villageDesigns');
 const ShopService = require('../services/ShopService');
+const VillageGroupService = require('../services/VillageGroupService');
 const { gameLayoutFor, shadowsFor } = require('./gameLayouts');
 const { Op } = require('sequelize');
-const { User, Village, TribeInvite, Player, Tribe, World } = require('../models');
+const { User, Village, VillageGroupMember, TribeInvite, Player, Tribe, World } = require('../models');
 
 /** Enveloppe un handler async pour transmettre les erreurs à Express 4. */
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -62,6 +63,28 @@ function requireAuth(req, res, next) {
 // Routes JSON (carte, alertes d'attaques) servies sans le contexte complet (voir loadVillage).
 const MAP_DATA = /^\/(map\/(sectors?|mini|world)|alerts)$/;
 
+/**
+ * Place du village courant dans les villages parcourus (ceux du groupe actif) : rang, villages précédent et suivant
+ * (en boucle). Hors du groupe : les flèches mènent au dernier et au premier village du groupe.
+ */
+function villageNav(list, currentId) {
+  const idx = list.findIndex((v) => v.id === currentId);
+  const others = list.filter((v) => v.id !== currentId);
+  if (!others.length) return { idx, prev: null, next: null, count: list.length };
+  if (idx < 0) return { idx, prev: list[list.length - 1], next: list[0], count: list.length };
+  return { idx, prev: list[(idx - 1 + list.length) % list.length], next: list[(idx + 1) % list.length], count: list.length };
+}
+
+/** Adresse de la page courante avec un autre groupe actif (id, ou '' pour tous les villages), sans numéro de page. */
+function groupHref(req) {
+  return (id) => {
+    const url = new URL(req.originalUrl, 'http://local');
+    url.searchParams.set('group', id || '0');
+    url.searchParams.delete('page');
+    return url.pathname + url.search;
+  };
+}
+
 /** Vérifie la propriété du village, le rafraîchit et expose le contexte aux vues. */
 const loadVillage = ah(async (req, res, next) => {
   // Même instant pour les arrivées résolues et l'état du village : une arrivée ne peut pas tomber entre les deux.
@@ -94,14 +117,33 @@ const loadVillage = ah(async (req, res, next) => {
     TribeInvite.count({ where: { playerId } }),
     MessageService.unreadCount(playerId),
   ]);
+  // Groupe de villages actif (contexte, comme sur GT) : choisi par ?group= sur une page (menu des groupes des aperçus,
+  // de l'en-tête), il ne fait parcourir que ses villages aux flèches et à la liste de l'en-tête.
+  if (req.method === 'GET' && req.query.group !== undefined) {
+    // Groupe inconnu (supprimé, lien d'un autre joueur) : retour à tous les villages.
+    player.villageGroupId = await VillageGroupService.select(playerId, req.query.group).catch(() => VillageGroupService.select(playerId, ''));
+  }
+  const [groups, villageGroupRows] = await Promise.all([
+    VillageGroupService.context(player),
+    VillageGroupMember.findAll({ where: { villageId: owned.id }, attributes: ['groupId'], raw: true }),
+  ]);
+  // Groupes proposés par la liste de l'en-tête : ceux du village courant, et le groupe actif (contexte en cours).
+  const currentGroupIds = new Set(villageGroupRows.map((r) => r.groupId));
+  const headerGroups = groups.groups.filter((g) => currentGroupIds.has(g.id) || (groups.active && g.id === groups.active.id));
+  const navVillages = groups.ids ? myVillages.filter((v) => groups.ids.includes(v.id)) : myVillages;
   const [incomingAttacks, betterPlayers, tribeForumUnread] = await Promise.all([
     CommandService.incomingAttackCount(playerId, myVillages.map((v) => v.id)),
     Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } }),
     // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.
     TribeForumService.unreadCount(player),
   ]);
+  // Dernière page vue par le titulaire (à la minute près) : notifications d'attaque « seulement si je ne suis pas connecté ».
+  if (!asSitter && (!player.lastSeenAt || now - player.lastSeenAt >= 60000)) {
+    await Player.update({ lastSeenAt: now }, { where: { id: playerId }, silent: true });
+  }
   Object.assign(res.locals, {
-    unreadByFilter, unreadReports: unreadByFilter.all, myVillages, incomingAttacks, player, shopRights: rights,
+    unreadByFilter, unreadReports: unreadByFilter.all, myVillages, incomingAttacks,
+    villageGroups: groups.groups, headerGroups, activeGroup: groups.active, navVillages, villageNav: villageNav(navVillages, owned.id), groupHref: groupHref(req), player, shopRights: rights,
     gameStyle: gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights, asSitter ? null : player.faction), gameLayout: gameLayoutFor(req.user),
     gameShadows: shadowsFor(req.user),
     quickbarPos: require('./quickbarPositions').quickbarPositionFor(req.user),
@@ -119,7 +161,7 @@ const loadVillage = ah(async (req, res, next) => {
  */
 /** Valeurs par défaut des vues (en-tête hors partie), posées pour chaque requête et par la page d'erreur. */
 const BASE_LOCALS = () => ({
-  ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], tribeInvites: 0, unreadMessages: 0, player: null,
+  ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], navVillages: [], villageGroups: [], headerGroups: [], activeGroup: null, villageNav: null, groupHref: () => '', tribeInvites: 0, unreadMessages: 0, player: null,
   playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, gameShadows: true, quickbarPos: 'top', asSitter: false, happyPopup: null,
 });
 

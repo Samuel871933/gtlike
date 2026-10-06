@@ -1,0 +1,23 @@
+<%# Menu des groupes de villages, comme au-dessus des aperçus de Guerre Tribale : « Tous » puis chaque groupe, la puce du
+    groupe actif sur le fond du thème (comme les forums de la tribu). Au-delà de 12 groupes : liste déroulante. Le groupe
+    choisi devient le groupe actif du joueur (contexte : aperçus, Arrivant, gestionnaire, flèches de l'en-tête), voir
+    loadVillage. Inclus avec { cls } (marges du bandeau). %>
+<%
+  const activeId = activeGroup ? activeGroup.id : 0;
+  const groupItems = [[0, 'Tous', myVillages.length]].concat(villageGroups.map((g) => [g.id, g.name, g.count]));
+%>
+<nav class="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-bronze-800 px-3 py-2 <%= typeof cls === 'string' ? cls : '' %>" aria-label="Groupe de villages">
+  <span class="text-[13px] text-parchment-500">Groupe</span>
+  <% if (villageGroups.length > 12) { %>
+    <select class="<%= ui.inputSm %> max-w-72" aria-label="Groupe de villages" onchange="location.href = this.value">
+      <% for (const [id, label, n] of groupItems) { %><option value="<%= groupHref(id) %>"<%= activeId === id ? ' selected' : '' %>><%= label %> (<%= n %>)</option><% } %>
+    </select>
+  <% } else { %>
+    <div class="flex flex-wrap gap-1.5">
+      <% for (const [id, label, n] of groupItems) { const on = activeId === id; %>
+        <a href="<%= groupHref(id) %>" class="<%= on ? ui.filterChipOn : ui.filterChip %>"<%- on ? ' aria-current="true"' : '' %> title="<%= label %>"><span class="truncate"><%= label %></span><span class="shrink-0 tabular-nums">(<%= n %>)</span></a>
+      <% } %>
+    </div>
+  <% } %>
+  <a href="/village/<%= ctx.village.id %>/villages?mode=groups" class="ml-auto text-[13px] text-gold-400 no-underline hover:text-parchment-100"><%= villageGroups.length ? 'Gérer les groupes' : 'Créer des groupes' %></a>
+</nav>

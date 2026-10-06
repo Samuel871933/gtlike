@@ -1,0 +1,139 @@
+<%# Gestionnaire de compte, onglet Modèles de troupes (inclus par manager.ejs avec ses helpers h), sur le modèle de
+    l'onglet Modèles de construction : liste des modèles (système et les siens), création (vide ou copiée), et la page
+    du modèle ouvert (`editTroops`) avec son sommaire et ses troupes. Ils s'assignent dans l'onglet Villages, sous-onglet Troupes. %>
+<%
+  const { m, csrf, unitsLine } = h;
+  const edit = typeof editTroops !== 'undefined' ? editTroops : null;
+  // Population et coût de troupes, comme le total sous les champs (recalculé par game.js à la saisie : data-troop-sum).
+  const costLine = (units, live = false) => {
+    const st = troopStats(units);
+    const sum = (k) => (live ? ` data-troop-sum="${k}"` : '');
+    return `<span class="inline-flex items-center gap-1" title="Population prise à la ferme">${resourceIcon('pop', 'size-4')}<strong class="font-semibold text-parchment-100"${sum('pop')}>${num(st.pop)}</strong></span>`
+      + RESOURCES.map((r) => `<span class="inline-flex items-center gap-1" title="${r.label}">${resourceIcon(r.id, 'size-4')}<span${sum(r.id)}>${num(st[r.id])}</span></span>`).join('');
+  };
+  const statLine = (units, live = false, cls = 'text-sm') => `<span class="flex flex-wrap items-center gap-x-3 gap-y-1 ${cls} text-parchment-300 tabular-nums">${costLine(units, live)}</span>`;
+  // Même gabarit que la liste des modèles de construction.
+  const listCls = 'whitespace-nowrap [&_td]:h-[44px] [&_td]:py-1 [&_td_img]:min-h-0 [&_td_img]:min-w-0';
+  // Villages qui utilisent le modèle, sur tous ses villages (usage calculé par le service, pas la page affichée).
+  // Unités du modèle absentes de ce monde (archers…) : gardées dans le modèle du compte, ignorées ici.
+  const ignoredNote = (tpl) => (tpl.ignored && tpl.ignored.length ? `<span class="text-xs text-parchment-500" title="Gardées pour les mondes qui les ont">${tpl.ignored.map((id) => esc(unitName(id))).join(', ')} : absent${tpl.ignored.length > 1 ? 's' : ''} de ce monde</span>` : '');
+  // Aperçu d'un lot par bâtiment (village encore vide), même découpe que le gestionnaire (managerTemplates.batchPreview) ;
+  // recalculé par game.js à la saisie ([data-batch-preview]).
+  const previewHtml = (units, budget) => {
+    const lots = batchPreview(units, budget);
+    if (!lots.length) return '<span class="text-parchment-500">aucune unité</span>';
+    return lots.map((l) => `<span class="inline-flex flex-wrap items-center gap-x-2"><span class="text-parchment-400">${esc(buildingName(l.building))} :</span>${l.units.map(([id, n]) => `<span class="inline-flex items-center gap-1">${unitIcon(id, 'size-5 min-h-5 min-w-5')}${num(n)}</span>`).join('')}<span class="text-parchment-500">(${num(l.cost)} ressources)</span></span>`).join('<span class="text-parchment-600">·</span>');
+  };
+  const used = (tpl) => usage.troops.get(tpl.key) || 0;
+%>
+<% if (edit) { const own = !edit.system; const n = used(edit); %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead(`Modèle « ${edit.name} »`, `<a href="${m}?tab=troops" class="${ui.link} font-sans text-xs">Tous les modèles</a>`) %>
+    <div class="<%= ui.panelBody %>">
+      <% if (edit.system) { %>
+        <p class="text-parchment-400"><%= edit.description %> Les modèles système ne se modifient pas : copie-le pour l’adapter.</p>
+        <form method="post" action="<%= m %>/troop-templates" class="flex flex-wrap items-end gap-2"><%- csrf %><input type="hidden" name="from" value="<%= edit.key %>">
+          <label class="<%= ui.label %>">Nom de la copie<input name="name" maxlength="32" required value="<%= `${edit.name} (copie)`.slice(0, 32) %>" class="<%= ui.inputSm %>"></label>
+          <button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('plus', 'size-3.5', 2.2) %>Copier</button>
+        </form>
+      <% } else { %>
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <form method="post" action="<%= m %>/templates/<%= edit.id %>/rename" class="flex flex-wrap items-end gap-2"><%- csrf %>
+            <label class="<%= ui.label %>">Nom<input name="name" maxlength="32" required value="<%= edit.name %>" class="<%= ui.inputSm %>"></label>
+            <button class="<%= btn('dark', 'sm') %>" <%= h.disabled %>><%- icon('edit', 'size-3.5', 2.2) %>Renommer</button>
+          </form>
+          <form method="post" action="<%= m %>/templates/<%= edit.id %>/delete" onsubmit="return confirm('Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de troupes visées.')"><%- csrf %>
+            <button class="<%= btn('danger', 'sm') %>" <%= h.disabled %>><%- icon('trash', 'size-3', 2.4) %>Supprimer</button>
+          </form>
+        </div>
+      <% } %>
+      <p class="text-[13px] text-parchment-500">Utilisé par <%= n %> village<%= n > 1 ? 's' : '' %> · à assigner dans l’onglet <a href="<%= m %>?tab=units" class="<%= ui.link %>">Villages · Troupes</a>.</p>
+    </div>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Sommaire', '<span class="font-sans text-[11px] text-parchment-300">troupes visées au total</span>') %>
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 p-3"><%- unitsLine(edit.units) %><%- ignoredNote(edit) %></div>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-t border-bronze-800 px-3 py-2"><%- statLine(edit.units) %><span class="text-sm text-parchment-400">lots de <%= num(edit.batchCost) %> ressources par bâtiment<%= edit.dismiss ? ' · renvoie les unités en trop' : '' %></span></div>
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-bronze-800 px-3 py-2 text-sm"><span class="text-parchment-400">Un lot :</span><%- previewHtml(edit.units, edit.batchCost) %></div>
+  </section>
+
+  <% if (own) { %>
+    <section class="<%= ui.panel %>" id="troupes">
+      <%- panelHead('Troupes et tampons') %>
+      <form method="post" action="<%= m %>/troop-templates" class="<%= ui.panelBody %>"><%- csrf %><input type="hidden" name="id" value="<%= edit.id %>"><input type="hidden" name="name" value="<%= edit.name %>">
+        <p class="text-sm text-parchment-400">
+          Troupes voulues <em>au total</em> par village (au village, en dehors et en recrutement). Le gestionnaire recrute par petits
+          lots, de même coût pour toutes les unités, dans chaque bâtiment ; un nouveau lot part quand la file du bâtiment vaut
+          moins d’un demi-lot, ce qui laisse des ressources aux constructions. Les nombres sont arrondis à la dizaine, sauf
+          pour finir le modèle. Les tampons gardent de la place à la ferme et des ressources de côté. Le paladin et les
+          nobles ne sont pas gérés.
+        </p>
+        <div class="flex flex-col gap-2" data-troop-total>
+          <div class="flex flex-wrap gap-2">
+            <% for (const u of managedUnits) { %>
+              <label class="flex flex-col items-center gap-1" title="<%= u.name %>"><%- unitIcon(u.id, 'size-7') %><input type="number" name="<%= u.id %>" min="0" value="<%= edit.units[u.id] || '' %>" placeholder="0" class="<%= ui.inputSm %> w-20 text-right tabular-nums" aria-label="<%= u.name %>" data-pop="<%= u.pop %>" data-wood="<%= u.cost.wood %>" data-stone="<%= u.cost.stone %>" data-iron="<%= u.cost.iron %>" data-building="<%= u.building %>" data-building-name="<%= buildingName(u.building) %>" data-icon="<%= UNIT_ICONS[u.id] %>"></label>
+            <% } %>
+          </div>
+          <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"><span class="text-parchment-400">Total :</span><%- statLine(edit.units, true) %></p>
+          <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"><span class="text-parchment-400">Un lot :</span><span class="contents" data-batch-preview><%- previewHtml(edit.units, edit.batchCost) %></span></p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <label class="<%= ui.label %>">Taille des lots<span class="flex items-center gap-1.5"><input type="number" name="batchCost" min="<%= BATCH_COST_MIN %>" max="<%= BATCH_COST_MAX %>" step="100" value="<%= edit.batchCost %>" class="<%= ui.inputSm %> w-28 text-right tabular-nums" data-batch-cost><span class="text-sm text-parchment-400">ressources par bâtiment</span></span></label>
+          <label class="<%= ui.label %>">Tampon de population<input type="number" name="popBuffer" min="0" value="<%= edit.popBuffer || 0 %>" class="<%= ui.inputSm %> w-24 text-right tabular-nums"></label>
+          <label class="<%= ui.label %>">Tampon de ressources (de chaque)<input type="number" name="resBuffer" min="0" value="<%= edit.resBuffer || 0 %>" class="<%= ui.inputSm %> w-28 text-right tabular-nums"></label>
+        </div>
+        <%# Comme la démolition des modèles de construction : renvoi (désaffectation, sans remboursement) des unités au
+            village au-delà du modèle, y compris celles qu'il ne contient pas. %>
+        <label class="<%= ui.checkLabel %> text-sm"><input type="checkbox" name="dismiss" value="1" class="<%= ui.checkbox %>" <%= edit.dismiss ? 'checked' : '' %>>Renvoyer les unités en trop (au-delà du modèle, ou absentes du modèle), sans remboursement</label>
+        <div><button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('check', 'size-3.5', 2.2) %>Enregistrer</button></div>
+      </form>
+    </section>
+  <% } %>
+
+<% } else { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Créer un modèle') %>
+    <form method="post" action="<%= m %>/troop-templates" class="flex flex-wrap items-end gap-3 p-3"><%- csrf %>
+      <label class="<%= ui.label %>">Nom<input name="name" maxlength="32" required class="<%= ui.inputSm %>"></label>
+      <label class="<%= ui.label %>">À partir de
+        <select name="from" class="<%= ui.inputSm %>">
+          <option value="">Modèle vide</option>
+          <% for (const tpl of templates.troops) { %><option value="<%= tpl.key %>"><%= tpl.name %><%= tpl.system ? ' (système)' : '' %></option><% } %>
+        </select>
+      </label>
+      <button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('plus', 'size-3.5', 2.2) %>Créer</button>
+    </form>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Modèles de troupes', `<span class="${ui.headCount}">${templates.troops.length}</span>`) %>
+    <p class="<%= ui.panelNote %>">Les troupes visées au total dans chaque village du modèle.</p>
+    <%# Une ligne par modèle : troupes, population prise à la ferme, coût, villages. %>
+    <div class="relative overflow-x-auto">
+      <table class="<%= ui.table %> <%= listCls %>">
+        <thead><tr><th>Modèle</th><th>Troupes</th><th class="text-right" title="Population prise à la ferme">Population</th><th class="max-lg:hidden">Coût</th><th class="text-right max-sm:hidden">Villages</th><th class="w-8"><span class="sr-only">Supprimer</span></th></tr></thead>
+        <tbody>
+          <% for (const tpl of templates.troops) { const n = used(tpl); const st = troopStats(tpl.units); %>
+            <tr>
+              <td<%- tpl.system ? ` title="${esc(tpl.description)}"` : '' %>>
+                <a href="<%= m %>?tab=troops&id=<%= encodeURIComponent(tpl.key) %>" class="<%= ui.link %> font-semibold"><%= tpl.name %></a><% if (tpl.system) { %> <span class="text-xs text-parchment-500">système</span><% } %>
+              </td>
+              <td><span class="inline-flex items-center gap-x-2.5 align-middle [&_img]:size-5"><%- unitsLine(tpl.units) %><%- ignoredNote(tpl) %></span></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(st.pop) %></td>
+              <td class="text-parchment-300 tabular-nums max-lg:hidden"><span class="inline-flex items-center gap-2.5 align-middle"><% for (const r of RESOURCES) { %><span class="inline-flex items-center gap-0.5" title="<%= r.label %>"><%- resourceIcon(r.id, 'size-7') %><%= num(st[r.id]) %></span><% } %></span></td>
+              <td class="text-right tabular-nums max-sm:hidden"><%= n %></td>
+              <td>
+                <% if (!tpl.system) { %>
+                  <form method="post" action="<%= m %>/templates/<%= tpl.id %>/delete" class="flex" onsubmit="return confirm('Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de troupes visées.')"><%- csrf %>
+                    <button class="cursor-pointer text-blood-450 hover:text-blood-300 disabled:opacity-40" title="Supprimer le modèle" aria-label="Supprimer « <%= tpl.name %> »" <%= h.disabled %>><%- icon('trash', 'size-3.5', 2.2) %></button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>

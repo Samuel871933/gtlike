@@ -439,6 +439,36 @@ Page `/village/:id/farm` (premium) et raccourcis de la carte : envoi d'un modèl
 (`POST /farm/send`). Anti-script comme sur Guerre Tribale : au plus 5 attaques par seconde et par joueur
 ([src/web/rateLimit.js](src/web/rateLimit.js), compté par processus) ; au-delà, refus 429 et message « Trop rapide ».
 
+## Gestionnaire de compte
+
+Page `/village/:id/manager` (premium, onglet « Gestionnaire » des aperçus), sur le modèle de celui de Guerre Tribale
+mais **sans minimum de villages** et inclus dans le premium ([src/services/AccountManagerService.js](src/services/AccountManagerService.js)) :
+
+- **Gestionnaire de villages** : modèles de construction (listes ordonnées « bâtiment → niveau », 3 modèles système tirés des forums de GT — défensif 9 716 points, offensif 9 735, ressources 9 269 —
+  dans [src/game/managerTemplates.js](src/game/managerTemplates.js), modèles du joueur dans `ManagerTemplates`) appliqués
+  aux villages (`ManagerVillages`), pause et reprise. Seules les places de file au prix normal sont utilisées ; entrepôt,
+  ferme et bâtiments requis manquants passent d'abord ; démolition en option. Pas de limite de 50 ordres comme sur GT.
+- **Gestionnaire de troupes** : troupes voulues au total (modèles système : nukes, défenses fixe et mobile, éclaireurs, variantes à archers selon le monde ; modèles du joueur ; ou saisie), tampons de population et de ressources ; les
+  unités en manque avancent ensemble ; la prochaine construction du gestionnaire de villages garde ses ressources.
+- **Gestionnaire de marché** : routes commerciales hebdomadaires (`TradeRoutes`) et réserve (équilibrage toutes les 8 h
+  entre seuils de manque et d'excédent, en % de l'entrepôt ou en valeur fixe ; rôle de chaque village).
+- **Notifications d'attaque** par e-mail (première attaque, toutes les N attaques ou toutes les N heures, « seulement si
+  je ne suis pas connecté » d'après `Players.lastSeenAt`, regroupement par attaquant ou par cible).
+
+La boucle de jeu lance `AccountManagerService.runDue` toutes les minutes ; chaque village géré a sa prochaine
+vérification (`checkAt`, 1 à 15 minutes). Sans premium, rien ne tourne et l'aperçu le signale.
+
+## E-mails
+
+[src/services/Mailer.js](src/services/Mailer.js) : réinitialisation du mot de passe et notifications d'attaque du
+gestionnaire de compte. Envoi SMTP (nodemailer) dès que `SMTP_HOST` est renseigné (voir `.env.example` : `SMTP_PORT`,
+`SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`) ; sans lui, les messages sont écrits dans les logs. `SITE_URL`
+sert aux liens des messages (bouton « Voir les attaques en approche »).
+
+Gabarit commun : [src/views/mail/layout.ejs](src/views/mail/layout.ejs) (`Mailer.sendTemplate`), HTML pour messageries
+et version texte. Les images (logo, en-têtes tirés des rapports : `public/img/mail/attack.jpg`, `account.jpg`) sont
+jointes au message, elles s'affichent sans site public.
+
 ## Hors périmètre
 
 Pas de tour de guet, pas d'accélération payante ni d'échange premium.

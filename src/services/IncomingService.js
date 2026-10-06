@@ -44,12 +44,14 @@ class IncomingService {
   /**
    * Aperçu Arrivant : ordres filtrés et triés, avec les compteurs des onglets.
    * `type` attacks | supports | all ; `ignored` : afficher aussi les ordres ignorés ; `q` : texte cherché dans le nom ;
-   * `target` : un seul village visé ; `sort` (voir SORTS) et `dir` asc | desc.
+   * `target` : un seul village visé ; `sort` (voir SORTS) et `dir` asc | desc ; `villages` : ids des villages du groupe
+   * actif (ordres vers ces villages seulement, compteurs compris), nul pour tous.
    */
   static async list(playerId, {
-    type = 'all', ignored = false, q = '', target = null, origin = null, player = null, sort = 'arrival', dir = 'asc',
+    type = 'all', ignored = false, q = '', target = null, origin = null, player = null, sort = 'arrival', dir = 'asc', villages = null,
   } = {}, cfg = null) {
-    const all = await IncomingService.find(playerId);
+    const inGroup = villages ? new Set(villages) : null;
+    const all = (await IncomingService.find(playerId)).filter((c) => !inGroup || inGroup.has(c.targetVillageId));
     const counts = {
       all: all.filter((c) => !c.incomingIgnored).length,
       attacks: all.filter((c) => !c.incomingIgnored && c.type === 'attack').length,

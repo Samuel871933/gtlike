@@ -53,6 +53,7 @@
         <% } %>
       </span>
     </div>
+    <% if (d.source) { %><p class="text-sm text-parchment-400">Envoi du gestionnaire de compte : <%= d.source === 'reserve' ? 'réserve (équilibrage des ressources)' : 'route commerciale' %>. <a href="/village/<%= vid %>/manager?tab=market" class="<%= ui.link %>">Gestionnaire de marché</a></p><% } %>
     <p class="text-xs text-parchment-600">Ce qui dépasse la capacité de l'entrepôt est perdu.</p>
   </div>
 <% } else if (d.perspective === 'trade') { %>

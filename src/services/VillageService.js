@@ -307,13 +307,20 @@ class VillageService {
       if (!type || !type.isAvailableIn(ctx.cfg)) throw new GameError('Bâtiment inconnu.');
       const option = VillageService.demolishOption(ctx, type);
       if (option.blockers.length) throw new GameError(option.blockers[0]);
-      const last = ctx.buildOrders[ctx.buildOrders.length - 1];
-      const startsAt = last ? new Date(last.endsAt) : ctx.now;
-      return BuildOrder.create({
-        villageId: ctx.village.id, building: type.id, level: option.level, demolish: true,
-        startsAt, endsAt: new Date(startsAt.getTime() + option.duration * 1000), wood: 0, stone: 0, iron: 0,
-      }, { transaction: t });
+      return VillageService.queueDemolish(ctx, option, t);
     }, { now });
+  }
+
+  /** Met en file la démolition `option` (déjà vérifiée par demolishOption), en fin de file et au contexte. */
+  static async queueDemolish(ctx, option, t) {
+    const last = ctx.buildOrders[ctx.buildOrders.length - 1];
+    const startsAt = last ? new Date(last.endsAt) : ctx.now;
+    const order = await BuildOrder.create({
+      villageId: ctx.village.id, building: option.type.id, level: option.level, demolish: true,
+      startsAt, endsAt: new Date(startsAt.getTime() + option.duration * 1000), wood: 0, stone: 0, iron: 0,
+    }, { transaction: t });
+    ctx.buildOrders.push(order);
+    return order;
   }
 
   static async build(villageId, buildingId, { now } = {}) {
@@ -330,17 +337,26 @@ class VillageService {
       const option = VillageService.buildOption(ctx, type);
       if (option.blockers.length) throw new GameError(option.blockers[0]);
       if (option.lacksResources) throw new GameError('Ressources insuffisantes.');
-
-      const last = ctx.buildOrders[ctx.buildOrders.length - 1];
-      const startsAt = last ? new Date(last.endsAt) : ctx.now;
-      const endsAt = new Date(startsAt.getTime() + option.duration * 1000);
-
-      ctx.state.pay(option.cost);
-      await ctx.village.update(ctx.state.resources, { transaction: t });
-      return BuildOrder.create({
-        villageId: ctx.village.id, building: type.id, level: option.level, startsAt, endsAt, ...option.cost,
-      }, { transaction: t });
+      return VillageService.queueBuild(ctx, option, t);
     }, { now });
+  }
+
+  /**
+   * Met en file l'option de construction `option` (déjà vérifiée par buildOption) : paiement, ordre ajouté en fin de
+   * file et au contexte. Commun à la construction du QG et au gestionnaire de compte.
+   */
+  static async queueBuild(ctx, option, t) {
+    const last = ctx.buildOrders[ctx.buildOrders.length - 1];
+    const startsAt = last ? new Date(last.endsAt) : ctx.now;
+    const endsAt = new Date(startsAt.getTime() + option.duration * 1000);
+
+    ctx.state.pay(option.cost);
+    await ctx.village.update(ctx.state.resources, { transaction: t });
+    const order = await BuildOrder.create({
+      villageId: ctx.village.id, building: option.type.id, level: option.level, startsAt, endsAt, ...option.cost,
+    }, { transaction: t });
+    ctx.buildOrders.push(order);
+    return order;
   }
 
   /**
@@ -435,68 +451,75 @@ class VillageService {
   /** Lance le recrutement de plusieurs types d'unités d'un même bâtiment (tout ou rien). */
   static async recruit(villageId, buildingId, counts, { now } = {}) {
     if (!registry.RECRUIT_BUILDINGS.includes(buildingId)) throw new GameError('Bâtiment de recrutement inconnu.');
-    return VillageService.withVillage(villageId, async (ctx, t) => {
-      const { state, cfg } = ctx;
-      const buildingLevel = state.level(buildingId);
-      if (buildingLevel < 1) throw new GameError(`${registry.building(buildingId).name} non construit(e).`);
+    return VillageService.withVillage(villageId, async (ctx, t) => VillageService.queueRecruit(ctx, buildingId, counts, t), { now });
+  }
 
-      const wanted = Object.entries(counts || {})
-        .map(([id, n]) => [id, Math.floor(Number(n))])
-        .filter(([, n]) => Number.isFinite(n) && n > 0);
-      if (!wanted.length) throw new GameError('Aucune unité demandée.');
+  /**
+   * Recrutement dans un contexte de village déjà chargé (caserne… et gestionnaire de compte) : vérifie, paie et ajoute
+   * les lots à la file du bâtiment (et au contexte).
+   */
+  static async queueRecruit(ctx, buildingId, counts, t) {
+    const { state, cfg } = ctx;
+    const buildingLevel = state.level(buildingId);
+    if (buildingLevel < 1) throw new GameError(`${registry.building(buildingId).name} non construit(e).`);
 
-      const total = { wood: 0, stone: 0, iron: 0 };
-      let pop = 0;
-      const lines = [];
-      for (const [id, n] of wanted) {
-        const type = registry.UNITS.get(id);
-        if (!type || type.building !== buildingId || !type.isAvailableIn(cfg)) throw new GameError('Unité inconnue.');
-        const missing = type.missingRequirements(state.buildings, cfg);
-        if (missing.length) {
-          throw new GameError(`${type.name} : nécessite ${registry.building(missing[0].building).name} niveau ${missing[0].level}.`);
-        }
-        if (!state.hasResearched(type)) throw new GameError(`${type.name} : à rechercher d'abord à la forge.`);
-        const cost = type.costFor(n);
-        for (const r of ['wood', 'stone', 'iron']) total[r] += cost[r];
-        pop += type.pop * n;
-        lines.push({ type, n });
-      }
-      if (!state.canAfford(total)) throw new GameError('Ressources insuffisantes.');
-      if (ctx.popUsed() + pop > state.farmCapacity()) {
-        throw new GameError('La ferme est trop petite.');
-      }
-      const knight = lines.find((l) => l.type.id === 'knight');
-      if (knight && KnightSkillService.enabled(cfg)) {
-        if (knight.n > 1) throw new GameError('Un seul paladin par village.');
-        await KnightSkillService.assertCanRecruit(ctx.village, t);
-      } else if (knight) {
-        const { count } = await require('./NobleService').playerUnitCount(ctx.village.playerId, 'knight', t);
-        if (count + knight.n > 1) throw new GameError('Vous ne pouvez avoir qu’un seul paladin.');
-      }
-      const nobles = lines.find((l) => l.type.id === 'snob');
-      if (nobles) {
-        const slots = await require('./NobleService').slots(ctx.village.playerId, t);
-        if (nobles.n > slots.free) throw new GameError("Pas assez de pièces d'or pour un noble de plus.");
-      }
+    const wanted = Object.entries(counts || {})
+      .map(([id, n]) => [id, Math.floor(Number(n))])
+      .filter(([, n]) => Number.isFinite(n) && n > 0);
+    if (!wanted.length) throw new GameError('Aucune unité demandée.');
 
-      const queue = ctx.recruitOrders.filter((o) => o.building === buildingId);
-      let startsAt = queue.length ? new Date(queue[queue.length - 1].endsAt) : ctx.now;
-      if (startsAt < ctx.now) startsAt = ctx.now;
-      const created = [];
-      for (const { type, n } of lines) {
-        const unitDurationMs = Math.round(type.recruitTimeFor(buildingLevel, cfg) * state.recruitFactor() * 1000);
-        const endsAt = new Date(startsAt.getTime() + unitDurationMs * n);
-        created.push(await RecruitOrder.create({
-          villageId: ctx.village.id, building: buildingId, unit: type.id, count: n, done: 0,
-          unitDurationMs, startsAt, endsAt, nextAt: new Date(startsAt.getTime() + unitDurationMs),
-        }, { transaction: t }));
-        startsAt = endsAt;
+    const total = { wood: 0, stone: 0, iron: 0 };
+    let pop = 0;
+    const lines = [];
+    for (const [id, n] of wanted) {
+      const type = registry.UNITS.get(id);
+      if (!type || type.building !== buildingId || !type.isAvailableIn(cfg)) throw new GameError('Unité inconnue.');
+      const missing = type.missingRequirements(state.buildings, cfg);
+      if (missing.length) {
+        throw new GameError(`${type.name} : nécessite ${registry.building(missing[0].building).name} niveau ${missing[0].level}.`);
       }
+      if (!state.hasResearched(type)) throw new GameError(`${type.name} : à rechercher d'abord à la forge.`);
+      const cost = type.costFor(n);
+      for (const r of ['wood', 'stone', 'iron']) total[r] += cost[r];
+      pop += type.pop * n;
+      lines.push({ type, n });
+    }
+    if (!state.canAfford(total)) throw new GameError('Ressources insuffisantes.');
+    if (ctx.popUsed() + pop > state.farmCapacity()) {
+      throw new GameError('La ferme est trop petite.');
+    }
+    const knight = lines.find((l) => l.type.id === 'knight');
+    if (knight && KnightSkillService.enabled(cfg)) {
+      if (knight.n > 1) throw new GameError('Un seul paladin par village.');
+      await KnightSkillService.assertCanRecruit(ctx.village, t);
+    } else if (knight) {
+      const { count } = await require('./NobleService').playerUnitCount(ctx.village.playerId, 'knight', t);
+      if (count + knight.n > 1) throw new GameError('Vous ne pouvez avoir qu’un seul paladin.');
+    }
+    const nobles = lines.find((l) => l.type.id === 'snob');
+    if (nobles) {
+      const slots = await require('./NobleService').slots(ctx.village.playerId, t);
+      if (nobles.n > slots.free) throw new GameError("Pas assez de pièces d'or pour un noble de plus.");
+    }
 
-      state.pay(total);
-      await ctx.village.update(state.resources, { transaction: t });
-      return created;
-    }, { now });
+    const queue = ctx.recruitOrders.filter((o) => o.building === buildingId);
+    let startsAt = queue.length ? new Date(queue[queue.length - 1].endsAt) : ctx.now;
+    if (startsAt < ctx.now) startsAt = ctx.now;
+    const created = [];
+    for (const { type, n } of lines) {
+      const unitDurationMs = Math.round(type.recruitTimeFor(buildingLevel, cfg) * state.recruitFactor() * 1000);
+      const endsAt = new Date(startsAt.getTime() + unitDurationMs * n);
+      created.push(await RecruitOrder.create({
+        villageId: ctx.village.id, building: buildingId, unit: type.id, count: n, done: 0,
+        unitDurationMs, startsAt, endsAt, nextAt: new Date(startsAt.getTime() + unitDurationMs),
+      }, { transaction: t }));
+      startsAt = endsAt;
+    }
+
+    state.pay(total);
+    await ctx.village.update(state.resources, { transaction: t });
+    ctx.recruitOrders.push(...created);
+    return created;
   }
 
   /** Annule un lot : les unités restantes sont remboursées (l'unité en cours est perdue). */

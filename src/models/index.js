@@ -254,6 +254,13 @@ const Player = sequelize.define(
     // Assistant de pillage (premium) : lignes par page (nul : valeur par défaut) et filtres ({ here, attacked, … }).
     farmPerPage: { type: DataTypes.INTEGER, allowNull: true },
     farmSettings: { type: DataTypes.JSON, allowNull: true },
+    // Gestionnaire de compte : villages par page de ses listes (nul : valeur par défaut, voir PaginationService).
+    managerPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    // Aperçus des villages : villages par page (nul : valeur par défaut, voir PaginationService).
+    villagesPerPage: { type: DataTypes.INTEGER, allowNull: true },
+    // Groupe de villages actif (VillageGroup), comme sur GT : filtre des aperçus et du gestionnaire, villages parcourus
+    // par les flèches et la liste de l'en-tête. Nul : tous les villages.
+    villageGroupId: { type: DataTypes.INTEGER, allowNull: true },
     showTribeNotes: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     shareTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     showTribeOrders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
@@ -289,6 +296,10 @@ const Player = sequelize.define(
     isBot: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // Monde à factions : faction choisie à l'inscription, pour toute la partie (nulle sur les autres mondes).
     faction: { type: DataTypes.STRING(8), allowNull: true },
+    // Gestionnaire de compte (premium) : réserve du marché et notifications d'attaque (voir AccountManagerService).
+    managerSettings: { type: DataTypes.JSON, allowNull: true },
+    // Dernière page du jeu vue par le joueur (à la minute près) : notifications « seulement si je ne suis pas connecté ».
+    lastSeenAt: { type: DataTypes.DATE, allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['userId', 'worldId'] }, { fields: ['tribeId'] }, { fields: ['worldId', 'points'] }] },
 );
@@ -442,6 +453,8 @@ const Transport = sequelize.define(
     merchants: { type: DataTypes.INTEGER, allowNull: false },
     startsAt: { type: DataTypes.DATE, allowNull: false },
     arrivesAt: { type: DataTypes.DATE, allowNull: false },
+    // Envoi du gestionnaire de compte : route (route commerciale) ou reserve ; nul pour un envoi à la main.
+    source: { type: DataTypes.STRING(8), allowNull: true },
   },
   { indexes: [{ fields: ['arrivesAt'] }, { fields: ['originVillageId'] }, { fields: ['targetVillageId'] }] },
 );
@@ -606,18 +619,38 @@ MapFavorite.belongsTo(Player, { foreignKey: 'playerId' });
 Village.hasMany(MapFavorite, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
 MapFavorite.belongsTo(Village, { foreignKey: 'villageId' });
 
-/** Marquage de carte d'un joueur : une couleur pour un joueur, une tribu ou un village (targetType + targetId). */
+/**
+ * Marquage de carte d'un joueur pour un joueur, une tribu, un village ou un de ses groupes de villages
+ * (targetType + targetId) : une couleur, une icône d'unité (`icon`), ou les deux.
+ */
 const MapMarker = sequelize.define(
   'MapMarker',
   {
     targetType: { type: DataTypes.STRING(8), allowNull: false },
     targetId: { type: DataTypes.INTEGER, allowNull: false },
-    color: { type: DataTypes.STRING(7), allowNull: false },
+    color: { type: DataTypes.STRING(7), allowNull: true },
+    icon: { type: DataTypes.STRING(16), allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['playerId', 'targetType', 'targetId'] }] },
 );
 Player.hasMany(MapMarker, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 MapMarker.belongsTo(Player, { foreignKey: 'playerId' });
+
+/** Groupe de villages d'un joueur (comme sur Guerre Tribale) : un village peut appartenir à plusieurs groupes. */
+const VillageGroup = sequelize.define(
+  'VillageGroup',
+  { name: { type: DataTypes.STRING(32), allowNull: false } },
+  { indexes: [{ fields: ['playerId'] }] },
+);
+Player.hasMany(VillageGroup, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+VillageGroup.belongsTo(Player, { foreignKey: 'playerId' });
+
+/** Village rangé dans un groupe. */
+const VillageGroupMember = sequelize.define('VillageGroupMember', {}, { indexes: [{ unique: true, fields: ['groupId', 'villageId'] }, { fields: ['villageId'] }] });
+VillageGroup.hasMany(VillageGroupMember, { foreignKey: { name: 'groupId', allowNull: false }, onDelete: 'CASCADE' });
+VillageGroupMember.belongsTo(VillageGroup, { foreignKey: 'groupId' });
+Village.hasMany(VillageGroupMember, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
+VillageGroupMember.belongsTo(Village, { foreignKey: 'villageId' });
 
 /** Demande de réinitialisation du mot de passe : seul le haché SHA-256 du jeton envoyé par e-mail est stocké. */
 const PasswordReset = sequelize.define(
@@ -793,6 +826,72 @@ TribeOperationClaim.belongsTo(TribeOperationTarget, { as: 'target', foreignKey: 
 Player.hasMany(TribeOperationClaim, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 TribeOperationClaim.belongsTo(Player, { foreignKey: 'playerId' });
 
+/**
+ * Modèle du gestionnaire de compte (premium, voir AccountManagerService), propre au compte (`userId`) et utilisable sur
+ * tous ses mondes : `kind` 'build' (data : { steps: [{ building,
+ * level }], demolish }, la liste de construction et ses niveaux visés) ou 'troops' (data : { units, popBuffer,
+ * resBuffer }, les troupes voulues au total et les tampons). Les modèles système sont dans game/managerTemplates.js.
+ */
+const ManagerTemplate = sequelize.define(
+  'ManagerTemplate',
+  {
+    kind: { type: DataTypes.STRING(8), allowNull: false },
+    name: { type: DataTypes.STRING(32), allowNull: false },
+    data: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+  },
+  { indexes: [{ fields: ['userId'] }] },
+);
+User.hasMany(ManagerTemplate, { foreignKey: { name: 'userId', allowNull: true }, onDelete: 'CASCADE' });
+ManagerTemplate.belongsTo(User, { foreignKey: 'userId' });
+
+/**
+ * Village suivi par le gestionnaire de compte : modèle de construction (`buildTemplate` : 'sys:resources', 'tpl:12'),
+ * troupes voulues (modèle `troopTemplateId`, ou valeurs propres au village `troops`), pauses, rôle dans la réserve
+ * du marché (`reserve` : both, send, receive, off), prochaine vérification (`checkAt`) et dernier état (`status`).
+ */
+const ManagerVillage = sequelize.define(
+  'ManagerVillage',
+  {
+    buildTemplate: { type: DataTypes.STRING(16), allowNull: true },
+    buildPaused: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    troopTemplateId: { type: DataTypes.INTEGER, allowNull: true },
+    troops: { type: DataTypes.JSON, allowNull: true },
+    troopsPaused: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    reserve: { type: DataTypes.STRING(8), allowNull: false, defaultValue: 'both' },
+    checkAt: { type: DataTypes.DATE, allowNull: true },
+    status: { type: DataTypes.JSON, allowNull: true },
+  },
+  { indexes: [{ unique: true, fields: ['villageId'] }, { fields: ['playerId'] }] },
+);
+Village.hasOne(ManagerVillage, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
+ManagerVillage.belongsTo(Village, { foreignKey: 'villageId' });
+Player.hasMany(ManagerVillage, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+ManagerVillage.belongsTo(Player, { foreignKey: 'playerId' });
+
+/**
+ * Route commerciale du gestionnaire de marché : `resources` envoyées de `originVillageId` à `targetVillageId` les
+ * jours `days` (0 = dimanche), toutes les `intervalMinutes` depuis sa création (`minute` : minute du premier envoi
+ * dans la journée, heure du serveur). `nextAt` : prochain envoi prévu.
+ */
+const TradeRoute = sequelize.define(
+  'TradeRoute',
+  {
+    resources: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+    days: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+    minute: { type: DataTypes.INTEGER, allowNull: false },
+    // Intervalle entre deux envois (minutes), les jours choisis seulement ; nul (anciennes routes) : un seul envoi par
+    // jour, à `minute`.
+    intervalMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    nextAt: { type: DataTypes.DATE, allowNull: false },
+    lastResult: { type: DataTypes.STRING(120), allowNull: true },
+  },
+  { indexes: [{ fields: ['playerId'] }, { fields: ['nextAt'] }] },
+);
+Player.hasMany(TradeRoute, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+TradeRoute.belongsTo(Player, { foreignKey: 'playerId' });
+TradeRoute.belongsTo(Village, { as: 'origin', foreignKey: { name: 'originVillageId', allowNull: false }, onDelete: 'CASCADE' });
+TradeRoute.belongsTo(Village, { as: 'target', foreignKey: { name: 'targetVillageId', allowNull: false }, onDelete: 'CASCADE' });
+
 // Boutique : droit acquis sur un monde (portées monde et serveur).
 Entitlement.belongsTo(World, { foreignKey: { name: 'worldId', allowNull: true }, onDelete: 'CASCADE' });
 
@@ -834,8 +933,9 @@ const SealOffer = sequelize.define('SealOffer', {
 module.exports = {
   sequelize, Seal, SealEvent, SealOffer, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
-  PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
+  PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, VillageGroup, VillageGroupMember, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote, TribeForumShare,
   TribeOperation, TribeOperationTarget, TribeOperationClaim,
+  ManagerTemplate, ManagerVillage, TradeRoute,
   Entitlement, AdartonTransaction,
 };

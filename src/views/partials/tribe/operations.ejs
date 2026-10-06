@@ -315,7 +315,7 @@
 
   <% if (manager) { const cand = operation.candidates; %>
     <details class="<%= ui.panel %> group" id="ajout" <%= !s.villages || query.ak || query.ap || query.ajout ? 'open' : '' %>>
-      <summary class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+      <summary data-panel-head class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span class="<%= ui.panelTitle %>"><span class="<%= ui.diamond %>" aria-hidden="true"></span>Ajouter des cibles</span>
         <span class="flex size-5 items-center justify-center border border-black bg-night text-parchment-300" aria-hidden="true"><span class="group-open:hidden">+</span><span class="hidden group-open:inline">−</span></span>
       </summary>

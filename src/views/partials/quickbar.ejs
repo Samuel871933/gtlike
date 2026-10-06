@@ -7,9 +7,10 @@
    const currentTab = typeof favTab !== 'undefined' && favTab ? favTab : typeof tab !== 'undefined' ? tab : null;
    const currentKey = page ? favKey(page, currentTab, ctx.cfg) : '';
    const quick = favoriteEntries(player, ctx);
-   // Vignette : le bâtiment, ou pour une page hors bâtiment (sceaux) le sceau du village.
+   // Vignette : le bâtiment ; pour une page hors bâtiment, le sceau du village (sceaux) ou l'icône du gestionnaire.
    const art = (f, cls) => (f.id ? buildingImg(f.id, ctx.state.level(f.id), cls)
-     : sealSvg(ctx.state.seal ? ctx.state.seal.type : 'production', ctx.state.seal ? ctx.state.seal.level : 1, { cls: '-my-1 size-[22px] shrink-0', blank: !ctx.state.seal })); %>
+     : f.page === 'manager' ? '<img src="/img/manager/account-manager.webp" width="22" height="22" alt="" class="-my-1 size-[22px] shrink-0 object-contain">'
+       : sealSvg(ctx.state.seal ? ctx.state.seal.type : 'production', ctx.state.seal ? ctx.state.seal.level : 1, { cls: '-my-1 size-[22px] shrink-0', blank: !ctx.state.seal })); %>
 <% const pos = typeof quickbarPos !== 'undefined' && quickbarPos ? quickbarPos : 'top';
    const empty = `Ajoute des bâtiments en favoris avec l’étoile <span class="mx-1 text-gold-400">★</span>`; %>
 <% if (pos === 'top') { %>
