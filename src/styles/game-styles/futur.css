@@ -1,0 +1,260 @@
+/*
+  Style de jeu « Futuriste » : la palette du design de village futuriste (coques ivoire, acier bleuté, lumières cyan,
+  voyants ambre) sur une nuit bleu acier. Contrairement aux autres styles, il ne se contente pas des couleurs : il
+  réinterprète les codes « BD » de la charte (traits d'encre noirs, ombres portées franches, angles droits) avec des
+  codes d'interface modernes : angles arrondis, panneaux en verre dépoli, filets fins, halos lumineux. La mise en page,
+  les composants et leur comportement restent ceux du jeu (mêmes vues, mêmes classes).
+  Les couleurs d'information (attaques en rouge, diplomatie et terrain de la carte) gardent leur sens.
+*/
+
+@custom-variant futur (&:where([data-game-style="futur"], [data-game-style="futur"] *));
+
+@layer theme {
+  [data-game-style="futur"] {
+    --font-sans: "Saira Semi Condensed", "Arial Narrow", sans-serif;
+    --font-display: "Exo 2", "Saira Semi Condensed", sans-serif;
+    --game-image-village: url("/img/game-styles/futur/village.svg");
+    --game-bg-texture: url("/img/game-styles/futur/background-texture.webp");
+    /* Le fond est déjà composé (trame, halos) : voile léger, sans mélange. */
+    --game-bg-blend: normal;
+    --game-bg-veil: 22%;
+
+    /* Les traits d'encre noirs deviennent des filets d'acier bleuté (bordures border-black, voiles bg-black/…). */
+    --color-black: #1f364c;
+
+    /* Fonds : nuit bleu acier, panneaux légèrement plus clairs */
+    --color-night: #070c14;
+    --color-night-deep: #04070d;
+    --color-halo: #10263c;
+    --color-panel-hi: #142030;
+    --color-panel-top: #101a28;
+    --color-panel-mid: #0e1724;
+    --color-panel-lo: #0b131e;
+    --color-panel-edge: #0d1622;
+    --color-knob-hi: #172435;
+    --color-knob-lo: #101a27;
+    --color-knob-on-hi: #1593cf;
+    --color-knob-on-lo: #0b6a98;
+    --color-knob-hover: #182a3e;
+    --color-well-hi: #182637;
+    --color-well-lo: #070d15;
+    --color-bar-hi: #121c2a;
+    --color-vbar-hi: rgb(18 28 42 / 0.92);
+    --color-vbar-lo: rgb(8 13 21 / 0.92);
+    --color-core-hi: #1b2a3c;
+    --color-core-lo: #070d15;
+    --color-tile-hi: rgb(48 84 120 / 0.28);
+    --color-plate: rgb(6 11 18 / 0.76);
+    --color-plate-strong: rgb(6 11 18 / 0.88);
+    --color-grain: rgb(127 216 255 / 0);
+
+    /* Bandeaux de panneau et tableaux : acier sombre (le reflet cyan est ajouté plus bas) */
+    --color-head: #13263a;
+    --color-head-dark: #0e1c2c;
+    --color-thead: #0f1c2b;
+    --color-row-hover: #14263a;
+    --color-row-alt: #0c1520;
+
+    /* Action principale : cyan profond, texte clair */
+    --color-action: #0b6f9f;
+    --color-action-hi: #1388c0;
+    --color-action-line: #5fd4ff;
+    --color-action-deep: #063c58;
+    --color-on-accent: #f1faff;
+
+    /* Filets : acier, du plus clair au plus sombre ; 500 est la ligne d'accent cyan des bandeaux */
+    --color-bronze-200: #cfe0ec;
+    --color-bronze-300: #a9c2d5;
+    --color-bronze-400: #7f9db4;
+    --color-bronze-500: #2f7fa8;
+    --color-bronze-600: #2a4c66;
+    --color-bronze-700: #223a51;
+    --color-bronze-800: #1a2d41;
+    --color-bronze-900: #142334;
+    --color-bronze-950: #2a5878;
+
+    /* Accents, liens, sélection : cyan lumineux */
+    --color-gold-50: #e8fbff;
+    --color-gold-100: #c8f4ff;
+    --color-gold-200: #9eeaff;
+    --color-gold-250: #86e3ff;
+    --color-gold-300: #6fdcff;
+    --color-gold-400: #4cc9f0;
+    --color-gold-500: #2fb2de;
+    --color-gold-600: #1f8db5;
+    --color-gold-700: #186f8f;
+    --color-gold-ink: #04121b;
+    --color-gold-shadow: #06283a;
+
+    /* Textes : blanc froid, puis gris bleutés */
+    --color-parchment-50: #f5f9fd;
+    --color-parchment-100: #e6eef6;
+    --color-parchment-200: #d4e0eb;
+    --color-parchment-300: #bccbda;
+    --color-parchment-350: #aebdcd;
+    --color-parchment-400: #9badc0;
+    --color-parchment-500: #8396ab;
+    --color-parchment-600: #6b7e93;
+    --color-parchment-700: #56687c;
+
+    /* Succès et retours : vert néon (les attaques restent rouges) */
+    --color-olive-300: #62e3ad;
+    --color-olive-500: #2fbf86;
+    --color-olive-700: #176a4f;
+    --color-pop: #62e3ad;
+
+    /* Reflets, halos et blasons : ambre des voyants pour les blasons */
+    --color-glint: rgb(160 230 255 / 0.06);
+    --color-glint-strong: rgb(160 230 255 / 0.14);
+    --color-glow: rgb(76 201 240 / 0.4);
+    --color-glow-soft: rgb(76 201 240 / 0.16);
+    --color-glow-select: rgb(158 234 255 / 0.5);
+    --color-crest: #f0a33a;
+    --color-shield-edge: #04070d;
+    --color-shield-mark: #0b2a3c;
+    --color-blood-shadow: #04070d;
+
+    /* Plan du village : coques ivoire, acier, panneaux solaires et voyants ambre */
+    --color-bld-marble: #d9d6cb;
+    --color-bld-marble-dk: #b3b0a5;
+    --color-bld-stone: #8a929c;
+    --color-bld-stone-dk: #646c77;
+    --color-bld-slate: #3b4654;
+    --color-bld-timber: #56606d;
+    --color-bld-timber-dk: #3c4550;
+    --color-bld-grain: #c49f52;
+    --color-bld-grain-dk: #9a7c3c;
+    --color-bld-soot: #1d2530;
+    --color-bld-fire: #ffa63a;
+    --color-bld-field: #1e5574;
+    --color-bld-field-lt: #4cc9f0;
+    --color-bld-rock: #6e7680;
+    --color-bld-pit: #111821;
+    --color-bld-clay: #b06a3c;
+    --color-bld-clay-dk: #7d4a29;
+
+    /* Pas d'ombre portée sous les titres : ils restent nets */
+    --color-title-shadow: transparent;
+    --color-title-shadow-2: transparent;
+
+    /* Mesures propres au style (hors jetons Tailwind) */
+    --fx-radius: 12px;
+    --fx-radius-sm: 7px;
+    --fx-line: rgb(127 216 255 / 0.12);
+    --fx-glass: rgb(14 23 36 / 0.74);
+  }
+}
+
+/*
+  Codes modernes. Hors calque : ces règles passent devant les utilitaires (shadow-[…], border-2…) des vues, comme le style
+  minimaliste (app.css). Exclusions communes : le dessin de la carte ([data-map-plane], .map-viewport, .map-vignette), les
+  éléments dessinés au pixel (.spacing-normal) et l'aperçu d'un autre agencement ([data-layout-preview]).
+*/
+
+/* 1. Plus d'ombres portées franches ni de filets intérieurs : les reliefs utiles sont redessinés plus bas. */
+[data-game-style="futur"] :not(.map-viewport, .map-vignette, [data-map-plane] *, [data-layout-preview] *) {
+  box-shadow: none !important;
+}
+
+/* 2. Angles arrondis : petits sur les contrôles et encarts, grands sur les panneaux. */
+[data-game-style="futur"] :is(.border, .border-2, .border-\[3px\], input, select, textarea):not(.map-frame, .map-viewport, [data-map-plane] *, .spacing-normal, .spacing-normal *, td, th, tr) {
+  border-radius: var(--fx-radius-sm);
+}
+[data-game-style="futur"] .border-2.bg-panel-top:not(.spacing-normal) {
+  border-radius: var(--fx-radius);
+}
+/* Bandeau en tête d'un panneau arrondi : il épouse ses angles. */
+[data-game-style="futur"] .border-2.bg-panel-top > :first-child:is(.bg-head, .bg-head-dark) {
+  border-radius: calc(var(--fx-radius) - 2px) calc(var(--fx-radius) - 2px) 0 0;
+}
+/* Pastilles, étiquettes et rails de progression : en gélule. Losanges décoratifs : points ronds. */
+[data-game-style="futur"] :is(.h-4.min-w-4, .border.uppercase, .h-\[7px\].overflow-hidden) {
+  border-radius: 999px;
+}
+[data-game-style="futur"] .rotate-45:is(.size-\[5px\], .size-\[7px\], .size-2, .size-2\.5) {
+  border-radius: 50%;
+}
+[data-game-style="futur"] .rotate-45.bg-gold-400 {
+  box-shadow: 0 0 6px var(--color-gold-400) !important;
+}
+
+/* 3. Panneaux en verre dépoli : fond translucide flouté, filet clair, ombre douce. */
+[data-game-style="futur"] .border-2.bg-panel-top {
+  background-color: var(--fx-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  backdrop-filter: blur(14px) saturate(1.25);
+  box-shadow: inset 0 1px 0 var(--color-glint-strong), 0 18px 40px -22px rgb(0 0 0 / 0.9) !important;
+}
+/* Bandeaux : reflet cyan qui s'éteint vers la droite, filet d'accent dessous. */
+[data-game-style="futur"] :is(.bg-head, .bg-head-dark) {
+  background-image: linear-gradient(90deg, rgb(76 201 240 / 0.16), rgb(76 201 240 / 0) 65%);
+}
+[data-game-style="futur"] .border-b-2.bg-head {
+  border-bottom-width: 1px;
+  box-shadow: 0 1px 0 rgb(76 201 240 / 0.25) !important;
+}
+
+/* 4. Boutons d'action : dégradé cyan et halo ; les autres boutons gardent leurs couleurs, arrondies. */
+[data-game-style="futur"] .bg-action {
+  background-image: linear-gradient(180deg, var(--color-action-hi), var(--color-action));
+  border-color: rgb(95 212 255 / 0.55);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 6px 18px -8px rgb(76 201 240 / 0.75) !important;
+}
+[data-game-style="futur"] .bg-action:hover {
+  background-image: linear-gradient(180deg, #23a3dc, var(--color-action-hi));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24), 0 8px 24px -8px rgb(76 201 240 / 0.95) !important;
+}
+[data-game-style="futur"] .bg-blood-700.cursor-pointer {
+  background-image: linear-gradient(180deg, var(--color-blood-600), var(--color-blood-700));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 6px 18px -8px rgb(224 84 58 / 0.7) !important;
+}
+
+/* 5. Champs : fond creusé translucide, anneau lumineux au focus. */
+[data-game-style="futur"] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) {
+  background-color: rgb(4 9 16 / 0.72);
+  border-color: var(--color-bronze-700);
+}
+[data-game-style="futur"] :is(input, select, textarea):focus {
+  border-color: var(--color-gold-400);
+  box-shadow: 0 0 0 3px rgb(76 201 240 / 0.2) !important;
+}
+[data-game-style="futur"] :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--color-gold-500); }
+[data-game-style="futur"] :focus-visible { outline-color: var(--color-gold-300); }
+
+/* 6. Barre de progression : remplissage en dégradé lumineux au lieu des hachures. */
+[data-game-style="futur"] [class*="repeating-linear-gradient(135deg,var(--color-action)"] {
+  background-image: linear-gradient(90deg, var(--color-action), var(--color-gold-400));
+  border-right-color: var(--color-gold-100);
+  box-shadow: 0 0 10px rgb(76 201 240 / 0.6) !important;
+}
+
+/* 7. Barre du haut : verre sombre, onglet actif souligné d'un trait lumineux au lieu d'un aplat. */
+[data-game-style="futur"] body > header {
+  background-color: rgb(6 11 18 / 0.82);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+  border-bottom-width: 1px;
+  border-bottom-color: rgb(76 201 240 / 0.35);
+  box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.9) !important;
+}
+[data-game-style="futur"] body > header .bg-panel-hi { background-color: rgb(16 26 40 / 0.55); }
+[data-game-style="futur"] nav[aria-label="Menu principal"] > a { border-right-color: var(--fx-line); }
+[data-game-style="futur"] nav[aria-label="Menu principal"] > a:hover {
+  background-color: rgb(76 201 240 / 0.08);
+  color: var(--color-parchment-50);
+}
+[data-game-style="futur"] nav[aria-label="Menu principal"] > a[aria-current="page"] {
+  background-color: transparent;
+  background-image: linear-gradient(0deg, rgb(76 201 240 / 0.22), rgb(76 201 240 / 0) 85%);
+  color: var(--color-gold-50);
+  box-shadow: inset 0 -2px 0 var(--color-gold-400), 0 6px 16px -6px rgb(76 201 240 / 0.6) !important;
+}
+[data-game-style="futur"] nav[aria-label="Menu principal"] > a[aria-current="page"] > span:first-child { color: var(--color-gold-300); }
+
+/* 8. Détails : barres de défilement fines, sélection cyan, menus flottants plus marqués. */
+[data-game-style="futur"] { scrollbar-color: var(--color-bronze-600) transparent; scrollbar-width: thin; }
+[data-game-style="futur"] ::selection { background: rgb(76 201 240 / 0.35); color: var(--color-parchment-50); }
+[data-game-style="futur"] :is(.absolute, .fixed).border-2.bg-panel-top {
+  background-color: rgb(12 20 31 / 0.94);
+  box-shadow: 0 0 0 1px rgb(76 201 240 / 0.18), 0 24px 48px -16px rgb(0 0 0 / 0.95) !important;
+}

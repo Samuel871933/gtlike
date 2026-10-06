@@ -33,7 +33,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <%# Profil d'un joueur : les polices de son thème en plus (voir views/player.ejs). %>
-  <% const fontLinks = ctx && page === 'account' ? [...new Set(Object.values(GAME_STYLES).map((s) => s.fonts))] : [...new Set([ctx && gameStyle ? gameStyle.fonts : GAME_STYLES.roman.fonts, ...(typeof profileStyle !== 'undefined' && profileStyle ? [profileStyle.fonts] : [])])]; %>
+  <% const fontLinks = ctx && page === 'account' && tab === 'theme' ? [...new Set(Object.values(GAME_STYLES).map((s) => s.fonts))] : [...new Set([ctx && gameStyle ? gameStyle.fonts : GAME_STYLES.roman.fonts, ...(typeof profileStyle !== 'undefined' && profileStyle ? [profileStyle.fonts] : [])])]; %>
   <% for (const href of fontLinks) { %><link rel="stylesheet" href="<%= href %>"><% } %>
   <link rel="stylesheet" href="<%= asset('/css/app.css') %>">
 </head>

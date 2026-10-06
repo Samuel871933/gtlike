@@ -1,6 +1,6 @@
 'use strict';
 
-// Compte (sommeil, remplaçant) (pages d'un village, montées par ./index.js).
+// Compte (apparence, sommeil, remplaçant…) (pages d'un village, montées par ./index.js).
 
 const express = require('express');
 const { Player } = require('../../../models');
@@ -12,6 +12,22 @@ const { base, me } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
+// Onglets du menu latéral de la page Compte (un panneau partials/account/<id> chacun) ; `owner` : réservé au titulaire.
+const ACCOUNT_TABS = [
+  { heading: 'Apparence' },
+  { id: 'theme', label: 'Thème de jeu' },
+  { id: 'design', label: 'Design des villages' },
+  { id: 'layout', label: 'Style de jeu' },
+  { id: 'quickbar', label: 'Barre des favoris' },
+  { heading: 'Jeu', owner: true },
+  { id: 'sleep', label: 'Mode sommeil', owner: true },
+  { id: 'sitter', label: 'Mode vacances', owner: true },
+  { id: 'tribe-settings', label: 'Réglages tribu', owner: true },
+  { heading: 'Monde', owner: true },
+  { id: 'leave', label: 'Quitter ce monde', owner: true },
+];
+const tabUrl = (req, id) => `${base(req)}/account?tab=${id}`;
+
 // ------------------------------------------------------------ Compte (sommeil, remplaçant)
 
 // Réglages tribu : partage des notes de village.
@@ -21,7 +37,7 @@ router.post('/account/tribe-settings', ownerOnly, ah(async (req, res) => {
   for (const item of VillageNoteService.TRIBE_SHARING) for (const col of [item.share, item.show]) values[col] = req.body[col] === '1';
   await VillageNoteService.setTribeSettings(me(req), values);
   flash(req, 'success', 'Réglages tribu enregistrés.');
-  res.redirect(`${base(req)}/account#reglages-tribu`);
+  res.redirect(tabUrl(req, 'tribe-settings'));
 }));
 
 router.get('/account', ah(async (req, res) => {
@@ -30,7 +46,11 @@ router.get('/account', ah(async (req, res) => {
     player.sitterId ? Player.findByPk(player.sitterId) : null,
     SitterService.sittingFor(player.id),
   ]);
-  res.render('account', { page: 'account', sitter, sitting, tribeSharing: require('../../../services/VillageNoteService').TRIBE_SHARING });
+  const accountTabs = ACCOUNT_TABS.filter((t) => !(req.asSitter && t.owner));
+  const tab = accountTabs.some((t) => t.id && t.id === req.query.tab) ? req.query.tab : 'theme';
+  // Filtre des thèmes et designs : tous, possédés ou à débloquer.
+  const own = ['owned', 'locked'].includes(req.query.own) ? req.query.own : 'all';
+  res.render('account', { page: 'account', tab, own, accountTabs, sitter, sitting, tribeSharing: require('../../../services/VillageNoteService').TRIBE_SHARING });
 }));
 
 router.use('/account', (req, res, next) => (req.method === 'POST' ? ownerOnly(req, res, next) : next()));
@@ -49,7 +69,7 @@ router.post('/account/game-style', ah(async (req, res) => {
   if (!res.locals.shopRights.has(`theme:${id}`)) throw new GameError(`Le thème ${GAME_STYLES[id].name} se débloque à la boutique.`);
   await req.user.update({ gameStyle: id });
   flash(req, 'success', `Thème ${GAME_STYLES[id].name} appliqué.`);
-  res.redirect(`${base(req)}/account`);
+  res.redirect(tabUrl(req, 'theme'));
 }));
 
 // Style de jeu : densité de l'interface (normal ou minimaliste), indépendante du thème.
@@ -59,7 +79,7 @@ router.post('/account/game-layout', ah(async (req, res) => {
   if (!isGameLayout(id)) throw new GameError('Style de jeu inconnu.');
   await req.user.update({ gameLayout: id });
   flash(req, 'success', `Style de jeu ${GAME_LAYOUTS[id].name.toLowerCase()} appliqué.`);
-  res.redirect(`${base(req)}/account#style-de-jeu`);
+  res.redirect(tabUrl(req, 'layout'));
 }));
 
 // Barre des favoris : en-tête, bas de l'écran, colonne à gauche ou à droite (réglage du compte).
@@ -69,7 +89,7 @@ router.post('/account/quickbar-position', ah(async (req, res) => {
   if (!isQuickbarPosition(id)) throw new GameError('Emplacement inconnu.');
   await req.user.update({ quickbarPosition: id });
   flash(req, 'success', `Barre des favoris : ${QUICKBAR_POSITIONS[id].name.toLowerCase()}.`);
-  res.redirect(`${base(req)}/account#barre-favoris`);
+  res.redirect(tabUrl(req, 'quickbar'));
 }));
 
 // Design des villages : skin de ses villages sur la carte, vu par tous (réglage du compte, comme le style de jeu).
@@ -80,31 +100,31 @@ router.post('/account/village-design', ah(async (req, res) => {
   if (!res.locals.shopRights.has(`design:${id}`)) throw new GameError(`Le design ${VILLAGE_DESIGNS[id].name.toLowerCase()} se débloque à la boutique.`);
   await req.user.update({ villageDesign: id });
   flash(req, 'success', `Design ${VILLAGE_DESIGNS[id].name.toLowerCase()} appliqué à tes villages : tous les joueurs les voient ainsi.`);
-  res.redirect(`${base(req)}/account#design-villages`);
+  res.redirect(tabUrl(req, 'design'));
 }));
 
 router.post('/account/sitter', ah(async (req, res) => {
   const sitter = await SitterService.invite(me(req), req.body.name);
   flash(req, 'success', `Demande envoyée à ${sitter.name}.`);
-  res.redirect(`${base(req)}/account`);
+  res.redirect(tabUrl(req, 'sitter'));
 }));
 
 router.post('/account/sitter/revoke', ah(async (req, res) => {
   await SitterService.revoke(me(req));
   flash(req, 'success', 'Remplaçant retiré.');
-  res.redirect(`${base(req)}/account`);
+  res.redirect(tabUrl(req, 'sitter'));
 }));
 
 router.post('/account/sitting/:ownerId/accept', ah(async (req, res) => {
   await SitterService.accept(me(req), req.params.ownerId);
   flash(req, 'success', 'Vous êtes maintenant remplaçant de ce joueur.');
-  res.redirect(`${base(req)}/account`);
+  res.redirect(tabUrl(req, 'sitter'));
 }));
 
 router.post('/account/sitting/:ownerId/resign', ah(async (req, res) => {
   await SitterService.resign(me(req), req.params.ownerId);
   flash(req, 'success', 'Remplacement terminé.');
-  res.redirect(`${base(req)}/account`);
+  res.redirect(tabUrl(req, 'sitter'));
 }));
 
 router.post('/account/leave-world', ah(async (req, res) => {
@@ -116,13 +136,13 @@ router.post('/account/leave-world', ah(async (req, res) => {
 router.post('/account/sleep', ah(async (req, res) => {
   const player = await AccountService.startSleep(me(req), req.body.hours);
   flash(req, 'success', `Sommeil programmé ${res.locals.when(player.sleepStartsAt)}.`);
-  res.redirect(`${base(req)}/account`);
+  res.redirect(tabUrl(req, 'sleep'));
 }));
 
 router.post('/account/sleep/stop', ah(async (req, res) => {
   await AccountService.stopSleep(me(req));
   flash(req, 'success', 'Mode sommeil arrêté.');
-  res.redirect(`${base(req)}/account`);
+  res.redirect(tabUrl(req, 'sleep'));
 }));
 
 module.exports = router;

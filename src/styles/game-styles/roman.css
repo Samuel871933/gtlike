@@ -19,7 +19,9 @@
     /* Valeurs de @theme (app.css) pour chaque jeton redéfini par un autre style : un élément romain posé dans
        une page d'un autre style (aperçu de la page Compte) garde ainsi ses propres couleurs.
        Doit rester identique à @theme (vérifié par test/game-styles.test.js). */
+    --font-sans: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
     --font-display: "Marcellus", Georgia, serif;
+    --color-black: #000;
     --color-head: #651313;
     --color-head-dark: #4b0b0b;
     --color-thead: #231414;

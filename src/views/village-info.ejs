@@ -91,7 +91,7 @@
       <% if (note) { %>
         <p class="px-3 py-2.5 whitespace-pre-line wrap-break-word text-parchment-200"><%= note %></p>
       <% } else { %>
-        <p class="px-3 py-2.5 text-sm text-parchment-500">Aucune note sur ce village. Tu peux la partager avec ta tribu dans les <a href="/village/<%= vid %>/account#reglages-tribu" class="<%= ui.link %>">réglages tribu</a>.</p>
+        <p class="px-3 py-2.5 text-sm text-parchment-500">Aucune note sur ce village. Tu peux la partager avec ta tribu dans les <a href="/village/<%= vid %>/account?tab=tribe-settings" class="<%= ui.link %>">réglages tribu</a>.</p>
       <% } %>
       <% if (tribeNotes.length) { %>
         <div class="border-t border-bronze-800">

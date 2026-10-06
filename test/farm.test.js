@@ -149,7 +149,7 @@ test('pages : assistant réservé au premium, envoi rapide en JSON (raccourcis d
   await http(`${v}/account/quickbar-position`, { method: 'POST', form: { position: 'left', _csrf: token(page.text) } });
   assert.match((await http(`${v}/farm`)).text, /class="quickbar-dock" data-pos="left"[^>]*data-quickbar/);
   await http(`${v}/account/quickbar-position`, { method: 'POST', form: { position: 'milieu', _csrf: token(page.text) } });
-  assert.match((await http(`${v}/account`)).text, /id="barre-favoris"/);
+  assert.match((await http(`${v}/account?tab=quickbar`)).text, /id="barre-favoris"/);
   assert.match((await http(`${v}/farm`)).text, /data-pos="left"/);
 
   const [fav] = await ArmyTemplateService.favorites(alice.id);

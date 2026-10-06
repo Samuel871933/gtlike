@@ -1,13 +1,16 @@
-<%# Compte, panneau « Design des villages » (inclus par account.ejs, avec sleep, vid, scheduled, shopLink). %>
+<%# Compte, panneau « Design des villages » (onglet de account.ejs, avec sleep, vid, scheduled, shopLink, ownFilter). %>
 <%# Design des villages : skin de ses propres villages sur la carte, vu par tous les joueurs (réglage du compte connecté). %>
 <%# Monde à factions : le design de sa faction est offert sur ce monde (ShopService.factionKeys) et remplace Beige par défaut. %>
 <% const offered = player && factionDesign(player.faction); %>
 <section class="<%= ui.panel %>" id="design-villages">
   <%- panelHead('Design des villages', `<span class="text-[13px] text-parchment-500">${offered ? `Le design ${esc(VILLAGE_DESIGNS[offered].name)} de ta faction est offert sur ce monde` : 'Le design Beige est gratuit'}, les autres s’achètent à la <a href="/shop#designs" class="text-gold-200 underline hover:text-parchment-100">boutique</a></span>`) %>
   <p class="border-b border-bronze-900 px-4 py-2.5 text-sm text-parchment-400">Le design donne leur apparence à tous tes villages sur la carte, du hameau à la capitale. Tous les joueurs le voient.</p>
+  <%# Beige n'est pas proposé là où le design de la faction le remplace. %>
+  <% const list = ownFilter(Object.values(VILLAGE_DESIGNS).filter((x) => !offered || x.id !== 'beige').map((d) => ({ d, owned: shopRights.has(`design:${d.id}`) }))); %>
+  <%- list.bar %>
   <div class="grid gap-3 p-4.5 sm:grid-cols-2 xl:grid-cols-3">
-    <%# Beige n'est pas proposé là où le design de la faction le remplace. %>
-    <% for (const d of Object.values(VILLAGE_DESIGNS).filter((x) => !offered || x.id !== 'beige')) { const active = villageDesign && villageDesign.id === d.id; const owned = shopRights.has(`design:${d.id}`); %>
+    <% if (!list.shown.length) { %><p class="text-parchment-500 sm:col-span-2 xl:col-span-3"><%= own === 'owned' ? 'Aucun design possédé.' : 'Tu possèdes déjà tous les designs.' %></p><% } %>
+    <% for (const { d, owned } of list.shown) { const active = villageDesign && villageDesign.id === d.id; %>
       <%# Carte et aperçu de la boutique (helpers.cosmeticPreview), aux couleurs du thème affiché. %>
       <form method="post" action="/village/<%= vid %>/account/village-design" class="group flex flex-col gap-2 border-2 border-black bg-panel-top p-1 text-parchment-200 <%= active ? 'shadow-[inset_0_0_0_2px_var(--color-gold-200),4px_4px_0_#050505]' : 'shadow-[inset_0_0_0_1px_var(--color-bronze-700),4px_4px_0_#050505]' %>">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="design" value="<%= d.id %>">

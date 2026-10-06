@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="966" height="580" viewBox="0 0 966 580">
+  <!-- Fond de la vue du village, style Futuriste (couleurs du design de village « futuriste » : coques ivoire, acier,
+       lumières cyan et voyants ambre ; même disposition que le style romain) : plan vu de dessus.
+       Enceinte 210,50 → 756,470 ; routes en croix ; les bâtiments sont posés par-dessus (partials/village-plan.ejs). -->
+  <defs>
+    <pattern id="ground" width="28" height="48.5" patternUnits="userSpaceOnUse">
+      <rect width="28" height="48.5" fill="#101b28"/>
+      <path d="M14 0L28 8.1V24.3L14 32.4L0 24.3V8.1Z M14 32.4V48.5" fill="none" stroke="#4cc9f0" stroke-opacity="0.08"/>
+    </pattern>
+    <pattern id="deck" width="24" height="24" patternUnits="userSpaceOnUse">
+      <rect width="24" height="24" fill="#1c2a3a"/>
+      <path d="M0 0.5H24M0.5 0V24" stroke="#7fd8ff" stroke-opacity="0.1"/>
+      <rect x="10" y="10" width="4" height="4" fill="#7fd8ff" fill-opacity="0.05"/>
+    </pattern>
+    <pattern id="solar" width="12" height="12" patternUnits="userSpaceOnUse">
+      <rect width="12" height="12" fill="#15405a"/>
+      <path d="M0 0.5H12M0.5 0V12" stroke="#7fd8ff" stroke-opacity="0.35"/>
+    </pattern>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22344a"/><stop offset="1" stop-color="#1a2a3c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#4cc9f0" stop-opacity="0.35"/><stop offset="1" stop-color="#4cc9f0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.5" r="0.72">
+      <stop offset="0.7" stop-color="#03060b" stop-opacity="0"/>
+      <stop offset="1" stop-color="#03060b" stop-opacity="0.6"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="966" height="580" fill="url(#ground)"/>
+
+  <!-- Conduite d'énergie (à la place de l'aqueduc) -->
+  <rect x="-4" y="18" width="470" height="12" rx="6" fill="#26394e" stroke="#0a121c" stroke-width="2"/>
+  <path d="M0 24H462" stroke="#4cc9f0" stroke-opacity="0.7" stroke-width="2" stroke-dasharray="14 10"/>
+
+  <!-- Serres et bio-dômes (camp de bois) -->
+  <g stroke="#0a121c" stroke-width="2">
+    <circle cx="40" cy="72" r="26" fill="#1e4a3c"/><circle cx="92" cy="58" r="21" fill="#245a46"/>
+    <circle cx="144" cy="88" r="19" fill="#1e4a3c"/><circle cx="28" cy="150" r="21" fill="#245a46"/>
+    <circle cx="168" cy="150" r="15" fill="#1e4a3c"/><circle cx="62" cy="198" r="15" fill="#1e4a3c"/>
+  </g>
+  <g fill="none" stroke="#9ff0d0" stroke-opacity="0.35">
+    <circle cx="40" cy="72" r="18"/><circle cx="92" cy="58" r="14"/><circle cx="144" cy="88" r="12"/><circle cx="28" cy="150" r="14"/>
+  </g>
+
+  <!-- Bassin d'extraction (argile) -->
+  <ellipse cx="104" cy="424" rx="84" ry="44" fill="#4a3226" stroke="#0a121c" stroke-width="3"/>
+  <ellipse cx="104" cy="428" rx="54" ry="24" fill="#2e1f18"/>
+  <ellipse cx="104" cy="428" rx="54" ry="24" fill="none" stroke="#f0a33a" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="6 6"/>
+
+  <!-- Champ solaire (ferme) -->
+  <rect x="806" y="60" width="150" height="170" rx="4" fill="url(#solar)" stroke="#0a121c" stroke-width="3"/>
+  <path d="M806 145H956M881 60V230" stroke="#0a121c" stroke-width="3"/>
+
+  <!-- Relief et foreuse (mine de fer) -->
+  <path d="M800 480l44-78 30 34 28-52 54 96z" fill="#3a4656" stroke="#0a121c" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M862 480l-6-26h28l-6 26z" fill="#1a2430"/>
+  <circle cx="870" cy="452" r="4" fill="#f0a33a"/>
+
+  <!-- Routes extérieures -->
+  <g fill="url(#road)" stroke="#0a121c" stroke-width="2">
+    <rect x="-4" y="250" width="218" height="20"/>
+    <rect x="752" y="250" width="218" height="20"/>
+    <rect x="473" y="466" width="20" height="118"/>
+  </g>
+  <g stroke="#4cc9f0" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="10 8">
+    <path d="M0 260H210M756 260H966M483 470V580"/>
+  </g>
+
+  <!-- Enceinte : ombre portée, rempart, plateforme intérieure, routes en croix -->
+  <rect x="222" y="62" width="546" height="420" rx="10" fill="#000" fill-opacity="0.5"/>
+  <rect x="210" y="50" width="546" height="420" rx="10" fill="#c9c6bb" stroke="#0a121c" stroke-width="3"/>
+  <rect x="222" y="62" width="522" height="396" rx="4" fill="url(#deck)" stroke="#0a121c" stroke-width="3"/>
+  <rect x="216" y="56" width="534" height="408" rx="8" fill="none" stroke="#4cc9f0" stroke-opacity="0.6" stroke-width="1.5"/>
+  <g fill="url(#road)" stroke="#0a121c" stroke-width="2">
+    <rect x="473" y="62" width="20" height="396"/>
+    <rect x="222" y="250" width="522" height="20"/>
+  </g>
+  <g stroke="#4cc9f0" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="10 8">
+    <path d="M483 62V458M222 260H744"/>
+  </g>
+  <circle cx="483" cy="260" r="60" fill="url(#glow)"/>
+
+  <!-- Tourelles et sas -->
+  <g stroke="#0a121c" stroke-width="3">
+    <g fill="#dedbd0">
+      <circle cx="210" cy="50" r="17"/><circle cx="756" cy="50" r="17"/>
+      <circle cx="210" cy="470" r="17"/><circle cx="756" cy="470" r="17"/>
+      <circle cx="483" cy="50" r="16"/>
+      <circle cx="210" cy="157" r="12"/><circle cx="756" cy="157" r="12"/>
+      <circle cx="210" cy="363" r="12"/><circle cx="756" cy="363" r="12"/>
+      <circle cx="345" cy="470" r="12"/><circle cx="621" cy="470" r="12"/>
+    </g>
+    <g fill="#24384e">
+      <rect x="463" y="450" width="40" height="40" rx="6"/>
+      <rect x="190" y="240" width="40" height="40" rx="6"/><rect x="736" y="240" width="40" height="40" rx="6"/>
+    </g>
+  </g>
+  <!-- Voyants : cyan sur les sas, ambre sur les tourelles -->
+  <g fill="#4cc9f0">
+    <rect x="473" y="466" width="20" height="4" rx="2"/>
+    <rect x="206" y="250" width="4" height="20" rx="2"/><rect x="756" y="250" width="4" height="20" rx="2"/>
+  </g>
+  <g fill="#f0a33a">
+    <circle cx="210" cy="50" r="5"/><circle cx="756" cy="50" r="5"/><circle cx="210" cy="470" r="5"/><circle cx="756" cy="470" r="5"/>
+    <circle cx="483" cy="50" r="4"/>
+  </g>
+
+  <rect width="966" height="580" fill="url(#vignette)"/>
+</svg>

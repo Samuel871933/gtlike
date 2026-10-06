@@ -103,6 +103,21 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   // Onglet Démolition.
   assert.match((await http(`${joined.location}/main?tab=demolition`)).html, /Quartier général niveau 15/);
 
+  // Page Compte : menu latéral, un panneau par onglet (thème par défaut), onglet inconnu ramené au thème.
+  const account = (await http(`${joined.location}/account`)).html;
+  assert.match(account, /aria-current="page"><span[^>]*>Thème de jeu</);
+  assert.match(account, /\/account\?tab=sleep/);
+  assert.doesNotMatch(account, /id="design-villages"/);
+  assert.match((await http(`${joined.location}/account?tab=design`)).html, /id="design-villages"/);
+  // Filtre des thèmes : possédés (Adarma, gratuit) ou à débloquer.
+  const ownedThemes = (await http(`${joined.location}/account?tab=theme&own=owned`)).html;
+  assert.match(ownedThemes, /name="style" value="adarma"/);
+  assert.doesNotMatch(ownedThemes, /name="style" value="viking"/);
+  const lockedThemes = (await http(`${joined.location}/account?tab=theme&own=locked`)).html;
+  assert.match(lockedThemes, /name="style" value="viking"/);
+  assert.doesNotMatch(lockedThemes, /name="style" value="adarma"/);
+  assert.match((await http(`${joined.location}/account?tab=inconnu`)).html, /aria-current="page"><span[^>]*>Thème de jeu</);
+
   // Thème de jeu : Adarma par défaut en jeu, choix enregistré sur le compte, page d'accueil jamais stylée.
   assert.match(after.html, /data-game-style="adarma"/);
   // Thème payant pas encore possédé : refusé ; puis pack « Tous les cosmétiques » acheté pour le compte.
@@ -479,7 +494,7 @@ test('réglages tribu du compte : colonnes Partager avec la tribu / Afficher la 
   await http('/register', { method: 'POST', form: { username: 'Lola', email: 'l@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
   const worlds = await http('/worlds');
   const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
-  const account = await http(`${joined.location}/account`);
+  const account = await http(`${joined.location}/account?tab=tribe-settings`);
   assert.match(account.html, /Partager avec la tribu/);
   assert.match(account.html, /Notes de village/);
   assert.match(account.html, /Ordres de troupes/);

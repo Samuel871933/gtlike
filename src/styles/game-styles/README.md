@@ -13,7 +13,13 @@ les vues n'utilisent que des classes Tailwind qui lisent ces jetons (`bg-panel-t
 
 Styles disponibles : `adarma` (par défaut, aussi pour les nouveaux inscrits : clair, pierre ivoire, olive, ocre et terre
 cuite, accordés au village médiéval), `medieval` (clair, couleurs de Guerre Tribale), `roman` (les valeurs de `@theme`),
-`viking` et `egypt` (clair : pierre ocre, or et sépia, accordé à son fond de fresques).
+`viking`, `egypt` (clair : pierre ocre, or et sépia, accordé à son fond de fresques) et `futur` (sombre : verre
+dépoli, acier bleuté et lumières cyan du design de village futuriste).
+
+Le style `futur` est le seul à changer aussi la forme, pas seulement les couleurs : dans `futur.css`, des règles hors calque
+remplacent les codes « BD » (trait d'encre noir, ombre portée franche, angles droits) par des angles arrondis, des
+panneaux en verre dépoli et des halos, comme le style minimaliste le fait pour la densité. Il redéfinit aussi
+`--color-black` (les traits `border-black` deviennent des filets d'acier) et `--font-sans`.
 
 Les styles clairs (`adarma`, `medieval`, `egypt`) partagent la variante `light:` (déclarée dans `app.css`) pour les ajustements propres
 aux fonds clairs : `scheme-light`, onglet actif du menu en couleur d'action… Un nouveau style clair s'ajoute à la liste des

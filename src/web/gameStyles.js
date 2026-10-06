@@ -36,6 +36,12 @@ const GAME_STYLES = {
     description: 'Pierre ocre, or et fresques délavées : les temples du Nil.',
     fonts: 'https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=El+Messiri:wght@500;600;700&display=swap',
   },
+  futur: {
+    id: 'futur',
+    name: 'Futuriste',
+    description: 'Verre dépoli, acier bleuté et lumières cyan : un avant-poste de haute technologie.',
+    fonts: 'https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600&family=Saira+Semi+Condensed:wght@400;500;600;700&display=swap',
+  },
   viking: {
     id: 'viking',
     name: 'Viking',

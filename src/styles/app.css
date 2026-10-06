@@ -16,6 +16,7 @@
 @import "./game-styles/medieval.css";
 @import "./game-styles/egypt.css";
 @import "./game-styles/adarma.css";
+@import "./game-styles/futur.css";
 
 /* Un fond de cire commun aux niveaux ; le sigle transparent reste indépendant. */
 .seal-art { position: relative; display: inline-block; flex-shrink: 0; vertical-align: middle; }
@@ -315,6 +316,9 @@ html.game_style body::before,
   --font-display: "Marcellus", Georgia, serif;
   /* Logo seulement : capitales romaines. */
   --font-logo: "Cinzel", Georgia, serif;
+
+  /* Traits d'encre (border-black, voiles bg-black/…) : noir, redéfini par le style futuriste en filet d'acier. */
+  --color-black: #000;
 
   /* Fonds : encre et panneaux */
   --color-night: #0b0b0c;

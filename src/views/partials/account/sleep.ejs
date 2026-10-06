@@ -1,6 +1,6 @@
-<%# Compte, panneau « Mode sommeil » (inclus par account.ejs, avec sleep, vid, scheduled, shopLink). %>
+<%# Compte, panneau « Mode sommeil » (onglet de account.ejs, avec sleep, vid, scheduled, shopLink). %>
 <section class="<%= ui.panel %>">
-  <%- panelHead('Mode sommeil', `<span class="text-gold-400">${icon('moon', 'size-4')}</span>`, { tag: 'h1' }) %>
+  <%- panelHead('Mode sommeil', `<span class="text-gold-400">${icon('moon', 'size-4')}</span>`) %>
   <div class="<%= ui.panelBody %> gap-4">
     <% if (!sleep.active) { %>
       <p class="text-parchment-500">Le mode sommeil n'existe pas sur ce monde.</p>

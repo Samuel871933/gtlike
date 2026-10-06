@@ -1,27 +1,29 @@
 <%- include('partials/header', { title: 'Compte' }) %>
 <% const sleep = ctx.cfg.sleep; const vid = ctx.village.id; const scheduled = player.sleepEndsAt && new Date(player.sleepEndsAt) > now;
    // Boutique : thèmes et designs possédés sur ce monde (compte, monde ou serveur entier) ; les autres mènent à leur offre.
-   const shopLink = (key) => `/shop/item/${encodeURIComponent(key)}?world=${encodeURIComponent(ctx.world.slug)}`; %>
-<%- include('partials/account/theme', { sleep, vid, scheduled, shopLink }) %>
-<%- include('partials/account/design', { sleep, vid, scheduled, shopLink }) %>
-<%- include('partials/account/layout', { sleep, vid, scheduled, shopLink }) %>
-<%- include('partials/account/quickbar', { vid }) %>
-<% if (asSitter) { %>
-  <section class="<%= ui.panel %>">
-    <%- panelHead('Compte', '', { tag: 'h1' }) %>
-    <div class="<%= ui.panelBody %>">
-      <p class="text-parchment-500">Les réglages du compte sont réservés à son titulaire.</p>
-    </div>
-  </section>
-<% } else { %>
-<div class="grid items-start gap-5 lg:grid-cols-2">
-  <%- include('partials/account/sleep', { sleep, vid, scheduled, shopLink }) %>
+   const shopLink = (key) => `/shop/item/${encodeURIComponent(key)}?world=${encodeURIComponent(ctx.world.slug)}`;
+   // Menu latéral : un panneau par entrée (la route limite ?tab= aux onglets de ACCOUNT_TABS, sans les réglages du
+   // titulaire pour un remplaçant).
+   const a = `/village/${vid}/account`;
+   // Filtre Tous / Possédés / À débloquer des onglets Thème et Design : `items` = [{ owned }], retourne la barre
+   // d'onglets et la liste filtrée (vide : message à la place des cartes).
+   const ownFilter = (items) => {
+     const counts = { all: items.length, owned: items.filter((i) => i.owned).length, locked: items.filter((i) => !i.owned).length };
+     const tabs = [['all', 'Tous'], ['owned', 'Possédés'], ['locked', 'À débloquer']]
+       .map(([id, label]) => [`${a}?tab=${tab}${id === 'all' ? '' : `&own=${id}`}`, `${label} (${counts[id]})`, id === own]);
+     const shown = items.filter((i) => own === 'all' || (own === 'owned') === i.owned);
+     return { bar: `<div class="border-b border-bronze-900 px-4 py-2.5">${segTabs(tabs)}</div>`, shown };
+   };
+   const menu = accountTabs.map((t) => (t.heading ? { heading: t.heading } : { href: `${a}?tab=${t.id}`, label: t.label, active: t.id === tab })); %>
+<h1 class="sr-only">Compte</h1>
+<div class="grid grid-cols-1 items-start gap-4 md:grid-cols-[210px_minmax(0,1fr)]">
+  <%- sideNav(menu, { label: 'Compte', cls: `${ui.panel} md:sticky md:top-24` }) %>
 
-  <%- include('partials/account/sitter', { sleep, vid, scheduled, shopLink }) %>
-
-  <%- include('partials/account/tribe-settings', { sleep, vid, scheduled, shopLink }) %>
-
-  <%- include('partials/account/leave', { sleep, vid, scheduled, shopLink }) %>
+  <div class="flex min-w-0 flex-col gap-4">
+    <%- include(`partials/account/${tab}`, { sleep, vid, scheduled, shopLink, ownFilter }) %>
+    <% if (asSitter) { %>
+      <p class="<%= ui.alertInfo %>">Le sommeil, le remplaçant, les réglages tribu et le départ du monde sont réservés au titulaire du compte.</p>
+    <% } %>
+  </div>
 </div>
-<% } %>
 <%- include('partials/footer') %>

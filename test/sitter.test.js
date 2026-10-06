@@ -81,7 +81,9 @@ test('le remplaçant joue les villages, sans toucher aux réglages du compte', a
   assert.equal(built.status, 302, 'le remplaçant peut construire');
 
   const account = await Bob.http(`${Alice.village}/account`);
-  assert.match(account.html, /réservés à son titulaire/);
+  assert.match(account.html, /réservés au titulaire du compte/);
+  assert.doesNotMatch(account.html, /tab=sleep/, 'pas d’onglet Mode sommeil pour le remplaçant');
+  assert.doesNotMatch((await Bob.http(`${Alice.village}/account?tab=leave`)).html, /Quitter ce monde/, 'onglet réservé : retour au thème');
   const revoke = await Bob.http(`${Alice.village}/account/sitter/revoke`, { method: 'POST', form: { _csrf: tokenOf(main.html) } });
   assert.equal(revoke.status, 302);
   assert.ok((await Player.findByPk(Alice.player.id)).sitterAcceptedAt, 'le remplaçant n’a pas pu se retirer l’accès à la place d’Alice');
