@@ -6,6 +6,8 @@ const express = require('express');
 const { Player } = require('../../../models');
 const TribeService = require('../../../services/TribeService');
 const TribeForumService = require('../../../services/TribeForumService');
+const OperationService = require('../../../services/OperationService');
+const registry = require('../../../game/registry');
 const GameError = require('../../../services/GameError');
 const { ah, back, flash, ownerOnly } = require('../../middleware');
 const { base, me } = require('./shared');
@@ -24,22 +26,25 @@ router.get('/tribe', ah(async (req, res) => {
   if (req.query.tab === 'forum') return res.redirect(`${base(req)}/tribe/forum/${(await TribeForumService.firstSection(player.id)).id}`);
   // Droits et Invitations : réservés aux barons / à ceux qui peuvent inviter (sinon l'aperçu).
   const allowed = { rights: 'baron', invites: 'invite' };
-  const asked = ['overview', 'properties', 'members', 'rights', 'invites', 'diplomacy'].includes(req.query.tab) ? req.query.tab : 'overview';
+  const asked = ['overview', 'properties', 'members', 'rights', 'invites', 'diplomacy', 'operations'].includes(req.query.tab) ? req.query.tab : 'overview';
   const tab = allowed[asked] && !TribeService.can(player, allowed[asked]) ? 'overview' : asked;
   // Aperçu : fil des événements de la tribu, filtré (?cat=) et paginé (?page=), comme sur GT.
   const feed = tab === 'overview' ? await require('../../../services/TribeEventService').list(player.tribeId, { category: req.query.cat, page: req.query.page }) : null;
-  await renderTribe(res, player, tab, null, 200, { feed });
+  const operations = tab === 'operations' ? await OperationService.list(player.id) : null;
+  await renderTribe(res, player, tab, null, 200, { feed, operations });
 }));
 
 /** Page de la tribu (en-tête et onglets), avec au besoin une vue du forum de tribu. */
 async function renderTribe(res, player, tab, forum, status = 200, extra = {}) {
   const data = await TribeService.dashboard(player);
   const forumUnread = await TribeForumService.unreadCount(player.id);
+  // Onglet « Opérations (n) » : opérations de la tribu.
+  const operationCount = await require('../../../models').TribeOperation.count({ where: { tribeId: player.tribeId } });
   const can = (right) => TribeService.can(player, right);
   // Pastille « Réglages du forum » : demandes de partage de forum en attente de réponse.
   // Lien « Réglages du forum » : modérateurs de la tribu, même sur un forum partagé reçu (qu'ils ne modèrent pas).
   if (forum && can('forumMod')) Object.assign(forum, { settings: true, pendingShares: await TribeForumService.pendingShares(player.tribeId) });
-  res.status(status).render('tribe', { page: 'tribe', tab, player, can, canEdit: (m) => TribeService.canEdit(player, m), forum, forumUnread, feed: null, TribeCategories: require('../../../services/TribeEventService').CATEGORIES, ...data, ...extra });
+  res.status(status).render('tribe', { page: 'tribe', tab, player, can, canEdit: (m) => TribeService.canEdit(player, m), forum, forumUnread, operationCount, feed: null, operations: null, operation: null, TribeCategories: require('../../../services/TribeEventService').CATEGORIES, ...data, ...extra });
 }
 
 // ------------------------------------------------------------ Forum de la tribu
@@ -169,6 +174,69 @@ router.post('/tribe/forum/:sectionId', ah(async (req, res) => {
     const forum = await sectionView(req, { form: req.body, error: err.message });
     await renderTribe(res, forum.player, 'forum', forum, 400);
   }
+}));
+
+// ------------------------------------------------------------ Opérations de la tribu
+
+const opsBase = (req) => `${base(req)}/tribe/operations`;
+const cfgOf = (req) => req.ctx.cfg;
+
+router.get('/tribe/operations/:operationId', ah(async (req, res) => {
+  const operation = await OperationService.detail(me(req), req.params.operationId, req.query);
+  await renderTribe(res, operation.player, 'operations', null, 200, {
+    operation, opUnits: registry.unitsFor(cfgOf(req)), query: req.query,
+    OperationNoble: OperationService.isNoble, OperationLive: OperationService.liveClaims, OperationSlotTime: OperationService.slotTime,
+  });
+}));
+router.post('/tribe/operations', ah(async (req, res) => {
+  const op = await OperationService.create(me(req), req.body);
+  flash(req, 'success', 'Opération créée : ajoute maintenant ses cibles.');
+  res.redirect(`${opsBase(req)}/${op.id}`);
+}));
+router.post('/tribe/operations/:operationId', ah(async (req, res) => {
+  const op = await OperationService.update(me(req), req.params.operationId, req.body);
+  flash(req, 'success', 'Opération enregistrée.');
+  res.redirect(`${opsBase(req)}/${op.id}`);
+}));
+router.post('/tribe/operations/:operationId/delete', ah(async (req, res) => {
+  await OperationService.remove(me(req), req.params.operationId);
+  flash(req, 'success', 'Opération supprimée.');
+  res.redirect(`${base(req)}/tribe?tab=operations`);
+}));
+router.post('/tribe/operations/:operationId/targets', ah(async (req, res) => {
+  const { added, requests, skipped } = await OperationService.addTargets(me(req), req.params.operationId, req.body, cfgOf(req));
+  const s = (n) => (n > 1 ? 's' : '');
+  flash(req, 'success', `${requests} demande${s(requests)} ajoutée${s(requests)} sur ${added} village${s(added)}${skipped ? ` (${skipped} village${s(skipped)} déjà demandé${s(skipped)} à l'identique)` : ''}.`);
+  res.redirect(back(req, `${opsBase(req)}/${Number(req.params.operationId)}`));
+}));
+// Cibles cochées : `action` = 'update' (champs remplis appliqués) ou 'delete'.
+router.post('/tribe/operations/:operationId/targets/bulk', ah(async (req, res) => {
+  const id = req.params.operationId;
+  if (req.body.action === 'delete') {
+    const n = await OperationService.removeTargets(me(req), id, req.body.ids);
+    flash(req, 'success', `${n} cible${n > 1 ? 's' : ''} retirée${n > 1 ? 's' : ''}.`);
+  } else {
+    const n = await OperationService.updateTargets(me(req), id, req.body, cfgOf(req));
+    flash(req, 'success', `${n} cible${n > 1 ? 's' : ''} modifiée${n > 1 ? 's' : ''}.`);
+  }
+  res.redirect(`${opsBase(req)}/${Number(id)}`);
+}));
+// `n` : nombre d'attaques à prendre (1 par défaut, 'all' : toutes celles qui restent) ; `slot` : une place précise.
+router.post('/tribe/operations/targets/:targetId/claim', ah(async (req, res) => {
+  const { target, slots } = await OperationService.claim(me(req), req.params.targetId, req.body.n === 'all' ? 'all' : req.body.n, req.body.slot);
+  flash(req, 'success', `${slots.length > 1 ? `${slots.length} attaques revendiquées` : 'Attaque revendiquée'} : tu t’engages à l’envoyer avec les troupes demandées, à l’heure indiquée.`);
+  res.redirect(back(req, `${opsBase(req)}/${target.operationId}`));
+}));
+// Libérer les attaques cochées (`slots` : « idCible:place »), depuis la feuille de route ou l'aperçu d'un village.
+router.post('/tribe/operations/release', ah(async (req, res) => {
+  const n = await OperationService.release(me(req), req.body.slots);
+  flash(req, 'success', `${n} attaque${n > 1 ? 's' : ''} libérée${n > 1 ? 's' : ''}.`);
+  res.redirect(back(req, `${base(req)}/tribe?tab=operations`));
+}));
+router.post('/tribe/operations/targets/:targetId/unclaim', ah(async (req, res) => {
+  const target = await OperationService.unclaim(me(req), req.params.targetId, req.body.slot);
+  flash(req, 'success', 'Attaque libérée.');
+  res.redirect(back(req, `${opsBase(req)}/${target.operationId}`));
 }));
 
 router.get('/tribes/:tribeId', ah(async (req, res) => {

@@ -14,6 +14,7 @@ const { villageDesignFor, DEFAULT_VILLAGE_DESIGN } = require('./villageDesigns')
 const TribeService = require('../services/TribeService');
 const MarkerService = require('../services/MarkerService');
 const FavoriteService = require('../services/FavoriteService');
+const OperationService = require('../services/OperationService');
 const ShopService = require('../services/ShopService');
 const combat = require('../game/combat');
 const runes = require('../game/runes');
@@ -27,14 +28,16 @@ const num = (n) => Math.floor(n).toLocaleString('fr-FR');
 /** Contexte de lecture de la carte pour le village courant : relations, marquages, favoris, morale. */
 async function viewContext(village, cfg) {
   const player = await Player.findByPk(village.playerId);
-  const [relations, markers, favorites, attacked] = await Promise.all([
+  const [relations, markers, favorites, attacked, ops] = await Promise.all([
     TribeService.relationsOf(player.tribeId),
     MarkerService.list(player.id, village.worldId),
     FavoriteService.list(player.id),
     attackedVillages(player.id),
+    // Cibles des opérations de la tribu : marquées à la couleur de l'opération, détaillées dans l'infobulle.
+    OperationService.mapTargets(player),
   ]);
   return {
-    village, player, relations, markers, favorites, attacked, cfg,
+    village, player, relations, markers, favorites, attacked, ops, cfg,
     colors: MarkerService.colorMaps(markers),
     favIds: new Set(favorites.map((f) => f.villageId)),
     moraleOf: cfg.moral ? (points) => combat.morale(player.points, points, true) : null,
@@ -63,6 +66,8 @@ function kindOf(vc, v) {
 
 /** Couleur de marquage : celle du village, sinon de son propriétaire, sinon de sa tribu. */
 const markOf = (vc, v) => MarkerService.colorOf(vc.colors, v);
+/** Couleur de l'opération de tribu la plus récente qui cible le village (calque « Opérations »). */
+const opColorOf = (vc, v) => (vc.ops && vc.ops.has(v.id) ? vc.ops.get(v.id)[0].color : null);
 
 /** Un village tel que l'affichent la case, l'infobulle et le menu d'actions. */
 function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), orders = new Map(), rights = new Map()) {
@@ -93,8 +98,24 @@ function cellOf(vc, v, tribePoints, lastAttacks = new Map(), notes = new Map(), 
     note: notes.has(v.id),
     notes: (notes.get(v.id) || []).map((n) => ({ author: n.mine ? '' : n.author, text: n.text.length > 280 ? `${n.text.slice(0, 279)}…` : n.text })),
     orders: orders.get(v.id) || { own: [], tribe: [] },
+    // Opérations de ta tribu qui ciblent ce village : fond et gommette à la couleur de la plus récente (icône cible s'il
+    // reste des attaques à prendre, coche si tu en as revendiqué une), couronne si noblage ; détail dans l'infobulle.
+    ...opsOf(vc, v),
     // Tes villages visés par des attaques : nombre d'attaques en approche (icône sur la case, comme sur GT).
     incoming: (vc.attacked && vc.attacked.get(v.id)) || 0,
+  };
+}
+
+function opsOf(vc, v) {
+  const list = (vc.ops && vc.ops.get(v.id)) || [];
+  if (!list.length) return { op: null, ops: [] };
+  const fmt = (d) => new Date(d).toLocaleString('fr-FR');
+  return {
+    op: (({ color, noble, mine, open }) => ({ color, noble, mine, open }))(OperationService.summary(list)),
+    ops: list.map((o) => ({
+      name: o.name, color: o.color, count: o.count, claimed: o.claimed, noble: o.noble, mine: o.mine,
+      at: o.arrivalAt ? fmt(o.arrivalAt) : '', mineAt: o.mineAt.slice(0, 3).map(fmt),
+    })),
   };
 }
 
@@ -160,7 +181,7 @@ function sectorsCovering(x0, y0, x1, y1) {
   return out;
 }
 
-/** Mini-carte : [x, y, relation, couleur de marquage ?] pour chaque village du carré (public/js/minimap.js). */
+/** Mini-carte : [x, y, relation, couleur de marquage ?, couleur d'opération ?] par village du carré (public/js/minimap.js). */
 async function mini(vc, x0, y0, size) {
   const villages = await Village.findAll({
     where: { worldId: vc.village.worldId, x: { [Op.between]: [x0, x0 + size - 1] }, y: { [Op.between]: [y0, y0 + size - 1] } },
@@ -170,10 +191,12 @@ async function mini(vc, x0, y0, size) {
   return villages.map((v) => point(vc, v));
 }
 
-/** Point de mini-carte : le marquage à part, pour que ses calques (marquages, barbares) s'appliquent. */
+/** Point de mini-carte : marquage et opération à part, pour que leurs calques (marquages, opérations, barbares) s'appliquent. */
 function point(vc, v) {
   const mark = markOf(vc, v);
+  const op = opColorOf(vc, v);
+  if (op) return [v.x, v.y, kindOf(vc, v), mark || '', op];
   return mark ? [v.x, v.y, kindOf(vc, v), mark] : [v.x, v.y, kindOf(vc, v)];
 }
 
-module.exports = { SECTOR, point, viewContext, kindOf, markOf, sector, sectors, sectorsCovering, mini, villageLevel };
+module.exports = { SECTOR, point, viewContext, kindOf, markOf, opColorOf, sector, sectors, sectorsCovering, mini, villageLevel };

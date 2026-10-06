@@ -238,6 +238,28 @@ test('pages de la maquette Adarma : outils de la carte, contenus publics, mot de
   assert.match(hidden.location, /\/tribe\/forum\/settings$/);
   assert.match((await http(tab.location)).html, /Caché/);
 
+  // Opérations de la tribu : onglet, création, page de l'opération et ajout d'une cible par coordonnées.
+  assert.match((await http(`${joined.location}/tribe?tab=operations`)).html, /Nouvelle opération/);
+  const created = await http(`${joined.location}/tribe/operations`, { method: 'POST', form: { name: 'Aube rouge', color: '#ff0000', tags: '', _csrf: tokenOf(overview.html) } });
+  assert.match(created.location, /\/tribe\/operations\/\d+$/);
+  const [, vx, vy] = (await http(created.location)).html.match(/(\d+)\|(\d+)/) || [];
+  const added = await http(`${created.location}/targets`, { method: 'POST', form: { coords: `${vx}|${vy}`, count: '2', axe: '4000', arrival: '2026-10-07T20:00:00', stagger: '0', _csrf: tokenOf(overview.html) } });
+  assert.equal(added.status, 302);
+  const opPage = await http(created.location);
+  assert.equal(opPage.status, 200);
+  assert.match(opPage.html, />Prendre</);
+  assert.match(opPage.html, /0 \/ 2/);
+  const targetId = opPage.html.match(/\/targets\/(\d+)\/claim/)[1];
+  await http(`${joined.location}/tribe/operations/targets/${targetId}/claim`, { method: 'POST', form: { _csrf: tokenOf(overview.html) } });
+  const mine = await http(`${created.location}?vue=mine`);
+  assert.equal(mine.status, 200);
+  assert.match(mine.html, /Ta feuille de route/);
+  // Aperçu du village ciblé : résumé de l'opération, avec la place revendiquée.
+  const ownVillage = await http(`${joined.location}/villages/${vid}`);
+  assert.match(ownVillage.html, /Opérations de la tribu/);
+  assert.match(ownVillage.html, /Libérer les attaques cochées/);
+  assert.match((await http(`${created.location}?vue=player&j=0`)).html, /Toutes les cibles/);
+
   const anon = client();
   const forgot = await anon('/password/forgot');
   assert.equal(forgot.status, 200);

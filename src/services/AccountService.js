@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 const {
   sequelize, User, World, Player, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack,
   Transport, MarketOffer, Report, TribeInvite, ConversationParticipant, Conversation, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, LastAttack, VillageNote, PasswordReset, ForumThread, ForumPost,
-  TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumVote,
+  TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumVote, TribeOperation, TribeOperationClaim,
 } = require('../models');
 const GameError = require('./GameError');
 
@@ -112,6 +112,9 @@ AccountService.removePlayer = async function removePlayer(playerId, t) {
   await LastAttack.destroy({ where: { playerId }, transaction: t });
   await VillageNote.destroy({ where: { playerId }, transaction: t });
   await MapMarker.destroy({ where: { playerId }, transaction: t });
+  // Opérations de tribu : ses revendications tombent, ses opérations restent sans organisateur.
+  await TribeOperationClaim.destroy({ where: { playerId }, transaction: t });
+  await TribeOperation.update({ playerId: null }, { where: { playerId }, transaction: t });
   // Forum de tribu : les messages restent, sans auteur.
   await TribeForumRead.destroy({ where: { playerId }, transaction: t });
   await TribeForumMute.destroy({ where: { playerId }, transaction: t });

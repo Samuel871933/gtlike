@@ -26,7 +26,7 @@ const STEPS = [1, 2, 3, 4, 5, 6];
 // Mini-carte à droite de la carte (side), à gauche (left), en dessous (below) ou par-dessus, dans un coin (over).
 const MINI_POSITIONS = ['side', 'left', 'below', 'over'];
 const beside = (pos) => pos === 'side' || pos === 'left';
-const MAP_LAYERS = { influence: true, faction: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true, moves: true, church: true };
+const MAP_LAYERS = { influence: true, faction: true, enemy: true, nobarb: false, grid: false, borders: true, markers: true, operations: true, moves: true, church: true };
 // Largeur utile d'une page (1500 px moins les marges) : estimation des cases pour le premier rendu ; map.js les
 // recalcule aussitôt sur la largeur réelle.
 const PAGE_W = 1476;

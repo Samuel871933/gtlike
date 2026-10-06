@@ -23,6 +23,7 @@ const DENIED = {
   massMail: 'Il faut le droit de courrier circulaire.',
   forumMod: 'Il faut le droit de modérateur du forum.',
   hiddenForum: 'Il faut le droit Forum caché.',
+  operations: 'Il faut le droit Opérations.',
 };
 
 class TribeService {
@@ -143,6 +144,7 @@ class TribeService {
         if (!dukes) throw new GameError('Nommez un autre duc avant de partir.');
       }
       await player.update({ tribeId: null, tribeRole: null, tribeRights: null, tribeJoinedAt: null }, { transaction: t });
+      await require('./OperationService').leaveTribe(player.id, t);
       if (others === 0) await TribeService.dissolve(tribeId, t);
       else await TribeEventService.log(tribeId, 'left', { actor: who(player) }, { t });
     });
@@ -154,6 +156,7 @@ class TribeService {
     await TribeRelation.destroy({ where: { [Op.or]: [{ tribeId }, { otherTribeId: tribeId }] }, transaction: t });
     // Chargé ici : TribeForumService dépend lui-même de TribeService.
     await require('./TribeForumService').destroyTribe(tribeId, t);
+    await require('./OperationService').destroyTribe(tribeId, t);
     await TribeInvite.destroy({ where: { tribeId }, transaction: t });
     await TribeEvent.destroy({ where: { tribeId }, transaction: t });
     await Tribe.destroy({ where: { id: tribeId }, transaction: t });
@@ -169,6 +172,7 @@ class TribeService {
       if (member.id === manager.id) throw new GameError('Utilisez « Quitter la tribu ».');
       if (!TribeService.canEdit(manager, member)) throw new GameError('Vous ne pouvez pas renvoyer ce membre.', 403);
       await member.update({ tribeId: null, tribeRole: null, tribeRights: null, tribeJoinedAt: null }, { transaction: t });
+      await require('./OperationService').leaveTribe(member.id, t);
       await TribeEventService.log(manager.tribeId, 'kicked', { actor: who(manager), target: who(member) }, { t });
     });
   }

@@ -388,7 +388,11 @@ function orderBadge(type, units, size = 'md') {
     sm: { box: 'size-5 shadow-[1px_1px_0_#000]', icon: 'size-[12px]', stroke: 3.2, unit: 'size-4' },
     md: { box: 'size-[22px] shadow-[2px_2px_0_#000]', icon: 'size-[13px]', stroke: 3.2, unit: 'size-[18px]' },
     lg: { box: 'size-[30px] shadow-[2px_2px_0_#000]', icon: 'size-[15px]', stroke: 2.2, unit: 'size-6' },
-    map: { box: 'size-[18px] shadow-[1px_1px_0_#000]', icon: 'size-[10px]', stroke: 3, unit: 'size-3.5' },
+    // Listes (villages d'un profil…) : 18 px, comme les gommettes d'opération (opBadge), en px fixes.
+    list: { box: 'size-[18px] shadow-[1px_1px_0_#000]', icon: 'size-[11px]', stroke: 3, unit: 'size-[12px]' },
+    // Carte : 16 px, comme les gommettes d'opération et la note du carnet (public/js/map.js) ; en px et non en rem,
+    // car le canevas de la carte compte en px quelle que soit la taille de police de la page.
+    map: { box: 'size-[16px] shadow-[1px_1px_0_#000]', icon: 'size-[10px]', stroke: 3, unit: 'size-[10px]' },
   };
   // Éclaireurs seuls : espionnage, sur fond bleu (la couleur de la gommette « Espionnage »).
   const spyOnly = type === 'attack' && units && Object.keys(units).length > 0 && Object.entries(units).every(([id, n]) => !n || id === 'spy');
@@ -399,10 +403,33 @@ function orderBadge(type, units, size = 'md') {
     ? `<img src="${UNIT_ICONS[pace.id] || UNIT_ICONS.spear}" class="${s.unit} shrink-0 object-contain" alt="" aria-hidden="true">`
     : unitIcon(pace.id, s.unit)) : '';
   const unitWrap = size === 'map'
-    ? 'flex size-[18px] shrink-0 items-center justify-center border border-black bg-panel-top p-px shadow-[1px_1px_0_#000]'
+    ? 'flex size-[16px] shrink-0 items-center justify-center border-2 border-black bg-panel-top shadow-[1px_1px_0_#000]'
     : 'flex shrink-0 text-gold-400';
-  return `<span class="flex shrink-0 items-center ${size === 'map' ? 'gap-0.5' : 'gap-1.5'}"><span class="flex shrink-0 items-center justify-center border-2 border-black text-night ${s.box} ${t.box}" title="${t.name}">${icon(t.icon, s.icon, s.stroke)}</span>${pace ? `<span class="${unitWrap}" title="Unité la plus lente : ${esc(pace.name)}">${unit}</span>` : ''}</span>`;
+  return `<span class="flex shrink-0 items-center ${size === 'map' || size === 'list' ? 'gap-[2px]' : 'gap-1.5'}"><span class="flex shrink-0 items-center justify-center border-2 border-black text-night ${s.box} ${t.box}" title="${t.name}">${icon(t.icon, s.icon, s.stroke)}</span>${pace ? `<span class="${unitWrap}" title="Unité la plus lente : ${esc(pace.name)}">${unit}</span>` : ''}</span>`;
 }
+/**
+ * Gommettes d'opération de tribu (comme sur la carte), cumulées : cible à la couleur de l'opération s'il reste des
+ * attaques à prendre, épée sur fond doré si tu y as revendiqué une attaque, coche si toutes sont prises, couronne
+ * dorée si noblage. `op` : OperationService.summary (couleur, noble, mine, open, names, claimed, count).
+ */
+function opBadge(op) {
+  if (!op) return '';
+  const color = /^#[0-9a-f]{6}$/i.test(op.color) ? op.color : '#e0452b';
+  const stroke = (d) => `<path fill="none" stroke="#000" stroke-opacity=".7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="${d}"/><path fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="${d}"/>`;
+  const svg = (body) => `<svg viewBox="0 0 24 24" class="size-[12px]" aria-hidden="true">${body}</svg>`;
+  // Même boîte que les pastilles d'ordres des listes (orderBadge 'list') : 18 px, bordure noire de 2 px, ombre d'1 px,
+  // 2 px d'écart ; en px fixes, quelle que soit la mise en page.
+  const box = (bg, body, hint) => `<span class="flex size-[18px] shrink-0 items-center justify-center border-2 border-black shadow-[1px_1px_0_#000]" style="background:${bg}" title="${esc(hint)}">${body}</span>`;
+  const names = (op.names || []).join(', ');
+  const badges = [
+    op.open && box(color, svg(stroke('M12 5a7 7 0 100 14 7 7 0 100-14M12 1v6M12 17v6M1 12h6M17 12h6')), `${names} · ${op.count - op.claimed} attaque(s) à prendre`),
+    op.mine && box('#f2c14e', svg('<path fill="#1b1206" d="M21 3l-1.2 4.6-8.3 8.3-3.4-3.4 8.3-8.3zM4.6 12.2l7.2 7.2-1.9 1.9-7.2-7.2zM8.6 17.6l-3.5 3.5-2.2-2.2 3.5-3.5z"/>'), `${names} · tu y participes`),
+    !op.open && box(color, svg(stroke('M5 12.5l4.5 4.5L19 7.5')), `${names} · complet (${op.claimed} / ${op.count})`),
+    op.noble && `<span class="flex size-[18px] shrink-0 items-center justify-center border-2 border-black bg-[#f2c14e] text-[#1b1206] shadow-[1px_1px_0_#000]" title="${esc(`${names} · noblage`)}">${icon('crown', 'size-[12px]', 2.6)}</span>`,
+  ].filter(Boolean);
+  return `<span class="inline-flex shrink-0 items-center gap-[2px] align-middle">${badges.join('')}<span class="sr-only">Opération ${esc(names)} : ${op.claimed} / ${op.count} attaques</span></span>`;
+}
+
 /**
  * Pastille d'un ordre entrant : type, et icône de l'unité nommée dans son nom (« Noble », « Bélier »…), comme sur GT
  * quand on renomme une attaque ; les troupes restent inconnues du défenseur.
@@ -572,6 +599,7 @@ module.exports = {
   sealSvg: require('./sealSvg').sealSvg,
   unitIcon,
   orderBadge,
+  opBadge,
   incomingBadge,
   incomingName: (cmd) => cmd.incomingName || (cmd.type === 'attack' ? 'Attaque' : 'Soutien'),
   resourceIcon,

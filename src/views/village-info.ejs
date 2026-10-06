@@ -76,6 +76,60 @@
   </div>
 
   <div class="flex min-w-0 flex-col gap-4">
+    <%# Opérations de la tribu qui ciblent ce village : une ligne par attaque, toutes opérations confondues, dans l'ordre
+        des arrivées (heure, compte à rebours, opération, troupes, joueur, départ depuis le village courant d'après
+        l'unité la plus lente) ; revendiquer une place précise, libérer les attaques cochées. %>
+    <% if (operations.length) { const opBase = `/village/${vid}/tribe/operations`; const csrfIn = `<input type="hidden" name="_csrf" value="${csrfToken}">`;
+         const travelOf = new Map(travel.map((u) => [u.id, u.seconds]));
+         const timeline = operations.flatMap((r) => r.slots.map((sl) => ({ ...sl, r })))
+           .sort((a, b) => (a.at ? a.at.getTime() : Infinity) - (b.at ? b.at.getTime() : Infinity) || a.r.op.id - b.r.op.id || a.slot - b.slot);
+         const claimed = timeline.filter((e) => e.claim).length;
+         const ops = [...new Map(operations.map((r) => [r.op.id, r.op])).values()];
+         const releasable = timeline.some((e) => e.claim && (e.claim.playerId === ctx.village.playerId || opOrganizer)); %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Opérations de la tribu', `<span class="text-[13px] text-parchment-300 tabular-nums"><b class="text-parchment-100">${claimed} / ${timeline.length}</b> attaques revendiquées</span>`) %>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-bronze-800 px-3 py-1.5 text-[13px]">
+        <% for (const op of ops) { %><a href="<%= opBase %>/<%= op.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-1.5 font-semibold"><span class="inline-block size-2.5 shrink-0 border border-black" style="background: <%= op.color %>"></span><%= op.name %></a><% } %>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %> min-w-[720px] text-[13px] [&_td]:py-1 [&_th]:py-1">
+          <thead>
+            <tr>
+              <th class="w-7"><% if (releasable) { %><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="op-release" aria-label="Tout cocher"><% } %></th>
+              <th>Arrivée</th><th>Dans</th><th>Opération</th><th>Troupes</th><th>Joueur</th><th title="Depuis <%= ctx.village.name %>, d'après l'unité la plus lente demandée">Départ d'ici</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (const e of timeline) { const x = e.r.target; const c = e.claim; const me = c && c.playerId === ctx.village.playerId;
+                 const troops = Object.entries(x.units || {}).filter(([, n]) => n > 0);
+                 const slowest = Math.max(0, ...troops.map(([u]) => travelOf.get(u) || 0));
+                 const depart = e.at && slowest ? new Date(e.at.getTime() - slowest * 1000) : null;
+                 const left = e.at ? Math.floor((e.at.getTime() - now.getTime()) / 1000) : null; %>
+              <tr class="<%= me ? 'bg-gold-400/15' : '' %>" style="box-shadow: inset 3px 0 0 <%= e.r.op.color %>">
+                <td><% if (c && (me || opOrganizer)) { %><input type="checkbox" name="slots" value="<%= x.id %>:<%= e.slot %>" form="op-release" data-select-item class="<%= ui.checkbox %>" aria-label="Libérer l'attaque <%= e.slot + 1 %> de <%= e.r.op.name %>"><% } %></td>
+                <td class="font-semibold tabular-nums whitespace-nowrap" title="<%= e.at ? e.at.toLocaleString('fr-FR') : '' %>"><%= e.at ? `${e.at.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${e.at.toLocaleTimeString('fr-FR')}` : '—' %></td>
+                <td class="tabular-nums whitespace-nowrap"><% if (left > 0) { %><span data-countdown="<%= e.at.getTime() %>" data-countdown-noreload><%= duration(left) %></span><% } else if (left !== null) { %><span class="text-parchment-500">passée</span><% } %></td>
+                <td class="whitespace-nowrap" title="<%= x.note || '' %>"><%= e.r.op.name %> <span class="text-parchment-500 tabular-nums"><%= e.slot + 1 %>/<%= x.count %></span><% if (x.units && x.units.snob > 0) { %> <span class="text-gold-400" title="Noblage">♛</span><% } %></td>
+                <td><span class="flex flex-nowrap items-center gap-x-2"><% if (!troops.length) { %><span class="text-parchment-500">libres</span><% } %><% for (const [u, n] of troops) { %><span class="inline-flex items-center gap-0.5 tabular-nums whitespace-nowrap" title="<%= unitName(u) %>"><%- unitIcon(u, 'size-4 min-h-4 min-w-4') %><%= num(n) %></span><% } %></span></td>
+                <td class="whitespace-nowrap">
+                  <% if (c) { %><span class="<%= me ? 'font-semibold text-gold-200' : 'font-semibold' %>"><%= c.Player ? c.Player.name : '?' %></span>
+                  <% } else { %><form method="post" action="<%= opBase %>/targets/<%= x.id %>/claim" class="inline"><%- csrfIn %><input type="hidden" name="slot" value="<%= e.slot %>"><button class="<%= btn('gold', 'sm') %> h-6 px-2 text-[12px]" title="Revendiquer cette attaque">Prendre</button></form><% } %>
+                </td>
+                <td class="tabular-nums whitespace-nowrap"><% if (depart) { %><span class="<%= depart < now ? 'text-parchment-500 line-through' : me ? 'font-semibold text-gold-200' : '' %>"><%= depart.toLocaleTimeString('fr-FR') %></span><% } else { %><span class="text-parchment-500">—</span><% } %></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <% if (releasable) { %>
+        <form id="op-release" method="post" action="<%= opBase %>/release" class="flex flex-wrap items-center gap-2 border-t border-bronze-800 px-3 py-1.5"><%- csrfIn %>
+          <button class="<%= btn('dark', 'sm') %>">Libérer les attaques cochées</button>
+          <span class="text-[12px] text-parchment-500"><%= opOrganizer ? 'Tes attaques, ou celles des autres membres (droit Opérations).' : 'Seules tes attaques peuvent être cochées.' %></span>
+        </form>
+      <% } %>
+    </section>
+    <% } %>
+
     <%# Carnet de notes (visible de toi seul) %>
     <section class="<%= ui.panel %>">
       <details class="group">

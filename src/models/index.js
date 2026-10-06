@@ -747,6 +747,52 @@ const TribeForumVote = sequelize.define(
 TribeForumPoll.hasMany(TribeForumVote, { as: 'votes', foreignKey: { name: 'pollId', allowNull: false }, onDelete: 'CASCADE' });
 Player.hasMany(TribeForumVote, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
 
+/**
+ * Opération de tribu (organisation d'attaques groupées, purement informative) : un nom, une couleur de marquage sur
+ * la carte des membres, des tribus visées (`targetTribeIds`) et des consignes. Ses cibles sont des villages, chacun
+ * avec un nombre d'attaques demandées, des troupes et une heure d'arrivée : l'attaque n° i (0, 1…) arrive
+ * `spacing` × i secondes après `arrivalAt`. Les membres revendiquent ces attaques une à une (places, `slot`).
+ */
+const TribeOperation = sequelize.define(
+  'TribeOperation',
+  {
+    name: { type: DataTypes.STRING(60), allowNull: false },
+    color: { type: DataTypes.STRING(7), allowNull: false },
+    targetTribeIds: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+    note: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { indexes: [{ fields: ['tribeId'] }] },
+);
+Tribe.hasMany(TribeOperation, { foreignKey: { name: 'tribeId', allowNull: false }, onDelete: 'CASCADE' });
+TribeOperation.belongsTo(Tribe, { foreignKey: 'tribeId' });
+Player.hasMany(TribeOperation, { foreignKey: { name: 'playerId', allowNull: true }, onDelete: 'SET NULL' });
+TribeOperation.belongsTo(Player, { as: 'organizer', foreignKey: 'playerId' });
+const TribeOperationTarget = sequelize.define(
+  'TribeOperationTarget',
+  {
+    count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    units: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+    arrivalAt: { type: DataTypes.DATE, allowNull: true },
+    spacing: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    note: { type: DataTypes.STRING(120), allowNull: true },
+  },
+  { indexes: [{ fields: ['operationId'] }, { fields: ['villageId'] }] },
+);
+TribeOperation.hasMany(TribeOperationTarget, { as: 'targets', foreignKey: { name: 'operationId', allowNull: false }, onDelete: 'CASCADE' });
+TribeOperationTarget.belongsTo(TribeOperation, { as: 'operation', foreignKey: 'operationId' });
+Village.hasMany(TribeOperationTarget, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
+TribeOperationTarget.belongsTo(Village, { foreignKey: 'villageId' });
+// Revendication : le joueur s'engage à envoyer l'attaque n° `slot` de la cible (une ligne par attaque).
+const TribeOperationClaim = sequelize.define(
+  'TribeOperationClaim',
+  { slot: { type: DataTypes.INTEGER, allowNull: false } },
+  { indexes: [{ unique: true, fields: ['targetId', 'slot'] }, { fields: ['playerId'] }] },
+);
+TribeOperationTarget.hasMany(TribeOperationClaim, { as: 'claims', foreignKey: { name: 'targetId', allowNull: false }, onDelete: 'CASCADE' });
+TribeOperationClaim.belongsTo(TribeOperationTarget, { as: 'target', foreignKey: 'targetId' });
+Player.hasMany(TribeOperationClaim, { foreignKey: { name: 'playerId', allowNull: false }, onDelete: 'CASCADE' });
+TribeOperationClaim.belongsTo(Player, { foreignKey: 'playerId' });
+
 // Boutique : droit acquis sur un monde (portées monde et serveur).
 Entitlement.belongsTo(World, { foreignKey: { name: 'worldId', allowNull: true }, onDelete: 'CASCADE' });
 
@@ -790,5 +836,6 @@ module.exports = {
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
   PlayerAchievement, Knight, DailyStat, DailyAward, ScavengeRun, ArmyTemplate, MapFavorite, MapMarker, PasswordReset, ForumThread, ForumPost,
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote, TribeForumShare,
+  TribeOperation, TribeOperationTarget, TribeOperationClaim,
   Entitlement, AdartonTransaction,
 };

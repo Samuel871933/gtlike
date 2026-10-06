@@ -371,7 +371,47 @@
   const RUNE = typeof Path2D === 'function' ? new Path2D('M8 2v12M8 8 3.5 3.5M8 8l4.5-4.5') : null;
   const NOTE = typeof Path2D === 'function' ? new Path2D('M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h6') : null;
   const cssVar = (name) => spec(`var:${name}`, () => getComputedStyle(frame).getPropertyValue(name).trim());
+  // Opération : gommettes cumulées en haut à gauche (16 px, bordure noire de 2 px : même taille que les pastilles
+  // d'ordres et la note du carnet) : cible à la couleur de
+  // l'opération s'il reste des attaques à prendre, épée sur fond doré si tu y as revendiqué une attaque, coche si
+  // toutes sont prises (deux au plus sur la première rangée, qui s'arrête avant les pastilles d'ordres en haut à
+  // droite) ; couronne sur fond doré dessous si noblage (la note du carnet se décale alors à droite).
+  const TARGET = typeof Path2D === 'function' ? new Path2D('M12 5a7 7 0 100 14 7 7 0 100-14M12 1v6M12 17v6M1 12h6M17 12h6') : null;
+  const CHECK = typeof Path2D === 'function' ? new Path2D('M5 12.5l4.5 4.5L19 7.5') : null;
+  // Épée pleine en diagonale (lame, garde, poignée) : une silhouette remplie reste nette à petite taille.
+  const SWORD = typeof Path2D === 'function' ? new Path2D('M21 3l-1.2 4.6-8.3 8.3-3.4-3.4 8.3-8.3zM4.6 12.2l7.2 7.2-1.9 1.9-7.2-7.2zM8.6 17.6l-3.5 3.5-2.2-2.2 3.5-3.5z') : null;
+  const CROWN = typeof Path2D === 'function' ? new Path2D('M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z') : null;
+  function drawOperation(g, c, X, Y) {
+    const o = c.op;
+    const row = [o.open && 'target', o.mine && 'mine', !o.open && 'check'].filter(Boolean);
+    const S = 16;
+    const marks = row.map((kind, i) => [kind, i * (S + 2), 0]);
+    if (o.noble) marks.push(['noble', 0, S + 2]);
+    marks.forEach(([kind, dx, dy]) => {
+      g.save();
+      g.translate(X + 1 + dx, Y + 1 + dy);
+      const gold = kind === 'mine' || kind === 'noble';
+      // Format commun des pastilles de la carte : 16 px, bordure noire de 2 px, ombre noire d'1 px, 2 px d'écart.
+      g.fillStyle = '#000'; g.fillRect(1, 1, S, S);
+      g.fillRect(0, 0, S, S);
+      g.fillStyle = gold ? '#f2c14e' : o.color; g.fillRect(2, 2, S - 4, S - 4);
+      g.translate(3, 3); g.scale((S - 6) / 24, (S - 6) / 24);
+      if (gold) {
+        g.fillStyle = '#1b1206'; g.fill(kind === 'mine' ? SWORD : CROWN);
+      } else {
+        // Contour sombre puis trait blanc : lisible quelle que soit la couleur de l'opération.
+        const path = kind === 'target' ? TARGET : CHECK;
+        g.lineCap = 'round'; g.lineJoin = 'round';
+        g.lineWidth = 6; g.strokeStyle = 'rgb(0 0 0 / .75)'; g.stroke(path);
+        g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke(path);
+      }
+      g.restore();
+    });
+  }
+
   function drawMarks(g, c, X, Y, color) {
+    // Cible d'opération (calque « Opérations », indépendant de celui des marquages personnels).
+    if (c.op && layerOn('operations')) { drawOperation(g, c, X, Y); c = { ...c, mark: null, kind: 'other' }; }
     const dot = c.mark ? (layerOn('markers') ? c.mark : null) : ['current', 'own', 'tribe', 'ally', 'enemy'].includes(c.kind) ? color : null;
     if (dot) {
       g.fillStyle = 'rgb(0 0 0 / .7)'; g.fillRect(X + 2, Y + 2, 8, 8);
@@ -394,12 +434,13 @@
       g.restore();
     }
     if (c.note && NOTE) {
-      const nx = X + 2; const ny = Y + th - 20;
-      g.fillStyle = '#000'; g.fillRect(nx + 1, ny + 1, 18, 18);
-      g.fillRect(nx, ny, 18, 18);
-      g.fillStyle = '#f4e8c8'; g.fillRect(nx + 1, ny + 1, 16, 16);
+      // 16 px, bordure noire de 2 px, comme les gommettes d'opération ; décalée à droite de la couronne de noblage.
+      const nx = X + (c.op && c.op.noble && layerOn('operations') ? 20 : 1); const ny = Y + th - 18;
+      g.fillStyle = '#000'; g.fillRect(nx + 1, ny + 1, 16, 16);
+      g.fillRect(nx, ny, 16, 16);
+      g.fillStyle = '#f4e8c8'; g.fillRect(nx + 2, ny + 2, 12, 12);
       g.save();
-      g.translate(nx + 2, ny + 2); g.scale(14 / 24, 14 / 24);
+      g.translate(nx + 2, ny + 2); g.scale(12 / 24, 12 / 24);
       g.lineWidth = 2.4; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#3a2812';
       g.stroke(NOTE);
       g.restore();
@@ -465,6 +506,13 @@
         const c = cells.get(ck(x, y));
         if (!c || hiddenBarb(c)) continue;
         const design = c.design || 'beige';
+        // Cible d'une opération de la tribu : fond de la case à la couleur de l'opération (calque « Opérations »).
+        if (c.op && layerOn('operations') && inside(x, y)) {
+          g.save();
+          g.globalAlpha = 0.42; g.fillStyle = c.op.color; g.fillRect(X(x), Y(y), tw, th);
+          g.globalAlpha = 0.9; g.lineWidth = 1.5; g.strokeStyle = c.op.color; g.strokeRect(X(x) + 0.75, Y(y) + 0.75, tw - 1.5, th - 1.5);
+          g.restore();
+        }
         const sp = villageSprite(c.kind, design, c.level);
         if (sp) g.drawImage(sp.canvas, X(x) + sp.x, Y(y) + sp.y, sp.w, sp.h);
         drawMarks(g, c, X(x), Y(y), villageSpec(c.kind, design, c.level).color);
@@ -481,10 +529,10 @@
     const returning = orders.find((o) => o.type === 'return');
     // Ton village attaqué : épées rouges et nombre d'attaques en approche, au-dessus des pastilles d'ordres.
     const incoming = c.incoming
-      ? `<span class="flex h-[18px] items-center gap-0.5 border border-black bg-blood-600 px-0.5 text-[10px] leading-none font-semibold text-on-accent tabular-nums shadow-[1px_1px_0_#000]" title="${c.incoming} attaque${c.incoming > 1 ? 's' : ''} en approche">${boot.attackIcon || ''}${c.incoming}</span>`
+      ? `<span class="flex h-[16px] items-center gap-[2px] border-2 border-black bg-blood-600 px-[2px] text-[10px] leading-none font-semibold text-on-accent tabular-nums shadow-[1px_1px_0_#000]" title="${c.incoming} attaque${c.incoming > 1 ? 's' : ''} en approche">${boot.attackIcon || ''}${c.incoming}</span>`
       : '';
     const marks = incoming + [active, returning].filter(Boolean).map((o) => `<span title="${o.type === 'return' ? 'Troupes en retour' : 'Ordre en cours'}">${o.mapBadge}</span>`).join('');
-    return marks ? `<div class="pointer-events-none absolute z-[5] w-(--tile-w) h-(--tile-h)" style="${style}" aria-hidden="true"><span class="absolute top-px -right-5 flex flex-col items-end">${marks}</span></div>` : '';
+    return marks ? `<div class="pointer-events-none absolute z-[5] w-(--tile-w) h-(--tile-h)" style="${style}" aria-hidden="true"><span class="absolute top-px -right-[18px] flex flex-col items-end gap-[2px]">${marks}</span></div>` : '';
   }
 
   // La carte est découpée en blocs de CHUNK × CHUNK cases, posés en coordonnées du monde dans le calque. Un bloc
@@ -1146,6 +1194,29 @@
       notesCell.innerHTML = (d.notes || []).map((n) => `<span class="block whitespace-pre-line wrap-break-word text-parchment-200">${n.author ? `<b class="font-semibold text-gold-200">${esc(n.author)} :</b> ` : ''}${esc(n.text)}</span>`).join('');
     }
     show('notes', Boolean(d.notes && d.notes.length));
+    const opsCell = tip.querySelector('[data-tip="ops"]');
+    if (opsCell) {
+      // Bandeau des opérations : liseré et fond à la couleur de l'opération, état (à prendre, complet, ta participation),
+      // noblage, attaques revendiquées / demandées, arrivée et tes heures.
+      opsCell.innerHTML = (d.ops || []).map((o) => {
+        const color = esc(o.color);
+        const free = o.count - o.claimed;
+        const state = o.mine
+          ? `<span class="font-semibold text-gold-200">⚔ Tu y participes${o.mine > 1 ? ` (${o.mine} attaques)` : ''}</span>`
+          : free > 0 ? `<span class="font-semibold text-parchment-100">◎ ${free} attaque${free > 1 ? 's' : ''} à prendre</span>` : '<span class="font-semibold text-olive-300">✔ Complet</span>';
+        const pct = o.count ? Math.round((o.claimed / o.count) * 100) : 0;
+        return `<div class="flex flex-col gap-1 px-2.5 py-1.5" style="background:linear-gradient(90deg, ${color}55, ${color}1f 70%), var(--color-panel-top);border-left:5px solid ${color}">`
+          + `<span class="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5"><b class="font-display text-[14px] font-normal text-parchment-100">${esc(o.name)}</b>${state}</span>`
+          + `<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-parchment-300">${o.noble ? '<span class="font-semibold text-gold-400">♛ Noblage</span>' : ''}`
+          + `<span class="tabular-nums"><b class="text-parchment-100">${o.claimed} / ${o.count}</b> attaque${o.count > 1 ? 's' : ''}</span>`
+          + `<span class="inline-block h-1.5 w-16 border border-black bg-night"><span class="block h-full" style="width:${pct}%;background:${color}"></span></span>`
+          + `${o.at ? `<span class="tabular-nums">· ${esc(o.at)}</span>` : ''}</span>`
+          + `${o.mineAt.length ? `<span class="text-[12px] font-semibold text-gold-200 tabular-nums">Tes arrivées : ${o.mineAt.map(esc).join(', ')}</span>` : ''}`
+          + '</div>';
+      }).join('');
+    }
+    show('ops', Boolean(d.ops && d.ops.length));
+    if (opsCell) opsCell.classList.toggle('flex', Boolean(d.ops && d.ops.length));
     const orderLabels = { attack: 'Attaque', support: 'Soutien', relocate: 'Déplacement', return: 'Retour' };
     for (const group of ['own', 'tribe']) {
       const orders = liveOrders(d)[group];
@@ -1423,7 +1494,7 @@
 
   // ------------------------------------------------------------------ Calques (mémorisés sur le joueur)
   // Aussi appliqués à la mini-carte et à la carte du monde (public/js/minimap.js).
-  const LAYER_KEYS = ['markers', 'moves', 'church', 'influence', 'faction', 'enemy', 'nobarb', 'grid', 'borders'];
+  const LAYER_KEYS = ['markers', 'operations', 'moves', 'church', 'influence', 'faction', 'enemy', 'nobarb', 'grid', 'borders'];
   const layersOn = () => Object.fromEntries(LAYER_KEYS.map((k) => [k, frame.hasAttribute(`data-layer-${k}`)]));
   document.querySelectorAll('[data-map-layer]').forEach((b) => {
     b.addEventListener('click', () => {
@@ -1431,7 +1502,7 @@
       const on = b.getAttribute('aria-pressed') !== 'true';
       frame.toggleAttribute(`data-layer-${k}`, on);
       b.setAttribute('aria-pressed', String(on));
-      if (['influence', 'faction', 'enemy', 'nobarb', 'markers'].includes(k)) { redrawAll(); hideHover(); hideTip(); }
+      if (['influence', 'faction', 'enemy', 'nobarb', 'markers', 'operations'].includes(k)) { redrawAll(); hideHover(); hideTip(); }
       drawMini();
       if (modal && !modal.classList.contains('hidden')) drawWorld();
       const body = new URLSearchParams({ _csrf: frame.dataset.csrf, layer: k, on: on ? '1' : '0' });

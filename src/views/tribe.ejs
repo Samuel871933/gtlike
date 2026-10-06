@@ -5,7 +5,7 @@
   // Droits et Invitations : onglets à part (comme sur GT), seulement pour ceux qui ont le droit correspondant.
   const tabs = [['overview', 'Aperçu'], ['properties', 'Propriétés'], ['members', `Membres (${members.length})`],
     ...(can('baron') ? [['rights', 'Droits']] : []), ...(can('invite') ? [['invites', invites.length ? `Invitations (${invites.length})` : 'Invitations']] : []),
-    ['diplomacy', 'Diplomatie'], ['forum', forumUnread ? `Forum (${forumUnread})` : 'Forum']];
+    ['diplomacy', 'Diplomatie'], ['operations', operationCount ? `Opérations (${operationCount})` : 'Opérations'], ['forum', forumUnread ? `Forum (${forumUnread})` : 'Forum']];
   const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
   const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-semibold tracking-[0.02em]';
   const relBadge = {
@@ -62,6 +62,10 @@
 
 <% if (tab === 'diplomacy') { %>
   <%- include('partials/tribe/diplomacy', { vid, t, relName, relTag, relBadge, roleTag, isDuke, dukes }) %>
+<% } %>
+
+<% if (tab === 'operations') { %>
+  <%- include('partials/tribe/operations', { vid, t }) %>
 <% } %>
 
 <% if (tab === 'forum' && forum) { %>

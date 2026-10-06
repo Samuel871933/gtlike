@@ -1,0 +1,373 @@
+<%#
+  Tribu, onglet « Opérations » (inclus par tribe.ejs) : organisation d'attaques groupées et de noblages, informative.
+  `operations` : liste des opérations (OperationService.list) ; `operation` : une opération (OperationService.detail) :
+  chiffres clés, vues Mes attaques / À prendre / Toutes / par joueur, places d'attaque de chaque cible, participants,
+  et pour les organisateurs la modification groupée et l'ajout de cibles.
+%>
+<%
+  const o = `${t}/operations`;
+  const csrf = `<input type="hidden" name="_csrf" value="${csrfToken}">`;
+  const swatch = (color, cls = 'size-3.5') => `<span class="${cls} inline-block shrink-0 border-2 border-black shadow-[1px_1px_0_#000]" style="background:${color}" aria-hidden="true"></span>`;
+  const at = (d) => (d ? new Date(d).toLocaleString('fr-FR') : '');
+  const hms = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR') : '');
+  // Revendiquées / demandées : complet en vert, partiel en or, rien en gris.
+  const progress = (claimed, wanted) => `<span class="font-semibold tabular-nums ${!wanted ? 'text-parchment-500' : claimed >= wanted ? 'text-olive-500' : claimed ? 'text-gold-400' : 'text-parchment-500'}">${num(claimed)} / ${num(wanted)}</span>`;
+  const tile = (label, value, extra = '') => `<div class="${ui.tile}"><dt class="${ui.tileLabel}">${label}</dt><dd class="${ui.tileValue} ${extra}">${value}</dd></div>`;
+%>
+
+<% if (operations) { const list = operations.operations; %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Opérations', `<span class="${ui.headCount}">${list.length}</span>`) %>
+    <div class="<%= ui.panelBody %>">
+      <p class="text-sm text-parchment-500">Organisation des attaques groupées et des noblages : chaque opération liste des villages cibles, le nombre d'attaques demandées, leurs troupes et leur heure d'arrivée. Revendique une attaque pour t'engager à l'envoyer à l'heure. Tout est informatif : aucun ordre n'est envoyé, mais les cibles sont marquées sur la carte.</p>
+      <% if (!list.length) { %><p class="text-parchment-500">Aucune opération en cours.</p><% } %>
+    </div>
+    <% if (list.length) { %>
+      <div class="<%= ui.tableScroll %>">
+        <table class="<%= ui.table %> min-w-[760px]">
+          <thead><tr><th>Opération</th><th>Tribus visées</th><th class="text-right">Villages</th><th class="text-center">Attaques</th><th class="text-center">Noblages</th><th class="text-center">Mes attaques</th><th>Prochaine arrivée</th></tr></thead>
+          <tbody>
+            <% for (const r of list) { const s = r.stats; %>
+              <tr>
+                <td><a href="<%= o %>/<%= r.op.id %>" class="<%= ui.linkPlain %> inline-flex items-center gap-2 font-display font-semibold"><%- swatch(r.op.color) %><%= r.op.name %></a></td>
+                <td><span class="flex flex-wrap gap-1"><% for (const tr of r.tribes) { %><%- tribeLink(vid, tr) %><% } %><% if (!r.tribes.length) { %><span class="text-parchment-500">—</span><% } %></span></td>
+                <td class="text-right font-semibold tabular-nums"><%= num(s.villages) %></td>
+                <td class="text-center"><%- progress(s.claimed, s.wanted) %></td>
+                <td class="text-center"><%- s.nobles ? progress(s.noblesClaimed, s.nobles) : '<span class="text-parchment-500">—</span>' %></td>
+                <td class="text-center font-semibold tabular-nums <%= s.mine ? 'text-gold-200' : 'text-parchment-500' %>"><%= num(s.mine) %></td>
+                <td class="text-[13px] tabular-nums"><%= r.next ? at(r.next) : '' %></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+
+  <% if (operations.manager) { %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Nouvelle opération') %>
+      <form method="post" action="<%= o %>" class="<%= ui.panelBody %>"><%- csrf %>
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="<%= ui.label %> min-w-56 flex-1">Nom<input name="name" required minlength="2" maxlength="60" placeholder="Opération Aube rouge" class="<%= ui.input %>"></label>
+          <label class="<%= ui.label %>">Couleur sur la carte<input type="color" name="color" value="<%= operations.color %>" class="h-9 w-16 cursor-pointer border-2 border-black bg-panel-hi p-0.5"></label>
+          <label class="<%= ui.label %> min-w-56 flex-1">Tribus visées (tags)<input name="tags" maxlength="80" placeholder="ReVo, LTQS" class="<%= ui.input %>"></label>
+        </div>
+        <label class="<%= ui.label %>">Consignes<textarea name="note" rows="3" maxlength="2000" class="<%= ui.textarea %>" placeholder="Objectif, ordre des vagues, nobles…"></textarea></label>
+        <button class="<%= btn('gold', 'md', 'self-start') %>"><%- icon('plus', 'size-3.5', 2.6) %>Créer l'opération</button>
+      </form>
+    </section>
+  <% } %>
+<% } %>
+
+<% if (operation) {
+     const op = operation.op; const manager = operation.manager; const s = operation.stats; const f = operation.filter;
+     const page = `${o}/${op.id}`;
+     // Lien de la page avec les filtres courants (vue, participant, sous-filtres des cibles, tri), modifiés par `over` ;
+     // les vides sont omis.
+     const href = (over = {}) => {
+       const q = { vue: f.view, j: f.j || '', k: f.k, ct: f.ct || '', cj: f.cj || '', type: f.type, q: f.q, tri: f.sort, ordre: f.sort ? f.dir : '', ...over };
+       if (q.vue !== 'player') q.j = '';
+       const qs = new URLSearchParams(Object.entries(q).filter(([, v]) => v !== '' && v != null)).toString();
+       return `${page}${qs ? `?${qs}` : ''}`;
+     };
+     const viewTabs = [['mine', `Mes attaques (${num(operation.counts.mine)})`], ['open', `À prendre (${num(operation.counts.open)})`], ['all', `Toutes les cibles (${num(operation.counts.all)})`]];
+     const who = f.view === 'player' ? operation.participants.find((e) => e.player.id === f.j) : null;
+     // En-tête triable (comme la liste des serveurs) : un clic trie la colonne dans son sens par défaut, un second
+     // inverse le sens ; chevron sur la colonne active. Sans tri : vagues groupées par village et par heure.
+     const sortHead = (key, label, cls = '') => {
+       const active = f.sort === key;
+       const next = active ? (f.dir === 'asc' ? 'desc' : 'asc') : operation.sortDirs[key];
+       const aria = active ? ` aria-sort="${f.dir === 'asc' ? 'ascending' : 'descending'}"` : '';
+       const arrow = active ? icon(f.dir === 'asc' ? 'chevronUp' : 'chevronDown', 'size-3', 2.4) : '';
+       return `<th class="${cls}"${aria}><a href="${esc(href({ tri: key, ordre: next, page: '' }))}" class="inline-flex items-center gap-1 hover:text-gold-200${active ? ' text-gold-200' : ''}">${esc(label)}${arrow}</a></th>`;
+     };
+     const filtered = f.k || f.ct || f.cj || f.type || f.q;
+     // Cellules communes aux deux tableaux (cibles, feuille de route), sur une seule ligne : village (couronne si
+     // noblage, remarque en petit, entière au survol), joueur ciblé et sa tribu, heure courte (date complète au survol),
+     // troupes en petites icônes.
+     const villageCell = (x, label = null) => `<span class="flex items-center gap-1.5">${label || villageLink(vid, x.Village, { truncate: true })}${OperationNoble(x) ? `<span class="text-gold-400" title="Noblage">${icon('crown', 'size-3.5', 2.4)}</span>` : ''}${x.note ? `<span class="max-w-32 truncate text-[12px] text-parchment-500">${esc(x.note)}</span>` : ''}</span>`;
+     const ownerCell = (owner) => `<span class="flex items-center gap-1.5">${playerLink(vid, owner)}${owner && owner.Tribe ? tribeLink(vid, owner.Tribe) : ''}</span>`;
+     const shortAt = (d) => (d ? `${new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${hms(d)}` : '—');
+     const troopsCell = (units) => {
+       const list = Object.entries(units || {}).filter(([, n]) => n > 0);
+       if (!list.length) return '<span class="text-parchment-500">Libres</span>';
+       return `<span class="flex items-center gap-2">${list.map(([u, n]) => `<span class="inline-flex items-center gap-0.5 tabular-nums" title="${esc(unitName(u))}">${unitIcon(u, 'size-4 min-h-4 min-w-4')}${num(n)}</span>`).join('')}</span>`;
+     };
+     const tableCls = `${ui.table} text-[13px] [&_td]:px-2.5 [&_td]:py-1 [&_td]:whitespace-nowrap [&_th]:px-2.5`; %>
+  <a href="<%= t %>?tab=operations" class="<%= ui.link %> inline-flex items-center gap-1.5 text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %>Toutes les opérations</a>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead(op.name, `<span class="inline-flex items-center gap-2 font-sans text-[12px] text-parchment-300">Marquage ${swatch(op.color)}</span>`) %>
+    <div class="<%= ui.panelBody %>">
+      <dl class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <%- tile('Villages', num(s.villages)) %>
+        <%- tile('Attaques', progress(s.claimed, s.wanted)) %>
+        <%- tile('Noblages', s.nobles ? progress(s.noblesClaimed, s.nobles) : '—') %>
+        <%- tile('Mes attaques', `${num(s.mine)}${s.mineNobles ? ` <span class="text-[12px] text-parchment-500">dont ${s.mineNobles} noble${s.mineNobles > 1 ? 's' : ''}</span>` : ''}`, s.mine ? 'text-gold-200' : '') %>
+        <%- tile('Participants', num(operation.participants.length)) %>
+        <%- tile('Première arrivée', s.first ? `<span class="text-[14px]">${at(s.first)}</span>` : '—') %>
+      </dl>
+      <% if (s.wanted) { %><span class="<%= ui.track %>" title="<%= Math.round((s.claimed / s.wanted) * 100) %> % des attaques revendiquées"><span class="<%= ui.fill %>" style="width: <%= Math.round((s.claimed / s.wanted) * 100) %>%"></span></span><% } %>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
+        <span class="flex flex-wrap items-center gap-1.5"><span class="text-parchment-500">Tribus visées :</span><% for (const tr of operation.tribes) { %><%- tribeLink(vid, tr, { name: true }) %><% } %><% if (!operation.tribes.length) { %><span class="text-parchment-500">aucune</span><% } %></span>
+        <span><span class="text-parchment-500">Organisée par</span> <%- playerLink(vid, operation.organizer, { none: 'un ancien membre' }) %></span>
+      </div>
+      <% if (op.note) { %><p class="border-l-2 border-bronze-600 pl-3 leading-snug whitespace-pre-line text-parchment-100"><%= op.note %></p><% } %>
+      <% if (manager) { %>
+        <%# Organisateur : ajouter des cibles (ouvre le panneau du bas, avec ou sans rechargement) et modifier l'opération. %>
+        <details class="group/edit">
+          <summary class="flex list-none flex-wrap items-center gap-2 [&::-webkit-details-marker]:hidden">
+            <a href="<%= href({ ajout: 1 }) %>#ajout" class="<%= btn('gold', 'sm') %>" data-open-details="ajout"><%- icon('plus', 'size-3.5', 2.6) %>Ajouter des cibles</a>
+            <span class="<%= btn('dark', 'sm') %> cursor-pointer"><%- icon('edit', 'size-3.5', 2.4) %>Modifier l'opération</span>
+          </summary>
+          <form method="post" action="<%= page %>" class="mt-3 flex flex-col gap-3"><%- csrf %>
+            <div class="flex flex-wrap items-end gap-3">
+              <label class="<%= ui.label %> min-w-56 flex-1">Nom<input name="name" value="<%= op.name %>" required minlength="2" maxlength="60" class="<%= ui.input %>"></label>
+              <label class="<%= ui.label %>">Couleur<input type="color" name="color" value="<%= op.color %>" class="h-9 w-16 cursor-pointer border-2 border-black bg-panel-hi p-0.5"></label>
+              <label class="<%= ui.label %> min-w-56 flex-1">Tribus visées (tags)<input name="tags" value="<%= operation.tribes.map((tr) => tr.tag).join(' ') %>" maxlength="80" class="<%= ui.input %>"></label>
+            </div>
+            <label class="<%= ui.label %>">Consignes<textarea name="note" rows="3" maxlength="2000" class="<%= ui.textarea %>"><%= op.note || '' %></textarea></label>
+            <div class="flex flex-wrap gap-2">
+              <button class="<%= btn('gold', 'md') %>">Enregistrer</button>
+              <button form="op-delete" class="<%= btn('dark', 'md') %> text-blood-500">Supprimer l'opération</button>
+            </div>
+          </form>
+          <form id="op-delete" method="post" action="<%= page %>/delete" data-confirm="Supprimer l'opération « <%= op.name %> », ses cibles et les revendications ?"><%- csrf %></form>
+        </details>
+      <% } %>
+    </div>
+  </section>
+
+  <%# Liste des attaques : onglets (Mes attaques, À prendre, Toutes) dans la barre du panneau, sous-filtres des cibles
+      dessous (comme la liste des serveurs), puis la feuille de route ou le tableau des cibles. %>
+  <section class="<%= ui.panel %>" id="cibles">
+    <%- panelHead(f.view === 'player' && who ? `Attaques de ${who.player.name}` : 'Attaques', segTabs(viewTabs.map(([id, label]) => [href({ vue: id, page: '' }), label, f.view === id]))) %>
+    <form method="get" action="<%= page %>#cibles" class="flex flex-wrap items-center gap-2 border-b border-bronze-800 px-3 py-2 text-sm">
+      <input type="hidden" name="vue" value="<%= f.view %>">
+      <% if (f.sort) { %><input type="hidden" name="tri" value="<%= f.sort %>"><input type="hidden" name="ordre" value="<%= f.dir %>"><% } %>
+      <input name="q" value="<%= f.q %>" placeholder="Village ou x|y" aria-label="Chercher une cible par son nom ou ses coordonnées" class="<%= ui.input %> h-7 w-40 text-sm">
+      <% if (operation.targetTribes.length > 1) { %>
+        <select name="ct" class="<%= ui.input %> h-7 text-sm" aria-label="Tribu ciblée" data-autosubmit>
+          <option value="">Tribu ciblée</option>
+          <% for (const tr of operation.targetTribes) { %><option value="<%= tr.id %>" <%= f.ct === tr.id ? 'selected' : '' %>><%= tr.tag %></option><% } %>
+        </select>
+      <% } %>
+      <select name="cj" class="<%= ui.input %> h-7 max-w-48 text-sm" aria-label="Joueur ciblé" data-autosubmit>
+        <option value="">Joueur ciblé</option>
+        <% for (const pl of operation.targetPlayers) { %><option value="<%= pl.id %>" <%= f.cj === pl.id ? 'selected' : '' %>><%= pl.name %></option><% } %>
+      </select>
+      <select name="type" class="<%= ui.input %> h-7 text-sm" aria-label="Type d'attaque" data-autosubmit>
+        <option value="">Type</option>
+        <% for (const [id, label] of Object.entries(operation.types)) { %><option value="<%= id %>" <%= f.type === id ? 'selected' : '' %>><%= label %></option><% } %>
+      </select>
+      <% if (operation.continents.length > 1) { %>
+        <select name="k" class="<%= ui.input %> h-7 text-sm" aria-label="Continent" data-autosubmit>
+          <option value="">Continent</option>
+          <% for (const k of operation.continents) { %><option value="<%= k %>" <%= f.k === k ? 'selected' : '' %>><%= k %></option><% } %>
+        </select>
+      <% } %>
+      <button class="<%= btn('dark', 'sm') %>"><%- icon('search', 'size-3.5', 2.2) %>Filtrer</button>
+      <% if (filtered) { %><a href="<%= href({ k: '', ct: '', cj: '', type: '', q: '', page: '' }) %>#cibles" class="<%= ui.link %> text-[13px]">Effacer les filtres</a><% } %>
+      <span class="flex-1"></span>
+      <%# Participant : ses attaques revendiquées (vue « joueur »). %>
+      <select class="<%= ui.input %> h-7 max-w-48 text-sm" aria-label="Attaques d'un participant" onchange="location.href = this.value">
+        <%# « Participant… » : retour à toutes les cibles. %>
+        <option value="<%= href({ vue: f.view === 'player' ? 'all' : f.view, j: '', page: '' }) %>#cibles">Participant…</option>
+        <% for (const e of operation.participants) { %><option value="<%= href({ vue: 'player', j: e.player.id, page: '' }) %>#cibles" <%= f.view === 'player' && f.j === e.player.id ? 'selected' : '' %>><%= e.player.name %> (<%= e.attacks %>)</option><% } %>
+      </select>
+    </form>
+
+  <% if (operation.slots) { const sl = operation.slots; %>
+    <%# Feuille de route : une ligne par attaque revendiquée, dans l'ordre des arrivées. %>
+      <% if (!sl.total) { %>
+        <p class="px-3 py-2.5 text-[13px] text-parchment-500"><%= filtered ? 'Aucune attaque ne correspond à ces filtres.' : f.view === 'mine' ? "Tu n'as revendiqué aucune attaque." : 'Aucune attaque revendiquée.' %> <a href="<%= href({ vue: 'open', page: '' }) %>" class="<%= ui.link %>">Voir les attaques à prendre</a></p>
+      <% } else { %>
+        <% if (f.view === 'mine') { %><p class="px-3 pt-2 text-[13px] text-parchment-500">Ta feuille de route : envoie chaque attaque pour qu'elle arrive à l'heure indiquée, avec les troupes demandées.</p><% } %>
+        <% if (f.view === 'mine' || manager) { %>
+          <div class="flex flex-wrap items-center gap-2 px-3 py-1.5">
+            <button form="op-release" class="<%= btn('dark', 'sm') %>" data-confirm="Libérer les attaques cochées ?">Libérer les attaques cochées</button>
+            <% if (f.view === 'player' && manager) { %><span class="text-[12px] text-parchment-500">Droit Opérations : tu peux libérer les attaques de <%= who ? who.player.name : 'ce membre' %>.</span><% } %>
+          </div>
+        <% } %>
+        <div class="overflow-x-auto">
+          <table class="<%= tableCls %> min-w-[800px]">
+            <thead><tr><th class="w-8"><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="op-release" aria-label="Tout cocher"></th><%- sortHead('arrivee', 'Arrivée') %><%- sortHead('village', 'Village cible') %><%- sortHead('joueur', 'Joueur ciblé') %><%- sortHead('troupes', 'Troupes') %><%- sortHead('attaques', 'Attaque', 'text-center') %><th class="text-right"></th></tr></thead>
+            <tbody>
+              <% for (const r of sl.rows) { const x = r.target; const v = x.Village; const owner = v.Player; %>
+                <tr class="<%= r.claim.playerId === player.id ? 'bg-gold-400/10' : '' %>">
+                  <td><% if (r.claim.playerId === player.id || manager) { %><input type="checkbox" name="slots" value="<%= x.id %>:<%= r.slot %>" form="op-release" data-select-item class="<%= ui.checkbox %>" aria-label="Cocher l'attaque <%= r.slot + 1 %> sur <%= v.name %>"><% } %></td>
+                  <td class="font-semibold tabular-nums" title="<%= r.at ? at(r.at) : '' %>"><%= shortAt(r.at) %></td>
+                  <td title="<%= x.note || '' %>"><%- villageCell(x) %></td>
+                  <td><%- ownerCell(owner) %></td>
+                  <td><%- troopsCell(x.units) %></td>
+                  <td class="text-center tabular-nums"><%= r.slot + 1 %> / <%= x.count %></td>
+                  <td class="text-right"><% if (r.claim.playerId === player.id || manager) { %><form method="post" action="<%= o %>/targets/<%= x.id %>/unclaim" class="inline" data-confirm="Libérer l'attaque <%= r.slot + 1 %> sur <%= v.name %><%= r.claim.playerId === player.id ? '' : ` (${who ? who.player.name : ''})` %> ?"><%- csrf %><input type="hidden" name="slot" value="<%= r.slot %>"><button class="<%= btn('dark', 'sm') %> h-6 px-2 text-[12px]">Libérer</button></form><% } %></td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% if (sl.pages > 1) { %><div class="border-t border-bronze-800 px-3 py-2"><%- include('../pager', { page: sl.page, pages: sl.pages, href: (n) => href({ page: n }) }) %></div><% } %>
+        <% if (f.view === 'mine' || manager) { %>
+          <form id="op-release" method="post" action="<%= o %>/release" class="border-t border-bronze-800 px-3 py-2"><%- csrf %>
+            <button class="<%= btn('dark', 'sm') %>" data-confirm="Libérer les attaques cochées ?">Libérer les attaques cochées</button>
+          </form>
+        <% } %>
+      <% } %>
+  <% } %>
+
+  <% if (operation.targets) { const tg = operation.targets; %>
+      <% if (!tg.total) { %>
+        <p class="px-3 py-2.5 text-[13px] text-parchment-500"><%= filtered ? 'Aucune cible ne correspond à ces filtres.' : f.view === 'open' && s.villages ? 'Toutes les attaques sont revendiquées.' : manager ? 'Aucune cible : ajoute des villages ci-dessous.' : "Aucune cible pour l'instant." %></p>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <%# Une ligne par demande : village (remarque au survol), joueur, arrivée (+ écart), troupes, places, actions. %>
+          <table class="<%= tableCls %> min-w-[900px]">
+            <thead>
+              <tr>
+                <% if (manager) { %><th class="w-8"><input type="checkbox" class="<%= ui.checkbox %>" data-select-all="op-bulk" aria-label="Tout cocher"></th><% } %>
+                <%- sortHead('village', 'Village cible') %><%- sortHead('joueur', 'Joueur ciblé') %><%- sortHead('arrivee', 'Arrivée') %><%- sortHead('troupes', 'Troupes par attaque') %><%- sortHead('attaques', 'Attaques') %><th class="text-right"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <%# Demandes d'un même village à la suite (vagues) : le village n'est nommé qu'à la première. %>
+              <% tg.rows.forEach((x, i) => { const v = x.Village; const owner = v.Player; const live = OperationLive(x); const free = x.count - live.length; const mine = live.filter((c) => c.playerId === player.id).length;
+                   const same = i > 0 && tg.rows[i - 1].villageId === x.villageId; const wave = tg.rows.slice(0, i + 1).filter((y) => y.villageId === x.villageId).length; %>
+                <tr class="<%= mine ? 'bg-gold-400/10' : '' %> <%= same ? '[&>td]:border-t-0' : 'border-t-2 border-bronze-800' %>">
+                  <% if (manager) { %><td><input type="checkbox" name="ids" value="<%= x.id %>" form="op-bulk" data-select-item class="<%= ui.checkbox %>" aria-label="Cocher <%= v.name %>"></td><% } %>
+                  <td title="<%= x.note || '' %>"><%- villageCell(x, same ? `<span class="pl-3 text-parchment-500">↳ vague ${wave}</span>` : null) %></td>
+                  <td><% if (!same) { %><%- ownerCell(owner) %><% } %></td>
+                  <td class="tabular-nums" title="<%= x.arrivalAt ? at(x.arrivalAt) : '' %>"><%= shortAt(x.arrivalAt) %><% if (x.count > 1 && x.spacing && x.arrivalAt) { %> <span class="text-[12px] text-parchment-500" title="Écart entre les attaques">+<%= x.spacing %> s</span><% } %></td>
+                  <td><%- troopsCell(x.units) %></td>
+                  <td>
+                    <%# Revendiquées / demandées, puis une case par place (numéro de l'attaque) : vide si libre, pleine si
+                        revendiquée, dorée si c'est la tienne ; heure et joueur au survol. Cliquer une case revendiquée la
+                        libère (la tienne, ou celle d'un autre membre pour un organisateur). %>
+                    <span class="flex items-center gap-0.5">
+                      <span class="mr-1.5 w-10"><%- progress(live.length, x.count) %></span>
+                      <% for (let i = 0; i < x.count; i++) { const c = live.find((cl) => cl.slot === i); const t2 = OperationSlotTime(x, i); const me = c && c.playerId === player.id;
+                           // Bulle : joueur (ou libre), puis attaque et heure ; « cliquer pour libérer » si possible.
+                           const tip = `${c ? (c.Player ? c.Player.name : '?') : 'Libre'}${me ? ' (toi)' : ''}\nAttaque ${i + 1} / ${x.count}${t2 ? ` · ${at(t2)}` : ''}${c && (me || manager) ? '\nCliquer pour libérer' : ''}`;
+                           const box = `inline-flex size-5 items-center justify-center border text-[10px] font-semibold tabular-nums ${me ? 'border-black bg-gold-400 text-[#1b1206]' : c ? 'border-black bg-bronze-600 text-parchment-50' : 'border-dashed border-bronze-600 text-parchment-500'}`; %>
+                        <% if (c && (me || manager)) { %>
+                          <form method="post" action="<%= o %>/targets/<%= x.id %>/unclaim" class="inline-flex" data-confirm="Libérer l'attaque <%= i + 1 %> (<%= c.Player ? c.Player.name : '?' %>) ?"><%- csrf %><input type="hidden" name="slot" value="<%= i %>"><button class="<%= box %> cursor-pointer hover:border-blood-500 hover:bg-blood-600 hover:text-on-accent" data-hint="<%= tip %>" aria-label="<%= tip.replace(/\n/g, ' · ') %>"><%= i + 1 %></button></form>
+                        <% } else { %>
+                          <span class="<%= box %> cursor-default" data-hint="<%= tip %>" aria-label="<%= tip.replace(/\n/g, ' · ') %>"><%= i + 1 %></span>
+                        <% } %>
+                      <% } %>
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    <span class="inline-flex items-center gap-1">
+                      <% if (free > 0) { %>
+                        <form method="post" action="<%= o %>/targets/<%= x.id %>/claim"><%- csrf %><button class="<%= btn('gold', 'sm') %> h-6 px-2 text-[12px]" title="Je m'engage à envoyer la prochaine attaque libre">Prendre</button></form>
+                        <% if (free > 1) { %><form method="post" action="<%= o %>/targets/<%= x.id %>/claim"><%- csrf %><input type="hidden" name="n" value="all"><button class="<%= btn('dark', 'sm') %> h-6 px-2 text-[12px]" title="Prendre toutes les attaques libres de cette demande">Tout (<%= free %>)</button></form><% } %>
+                      <% } %>
+                      <% if (mine) { %>
+                        <form method="post" action="<%= o %>/targets/<%= x.id %>/unclaim"><%- csrf %><button class="<%= btn('dark', 'sm') %> h-6 px-2 text-[12px]" title="Libérer ma dernière attaque sur cette demande">Libérer</button></form>
+                      <% } %>
+                    </span>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% if (tg.pages > 1) { %><div class="border-t border-bronze-800 px-3 py-2"><%- include('../pager', { page: tg.page, pages: tg.pages, href: (n) => href({ page: n }) }) %></div><% } %>
+        <% if (manager) { %>
+          <details class="border-t border-bronze-800 px-3 py-2.5">
+            <summary class="<%= ui.link %> cursor-pointer list-none text-[13px] font-semibold [&::-webkit-details-marker]:hidden"><%- icon('edit', 'size-3 inline', 2.4) %> Modifier les cibles cochées</summary>
+            <form id="op-bulk" method="post" action="<%= page %>/targets/bulk" class="mt-3 flex flex-col gap-3"><%- csrf %>
+              <%- include('operation-fields', { bulk: true, opUnits, templates: operation.templates }) %>
+              <div class="flex flex-wrap gap-2">
+                <button name="action" value="update" class="<%= btn('gold', 'md') %>">Appliquer aux cibles cochées</button>
+                <button name="action" value="delete" class="<%= btn('dark', 'md') %>" data-confirm="Retirer les cibles cochées de l'opération ?">Retirer les cibles cochées</button>
+              </div>
+            </form>
+          </details>
+        <% } %>
+      <% } %>
+  <% } %>
+  </section>
+
+
+  <% if (operation.participants.length) { %>
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Participants', `<span class="${ui.headCount}">${operation.participants.length}</span>`) %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %>">
+          <thead><tr><th>Joueur</th><th class="text-right">Attaques</th><th class="text-right">Noblages</th><th class="text-right"></th></tr></thead>
+          <tbody>
+            <% for (const e of operation.participants) { %>
+              <tr class="<%= e.player.id === player.id ? 'bg-gold-400/10' : '' %>">
+                <td class="font-semibold"><%- playerLink(vid, e.player) %></td>
+                <td class="text-right tabular-nums"><%= num(e.attacks) %></td>
+                <td class="text-right tabular-nums"><%= e.nobles ? num(e.nobles) : '—' %></td>
+                <td class="text-right"><a href="<%= href({ vue: 'player', j: e.player.id, page: '' }) %>" class="<%= ui.link %> text-[13px]">Voir ses attaques</a></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+
+  <% if (manager) { const cand = operation.candidates; %>
+    <details class="<%= ui.panel %> group" id="ajout" <%= !s.villages || query.ak || query.ap || query.ajout ? 'open' : '' %>>
+      <summary class="<%= ui.panelHead %> cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <span class="<%= ui.panelTitle %>"><span class="<%= ui.diamond %>" aria-hidden="true"></span>Ajouter des cibles</span>
+        <span class="flex size-5 items-center justify-center border border-black bg-night text-parchment-300" aria-hidden="true"><span class="group-open:hidden">+</span><span class="hidden group-open:inline">−</span></span>
+      </summary>
+      <div class="<%= ui.panelBody %>">
+        <% if (!operation.tribes.length) { %>
+          <p class="text-sm text-parchment-500">Indique les tribus visées (Modifier l'opération) pour lister leurs villages, ou saisis des coordonnées.</p>
+        <% } else { %>
+          <form method="get" action="<%= page %>#ajout" class="flex flex-wrap items-end gap-3">
+            <% for (const [key, value] of Object.entries({ vue: f.view, j: f.j || '', k: f.k })) { if (value) { %><input type="hidden" name="<%= key %>" value="<%= value %>"><% } } %>
+            <label class="<%= ui.label %>">Continent
+              <select name="ak" class="<%= ui.input %>" data-autosubmit>
+                <option value="">Tous</option>
+                <% for (const k of cand.continents) { %><option value="<%= k %>" <%= cand.filter.k === k ? 'selected' : '' %>><%= k %></option><% } %>
+              </select>
+            </label>
+            <label class="<%= ui.label %>">Joueur
+              <select name="ap" class="<%= ui.input %>" data-autosubmit>
+                <option value="">Tous</option>
+                <% for (const pl of cand.players) { %><option value="<%= pl.id %>" <%= cand.filter.p === pl.id ? 'selected' : '' %>><%= pl.name %><%= pl.Tribe ? ` [${pl.Tribe.tag}]` : '' %></option><% } %>
+              </select>
+            </label>
+            <noscript><button class="<%= btn('dark', 'md') %>">Filtrer</button></noscript>
+          </form>
+        <% } %>
+      </div>
+      <form method="post" action="<%= page %>/targets" class="flex flex-col"><%- csrf %>
+        <% if (cand.villages.length) { %>
+          <div class="max-h-[420px] overflow-y-auto border-t border-bronze-900">
+            <table class="<%= ui.table %>">
+              <thead class="sticky top-0 z-10"><tr><th class="w-8"><input type="checkbox" class="<%= ui.checkbox %>" data-check-all aria-label="Tout cocher"></th><th>Village</th><th>Joueur</th><th class="text-right">Points</th></tr></thead>
+              <tbody>
+                <% for (const { village: v, taken } of cand.villages) { %>
+                  <tr class="<%= taken ? 'opacity-60' : '' %>">
+                    <td><input type="checkbox" name="ids" value="<%= v.id %>" class="<%= ui.checkbox %>" aria-label="Cocher <%= v.name %>"></td>
+                    <td><%- villageLink(vid, v) %><% if (taken) { %> <span class="<%= ui.tagMuted %>">Déjà ciblé</span><% } %></td>
+                    <td class="text-[13px]"><%- playerLink(vid, v.Player) %> <%- tribeLink(vid, v.Player.Tribe) %></td>
+                    <td class="text-right tabular-nums"><%= num(v.points) %></td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+          <p class="px-3 pt-1.5 text-[12px] text-parchment-500"><%= num(cand.villages.length) %> village<%= cand.villages.length > 1 ? 's' : '' %>. Les villages déjà ciblés par l'opération sont ignorés.</p>
+        <% } else if (operation.tribes.length) { %>
+          <p class="border-t border-bronze-900 px-3 py-2.5 text-[13px] text-parchment-500">Aucun village ne correspond.</p>
+        <% } %>
+        <div class="<%= ui.panelBody %>">
+          <label class="<%= ui.label %>">Autres villages (coordonnées)<textarea name="coords" rows="2" class="<%= ui.textarea %>" placeholder="415|410 416|411"></textarea></label>
+          <%- include('operation-fields', { bulk: false, opUnits, templates: operation.templates }) %>
+          <button class="<%= btn('gold', 'md', 'self-start') %>"><%- icon('plus', 'size-3.5', 2.6) %>Ajouter aux cibles</button>
+        </div>
+      </form>
+    </details>
+  <% } %>
+<% } %>

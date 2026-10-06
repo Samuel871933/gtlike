@@ -1,0 +1,54 @@
+<%#
+  Champs d'une demande d'attaques (ajout de cibles, ou modification des demandes cochées si `bulk`) : nombre d'attaques,
+  heure d'arrivée de la première, écart entre les suivantes (à partir de 2 attaques), troupes, remarque.
+  À l'ajout, deux modes : mêmes troupes pour toutes les attaques (une demande de N attaques), ou un modèle par attaque
+  (N demandes d'une attaque, chacune ses troupes ; 10 au plus). Un modèle d'armée remplit les troupes (game.js).
+  En modification, un champ laissé vide ne change rien.
+%>
+<%
+  const MAX_EACH = 10;
+  // Grille des troupes : un champ par unité, nommé `<prefix><unité>`, et le choix d'un modèle qui la remplit.
+  const unitsGrid = (prefix, title) => `
+    <div class="flex flex-col gap-1.5" data-units-scope>
+      <div class="flex flex-wrap items-end justify-between gap-2">
+        <span class="text-[13px] font-medium text-parchment-400">${title}</span>
+        ${templates.length ? `<label class="flex items-center gap-2 text-[13px] text-parchment-400">Modèle
+          <select name="${prefix}template" class="${ui.inputSm}" data-fill-units aria-label="Remplir avec un modèle d'armée">
+            <option value="">—</option>
+            ${templates.map((tpl) => `<option value="${tpl.id}" data-units="${esc(JSON.stringify(tpl.units || {}))}">${esc(tpl.name)}</option>`).join('')}
+          </select></label>` : ''}
+      </div>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2">
+        ${opUnits.map((u) => `<label class="flex items-center gap-1.5" title="${esc(u.name)}">${unitIcon(u.id, 'size-6 min-h-6 min-w-6')}<input type="number" name="${prefix}${u.id}" min="0" placeholder="0" class="${ui.inputSm} w-full min-w-0 tabular-nums" aria-label="${esc(u.name)}" data-unit-input data-unit="${u.id}"></label>`).join('')}
+      </div>
+    </div>`;
+%>
+<div class="flex flex-col gap-3" data-op-fields>
+  <div class="flex flex-wrap items-end gap-3">
+    <label class="<%= ui.label %> w-28">Attaques<input type="number" name="count" min="1" max="50" <%= bulk ? 'placeholder="inchangé"' : 'value="1" required' %> class="<%= ui.input %> tabular-nums" data-op-count></label>
+    <label class="<%= ui.label %>">Arrivée de la 1<sup>re</sup> (heure du serveur)<input type="datetime-local" name="arrival" step="1" class="<%= ui.input %> tabular-nums"></label>
+    <label class="<%= ui.label %> w-44" title="Les attaques suivantes du même village arrivent ce nombre de secondes plus tard l'une après l'autre (0 : toutes à la même seconde)." data-op-spacing<%= bulk ? ' data-op-bulk' : '' %>>Écart entre attaques (s)<input type="number" name="spacing" min="0" max="3600" <%= bulk ? 'placeholder="inchangé"' : 'value="0"' %> class="<%= ui.input %> tabular-nums"></label>
+    <% if (bulk) { %>
+      <label class="flex h-9 cursor-pointer items-center gap-1.5 text-[13px] text-parchment-300"><input type="checkbox" name="clearArrival" value="1" class="<%= ui.checkbox %>"> Retirer l'heure</label>
+    <% } %>
+  </div>
+
+  <% if (bulk) { %>
+    <%- unitsGrid('', 'Troupes par attaque (vides : inchangées) · un noble en fait un noblage') %>
+  <% } else { %>
+    <%# Mode : mêmes troupes pour toutes les attaques, ou un modèle par attaque (affiché par game.js selon le nombre). %>
+    <fieldset class="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-parchment-300" data-op-mode>
+      <legend class="sr-only">Troupes des attaques</legend>
+      <label class="flex cursor-pointer items-center gap-1.5"><input type="radio" name="mode" value="same" checked class="accent-blood-700"> Mêmes troupes pour chaque attaque</label>
+      <label class="flex cursor-pointer items-center gap-1.5"><input type="radio" name="mode" value="each" class="accent-blood-700"> Troupes différentes par attaque (<%= MAX_EACH %> au plus)</label>
+    </fieldset>
+    <div data-op-same><%- unitsGrid('', 'Troupes par attaque · un noble en fait un noblage') %></div>
+    <div class="flex flex-col gap-2" data-op-each hidden>
+      <% for (let i = 0; i < MAX_EACH; i++) { %>
+        <div class="border-l-4 border-bronze-600 pl-3" data-op-row="<%= i %>"<%= i > 0 ? ' hidden' : '' %>><%- unitsGrid(`a${i}_`, `Attaque ${i + 1}`) %></div>
+      <% } %>
+    </div>
+  <% } %>
+
+  <label class="<%= ui.label %>">Remarque<input name="note" maxlength="120" placeholder="<%= bulk ? 'inchangée' : 'Nettoyage, faux, noble en dernier…' %>" class="<%= ui.input %>"></label>
+</div>

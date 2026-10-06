@@ -80,7 +80,19 @@
           <tbody>
           <% for (const v of villages) { %>
             <tr>
-              <td class="max-w-0 w-full"><%- villageLink(vid, v, { truncate: true }) %></td>
+              <%# Gommette des opérations de ta tribu, puis pastilles de tes ordres en cours (et partagés par ta tribu) vers ce
+                  village : une attaque ou un soutien, et un retour, comme sur la carte. %>
+              <% const ord = villageOrders.get(v.id); const live = ord ? [...ord.own, ...ord.tribe] : [];
+                   const marks = [live.find((o) => o.type !== 'return'), live.find((o) => o.type === 'return')].filter(Boolean); %>
+              <td class="max-w-0 w-full">
+                <span class="flex min-w-0 items-center gap-[2px]">
+                  <span class="mr-1 min-w-0 truncate"><%- villageLink(vid, v, { truncate: true }) %></span>
+                  <%- opBadge(villageOps.get(v.id)) %>
+                  <%# Pastilles d'ordres à la même taille que la gommette d'opération (sans l'icône d'unité). %>
+                  <% for (const o of marks) { %><span title="<%= o.type === 'return' ? 'Troupes en retour' : `Ordre en cours${o.player ? ` · ${o.player}` : ''}` %>"><%- orderBadge(o.type, null, 'list') %></span><% } %>
+                  <% if (live.length > 2) { %><span class="text-[11px] text-parchment-500 tabular-nums">+<%= live.length - 2 %></span><% } %>
+                </span>
+              </td>
               <td class="text-right font-semibold tabular-nums"><%= num(v.points) %></td>
             </tr>
           <% } %>

@@ -9,7 +9,7 @@
 //     villages  [[x, y, kind, marquage ?]] ; kind : current, own, tribe, ally, nap, enemy, other, barb
 //               (ou directement une couleur #rrggbb) ; marquage : couleur #rrggbb du marquage du joueur
 //     frame     { x, y, size } facultatif : zone affichée par la grande carte
-//     layers    calques de la carte (« Calques de carte ») : markers, influence, enemy, nobarb, grid, borders ;
+//     layers    calques de la carte (« Calques de carte ») : markers, operations, influence, enemy, nobarb, grid, borders ;
 //               sans calques (profil) : marquages et frontières de continent seulement
 //   GTMinimap.cellAt(canvas, view, event) → [x, y] de la case cliquée
 //   Les canevas [data-minimap] (JSON de la vue dans l'attribut) sont dessinés automatiquement.
@@ -129,9 +129,10 @@
   // Case par case, le village remplit sa case jusqu'au trait.
   function paintVillages(g, c, v, cell, ratio, layers) {
     const fine = perCell(cell, ratio);
-    for (const [x, y, kind, mark] of v.villages) {
+    for (const [x, y, kind, mark, op] of v.villages) {
       if (kind === 'barb' && layers.nobarb) continue;
-      const color = kind.startsWith('#') ? kind : (layers.markers && mark) || c[kind] || c.other;
+      // Cible d'une opération de la tribu (calque « Opérations ») avant les marquages personnels.
+      const color = kind.startsWith('#') ? kind : (layers.operations !== false && op) || (layers.markers && mark) || c[kind] || c.other;
       if (fine) {
         const left = Math.round((x - v.x0) * cell); const top = Math.round((y - v.y0) * cell);
         g.fillStyle = color;
@@ -146,7 +147,7 @@
   }
 
   // Sans calques (profil) : marquages et frontières de continent.
-  const DEFAULT_LAYERS = { markers: true, borders: true };
+  const DEFAULT_LAYERS = { markers: true, operations: true, borders: true };
 
   // Fond déjà peint de chaque canevas (terrain, zones, quadrillage, villages) et ce qu'il représente : en glissant la
   // carte, seul le cadre de la vue bouge, le fond est recopié tel quel au lieu d'être repeint case par case.

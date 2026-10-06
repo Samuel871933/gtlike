@@ -61,6 +61,8 @@
           <%# Infobulle au survol d'un village et menu d'actions au clic (remplis par map.js), hors de la zone découpée. %>
           <%# 1 px de marge intérieure : les fonds des blocs ne recouvrent pas le filet bronze de la bordure. %>
           <div class="pointer-events-none absolute z-[15] hidden w-max max-w-[min(520px,calc(100%-12px))] min-w-[340px] border-2 border-black bg-night p-px text-[13px] shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]" data-map-tip>
+            <%# Opérations de la tribu qui ciblent ce village : bandeau au-dessus du nom, une ligne par opération (map.js). %>
+            <div class="hidden flex-col gap-px border-b-2 border-black bg-black" data-tip-row="ops" data-tip="ops"></div>
             <div class="flex items-baseline justify-between gap-3 border-b border-bronze-500 bg-head-dark px-2.5 py-1.5">
               <b class="truncate font-display text-[15px] font-normal text-parchment-100" data-tip="name"></b>
               <span class="shrink-0 text-xs text-gold-400 tabular-nums"><span data-tip="coords"></span> <span class="text-parchment-400" data-tip="k"></span></span>
@@ -144,7 +146,7 @@
         <section class="<%= ui.panel %>">
           <%- panelHead('Calques de carte') %>
           <div class="flex flex-col">
-            <% for (const [k, label] of [['markers', 'Marquages'], ['moves', 'Mouvements de troupes'], ...(ctx.cfg.hasFeature('church') ? [['church', 'Zones de foi (églises)']] : []), ['influence', 'Influence de ta tribu'], ...(ctx.cfg.factions.active ? [['faction', 'Influence de ta faction']] : []), ['enemy', 'Zones ennemies'], ['nobarb', 'Masquer les barbares'], ['grid', 'Quadrillage (5 cases)'], ['borders', 'Frontières de continent']]) { %>
+            <% for (const [k, label] of [['markers', 'Marquages'], ['operations', 'Opérations de la tribu'], ['moves', 'Mouvements de troupes'], ...(ctx.cfg.hasFeature('church') ? [['church', 'Zones de foi (églises)']] : []), ['influence', 'Influence de ta tribu'], ...(ctx.cfg.factions.active ? [['faction', 'Influence de ta faction']] : []), ['enemy', 'Zones ennemies'], ['nobarb', 'Masquer les barbares'], ['grid', 'Quadrillage (5 cases)'], ['borders', 'Frontières de continent']]) { %>
               <button type="button" class="group flex cursor-pointer items-center justify-between border-b border-bronze-900 px-3 py-1.5 text-left text-parchment-400 last:border-b-0 hover:bg-thead aria-pressed:text-parchment-100" data-map-layer="<%= k %>" aria-pressed="<%= layers[k] ? 'true' : 'false' %>">
                 <span><%= label %></span>
                 <span class="spacing-normal relative h-4 w-8 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700)] group-aria-pressed:bg-action"><span class="absolute top-px left-px size-2.5 border border-black bg-parchment-300 transition-[left] group-aria-pressed:left-[17px]"></span></span>

@@ -326,9 +326,10 @@
   }
   if (document.querySelector('form[data-travel], [data-arrive-in]')) requestAnimationFrame(arrivalFrame);
 
-  // Confirmation des actions irréversibles (form[data-confirm] : suppressions, renvoi d'unités, départ…).
+  // Confirmation des actions irréversibles (form[data-confirm] : suppressions, renvoi d'unités, départ…), ou du seul
+  // bouton qui envoie le formulaire (button[data-confirm]).
   document.addEventListener('submit', (e) => {
-    const message = e.target.dataset.confirm;
+    const message = (e.submitter && e.submitter.dataset.confirm) || e.target.dataset.confirm;
     if (message && !window.confirm(message)) e.preventDefault();
   });
 
@@ -353,6 +354,28 @@
   tipBox.className = 'pointer-events-none fixed z-50 max-w-[calc(100vw-16px)] border-2 border-black bg-panel-top p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]';
   tipBox.hidden = true;
   document.body.append(tipBox);
+  // Bulle courte et immédiate (data-hint="texte", une ligne par \n) : places des opérations… L'infobulle native du
+  // navigateur arrive trop tard et ne s'affiche pas toujours sur les petits éléments.
+  document.addEventListener('pointerover', (e) => {
+    const el = e.target.closest('[data-hint]');
+    if (!el || e.pointerType === 'touch') return;
+    tipBox.replaceChildren(...el.dataset.hint.split('\n').map((line, i) => {
+      const row = document.createElement('div');
+      row.className = i ? 'text-[12px] text-parchment-300 tabular-nums' : 'text-[13px] font-semibold text-parchment-100';
+      row.textContent = line;
+      return row;
+    }));
+    tipBox.hidden = false;
+    const r = el.getBoundingClientRect();
+    const left = Math.min(r.left, window.innerWidth - tipBox.offsetWidth - 8);
+    const below = r.bottom + 6 + tipBox.offsetHeight <= window.innerHeight;
+    tipBox.style.left = `${Math.max(8, left)}px`;
+    tipBox.style.top = `${below ? r.bottom + 6 : r.top - tipBox.offsetHeight - 6}px`;
+  });
+  document.addEventListener('pointerout', (e) => {
+    const el = e.target.closest('[data-hint]');
+    if (el && !el.contains(e.relatedTarget)) tipBox.hidden = true;
+  });
   document.addEventListener('pointerover', (e) => {
     const el = e.target.closest('[data-tip]');
     const src = el && e.pointerType !== 'touch' && document.getElementById(el.dataset.tip);
@@ -370,6 +393,47 @@
   document.addEventListener('pointerout', (e) => {
     const el = e.target.closest('[data-tip]');
     if (el && !el.contains(e.relatedTarget)) tipBox.hidden = true;
+  });
+
+  // Opérations de tribu : l'écart entre les attaques d'un village n'a de sens qu'à partir de 2 attaques (en
+  // modification groupée, nombre vide = inchangé : l'écart reste proposé) ; en mode « troupes différentes par
+  // attaque », une grille de troupes par attaque (10 au plus) ; un modèle d'armée remplit la grille où il est choisi.
+  const opForm = (form) => {
+    const count = form && form.querySelector('[data-op-count]');
+    if (!count) return;
+    const box = form.querySelector('[data-op-spacing]');
+    if (box) box.hidden = count.value === '' ? !box.hasAttribute('data-op-bulk') : Number(count.value) <= 1;
+    const each = form.querySelector('[data-op-each]');
+    if (!each) return;
+    const perAttack = form.querySelector('input[name="mode"][value="each"]').checked;
+    const rows = each.querySelectorAll('[data-op-row]');
+    count.max = perAttack ? String(rows.length) : '50';
+    form.querySelector('[data-op-same]').hidden = perAttack;
+    each.hidden = !perAttack;
+    const n = Math.min(rows.length, Math.max(1, Number(count.value) || 1));
+    rows.forEach((row) => { row.hidden = Number(row.dataset.opRow) >= n; });
+  };
+  document.querySelectorAll('[data-op-count]').forEach((input) => opForm(input.form));
+  document.addEventListener('input', (e) => { if (e.target.matches('[data-op-count]')) opForm(e.target.form); });
+  document.addEventListener('change', (e) => {
+    if (e.target.matches('input[name="mode"]') && e.target.form && e.target.form.querySelector('[data-op-each]')) opForm(e.target.form);
+    if (!e.target.matches('select[data-fill-units]')) return;
+    const option = e.target.selectedOptions[0];
+    if (!option || !option.value) return;
+    let units = {};
+    try { units = JSON.parse(option.dataset.units || '{}'); } catch { units = {}; }
+    const scope = e.target.closest('[data-units-scope]') || e.target.form;
+    scope.querySelectorAll('[data-unit-input]').forEach((input) => { input.value = units[input.dataset.unit] > 0 ? units[input.dataset.unit] : ''; });
+  });
+
+  // Lien vers un panneau repliable (data-open-details="id") : l'ouvre et y descend, sans recharger la page.
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('[data-open-details]');
+    const panel = link && document.getElementById(link.dataset.openDetails);
+    if (!panel) return;
+    e.preventDefault();
+    panel.open = true;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   // Case « Tout » des listes à sélection multiple : data-check-all coche les cases « ids » de son formulaire,

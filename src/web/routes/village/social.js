@@ -43,7 +43,15 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const ownerRights = await require('../../../services/ShopService').rightsFor(subject.userId, subject.worldId);
   const ownerStyle = require('../../gameStyles').gameStyleFor(owner, ownerRights);
   const profileStyle = ownerStyle.id === res.locals.gameStyle?.id ? null : ownerStyle;
-  res.render('player', { ...rest, subject, profileStyle, ownerPremium: ownerRights.premium, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
+  // Liste des villages : gommette des opérations de ta tribu, et pastilles de tes ordres en cours (et de ceux que ta
+  // tribu partage) vers chacun, comme sur la carte.
+  const ids = (rest.villages || []).map((v) => v.id);
+  const OperationService = require('../../../services/OperationService');
+  const opTargets = await OperationService.mapTargets(viewer);
+  const villageOps = new Map(ids.filter((id) => opTargets.has(id)).map((id) => [id, OperationService.summary(opTargets.get(id))]));
+  const orderViewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId', 'showTribeOrders'] });
+  const villageOrders = await require('../../../services/MapOrderService').visible(orderViewer, ids);
+  res.render('player', { ...rest, subject, profileStyle, villageOps, villageOrders, ownerPremium: ownerRights.premium, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
 }));
 
 // Texte personnel du profil (réservé au titulaire du compte, pas au remplaçant).
@@ -142,8 +150,12 @@ router.get('/villages/:villageId', ah(async (req, res) => {
   const tribeNotes = ((await require('../../../services/VillageNoteService').visible(viewer, [target.id])).get(target.id) || []).filter((n) => !n.mine);
   // Ordres entrants renommés ou annotés par un membre de la tribu sur son village (mêmes réglages que les notes).
   const sharedIncomings = await require('../../../services/IncomingService').sharedFor(viewer, target);
+  // Opérations de la tribu qui ciblent ce village (résumé, revendication).
+  const operations = await require('../../../services/OperationService').forVillage(playerId, target.id);
+  // Organisateur (droit Opérations) : peut aussi libérer les attaques des autres membres.
+  const opOrganizer = operations.length > 0 && TribeService.can(await Player.findByPk(playerId, { attributes: ['id', 'tribeId', 'tribeRole', 'tribeRights'] }), 'operations');
   res.render('village-info', {
-    page: null, target, relation, dist, travel, favorite, morale, commands, reports, mini, sharedIncomings,
+    page: null, target, relation, dist, travel, favorite, morale, commands, reports, mini, sharedIncomings, operations, opOrganizer,
     note: note ? note.text : '', tribeNotes, showTribeNotes: viewer.showTribeNotes, templates: await ArmyTemplateService.list(playerId),
   });
 }));

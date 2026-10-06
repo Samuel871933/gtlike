@@ -115,6 +115,7 @@
       ...(tribeRights.has(player, 'baron') ? [[`${v}/tribe?tab=rights`, 'Droits', 0]] : []),
       ...(tribeRights.has(player, 'invite') ? [[`${v}/tribe?tab=invites`, 'Invitations', 0]] : []),
       [`${v}/tribe?tab=diplomacy`, 'Diplomatie', 0],
+      [`${v}/tribe?tab=operations`, 'Opérations', 0],
       [`${v}/tribe?tab=forum`, 'Forum', tribeForumUnread],
       [`${v}/tribes/${player.tribeId}`, 'Page publique', 0],
     ]]);
