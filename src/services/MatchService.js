@@ -14,6 +14,8 @@ const mu = require('../game/matchup');
 const QUEUE_STALE_MS = 60000;
 // Partie trouvée : chaque joueur a ce délai pour l'accepter (comme sur League of Legends), sinon elle est annulée.
 const ACCEPT_MS = 15000;
+// Partie trouvée refusée ou manquée : plus de recherche pendant ce délai (contre les joueurs absents).
+const DODGE_BLOCK_MS = 2 * 60000;
 const MAX_GROUP = 5;
 // Croissance des barbares des parties en cours : toutes les 20 s.
 const BARBARIAN_EVERY_MS = 20000;
@@ -198,9 +200,17 @@ class MatchService {
       const userIds = group ? group.members.map((m) => m.userId) : [user.id];
       if (userIds.length > mu.FORMATS[format]) throw new GameError(`Ton groupe compte ${userIds.length} joueurs : choisis un format d’au moins ${userIds.length}v${userIds.length}.`);
       for (const id of userIds) await MatchService.assertIdle(id, t);
+      // Refus ou absence récents (soi ou un membre du groupe) : file bloquée quelques minutes.
+      const blocked = await User.findOne({ where: { id: userIds, matchBlockedUntil: { [Op.gt]: now } }, transaction: t });
+      if (blocked) {
+        const left = Math.ceil((blocked.matchBlockedUntil - now) / 1000);
+        const who = blocked.id === user.id ? 'Tu as' : `${blocked.username} a`;
+        throw new GameError(`${who} refusé ou manqué une partie trouvée : recherche possible dans ${Math.floor(left / 60)} min ${String(left % 60).padStart(2, '0')} s.`);
+      }
+      // Matchmaking sur le MMR caché (voir game/matchup.js), pas sur l'elo visible.
       const ladder = mu.ladderOf(format);
       const elos = [];
-      for (const id of userIds) elos.push((await MatchService.rating(id, ladder, t)).elo);
+      for (const id of userIds) elos.push((await MatchService.rating(id, ladder, t)).mmr);
       return MatchQueue.create({
         format, userIds, size: userIds.length, rating: Math.round(mu.average(elos)), queuedAt: now, seenAt: now,
       }, { transaction: t });
@@ -228,7 +238,7 @@ class MatchService {
       queue: entry ? { format: entry.format, queuedAt: entry.queuedAt, size: entry.size, rating: entry.rating } : null,
       // Partie trouvée à accepter : échéance, son propre choix, nombre de joueurs qui ont accepté.
       proposal: proposal ? {
-        id: proposal.id, format: proposal.format, expiresAt: proposal.expiresAt, accepted: proposal.accepted.includes(userId),
+        id: proposal.id, format: proposal.format, expiresAt: proposal.expiresAt, durationMs: ACCEPT_MS, accepted: proposal.accepted.includes(userId),
         acceptedCount: proposal.accepted.length, total: proposalUsers(proposal).length,
       } : null,
       match: running ? {
@@ -299,19 +309,22 @@ class MatchService {
   static async decline(user, now = new Date()) {
     const proposal = await MatchService.proposalOf(user.id);
     if (!proposal) throw new GameError('Aucune partie à refuser.');
-    await MatchService.cancelProposal(proposal.id, now);
+    await MatchService.cancelProposal(proposal.id, now, { declined: user.id });
   }
 
   /**
-   * Partie trouvée annulée (refus, ou délai écoulé) : les entrées dont tous les joueurs ont accepté retournent dans la
-   * file à leur place d'origine ; les autres (refus, absence) en sortent.
+   * Partie trouvée annulée. Refus (`declined`) : tous les autres retournent dans la file à leur place d'origine, le
+   * groupe de celui qui refuse en sort. Délai écoulé : seuls les groupes dont tous ont accepté y retournent. Ceux qui
+   * ont refusé ou n'ont pas répondu ne peuvent plus chercher pendant DODGE_BLOCK_MS.
    */
-  static async cancelProposal(proposalId, now = new Date()) {
+  static async cancelProposal(proposalId, now = new Date(), { declined = null } = {}) {
     await sequelize.transaction(async (t) => {
       const proposal = await MatchProposal.findByPk(proposalId, { transaction: t, lock: t.LOCK.UPDATE });
       if (!proposal) return;
+      const blamed = declined ? [declined] : proposalUsers(proposal).filter((u) => !proposal.accepted.includes(u));
+      if (blamed.length) await User.update({ matchBlockedUntil: new Date(now.getTime() + DODGE_BLOCK_MS) }, { where: { id: blamed }, transaction: t });
       for (const entry of proposal.teams.flat()) {
-        if (!entry.userIds.every((u) => proposal.accepted.includes(u))) continue;
+        if (entry.userIds.some((u) => blamed.includes(u))) continue;
         await MatchQueue.create({
           format: proposal.format, userIds: entry.userIds, size: entry.size, rating: entry.rating, queuedAt: entry.queuedAt, seenAt: now,
         }, { transaction: t });
@@ -423,18 +436,29 @@ class MatchService {
       });
       await world.save({ transaction: t });
 
-      const avg = (n) => mu.average(match.players.filter((p) => p.team === n).map((p) => p.eloBefore));
-      for (const mp of match.players) {
-        if (!mp.userId) continue;
+      // Elo : niveau des deux équipes, ampleur de la victoire et part de chacun dans son équipe (game/matchup.eloChanges).
+      const ingame = await Player.findAll({ where: { id: match.players.map((p) => p.playerId) }, transaction: t });
+      const ratings = [];
+      for (const mp of match.players) ratings.push(mp.userId ? await MatchService.rating(mp.userId, match.ladder, t) : null);
+      const days = (r) => (r && r.lastPlayedAt ? (now - new Date(r.lastPlayedAt)) / 86400000 : 0);
+      const changes = mu.ratingChanges(match.players.map((mp, i) => {
+        const p = ingame.find((x) => x.id === mp.playerId);
+        const r = ratings[i];
+        return {
+          team: mp.team, elo: r ? r.elo : mp.eloBefore, mmr: r ? r.mmr : mu.START_ELO, rd: mu.effectiveRd(r ? r.rd : mu.RD_START, days(r)),
+          games: r ? r.games : 0, forfeited: Boolean(mp.forfeitedAt), contribution: mu.teamScore(p ? [p] : []),
+        };
+      }), { winnerTeam, reason, scores: finalScores });
+      for (const [i, mp] of match.players.entries()) {
+        const rating = ratings[i];
+        if (!rating) continue;
         const result = winnerTeam === null ? 0.5 : mp.team === winnerTeam ? 1 : 0;
-        const rating = await MatchService.rating(mp.userId, match.ladder, t);
-        const delta = mu.eloDelta(avg(mp.team), avg(3 - mp.team), result, rating.games);
-        const elo = Math.max(0, rating.elo + delta);
+        const { elo, mmr, rd, placement } = changes[i];
         await rating.update({
-          elo, games: rating.games + 1,
+          elo, mmr, rd, lastPlayedAt: now, games: rating.games + 1,
           wins: rating.wins + (result === 1 ? 1 : 0), losses: rating.losses + (result === 0 ? 1 : 0), draws: rating.draws + (result === 0.5 ? 1 : 0),
         }, { transaction: t });
-        await mp.update({ eloAfter: elo }, { transaction: t });
+        await mp.update({ eloAfter: elo, placement }, { transaction: t });
       }
       await match.update({ status: 'ended', endedAt: now, winnerTeam, reason, scores: finalScores }, { transaction: t });
 
@@ -484,7 +508,7 @@ class MatchService {
       const p = players.find((x) => x.id === mp.playerId);
       return {
         team: mp.team, userId: mp.userId, name: p ? p.name : (mp.User ? mp.User.username : '?'), points: p ? p.points : 0, villages: p ? p.villageCount : 0,
-        kills: p ? p.killsAttacker + p.killsDefender + p.killsSupporter : 0, eloBefore: mp.eloBefore, eloAfter: mp.eloAfter, forfeited: Boolean(mp.forfeitedAt),
+        kills: p ? p.killsAttacker + p.killsDefender + p.killsSupporter : 0, eloBefore: mp.eloBefore, eloAfter: mp.eloAfter, placement: mp.placement, forfeited: Boolean(mp.forfeitedAt),
       };
     });
     return { match, teams: [1, 2].map((n) => ({ ...mu.TEAMS[n - 1], rows: rows.filter((r) => r.team === n).sort((a, b) => b.points - a.points) })) };
@@ -508,7 +532,7 @@ class MatchService {
     return rows.map((mp) => ({
       id: mp.Match.id, format: mp.Match.format, endedAt: mp.Match.endedAt, reason: mp.Match.reason, scores: mp.Match.scores, team: mp.team,
       result: mp.Match.winnerTeam === null ? 'draw' : mp.Match.winnerTeam === mp.team ? 'win' : 'loss',
-      delta: mp.eloAfter === null ? 0 : mp.eloAfter - mp.eloBefore, slug: mp.Match.World ? mp.Match.World.slug : null,
+      delta: mp.eloAfter === null ? 0 : mp.eloAfter - mp.eloBefore, placement: mp.placement, slug: mp.Match.World ? mp.Match.World.slug : null,
     }));
   }
 
@@ -535,6 +559,7 @@ class MatchService {
 
 MatchService.QUEUE_STALE_MS = QUEUE_STALE_MS;
 MatchService.ACCEPT_MS = ACCEPT_MS;
+MatchService.DODGE_BLOCK_MS = DODGE_BLOCK_MS;
 MatchService.MAX_GROUP = MAX_GROUP;
 
 module.exports = MatchService;

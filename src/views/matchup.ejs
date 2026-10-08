@@ -125,7 +125,7 @@
       <li><a href="/matchup/partie/<%= h.id %>" class="flex items-center gap-2 border border-bronze-800 border-l-[3px] bg-night px-2.5 py-1 text-[13px] text-parchment-100 no-underline hover:bg-thead <%= h.result === 'win' ? 'border-l-olive-500' : h.result === 'loss' ? 'border-l-blood-600' : 'border-l-bronze-500' %>">
         <span class="font-semibold"><%= resultLabel[h.result] %></span>
         <span class="text-parchment-500"><%= h.format %> · <%= reasonLabel[h.reason] %><%= h.scores ? ` · ${num(h.scores[h.team - 1])} – ${num(h.scores[2 - h.team])}` : '' %></span>
-        <span class="ml-auto font-semibold tabular-nums <%= h.delta >= 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= h.delta >= 0 ? '+' : '' %><%= h.delta %></span>
+        <% if (h.placement) { %><span class="ml-auto text-xs text-parchment-500">placement</span><% } else { %><span class="ml-auto font-semibold tabular-nums <%= h.delta >= 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= h.delta >= 0 ? '+' : '' %><%= h.delta %></span><% } %>
       </a></li>
     <% } %>
   </ul>
@@ -144,7 +144,7 @@
        ['Formats', `Du 1v1 au 5v5, seul ou en groupe d’amis (même équipe). Le duel a son propre classement, les parties en équipe en partagent un.`],
        ['Un monde par partie', `Monde ×${cfg.speed} créé pour la partie : chacun part d’un village neuf, sans troupes, placé au hasard comme sur un monde normal (à ${mu.MIN_PLAYER_DISTANCE} cases au moins des autres joueurs). Deux barbares par joueur grandissent presque aussi vite que vous : pillez-les, puis anoblissez-les. Règles d’un monde normal, sans archers ni paladin. Rien d’autre à gagner que l’elo : ni quêtes, ni récompenses, ni succès, ni sceaux. Les deux équipes sont face à face.`],
        ['Victoire', `Prends tous les villages de l’équipe adverse. Sinon, au bout de ${mu.MATCH_MINUTES} minutes, l’équipe qui a le plus de points (villages, bâtiments, adversaires vaincus) gagne.`],
-       ['Elo et ligues', `Départ à ${mu.START_ELO} elo, ${mu.PLACEMENT_GAMES} parties de placement. Gagner contre plus fort rapporte davantage. Ligues : ${mu.LEAGUES.map((l) => l.name).join(', ')}.`],
+       ['Elo et ligues', `${mu.PLACEMENT_GAMES} parties de placement, puis ton elo est révélé. Chaque partie rapporte ou coûte une vingtaine de points, plus pour une victoire large ou si tu as porté ton équipe, et ton elo rejoint peu à peu ton vrai niveau. Refuser une partie trouvée bloque la recherche 2 minutes. Ligues : ${mu.LEAGUES.map((l) => l.name).join(', ')}.`],
      ]; %>
   <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
     <% for (const [title, text] of rules) { %>
@@ -155,26 +155,6 @@
     <% } %>
   </div>
 </section>
-<% if (proposal) { const left = Math.max(0, Math.ceil((new Date(proposal.expiresAt) - now) / 1000)); %>
-<%# Partie trouvée (comme sur League of Legends) : chaque joueur l'accepte dans le délai, sinon elle est annulée et ceux
-    qui ont accepté retournent dans la file. %>
-<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4" role="dialog" aria-modal="true" aria-labelledby="proposal-title">
-  <div class="flex w-full max-w-sm flex-col gap-3 border-2 border-black bg-panel-top p-5 text-center shadow-[inset_0_0_0_2px_var(--color-gold-400),6px_6px_0_#000]">
-    <span id="proposal-title" class="font-display text-2xl font-semibold text-gold-200">Partie trouvée</span>
-    <span class="text-sm text-parchment-300">Matchup <%= proposal.format %> · <%= proposal.acceptedCount %> / <%= proposal.total %> joueur<%= proposal.total > 1 ? 's' : '' %> prêt<%= proposal.acceptedCount > 1 ? 's' : '' %></span>
-    <span class="mx-auto font-display text-4xl font-semibold text-parchment-100 tabular-nums" data-accept-deadline="<%= new Date(proposal.expiresAt).getTime() %>"><%= left %></span>
-    <% if (proposal.accepted) { %>
-      <p class="m-0 text-sm text-olive-300">Tu as accepté : en attente des autres joueurs.</p>
-    <% } else { %>
-      <form method="post" action="/matchup/accept"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button class="<%= btn('gold', 'md', 'w-full') %>" autofocus>Accepter</button>
-      </form>
-    <% } %>
-    <form method="post" action="/matchup/decline"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button class="<%= ui.link %> cursor-pointer text-sm">Refuser</button>
-    </form>
-  </div>
-</div>
-<% } %>
+<% if (proposal || previewProposal) { %><%- include('partials/match-ready', { proposal: proposal || previewProposal, now }) %><% } %>
 <% if (user) { %><script src="<%= asset('/js/matchup.js') %>" defer></script><% } %>
 <%- include('partials/footer') %>

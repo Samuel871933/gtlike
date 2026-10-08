@@ -1,0 +1,30 @@
+<% const duration = proposal.durationMs || 15000;
+   const remaining = Math.max(0, new Date(proposal.expiresAt).getTime() - new Date(now).getTime());
+   const left = Math.ceil(remaining / 1000);
+   const percent = Math.min(100, remaining / duration * 100); %>
+<div class="match-ready-overlay" role="dialog" aria-modal="true" aria-labelledby="proposal-title" aria-describedby="proposal-status">
+  <section class="match-ready">
+    <div class="match-ready__head"><span>Matchup classé · <%= proposal.format %></span><% if (proposal.preview) { %><small>Aperçu · <a href="/matchup?apercu=0" class="<%= ui.link %>">fermer</a></small><% } %></div>
+    <div class="match-ready__content">
+      <h2 id="proposal-title" class="match-ready__title">Partie trouvée</h2>
+      <p id="proposal-status" class="match-ready__status"><%= proposal.accepted ? 'Tu as accepté. En attente des autres joueurs.' : 'Le champ de bataille vous attend.' %></p>
+      <div class="match-ready__players" aria-label="<%= proposal.acceptedCount %> joueurs prêts sur <%= proposal.total %>">
+        <% for (let i = 0; i < proposal.total; i += 1) { %><span class="match-ready__player <%= i < proposal.acceptedCount ? 'is-ready' : '' %>" aria-hidden="true"></span><% } %>
+      </div>
+      <p class="match-ready__count"><%= proposal.acceptedCount %> / <%= proposal.total %> joueurs prêts</p>
+      <div class="match-ready__timer"><span data-accept-deadline="<%= new Date(proposal.expiresAt).getTime() %>" data-accept-duration="<%= duration %>"><%= left %></span><span class="match-ready__seconds">s</span></div>
+      <div class="match-ready__progress" role="progressbar" aria-label="Temps restant pour accepter" aria-valuemin="0" aria-valuemax="<%= duration / 1000 %>" aria-valuenow="<%= remaining / 1000 %>" data-accept-progress>
+        <span style="width: <%= percent %>%" data-accept-progress-fill></span>
+      </div>
+      <div class="match-ready__actions">
+        <form method="post" action="/matchup/accept"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="<%= btn('gold', 'lg', 'w-full') %>" <%= proposal.accepted ? 'disabled' : '' %> data-accept-button><%= proposal.accepted ? 'Accepté' : 'Accepter' %></button>
+        </form>
+        <form method="post" action="/matchup/decline"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="<%= btn('dark', 'lg', 'w-full') %>">Refuser</button>
+        </form>
+      </div>
+      <p class="match-ready__hint">La partie commence quand tout le monde a accepté.</p>
+    </div>
+  </section>
+</div>

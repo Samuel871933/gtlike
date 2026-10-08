@@ -41,12 +41,49 @@ test('ligues : placement, divisions IV → I, Légende sans division', () => {
   assert.equal(mu.leagueOf(2400, 50).label, 'Légende');
 });
 
-test('elo : gain plus fort contre plus fort, placement plus rapide, somme nulle à égalité de niveau', () => {
-  assert.equal(mu.eloDelta(1000, 1000, 1, 40), 12);
-  assert.equal(mu.eloDelta(1000, 1000, 0, 40), -12);
-  assert.ok(mu.eloDelta(1000, 1200, 1, 40) > mu.eloDelta(1000, 800, 1, 40));
-  assert.ok(mu.eloDelta(1000, 1000, 1, 0) > mu.eloDelta(1000, 1000, 1, 40));
-  assert.equal(mu.eloDelta(1000, 1000, 0.5, 40), 0);
+test('elo : MMR Glicko (incertitude), elo visible façon LP, ampleur, performance, abandon, placement', () => {
+  const p = (team, extra = {}) => ({ team, mmr: 1000, rd: 60, elo: 1000, games: 40, contribution: 1000, forfeited: false, ...extra });
+  const duel = [p(1), p(2)];
+  const lp = (players, outcome, i = 0) => mu.ratingChanges(players, outcome)[i].elo - players[i].elo;
+
+  // Plus ou moins 20 par partie entre égaux, jamais toujours la même valeur : l'écart de score compte.
+  const close = lp(duel, { winnerTeam: 1, reason: 'time', scores: [10100, 10000] });
+  const crushing = lp(duel, { winnerTeam: 1, reason: 'time', scores: [20000, 10000] });
+  const conquest = lp(duel, { winnerTeam: 1, reason: 'conquest', scores: [9000, 9000] });
+  assert.ok(close < 20 && close < crushing && crushing <= conquest, `${close} < ${crushing} <= ${conquest}`);
+  assert.ok(lp(duel, { winnerTeam: 2, reason: 'forfeit' }) <= -18);
+
+  // Rattrapage du MMR : MMR au-dessus de l'elo visible → on gagne plus et on perd moins (et inversement).
+  const under = [p(1, { mmr: 1300 }), p(2, { mmr: 1300, elo: 1300 })];
+  assert.ok(lp(under, { winnerTeam: 1, reason: 'forfeit' }) > lp(duel, { winnerTeam: 1, reason: 'forfeit' }));
+  assert.ok(lp(under, { winnerTeam: 2, reason: 'forfeit' }) > lp(duel, { winnerTeam: 2, reason: 'forfeit' }));
+
+  // Incertitude : un joueur nouveau ou revenu de longue absence bouge beaucoup plus en MMR qu'un régulier.
+  const fresh = mu.ratingChanges([p(1, { rd: 350 }), p(2)], { winnerTeam: 1, reason: 'forfeit' });
+  const regular = mu.ratingChanges(duel, { winnerTeam: 1, reason: 'forfeit' });
+  assert.ok(fresh[0].mmr - 1000 > 3 * (regular[0].mmr - 1000));
+  assert.ok(fresh[0].rd < 350, 'l’incertitude baisse en jouant');
+  assert.ok(mu.effectiveRd(60, 100) > 340, 'et remonte avec l’inactivité');
+
+  // Battre plus fort rapporte plus de MMR que battre plus faible.
+  const up = mu.ratingChanges([p(1), p(2, { mmr: 1300 })], { winnerTeam: 1, reason: 'forfeit' })[0].mmr;
+  const down = mu.ratingChanges([p(1), p(2, { mmr: 700 })], { winnerTeam: 1, reason: 'forfeit' })[0].mmr;
+  assert.ok(up - 1000 > down - 1000);
+
+  // Équipe : qui porte gagne plus en victoire et perd moins en défaite ; un abandon coûte plus.
+  const team = [p(1, { contribution: 3000 }), p(1), p(2, { contribution: 2000 }), p(2, { contribution: 2000 })];
+  assert.ok(lp(team, { winnerTeam: 1, reason: 'forfeit' }, 0) > lp(team, { winnerTeam: 1, reason: 'forfeit' }, 1));
+  assert.ok(lp(team, { winnerTeam: 2, reason: 'forfeit' }, 0) > lp(team, { winnerTeam: 2, reason: 'forfeit' }, 1));
+  const ff = [p(1, { forfeited: true }), p(1), p(2), p(2)];
+  assert.ok(lp(ff, { winnerTeam: 2, reason: 'forfeit' }, 0) < lp(ff, { winnerTeam: 2, reason: 'forfeit' }, 1));
+
+  // Placement : elo visible inchangé, puis révélé (au plus REVEAL_CAP) à la dernière partie.
+  const placing = mu.ratingChanges([p(1, { games: 0, rd: 350 }), p(2)], { winnerTeam: 1, reason: 'forfeit' })[0];
+  assert.deepEqual([placing.elo, placing.placement], [1000, true]);
+  const reveal = mu.ratingChanges([p(1, { games: mu.PLACEMENT_GAMES - 1, mmr: 2000, rd: 120 }), p(2)], { winnerTeam: 1, reason: 'forfeit' })[0];
+  assert.equal(reveal.elo, mu.REVEAL_CAP);
+  // Égalité entre égaux : rien ne bouge.
+  assert.equal(lp(duel, { winnerTeam: null, reason: 'time', scores: [5, 5] }), 0);
 });
 
 test('matchmaking : la plus ancienne entrée d’abord, équipes complètes et équilibrées, fenêtre d’elo qui s’élargit', () => {
@@ -162,7 +199,10 @@ test('conquête : l’équipe qui n’a plus de village perd, elo mis à jour, m
   const world = await World.findByPk(match.worldId);
   assert.ok(world.endedAt);
   const ratings = await Promise.all(users.map((u) => MatchRating.findOne({ where: { userId: u.id, ladder: 'team' } })));
-  assert.deepEqual(ratings.map((r) => r.elo), [1024, 1024, 976, 976]);
+  // Placement : elo visible inchangé, MMR caché en hausse pour les gagnants, en baisse pour les perdants.
+  assert.ok(ratings.every((r) => r.elo === 1000));
+  assert.ok(ratings.slice(0, 2).every((r) => r.mmr > 1000) && ratings.slice(2).every((r) => r.mmr < 1000), ratings.map((r) => Math.round(r.mmr)).join());
+  assert.ok(ratings.every((r) => r.rd < 350 && r.lastPlayedAt));
   assert.deepEqual(ratings.map((r) => r.wins), [1, 1, 0, 0]);
   assert.ok(await Report.count({ where: { playerId: blue.id, type: 'world' } }));
   // Ni succès débloqué pendant la partie (conquête, victoire), ni rapport de succès.
@@ -189,8 +229,10 @@ test('fin du temps : l’équipe qui a le plus de points gagne ; abandon de tout
   assert.equal(ended.winnerTeam, 2);
   assert.equal(ended.scores[1] - ended.scores[0], 500);
 
+  // Revanche : leurs MMR se sont écartés, la fenêtre de niveau s'élargit avec l'attente (ici 2 minutes).
   await MatchService.enqueue(a, '1v1', now);
   await MatchService.enqueue(b, '1v1', now);
+  await MatchQueue.update({ queuedAt: new Date(now - 120000) }, { where: {} });
   await matchFor([a, b], now);
   await MatchService.forfeit(a, new Date(match.endsAt.getTime() + 5000));
   const [last] = await MatchService.history(a.id, 1);
@@ -233,6 +275,10 @@ test('partie trouvée : 15 s pour accepter ; refus ou absence = annulée, ceux q
   assert.equal(new Date(back.queue.queuedAt).getTime(), now - 30000);
   assert.equal((await MatchService.status(b.id)).queue, null);
   assert.ok(proposal.id);
+  // Celui qui refuse ne peut plus chercher pendant 2 minutes.
+  await assert.rejects(MatchService.enqueue(b, '1v1', now), /refusé ou manqué/);
+  await MatchService.enqueue(b, '1v1', new Date(now.getTime() + MatchService.DODGE_BLOCK_MS + 1000));
+  await MatchService.cancel(b);
 
   // Absence : le délai passe sans réponse.
   await MatchService.enqueue(c, '1v1', now);
@@ -242,6 +288,7 @@ test('partie trouvée : 15 s pour accepter ; refus ou absence = annulée, ceux q
   assert.ok((await MatchService.status(a.id)).queue);
   assert.equal((await MatchService.status(c.id)).queue, null);
   await assert.rejects(MatchService.accept(c, now), /Aucune partie/);
+  await assert.rejects(MatchService.enqueue(c, '1v1', now), /refusé ou manqué/);
   await MatchService.cancel(a);
 });
 

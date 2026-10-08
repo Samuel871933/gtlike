@@ -822,6 +822,57 @@ html.game_style body::before,
   background-repeat: no-repeat;
   padding: 1.25rem 1.5rem;
 }
+.match-ready-overlay { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto; background: rgb(0 0 0 / 75%); backdrop-filter: blur(5px); }
+/* Même cadre que les encarts du lobby (ui.lobbyCard) : trait d'encre, filet bronze, ombre portée ; bandeau de titre (ui.lobbyCardHead). */
+.match-ready { position: relative; width: 100%; max-width: 480px; max-height: calc(100dvh - 2rem); overflow-y: auto; border: 2px solid #000; background: var(--color-panel-top); box-shadow: inset 0 0 0 1px var(--color-bronze-500), 5px 5px 0 #000; text-align: center; }
+.match-ready__head { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-bottom: 2px solid var(--color-bronze-500); background: var(--color-head); padding: .5rem .75rem; color: var(--color-parchment-100); font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: .02em; text-align: left; }
+.match-ready__head small { color: var(--color-gold-400); font-family: var(--font-sans); font-size: .8rem; font-weight: 500; letter-spacing: 0; }
+.match-ready::before { content: ''; position: absolute; inset: 0; top: 42px; background: linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--color-panel-top) 70%, transparent) 48%, var(--color-panel-top) 64%), url('/img/matchup/match-ready.webp') center top / cover no-repeat; pointer-events: none; }
+/* Le titre commence sous l'emblème de l'illustration. */
+.match-ready__content { position: relative; display: flex; flex-direction: column; align-items: center; padding: 200px 2rem 1.5rem; }
+.match-ready__title { margin: .4rem 0; color: var(--color-parchment-100); font-family: var(--font-display); font-size: clamp(1.7rem, 5vw, 2.2rem); font-weight: 600; text-shadow: 2px 2px 0 var(--color-title-shadow), 4px 4px 0 var(--color-title-shadow-2); }
+.match-ready__status { min-height: 2.5em; color: var(--color-parchment-300); font-size: .85rem; }
+.match-ready__players { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin: 1rem 0 .65rem; }
+.match-ready__player { width: 12px; height: 12px; transform: rotate(45deg); border: 1px solid var(--color-bronze-700); background: var(--color-night); }
+.match-ready__player.is-ready { border-color: #000; background: var(--color-olive-500); box-shadow: 1px 1px 0 #050505; }
+.match-ready__count { color: var(--color-parchment-300); font-size: .8rem; }
+.match-ready__timer { display: flex; align-items: baseline; gap: .25rem; margin: .55rem 0; color: var(--color-parchment-100); font-family: var(--font-display); font-size: 2.1rem; font-variant-numeric: tabular-nums; }
+.match-ready__seconds { color: var(--color-parchment-500); font-family: var(--font-sans); font-size: .8rem; }
+.match-ready__progress { width: 100%; height: 6px; overflow: hidden; border: 1px solid #000; background: var(--color-night); }
+.match-ready__progress > span { display: block; height: 100%; background: var(--color-action); transition: width .5s linear; }
+.match-ready__actions { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; width: 100%; margin-top: 1.35rem; }
+.match-ready__hint { margin-top: 1rem; color: var(--color-parchment-500); font-size: .75rem; }
+@media (max-width: 480px), (max-height: 650px) { .match-ready__content { padding: 150px 1.25rem 1.25rem; } }
+@media (prefers-reduced-motion: reduce) { .match-ready__progress > span { transition: none; } }
+.matchup-result-hero {
+  --matchup-result-image: url('/img/matchup/match-end.webp');
+  background-color: #141210;
+  background-image: linear-gradient(90deg, rgb(10 9 8 / 92%), rgb(10 9 8 / 66%) 40%, rgb(10 9 8 / 8%) 75%), var(--matchup-result-image);
+  background-position: center, 65% center;
+  background-size: cover;
+}
+.matchup-result-hero--victory { --matchup-result-image: url('/img/matchup/match-victory.webp'); }
+.matchup-result-hero--defeat { --matchup-result-image: url('/img/matchup/match-defeat.webp'); }
+.matchup-result-hero__content {
+  display: flex;
+  min-height: clamp(200px, 22vw, 300px);
+  max-width: 65%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: .35rem;
+  padding: 1.25rem;
+  text-shadow: 0 2px 4px #000;
+}
+.matchup-result-hero__content h1 { color: #fff5df; }
+.matchup-result-hero__content p { color: #eee1ca; }
+.matchup-result-hero__content p:first-child { color: #f6e3bd; }
+@media (max-width: 640px) {
+  .matchup-result-hero {
+    background-image: linear-gradient(90deg, rgb(10 9 8 / 92%), rgb(10 9 8 / 72%) 60%, rgb(10 9 8 / 25%)), var(--matchup-result-image);
+  }
+  .matchup-result-hero__content { max-width: 100%; padding: 1rem; }
+}
 .inbox-hero--reports { --inbox-hero-image: url('/img/reports/inbox.webp'); }
 .inbox-hero--messages { --inbox-hero-image: url('/img/messages/inbox.webp'); }
 .messages-scroll {

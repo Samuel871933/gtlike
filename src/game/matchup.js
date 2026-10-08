@@ -58,25 +58,105 @@ const MIN_PLAYER_DISTANCE = 12;
 const teamScore = (players) => players.reduce((s, p) => s + p.points + p.killsAttacker + p.killsDefender + p.killsSupporter, 0);
 
 // ------------------------------------------------------------------------------------------------------------- Elo
+//
+// Deux notes par compte et par classement, comme sur League of Legends :
+// - le MMR, caché : une note Glicko (`mmr`) et son incertitude (`rd`). Un nouveau joueur, ou un joueur absent depuis
+//   longtemps, est incertain : son MMR bouge beaucoup ; plus il joue, plus il se stabilise. Le matchmaking s'en sert.
+// - l'elo visible (les « LP ») : ligues et classement. Caché pendant les parties de placement, il est révélé à partir du
+//   MMR à la dernière ; ensuite il bouge d'environ 20 par partie, plus si la victoire est large et si l'on a porté son
+//   équipe, et il rattrape le MMR (MMR au-dessus de l'elo : on gagne plus et on perd moins, et inversement).
 
 const START_ELO = 1000;
-// Premières parties (placement) : l'elo bouge davantage, le temps de trouver son niveau.
 const PLACEMENT_GAMES = 5;
-const K_PLACEMENT = 48;
-const K_NEW = 32;
-const K = 24;
+// Incertitude : au départ (et au plus), au moins (joueur régulier), et sa remontée avec l'inactivité (de 60 à 350 en
+// une centaine de jours sans jouer).
+const RD_START = 350;
+const RD_MIN = 60;
+const RD_GROWTH_PER_DAY = 34.6;
+// Elo révélé à la fin du placement : le MMR, au plus REVEAL_CAP (on monte ensuite comme tout le monde).
+const REVEAL_CAP = 1500;
+// Elo visible : variation de base d'une partie, rattrapage du MMR (au plus ±CATCH_UP), bornes d'une partie.
+const LP_BASE = 20;
+const CATCH_UP = 12;
+const LP_MIN = 5;
+const LP_MAX = 45;
 
-/** Résultat attendu (0 à 1) d'une équipe d'elo moyen `a` contre une équipe d'elo moyen `b`. */
-const expected = (a, b) => 1 / (1 + 10 ** ((b - a) / 400));
-const kFactor = (games) => (games < PLACEMENT_GAMES ? K_PLACEMENT : games < 30 ? K_NEW : K);
+const Q = Math.log(10) / 400;
+const g = (rd) => 1 / Math.sqrt(1 + (3 * Q * Q * rd * rd) / (Math.PI * Math.PI));
+/** Résultat attendu (0 à 1) d'une note `a` contre une note `b` d'incertitude `rdB`. */
+const expected = (a, b, rdB = 0) => 1 / (1 + 10 ** ((-g(rdB) * (a - b)) / 400));
 const average = (list) => (list.length ? list.reduce((s, x) => s + x, 0) / list.length : START_ELO);
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+
+/** Incertitude après `days` jours sans jouer. */
+const effectiveRd = (rd, days = 0) => clamp(Math.sqrt(rd * rd + RD_GROWTH_PER_DAY ** 2 * Math.max(0, days)), RD_MIN, RD_START);
 
 /**
- * Variation d'elo d'un joueur : son équipe (elo moyen `mine`) contre l'autre (`theirs`), `result` 1 (victoire),
- * 0,5 (égalité) ou 0 (défaite), selon le nombre de parties déjà jouées dans ce classement.
+ * Ampleur de la victoire (×0,8 à ×1,3) : une conquête compte pleinement, une victoire aux points selon l'écart de
+ * score (de justesse : ×0,8 ; moitié plus de points que l'adversaire ou davantage : ×1,3), un abandon normalement.
  */
-function eloDelta(mine, theirs, result, games) {
-  return Math.round(kFactor(games) * (result - expected(mine, theirs)));
+function marginFactor(reason, scores) {
+  if (reason === 'conquest') return 1.3;
+  if (reason !== 'time' || !scores) return 1;
+  const [a, b] = scores;
+  const gap = Math.max(a, b) > 0 ? Math.abs(a - b) / Math.max(a, b) : 0;
+  return 0.8 + Math.min(0.5, gap * (0.5 / 0.33));
+}
+
+/**
+ * Performance dans son équipe (×0,75 à ×1,25), en équipe seulement : sa part des points et des adversaires vaincus
+ * de l'équipe, rapportée à une part égale. Qui porte son équipe gagne plus en victoire et perd moins en défaite.
+ */
+function performanceFactor(contribution, teamContributions, result) {
+  if (teamContributions.length < 2 || result === 0.5) return 1;
+  const mean = average(teamContributions);
+  const share = mean > 0 ? contribution / mean : 1;
+  const f = clamp(0.75 + 0.25 * share, 0.75, 1.25);
+  return result === 1 ? f : 2 - f;
+}
+
+/**
+ * Nouvelles notes de tous les joueurs d'une partie. `players` : [{ team, mmr, rd, elo, games, contribution,
+ * forfeited }] (rd déjà remonté par l'inactivité) ; `winnerTeam` 1, 2 ou null (égalité). Renvoie pour chacun
+ * { mmr, rd, elo, placement } :
+ * - MMR (Glicko) : son côté (moitié son MMR, moitié celui de son équipe) contre l'équipe adverse (MMR moyen,
+ *   incertitude moyenne), corrigé par l'ampleur de la victoire et sa performance ; un abandon compte au pire (×1,25).
+ * - elo visible : inchangé pendant le placement, révélé à la dernière partie de placement, sinon ±LP_BASE corrigé
+ *   (ampleur, performance) et rattrapant le MMR ; jamais 0 pour une victoire ou une défaite.
+ */
+function ratingChanges(players, { winnerTeam, reason, scores }) {
+  const team = (n) => players.filter((p) => p.team === n);
+  const margin = winnerTeam ? marginFactor(reason, scores) : 1;
+  return players.map((p) => {
+    const result = winnerTeam === null ? 0.5 : p.team === winnerTeam ? 1 : 0;
+    const mates = team(p.team);
+    const foes = team(3 - p.team);
+    const perf = p.forfeited && result === 0 ? 1.25 : performanceFactor(p.contribution, mates.map((m) => m.contribution), result);
+    // Poids de la partie : ampleur de la victoire × performance (en défaite, perf < 1 pour qui a porté son équipe).
+    const weight = result === 0.5 ? 1 : margin * perf;
+
+    // MMR (Glicko-1, une partie) ; l'abandon et l'ampleur pèsent sur l'écart au résultat attendu.
+    const mine = (p.mmr + average(mates.map((m) => m.mmr))) / 2;
+    const foeMmr = average(foes.map((m) => m.mmr));
+    const foeRd = Math.sqrt(average(foes.map((m) => m.rd * m.rd)));
+    const e = expected(mine, foeMmr, foeRd);
+    const gg = g(foeRd);
+    const d2 = 1 / (Q * Q * gg * gg * e * (1 - e));
+    const denom = 1 / (p.rd * p.rd) + 1 / d2;
+    const mmr = p.mmr + (Q / denom) * gg * (result - e) * weight;
+    const rd = clamp(Math.sqrt(1 / denom), RD_MIN, RD_START);
+
+    // Elo visible.
+    const games = p.games + 1;
+    if (games < PLACEMENT_GAMES) return { mmr, rd, elo: p.elo, placement: true };
+    if (games === PLACEMENT_GAMES) return { mmr, rd, elo: Math.round(Math.min(mmr, REVEAL_CAP)), placement: true };
+    const catchUp = clamp((mmr - p.elo) / 20, -CATCH_UP, CATCH_UP);
+    let lp;
+    if (result === 1) lp = clamp(Math.round(LP_BASE * weight + catchUp), LP_MIN, LP_MAX);
+    else if (result === 0) lp = -clamp(Math.round(LP_BASE * weight - catchUp), LP_MIN, LP_MAX);
+    else lp = Math.round(clamp(catchUp / 2, -6, 6));
+    return { mmr, rd, elo: Math.max(0, p.elo + lp), placement: false };
+  });
 }
 
 // ----------------------------------------------------------------------------------------------------------- Ligues
@@ -161,5 +241,5 @@ function split(chosen, teamSize) {
 
 module.exports = {
   FORMATS, isFormat, LADDERS, ladderOf, MATCH_MINUTES, TEAMS, worldConfig, MIN_PLAYER_DISTANCE, teamScore,
-  START_ELO, PLACEMENT_GAMES, expected, kFactor, average, eloDelta, LEAGUES, DIVISIONS, leagueOf, eloWindow, formMatch,
+  START_ELO, PLACEMENT_GAMES, RD_START, RD_MIN, REVEAL_CAP, expected, average, effectiveRd, marginFactor, performanceFactor, ratingChanges, LEAGUES, DIVISIONS, leagueOf, eloWindow, formMatch,
 };

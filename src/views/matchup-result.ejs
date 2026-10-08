@@ -4,16 +4,24 @@
   const mine = user ? teams.flatMap((t) => t.rows).find((r) => r.userId === user.id) : null;
   const winner = match.winnerTeam ? teams[match.winnerTeam - 1] : null;
   const result = mine ? (match.winnerTeam === null ? 'Égalité' : match.winnerTeam === mine.team ? 'Victoire' : 'Défaite') : null;
+  const banner = result === 'Victoire' ? 'victory' : result === 'Défaite' ? 'defeat' : 'neutral';
   const title = result || (winner ? `Les ${winner.short.toLowerCase()} gagnent` : 'Égalité');
   const why = { conquest: 'par conquête : l’équipe adverse n’a plus aucun village', forfeit: 'par abandon de l’équipe adverse', time: 'aux points, à la fin du temps' }[match.reason] || '';
   const minutes = Math.max(1, Math.round((new Date(match.endedAt) - new Date(match.startedAt)) / 60000));
   const scores = match.scores || [0, 0];
-  const delta = mine && mine.eloAfter !== null ? mine.eloAfter - mine.eloBefore : null;
+  // Partie de placement : l'elo visible ne bouge pas, sauf à la dernière (il est révélé).
+  const delta = mine && mine.eloAfter !== null && !mine.placement ? mine.eloAfter - mine.eloBefore : null;
   const rank = mine ? ratings[match.ladder].rank : null;
   const color = { 1: 'bg-steel-500', 2: 'bg-blood-600' };
 %>
 <div class="flex flex-col gap-3.5 pb-6">
-  <%- include('partials/page-title', { kicker: `Matchup ${match.format} · partie terminée`, title, sub: `${result && winner ? `Les ${winner.short.toLowerCase()} gagnent ` : ''}${why} · ${minutes} min de jeu.` }) %>
+  <section class="<%= ui.panel %> matchup-result-hero matchup-result-hero--<%= banner %>" aria-labelledby="matchup-result-title">
+    <div class="matchup-result-hero__content">
+      <p class="text-xs font-semibold tracking-wide text-gold-200">Matchup <%= match.format %> · partie terminée</p>
+      <h1 id="matchup-result-title" class="m-0 font-display text-3xl font-bold text-parchment-100 sm:text-4xl"><%= title %></h1>
+      <p class="text-sm text-parchment-200"><%= result && winner ? `Les ${winner.short.toLowerCase()} gagnent ` : '' %><%= why %> · <%= minutes %> min de jeu.</p>
+    </div>
+  </section>
 
   <section class="<%= ui.panel %> flex flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 py-4">
     <% for (const t of teams) { %>
@@ -24,7 +32,12 @@
       </span>
       <% if (t.n === 1) { %><span class="text-parchment-500">contre</span><% } %>
     <% } %>
-    <% if (delta !== null) { %>
+    <% if (mine && mine.placement) { %>
+      <span class="flex basis-full flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-bronze-800 pt-3 text-sm">
+        <span class="text-parchment-400"><%= mine.eloAfter !== mine.eloBefore ? `Placement terminé : te voilà classé à ${num(mine.eloAfter)} elo` : 'Partie de placement : ton elo sera révélé à la fin du placement' %></span>
+        <span class="text-parchment-400">Ligue : <b class="text-parchment-100"><%= rank.label %></b></span>
+      </span>
+    <% } else if (delta !== null) { %>
       <span class="flex basis-full flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-bronze-800 pt-3 text-sm">
         <span class="text-parchment-400">Ton elo <%= mu.LADDERS[match.ladder].toLowerCase() %> : <b class="text-parchment-100 tabular-nums"><%= num(mine.eloBefore) %> → <%= num(mine.eloAfter) %></b></span>
         <span class="font-semibold tabular-nums <%= delta >= 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= delta >= 0 ? '+' : '' %><%= delta %></span>
@@ -47,7 +60,7 @@
                   <td class="text-right tabular-nums"><%= num(r.points) %></td>
                   <td class="text-right tabular-nums"><%= num(r.villages) %></td>
                   <td class="text-right tabular-nums"><%= num(r.kills) %></td>
-                  <td class="text-right tabular-nums whitespace-nowrap"><% if (d !== null) { %><span class="<%= d >= 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= d >= 0 ? '+' : '' %><%= d %></span> <span class="text-parchment-500"><%= num(r.eloAfter) %></span><% } %></td>
+                  <td class="text-right tabular-nums whitespace-nowrap"><% if (r.placement) { %><span class="text-xs text-parchment-500">placement</span><% } else if (d !== null) { %><span class="<%= d >= 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= d >= 0 ? '+' : '' %><%= d %></span> <span class="text-parchment-500"><%= num(r.eloAfter) %></span><% } %></td>
                 </tr>
               <% } %>
             </tbody>

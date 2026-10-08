@@ -25,6 +25,8 @@ const User = sequelize.define('User', {
   adartons: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   // Dernière happy hour déjà annoncée par la popup du jeu (fin du créneau, en ISO) : une seule fois par créneau.
   happyHourSeen: { type: DataTypes.STRING(32), allowNull: true },
+  // Matchup : partie trouvée refusée ou manquée → plus de recherche jusqu'à cette date.
+  matchBlockedUntil: { type: DataTypes.DATE, allowNull: true },
 });
 
 /**
@@ -990,11 +992,18 @@ const BuildReward = sequelize.define('BuildReward', {
 
 const userRef = (allowNull = false) => ({ type: DataTypes.INTEGER, allowNull, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
-/** Elo d'un compte dans un classement du matchup (`ladder` : duel ou team, voir game/matchup.js). */
+/**
+ * Notes d'un compte dans un classement du matchup (`ladder` : duel ou team, voir game/matchup.js) : `elo` visible
+ * (ligues, classement), `mmr` caché et son incertitude `rd` (Glicko, matchmaking), dernière partie (`lastPlayedAt` :
+ * l'incertitude remonte avec l'inactivité).
+ */
 const MatchRating = sequelize.define('MatchRating', {
   userId: userRef(),
   ladder: { type: DataTypes.STRING(8), allowNull: false },
   elo: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1000 },
+  mmr: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 1000 },
+  rd: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 350 },
+  lastPlayedAt: { type: DataTypes.DATE, allowNull: true },
   games: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   wins: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   losses: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
@@ -1062,6 +1071,8 @@ const MatchPlayer = sequelize.define('MatchPlayer', {
   team: { type: DataTypes.INTEGER, allowNull: false },
   eloBefore: { type: DataTypes.INTEGER, allowNull: false },
   eloAfter: { type: DataTypes.INTEGER, allowNull: true },
+  // Partie de placement : l'elo visible ne bouge pas (il est révélé à la dernière).
+  placement: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   forfeitedAt: { type: DataTypes.DATE, allowNull: true },
 }, { indexes: [{ fields: ['matchId'] }, { fields: ['userId'] }] });
 

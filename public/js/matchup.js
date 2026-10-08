@@ -61,10 +61,18 @@
   if (deadline) {
     // Compte à rebours de l'acceptation ; l'onglet signale la partie trouvée s'il est en arrière-plan.
     const end = Number(deadline.dataset.acceptDeadline);
+    const duration = Number(deadline.dataset.acceptDuration) || 15000;
+    const progress = document.querySelector('[data-accept-progress]');
+    const fill = document.querySelector('[data-accept-progress-fill]');
+    const accept = document.querySelector('[data-accept-button]');
     const title = document.title;
     let flip = false;
     const show = () => {
-      deadline.textContent = String(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
+      const remaining = Math.max(0, end - Date.now());
+      deadline.textContent = String(Math.ceil(remaining / 1000));
+      if (fill) fill.style.width = `${Math.min(100, remaining / duration * 100)}%`;
+      if (progress) progress.setAttribute('aria-valuenow', String(Math.min(duration, remaining) / 1000));
+      if (!remaining && accept) accept.disabled = true;
       flip = !flip;
       document.title = document.hidden && flip ? 'Partie trouvée !' : title;
     };
