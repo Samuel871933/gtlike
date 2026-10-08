@@ -28,6 +28,23 @@ Cette valeur sert aux URL canoniques, aux aperçus de partage et à `/sitemap.xm
 qui exigent une URL absolue ne sont pas publiés. Les pages de compte et de jeu portent `noindex`.
 Le favicon est découpé dans le logo PNG et décliné en PNG et ICO ; `python3 scripts/generate-favicon.py` régénère ces fichiers.
 
+## Mise en production (PM2)
+
+[ecosystem.config.js](ecosystem.config.js) lance deux applications PM2 : `adarma-loop` (boucle de jeu seule, `HTTP=0`)
+et `adarma-web` (pages en cluster, `GAME_LOOP=0`, `WEB_INSTANCES` processus, 2 par défaut). PM2 les relance après un
+plantage (attente croissante si le processus replante aussitôt) ou au-delà de `PM2_MAX_MEMORY` (1G).
+
+```bash
+npm install -g pm2
+pm2 install pm2-logrotate          # rotation des journaux (~/.pm2/logs)
+./scripts/deploy.sh                # git pull, npm ci, CSS, migrations, puis start ou reload sans coupure
+pm2 startup                        # une fois : affiche la commande sudo qui relance PM2 au démarrage de la machine
+pm2 save                           # mémorise les processus à relancer (deploy.sh le fait aussi)
+pm2 status / pm2 logs / pm2 monit
+```
+
+`WEB_INSTANCES` et `PM2_MAX_MEMORY` se règlent dans `.env` (pris en compte au prochain `deploy.sh`). Le site se place derrière un proxy HTTPS (nginx…) vers `PORT`.
+
 Le style est uniquement en Tailwind, sans CSS maison : [src/styles/app.css](src/styles/app.css) ne contient que
 la configuration (`@theme` : palette et polices de la maquette `maquettes/Adarma.html`), et les
 composants (panneaux, boutons, onglets, médaillons…) sont des chaînes de classes dans [src/web/ui.js](src/web/ui.js).
