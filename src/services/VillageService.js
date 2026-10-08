@@ -65,6 +65,8 @@ class VillageService {
 
     for (const o of finished) await o.destroy({ transaction: t });
     buildOrders = buildOrders.filter((o) => !finished.includes(o));
+    // Récompenses de construction : niveaux construits pour la première fois par le joueur (début du monde).
+    if (finished.length && village.playerId) await require('./BuildRewardService').onBuilt(village, world, cfg, finished, t);
     const statue = finished.find((o) => o.building === 'statue');
     if (statue && village.playerId) await require('./KnightService').startClock(village.playerId, new Date(statue.endsAt), t);
     // Sceaux : un sceau de niveau 1 par noble formé (mondes officiels avec le module).
@@ -378,7 +380,7 @@ class VillageService {
   static async cancelBuild(villageId, orderId, { now } = {}) {
     return VillageService.withVillage(villageId, async (ctx, t) => {
       const order = ctx.buildOrders.find((o) => o.id === Number(orderId));
-      if (!order) throw new GameError('Construction introuvable.', 404);
+      if (!order) throw new GameError('Cette construction est déjà terminée ou annulée.', 404);
 
       // Une démolition s'annule seule ; un niveau entraîne les niveaux supérieurs du même bâtiment.
       const cancelled = order.demolish ? [order] : ctx.buildOrders.filter((o) => o.building === order.building && !o.demolish && o.level >= order.level);
@@ -400,7 +402,7 @@ class VillageService {
   static async finishBuild(villageId, orderId, { now } = {}) {
     return VillageService.withVillage(villageId, async (ctx, t) => {
       const order = ctx.buildOrders.find((o) => o.id === Number(orderId));
-      if (!order) throw new GameError('Construction introuvable.', 404);
+      if (!order) throw new GameError('Cette construction est déjà terminée.', 404);
       if (order.demolish) throw new GameError('Une démolition ne peut pas être terminée plus tôt.');
       if (new Date(order.startsAt) > ctx.now) throw new GameError('Seule la construction en cours peut être terminée.');
       const left = new Date(order.endsAt) - ctx.now;
@@ -538,7 +540,7 @@ class VillageService {
   static async cancelRecruit(villageId, orderId, { now } = {}) {
     return VillageService.withVillage(villageId, async (ctx, t) => {
       const order = ctx.recruitOrders.find((o) => o.id === Number(orderId));
-      if (!order) throw new GameError('Recrutement introuvable.', 404);
+      if (!order) throw new GameError('Ce recrutement est déjà terminé ou annulé.', 404);
 
       const type = registry.unit(order.unit);
       ctx.state.refund(type.costFor(order.count - order.done), ctx.cfg.cancelRefund);
@@ -626,7 +628,7 @@ class VillageService {
   static async cancelResearch(villageId, orderId, { now } = {}) {
     return VillageService.withVillage(villageId, async (ctx, t) => {
       const order = ctx.researchOrders.find((o) => o.id === Number(orderId));
-      if (!order) throw new GameError('Recherche introuvable.', 404);
+      if (!order) throw new GameError('Cette recherche est déjà terminée ou annulée.', 404);
       ctx.state.refund(registry.unit(order.unit).research, ctx.cfg.cancelRefund);
       await order.destroy({ transaction: t });
       await ctx.village.update(ctx.state.resources, { transaction: t });

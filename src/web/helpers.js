@@ -17,11 +17,11 @@ function duration(seconds) {
 
 /**
  * "aujourd'hui à 14:55:19:926", "demain à 03:00:00:000" ou "le 26/09 à 10:00:00:512" : avec les millisecondes,
- * comme sur Guerre Tribale (arrivées et combats se jouent à la milliseconde).
+ * comme sur Guerre Tribale (arrivées et combats se jouent à la milliseconde) ; `ms: false` pour s'en passer.
  */
-function when(date, now = new Date()) {
+function when(date, now = new Date(), { ms = true } = {}) {
   const d = new Date(date);
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}:${String(d.getMilliseconds()).padStart(3, '0')}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${ms ? `:${String(d.getMilliseconds()).padStart(3, '0')}` : ''}`;
   const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((day(d) - day(now)) / 86400000);
   if (diff === 0) return `aujourd'hui à ${time}`;
@@ -41,7 +41,12 @@ function whenShort(date, now = new Date()) {
 function resourcesWhen(state, cost, now = new Date()) {
   if (state.canAfford(cost)) return null;
   const at = state.affordableAt(cost, now);
-  if (at) return `Ressources disponibles ${when(at, now)}`;
+  if (at) {
+    // La plus proche de ces heures : le pied de page la donne à game.js, qui actualise la page à ce moment.
+    if (!state.nextAffordableAt || at < state.nextAffordableAt) state.nextAffordableAt = at;
+    // Sans millisecondes, arrondie à la seconde suivante : à l'heure affichée, les ressources sont là.
+    return `Ressources disponibles ${when(Math.ceil(at / 1000) * 1000, now, { ms: false })}`;
+  }
   const cap = state.storageCapacity();
   return Object.values(cost).some((c) => c > cap) ? "L'entrepôt est trop petit" : 'Ressources insuffisantes';
 }
@@ -171,6 +176,7 @@ const ICONS = {
   center: '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   edit: '<path d="M14 4l6 6-9 9H5v-6z"/><path d="M12 6l6 6"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
@@ -219,6 +225,8 @@ const ICONS = {
   helm: '<path d="M6 11a6 6 0 0112 0v8H6z"/><path d="M6 14h12M12 5V2"/>',
   crown: '<path d="M4 18h16l1-10-5 4-4-7-4 7-5-4z"/>',
   star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  // Récompenses de construction : coffret enrubanné.
+  gift: '<path d="M4 11h16v10H4zM3 7h18v4H3zM12 7v14"/><path d="M12 7C10 3 6 3 7 6c.5 1 5 1 5 1zM12 7c2-4 6-4 5-1-.5 1-5 1-5 1z"/>',
 };
 
 // Icône de chaque unité.
@@ -641,6 +649,12 @@ module.exports = {
   duration,
   when,
   whenShort,
+  // L'encart de la quête en cours s'affiche-t-il sur cette page (pages de la quête, hors bulle d'accueil et remplaçant) ?
+  // `user` : compte connecté, qui peut masquer ces encarts (Compte → Quêtes).
+  questTrackerShown: (q, asSitter, currentPath, vid, user) => Boolean(q && !q.intro && !asSitter && (!user || user.questReminders !== false)
+    && q.pages.some((p) => currentPath === `/village/${vid}${p ? `/${p}` : ''}`)),
+  // Le monde donne-t-il encore des récompenses de construction (bouton de la barre du village) ?
+  buildRewardsOpen: require('../game/buildRewards').active,
   resourcesWhen,
   num,
   numShort,
@@ -653,6 +667,7 @@ module.exports = {
   continent,
   buildingName: (id) => registry.building(id).name,
   unitName: (id) => registry.unit(id).name,
+  unitPop: (id) => registry.unit(id).pop,
   registry,
   tribeRights,
   ACHIEVEMENT_IMAGES,

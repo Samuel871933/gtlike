@@ -100,6 +100,30 @@ test('messagerie : conversation à plusieurs, non-lus, réponses, départ', asyn
   assert.equal(await Conversation.count(), 0, 'supprimée quand tout le monde est parti');
 });
 
+test('discussion : pagination bornée, ordre stable et accès aux anciens messages', async () => {
+  const { ConversationMessage } = require('../src/models');
+  const conv = await MessageService.start(p.Alice.id, { to: 'Bob', subject: 'Longue discussion', body: 'Message initial' }, { now: T0 });
+  await ConversationMessage.bulkCreate(Array.from({ length: 104 }, (_, i) => ({
+    conversationId: conv.id, playerId: p.Bob.id, body: `Message ${i + 1}`, createdAt: T0,
+  })));
+  const latest = await MessageService.read(p.Alice.id, conv.id);
+  assert.equal(latest.pagination.pages, 3);
+  assert.equal(latest.messages.length, 50);
+  assert.equal(latest.messages[0].body, 'Message 55');
+  assert.equal(latest.messages.at(-1).body, 'Message 104');
+  const middle = await MessageService.read(p.Alice.id, conv.id, { page: 2 });
+  assert.equal(middle.messages[0].body, 'Message 5');
+  assert.equal(middle.messages.at(-1).body, 'Message 54');
+  const oldest = await MessageService.read(p.Alice.id, conv.id, { page: 999 });
+  assert.equal(oldest.pagination.page, 3);
+  assert.equal(oldest.messages.length, 5);
+  assert.equal(oldest.messages[0].body, 'Message initial');
+  assert.equal((await MessageService.read(p.Alice.id, conv.id, { page: -1 })).pagination.page, 1);
+  await assert.rejects(MessageService.read(p.Carol.id, conv.id, { page: 2 }), /introuvable/);
+  await MessageService.leave(p.Alice.id, conv.id);
+  await MessageService.leave(p.Bob.id, conv.id);
+});
+
 test('courrier circulaire : groupes de la tribu, droit requis pour la tribu entière, liste des envois', async () => {
   const TribeService = require('../src/services/TribeService');
   const { Player } = require('../src/models');

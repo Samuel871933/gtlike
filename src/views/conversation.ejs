@@ -17,10 +17,14 @@
         </p>
       </div>
 
-      <% if (conversation.olderCount) { %>
-        <p class="text-sm"><a href="?tout=1" class="<%= ui.link %>">» Afficher les <%= conversation.olderCount %> message<%= conversation.olderCount > 1 ? 's' : '' %> plus ancien<%= conversation.olderCount > 1 ? 's' : '' %></a></p>
+      <% const pg = conversation.pagination; %>
+      <% if (pg.pages > 1) { %>
+        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span class="text-parchment-400"><%= pg.total %> messages · <%= pg.perPage %> par page · page 1 : les plus récents</span>
+          <%- include('partials/pager', { page: pg.page, pages: pg.pages, href: (n) => `?page=${n}` }) %>
+        </div>
       <% } %>
-      <ul class="flex flex-col gap-3">
+      <ul class="messages-scroll flex flex-col gap-3 p-1" data-conversation-messages>
         <% for (const m of conversation.messages) { const mine = m.playerId === myId; %>
           <li class="flex <%= mine ? 'justify-end' : '' %>">
             <div class="max-w-[85%] border-2 border-black px-3.5 py-2.5 shadow-[3px_3px_0_#050505] <%= mine ? 'border-l-4 border-l-bronze-500 bg-head-dark/70' : 'bg-panel-lo' %>">

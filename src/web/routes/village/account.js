@@ -19,6 +19,7 @@ const ACCOUNT_TABS = [
   { id: 'design', label: 'Design des villages' },
   { id: 'layout', label: 'Style de jeu' },
   { id: 'quickbar', label: 'Barre des favoris' },
+  { id: 'quests', label: 'Quêtes' },
   { heading: 'Jeu', owner: true },
   { id: 'sleep', label: 'Mode sommeil', owner: true },
   { id: 'sitter', label: 'Mode vacances', owner: true },
@@ -90,6 +91,15 @@ router.post('/account/game-shadows', ah(async (req, res) => {
   await req.user.update({ gameShadows: on });
   flash(req, 'success', on ? 'Ombres portées affichées.' : 'Ombres portées retirées.');
   res.redirect(tabUrl(req, 'layout'));
+}));
+
+// Encarts de rappel de la quête en cours (réglage du compte) : avec ou sans.
+router.post('/account/quest-reminders', ah(async (req, res) => {
+  const on = req.body.reminders === 'on';
+  if (!on && req.body.reminders !== 'off') throw new GameError('Réglage inconnu.');
+  await req.user.update({ questReminders: on });
+  flash(req, 'success', on ? 'Rappels des quêtes affichés.' : 'Rappels des quêtes masqués.');
+  res.redirect(tabUrl(req, 'quests'));
 }));
 
 // Barre des favoris : en-tête, bas de l'écran, colonne à gauche ou à droite (réglage du compte).

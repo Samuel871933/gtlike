@@ -7,6 +7,8 @@ const EventService = require('../services/EventService');
 const MessageService = require('../services/MessageService');
 const ReportService = require('../services/ReportService');
 const TribeForumService = require('../services/TribeForumService');
+const BuildRewardService = require('../services/BuildRewardService');
+const TutorialService = require('../services/TutorialService');
 const { gameStyleFor } = require('./gameStyles');
 const { memo } = require('./memo');
 const { villageDesignFor } = require('./villageDesigns');
@@ -105,9 +107,9 @@ async function betterThan(player) {
 }
 
 /** Compteurs de l'en-tête d'une page du jeu. */
-async function headerCounters(res, player, myVillages) {
+async function headerCounters(res, player, myVillages, cfg) {
   const playerId = player.id;
-  const [unreadByFilter, tribeInvites, unreadMessages, incomingAttacks, betterPlayers, tribeForumUnread] = await Promise.all([
+  const [unreadByFilter, tribeInvites, unreadMessages, incomingAttacks, betterPlayers, tribeForumUnread, rewardsPending, questHints] = await Promise.all([
     ReportService.unreadByFilter(playerId),
     TribeInvite.count({ where: { playerId } }),
     MessageService.unreadCount(playerId),
@@ -115,9 +117,13 @@ async function headerCounters(res, player, myVillages) {
     betterThan(player),
     // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.
     TribeForumService.unreadCount(player),
+    // Récompenses de construction à récupérer (bouton à gauche de la barre du village).
+    BuildRewardService.pendingCount(playerId),
+    // Quête en cours du tutoriel : boutons et liens à faire clignoter (game.js).
+    TutorialService.hints(player, cfg),
   ]);
   Object.assign(res.locals, {
-    unreadByFilter, unreadReports: unreadByFilter.all, incomingAttacks, playerRank: 1 + betterPlayers, tribeInvites, tribeForumUnread, unreadMessages,
+    unreadByFilter, unreadReports: unreadByFilter.all, incomingAttacks, playerRank: 1 + betterPlayers, tribeInvites, tribeForumUnread, unreadMessages, rewardsPending, questHints,
   });
 }
 
@@ -149,6 +155,8 @@ const loadVillage = ah(async (req, res, next) => {
   const { village: owned, asSitter } = access;
   req.asSitter = asSitter;
   res.locals.asSitter = asSitter;
+  // Chemin de la page (sans paramètres) : l'encart de quête de l'en-tête ne s'affiche que sur les pages concernées.
+  res.locals.currentPath = req.originalUrl.split('?')[0].replace(/\/$/, '');
   // Données de la carte (JSON lu en continu pendant les déplacements) : ni état du village (transaction avec
   // verrou), ni en-tête de page. Le village et la configuration du monde suffisent.
   if (req.method === 'GET' && MAP_DATA.test(req.path)) {
@@ -195,8 +203,8 @@ const loadVillage = ah(async (req, res, next) => {
   });
   // Compteurs de l'en-tête (rapports, messages, attaques, rang, forum, invitations) : lus d'avance pour une page,
   // sinon (action, réponse JSON) seulement si la réponse rend une vue — une redirection ne les affiche pas.
-  if (req.method === 'GET' && req.get('accept') !== 'application/json') await headerCounters(res, player, myVillages);
-  else deferUntilRender(res, () => headerCounters(res, player, myVillages));
+  if (req.method === 'GET' && req.get('accept') !== 'application/json') await headerCounters(res, player, myVillages, req.ctx.cfg);
+  else deferUntilRender(res, () => headerCounters(res, player, myVillages, req.ctx.cfg));
   // Happy hour des Adartons : popup en jeu tant que ce créneau n'a pas été vu par le compte (la popup le signale
   // elle-même en s'ouvrant, POST happy-hour/seen : une requête de fond ne la consomme pas).
   const happy = require('../game/shopCatalog').happyHour(now);
@@ -209,7 +217,7 @@ const loadVillage = ah(async (req, res, next) => {
  */
 /** Valeurs par défaut des vues (en-tête hors partie), posées pour chaque requête et par la page d'erreur. */
 const BASE_LOCALS = () => ({
-  ctx: null, page: null, unreadReports: 0, unreadByFilter: {}, incomingAttacks: 0, myVillages: [], navVillages: [], villageGroups: [], headerGroups: [], activeGroup: null, villageNav: null, groupHref: () => '', tribeInvites: 0, unreadMessages: 0, player: null,
+  ctx: null, page: null, unreadReports: 0, unreadByFilter: {}, incomingAttacks: 0, myVillages: [], navVillages: [], villageGroups: [], headerGroups: [], activeGroup: null, villageNav: null, groupHref: () => '', tribeInvites: 0, unreadMessages: 0, rewardsPending: 0, questHints: null, currentPath: '', player: null,
   playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, gameShadows: true, quickbarPos: 'top', asSitter: false, happyPopup: null,
 });
 
@@ -226,7 +234,9 @@ function errorHandler(err, req, res, _next) {
     return res.status(err instanceof GameError ? err.status : 500).json({ error: err instanceof GameError ? err.message : 'Erreur interne du serveur.' });
   }
   if (err instanceof GameError) {
-    if (req.method === 'POST' && req.session && err.status < 500 && err.status !== 404) {
+    // Sur un POST, un « introuvable » vient le plus souvent d'un objet disparu entre l'affichage et le clic
+    // (construction terminée, offre déjà prise…) : retour sur la page avec le message, comme les autres refus.
+    if (req.method === 'POST' && req.session && err.status < 500) {
       flash(req, 'error', err.message);
       return res.redirect(back(req));
     }

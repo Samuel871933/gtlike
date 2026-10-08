@@ -824,6 +824,11 @@ html.game_style body::before,
 }
 .inbox-hero--reports { --inbox-hero-image: url('/img/reports/inbox.webp'); }
 .inbox-hero--messages { --inbox-hero-image: url('/img/messages/inbox.webp'); }
+.messages-scroll {
+  max-height: min(60vh, 36rem);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
 .inbox-hero__title { color: #fff5df; font-family: var(--font-display); font-size: clamp(1.2rem, 2vw, 1.7rem); font-weight: 600; line-height: 1.15; text-shadow: 0 2px 4px #000; }
 .inbox-hero__subtitle { margin-top: .4rem; color: #eee1ca; font-size: .82rem; text-shadow: 0 1px 3px #000; }
 @media (max-width: 640px) {
@@ -1040,6 +1045,50 @@ html.game_style body::before,
 }
 @keyframes happy-shine { from { background-position: 160% 0; } to { background-position: -60% 0; } }
 @media (prefers-reduced-motion: reduce) { .happy-card::before { animation: none; } }
+/* Quête du tutoriel en cours (game.js, game/tutorial.js) : ce qu'il faut cliquer pulse en ambre vif (même teinte
+   dans les deux thèmes : le doré du thème clair est trop sombre pour attirer l'œil) ; une ligne de tableau (bâtiment
+   au quartier général) s'éclaire d'un bloc. Sans animation si l'utilisateur la refuse : le contour reste. */
+/* Pas de `position` ici : la classe se pose aussi sur des éléments positionnés (bâtiments du plan du village, en
+   absolute), qu'elle déplacerait. */
+.quest-hint {
+  outline: 3px solid rgb(245 166 35);
+  outline-offset: 2px;
+  animation: quest-pulse 1.3s ease-in-out infinite;
+}
+tr.quest-hint { outline: none; animation: quest-row 1.3s ease-in-out infinite; }
+/* Bâtiment du plan du village : halo autour de son image plutôt qu'un cadre autour de sa case. */
+[data-plot].quest-hint { outline: none; animation: none; }
+[data-plot].quest-hint .village-building-sprite { animation: quest-glow 1.3s ease-in-out infinite; }
+@keyframes quest-glow {
+  0%, 100% { filter: drop-shadow(0 0 2px rgb(245 166 35 / .9)) drop-shadow(0 0 0 rgb(245 166 35 / 0)); }
+  50% { filter: drop-shadow(0 0 4px rgb(245 166 35)) drop-shadow(0 0 14px rgb(245 166 35 / .85)); }
+}
+/* Barre des favoris : elle défile et couperait le contour extérieur ; contour intérieur et fond qui pulse. */
+[data-quickbar] .quest-hint { outline-offset: -3px; animation: quest-row 1.3s ease-in-out infinite; }
+tr.quest-hint > td:first-child { box-shadow: inset 5px 0 0 rgb(245 166 35); }
+@keyframes quest-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(245 166 35 / .85); }
+  60% { box-shadow: 0 0 0 9px rgb(245 166 35 / 0); }
+}
+@keyframes quest-row {
+  0%, 100% { background-color: rgb(245 166 35 / .1); }
+  50% { background-color: rgb(245 166 35 / .32); }
+}
+/* Encart de quête : sur une page de bâtiment, il passe sous l'illustration de la colonne de gauche dès qu'elle
+   s'affiche (écrans larges, ui.buildingAside) ; celui du haut de page est alors masqué. */
+@media (min-width: 80rem) {
+  body:has([data-quest-tracker="aside"]) [data-quest-tracker="top"] { display: none; }
+}
+/* Bulle d'accueil des quêtes (en-tête, première arrivée sur un monde) : léger rebond vers le bouton. */
+.quest-intro { animation: quest-intro 2.4s ease-in-out infinite; }
+@keyframes quest-intro {
+  0%, 70%, 100% { transform: translateY(0); }
+  80% { transform: translateY(-5px); }
+  90% { transform: translateY(1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quest-hint, tr.quest-hint, [data-quickbar] .quest-hint, .quest-intro, [data-plot].quest-hint .village-building-sprite { animation: none; }
+}
 .happy-timer {
   border: 1px solid rgb(227 178 60 / .45);
   background: rgb(0 0 0 / .45);

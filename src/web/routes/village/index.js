@@ -9,7 +9,7 @@ const { requireAuth, loadVillage } = require('../../middleware');
 const router = express.Router({ mergeParams: true });
 
 router.use(requireAuth, loadVillage);
-for (const area of ['overview', 'buildings', 'place', 'incomings', 'market', 'tribe', 'social', 'account', 'reports', 'ranking', 'map', 'farm', 'seals', 'manager']) {
+for (const area of ['overview', 'buildings', 'place', 'incomings', 'market', 'tribe', 'social', 'account', 'reports', 'ranking', 'map', 'farm', 'seals', 'manager', 'rewards']) {
   router.use(require(`./${area}`));
 }
 

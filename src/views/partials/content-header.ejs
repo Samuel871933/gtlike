@@ -1,0 +1,18 @@
+<%# En-tête commun au gestionnaire et aux quêtes : illustration, titre et description.
+    titleAction et aside sont des fragments HTML produits par les helpers ou les partials. %>
+<section class="<%= ui.panel %>">
+  <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-action)_0_8px,var(--color-action-deep)_8px_16px)]" aria-hidden="true"></div>
+  <div class="flex flex-col gap-3 py-2.5 pr-3.5 pl-5 sm:flex-row sm:items-center sm:gap-5">
+    <div class="flex min-w-0 flex-1 items-center gap-3.5">
+      <span class="flex size-14 shrink-0 items-center justify-center border-[3px] border-black bg-panel-hi shadow-[4px_4px_0_rgba(0,0,0,0.6)]"><img src="<%= illustration %>" width="48" height="48" alt="" class="size-12 object-contain"></span>
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <div class="flex items-center gap-1.5">
+          <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[28px]"><%= title %></h1>
+          <%- typeof titleAction !== 'undefined' ? titleAction : '' %>
+        </div>
+        <p class="text-sm text-parchment-500"><%= sub %></p>
+      </div>
+    </div>
+    <%- typeof aside !== 'undefined' ? aside : '' %>
+  </div>
+</section>

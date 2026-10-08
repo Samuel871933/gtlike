@@ -7,6 +7,11 @@ const DEFINITIONS = require('../game/data/achievements');
 
 const TIER_NAMES = ['bois', 'bronze', 'argent', 'or'];
 const DAY = 86400000;
+// Succès de rang : il faut être dans cette part du classement (10 % : premier d'un monde ou d'un continent d'au moins
+// 10 joueurs, top 20 d'au moins 200…), pour que la place reflète une vraie compétition.
+const RANK_SHARE = 0.1;
+// Succès de rang : aucun avant ce nombre de jours de monde, le temps que le classement se forme.
+const RANK_MIN_DAYS = 10;
 
 function tierFor(def, value) {
   if (value == null) return 0;
@@ -39,17 +44,36 @@ class AchievementService {
     return player;
   }
 
+  /**
+   * Places qui comptent pour les succès de rang, dans un classement [[id du joueur, points], …]. Une égalité compte
+   * contre le joueur (place = 1 + joueurs ayant au moins autant de points), et il faut être dans les RANK_SHARE premiers
+   * du classement : seul inscrit d'un monde neuf, ou à égalité avec tous au départ, on n'est encore premier de rien.
+   * @returns {Map<number, number>} id du joueur → place (joueurs qualifiés seulement)
+   */
+  static qualifiedPlaces(entries) {
+    const sorted = [...entries].sort((a, b) => b[1] - a[1]);
+    const places = new Map();
+    let end = 0;
+    for (let i = 0; i < sorted.length; i++) {
+      if (i >= end) for (end = i + 1; end < sorted.length && sorted[end][1] === sorted[i][1];) end++;
+      if (end <= sorted.length * RANK_SHARE) places.set(sorted[i][0], end);
+    }
+    return places;
+  }
+
+  /** Place qualifiée du joueur au classement du monde (voir qualifiedPlaces), null sinon. */
   static async rankOf(player, t) {
-    const better = await Player.count({
-      where: { worldId: player.worldId, [Op.or]: [{ points: { [Op.gt]: player.points } }, { points: player.points, id: { [Op.lt]: player.id } }] },
-      transaction: t,
-    });
-    return better + 1;
+    const where = { worldId: player.worldId, villageCount: { [Op.gt]: 0 } };
+    const [ahead, pool] = await Promise.all([
+      Player.count({ where: { ...where, id: { [Op.ne]: player.id }, points: { [Op.gte]: player.points } }, transaction: t }),
+      Player.count({ where, transaction: t }),
+    ]);
+    return ahead + 1 <= pool * RANK_SHARE ? ahead + 1 : null;
   }
 
   /**
-   * Meilleure place de chaque joueur parmi les continents où il a des villages (points de ses villages dans le
-   * continent, égalités départagées par id). `continents` : limite le calcul à ces continents (tous sinon).
+   * Meilleure place qualifiée (voir qualifiedPlaces) de chaque joueur parmi les continents où il a des villages
+   * (points de ses villages dans le continent). `continents` : limite le calcul à ces continents (tous sinon).
    * Une seule lecture des villages, sans jointure : la boucle de jeu l'appelle pour tout un monde.
    * @returns {Promise<Map<number, number>>} id du joueur → meilleure place
    */
@@ -71,14 +95,14 @@ class AchievementService {
     }
     const best = new Map();
     for (const points of byContinent.values()) {
-      [...points].sort((a, b) => b[1] - a[1] || a[0] - b[0]).forEach(([playerId], i) => {
-        if (!best.has(playerId) || i + 1 < best.get(playerId)) best.set(playerId, i + 1);
-      });
+      for (const [playerId, place] of AchievementService.qualifiedPlaces(points)) {
+        if (!best.has(playerId) || place < best.get(playerId)) best.set(playerId, place);
+      }
     }
     return best;
   }
 
-  /** Meilleure place du joueur parmi les continents où il a des villages. */
+  /** Meilleure place qualifiée du joueur parmi les continents où il a des villages. */
   static async bestContinentRank(player, t) {
     const villages = await Village.findAll({ where: { playerId: player.id }, attributes: ['x', 'y'], raw: true, transaction: t });
     const continents = [...new Set(villages.map((v) => `K${Math.floor(v.y / 100)}${Math.floor(v.x / 100)}`))];
@@ -95,7 +119,7 @@ class AchievementService {
     let rank = null;
     let continentRank = null;
     if (ranks) {
-      rank = player.villageCount > 0 ? ranks.rank.get(player.id) : null;
+      rank = player.villageCount > 0 ? ranks.rank.get(player.id) ?? null : null;
       continentRank = ranks.continent.get(player.id) ?? null;
     } else if (ranks === null) {
       rank = player.villageCount > 0 ? await AchievementService.rankOf(player, t) : null;
@@ -153,9 +177,9 @@ class AchievementService {
   static async evaluate(playerId, { now = new Date(), t, ranks = null } = {}) {
     const player = await Player.findByPk(playerId, { transaction: t });
     if (!player) return [];
-    const cfg = (await World.cached(player.worldId)).getConfig();
+    const world = await World.cached(player.worldId);
     const existing = await PlayerAchievement.findAll({ where: { playerId }, transaction: t });
-    return AchievementService.unlock(player, cfg, existing, { now, t, ranks });
+    return AchievementService.unlock(player, world, existing, { now, t, ranks });
   }
 
   /**
@@ -163,12 +187,10 @@ class AchievementService {
    * déjà débloqués lus d'un coup. Seuls les nouveaux paliers donnent lieu à une écriture.
    */
   static async evaluateWorld(world, { now = new Date() } = {}) {
-    const cfg = world.getConfig();
     const players = await Player.findAll({ where: { worldId: world.id } });
     if (!players.length) return [];
-    const order = [...players].sort((a, b) => b.points - a.points || a.id - b.id);
-    const ranks = {
-      rank: new Map(order.map((p, i) => [p.id, i + 1])),
+    const ranks = !AchievementService.ranksOpen(world, now) ? false : {
+      rank: AchievementService.qualifiedPlaces(players.filter((p) => p.villageCount > 0).map((p) => [p.id, p.points])),
       continent: await AchievementService.bestContinentRanks(world.id),
     };
     const existing = new Map(players.map((p) => [p.id, []]));
@@ -181,7 +203,7 @@ class AchievementService {
       // Un joueur par transaction : un combat peut débloquer le même succès pendant ce passage (lecture du début
       // périmée). Ce joueur est alors repris au passage suivant, sans arrêter celui des autres.
       try {
-        unlocked.push(...await sequelize.transaction((t) => AchievementService.unlock(player, cfg, existing.get(player.id), { now, ranks, t })));
+        unlocked.push(...await sequelize.transaction((t) => AchievementService.unlock(player, world, existing.get(player.id), { now, ranks, t })));
       } catch (err) {
         if (!(err instanceof UniqueConstraintError)) throw err;
       }
@@ -189,8 +211,15 @@ class AchievementService {
     return unlocked;
   }
 
+  /** Succès de rang ouverts : monde d'au moins RANK_MIN_DAYS jours. */
+  static ranksOpen(world, now = new Date()) {
+    return now - new Date(world.createdAt) >= RANK_MIN_DAYS * DAY;
+  }
+
   /** Paliers nouvellement atteints par le joueur : enregistrés, avec un rapport chacun. */
-  static async unlock(player, cfg, achievements, { now, t, ranks = null }) {
+  static async unlock(player, world, achievements, { now, t, ranks = null }) {
+    const cfg = world.getConfig();
+    if (!AchievementService.ranksOpen(world, now)) ranks = false;
     // Membres de tribu d'avant les succès : le compteur de jours démarre maintenant.
     if (player.tribeId && !player.tribeJoinedAt) await player.update({ tribeJoinedAt: now }, { transaction: t });
     const values = await AchievementService.metrics(player, cfg, { now, t, ranks });
@@ -229,12 +258,10 @@ class AchievementService {
       PlayerAchievement.findAll({ where: { playerId: { [Op.in]: ids } }, transaction: t }),
     ]);
     const byId = new Map(players.map((p) => [p.id, p]));
-    const cfgs = new Map();
     for (const id of ids) {
       const player = byId.get(id);
       if (!player) continue;
-      if (!cfgs.has(player.worldId)) cfgs.set(player.worldId, (await World.cached(player.worldId)).getConfig());
-      await AchievementService.unlock(player, cfgs.get(player.worldId), rows.filter((a) => a.playerId === id), { now, t, ranks });
+      await AchievementService.unlock(player, await World.cached(player.worldId), rows.filter((a) => a.playerId === id), { now, t, ranks });
     }
   }
 
@@ -266,5 +293,7 @@ class AchievementService {
 
 AchievementService.TIER_NAMES = TIER_NAMES;
 AchievementService.tierFor = tierFor;
+AchievementService.RANK_SHARE = RANK_SHARE;
+AchievementService.RANK_MIN_DAYS = RANK_MIN_DAYS;
 
 module.exports = AchievementService;

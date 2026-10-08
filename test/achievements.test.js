@@ -48,10 +48,43 @@ test('un pillage débloque « Brigand » et prévient le joueur', async () => {
   assert.ok(await Report.findOne({ where: { playerId: alice.id, type: 'award', title: 'Succès débloqué : Brigand (bois)' } }));
 });
 
+test('places de rang : égalités contre soi, 10 % premiers du classement seulement', () => {
+  const places = (entries) => Object.fromEntries(AchievementService.qualifiedPlaces(entries));
+  assert.deepEqual(places([[1, 500]]), {}, 'seul inscrit : premier de rien');
+  assert.deepEqual(places(Array.from({ length: 20 }, (_, i) => [i + 1, 26])), {}, 'tous à égalité au départ');
+  const twenty = Array.from({ length: 20 }, (_, i) => [i + 1, 100 - i]);
+  assert.deepEqual(places(twenty), { 1: 1, 2: 2 });
+  assert.deepEqual(places([[1, 100], [2, 100], ...twenty.slice(2)]), { 1: 2, 2: 2 }, 'ex aequo : deuxièmes tous les deux');
+});
+
+test('le premier inscrit d\'un monde ne gagne pas les succès de rang', async () => {
+  await WorldService.createWorld({ slug: 'w2', name: 'Monde 2', config: { newbieDays: 0 } });
+  const u = await AuthService.register({ username: 'Carole', email: 'carole@example.com', password: 'motdepasse' });
+  const { player } = await WorldService.join(u, 'w2', { now: T0 });
+  await AchievementService.evaluate(player.id);
+  assert.equal(await tierOf(player.id, 'topscorer'), 0);
+  assert.equal(await tierOf(player.id, 'continent'), 0);
+  const [world] = await sequelize.models.World.findAll({ where: { slug: 'w2' } });
+  await AchievementService.evaluateWorld(world);
+  assert.equal(await PlayerAchievement.count({ where: { playerId: player.id } }), 0, 'aucun succès à l\'inscription');
+});
+
 test('rang et tribu : paliers débloqués, jamais retirés', async () => {
+  // Bob en tête d'un monde de 10 joueurs actifs : premier des 10 %.
+  for (let i = 0; i < 8; i++) {
+    const u = await AuthService.register({ username: `Joueur${i}`, email: `j${i}@example.com`, password: 'motdepasse' });
+    await WorldService.join(u, 'w1', { now: T0 });
+  }
+  await Player.update({ points: 100000 }, { where: { id: p.Bob.id } });
+  await AchievementService.evaluate(p.Bob.id);
+  assert.equal(await tierOf(p.Bob.id, 'topscorer'), 0, `rien avant ${AchievementService.RANK_MIN_DAYS} jours de monde`);
+  await sequelize.query('UPDATE Worlds SET createdAt = :at WHERE id = :id', {
+    replacements: { at: new Date(Date.now() - (AchievementService.RANK_MIN_DAYS + 1) * 86400000), id: v.Bob.worldId },
+  });
+  await sequelize.models.World.update({ name: 'Monde 1' }, { where: { id: v.Bob.worldId } }); // vide le cache des mondes
   await AchievementService.evaluate(p.Bob.id);
   const before = await tierOf(p.Bob.id, 'topscorer');
-  assert.ok(before >= 3, 'dans un monde de deux joueurs, on est dans le top 20');
+  assert.equal(before, 4, 'premier d\'un monde de dix joueurs');
 
   await TribeService.create(p.Bob.id, { name: 'Les Ours', tag: 'OURS' });
   await Player.update({ tribeJoinedAt: new Date(Date.now() - 61 * 86400000) }, { where: { id: p.Bob.id } });
@@ -63,6 +96,6 @@ test('rang et tribu : paliers débloqués, jamais retirés', async () => {
   assert.equal(await tierOf(p.Bob.id, 'topscorer'), before, 'pas de retour en arrière');
 
   const ranking = await AchievementService.ranking(v.Alice.worldId);
-  assert.equal(ranking.length, 2);
+  assert.ok(ranking.length >= 2);
   assert.ok(ranking.every((r) => r.score >= r.count));
 });

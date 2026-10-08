@@ -182,23 +182,22 @@ class MessageService {
     };
   }
 
-  /** Lecture d'une conversation : la marque comme lue. */
-  /**
-   * Conversation ouverte : ses participants et ses `limit` derniers messages (tous si `limit` est nul), du plus ancien
-   * au plus récent ; `conversation.olderCount` : messages plus anciens non chargés (circulaires de tribu, longs fils).
-   */
-  static async read(playerId, conversationId, { now = new Date(), limit = MessageService.READ_LIMIT } = {}) {
+  /** Lecture paginée : page 1 = derniers messages, affichés dans l'ordre chronologique. */
+  static async read(playerId, conversationId, { now = new Date(), limit = MessageService.READ_LIMIT, page = 1 } = {}) {
     const me = await MessageService.participant(playerId, conversationId);
     const where = { conversationId: me.conversationId };
-    const [conversation, latest, total] = await Promise.all([
+    const total = await ConversationMessage.count({ where });
+    const pagination = paginate(total, page, limit || Math.max(1, total));
+    const [conversation, latest] = await Promise.all([
       Conversation.findByPk(me.conversationId, { include: [{ association: 'participants', include: [Player] }] }),
       ConversationMessage.findAll({
-        where, include: [{ association: 'author' }], order: [['createdAt', 'DESC'], ['id', 'DESC']], ...(limit ? { limit } : {}),
+        where, include: [{ association: 'author' }], order: [['createdAt', 'DESC'], ['id', 'DESC']],
+        limit: pagination.perPage, offset: pagination.offset,
       }),
-      limit ? ConversationMessage.count({ where }) : null,
     ]);
     conversation.messages = latest.reverse();
-    conversation.olderCount = limit ? Math.max(0, total - latest.length) : 0;
+    conversation.pagination = pagination;
+    conversation.olderCount = Math.max(0, total - pagination.offset - latest.length);
     await me.update({ lastReadAt: now });
     return conversation;
   }
@@ -239,6 +238,6 @@ MessageService.MAX_RECIPIENTS = MAX_RECIPIENTS;
 MessageService.GROUPS = GROUPS;
 
 // Messages affichés à l'ouverture d'une conversation (les plus récents) ; les autres sur demande.
-MessageService.READ_LIMIT = 100;
+MessageService.READ_LIMIT = 50;
 
 module.exports = MessageService;

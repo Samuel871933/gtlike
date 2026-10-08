@@ -89,6 +89,12 @@ window.Adarma = (() => {
       });
 
       // Repartir des ressources calculées par le serveur après la fin d'une activité.
+      // Prochaine heure où des ressources suffiront : celle de la page à jour (ou plus aucune).
+      const currentReload = document.querySelector('[data-reload-at]');
+      const updatedReload = fresh.querySelector('[data-reload-at]');
+      if (currentReload) currentReload.replaceWith(updatedReload || '');
+      else if (updatedReload) document.querySelector('[data-clock]')?.parentElement.before(updatedReload);
+
       const updatedResources = fresh.querySelectorAll('[data-res]');
       document.querySelectorAll('[data-res]').forEach((el, i) => {
         const next = updatedResources[i];
@@ -110,6 +116,9 @@ window.Adarma = (() => {
   // Échu dès le chargement (le serveur n'a pas encore traité l'échéance) : rechargement 5 s plus tard au plus tôt, pas
   // en boucle toutes les demi-secondes.
   const loadedAt = serverNow();
+  // Formulaire en cours de saisie (nombre d'unités, offre…) : l'arrivée des ressources n'actualise pas la page.
+  let editing = false;
+  document.addEventListener('input', (e) => { if (e.target.closest('form')) editing = true; });
 
   function tick() {
     // Onglet caché : rien à afficher ni à recharger ; le tour suivant au retour rattrape tout.
@@ -163,6 +172,16 @@ window.Adarma = (() => {
         }
       }
     });
+    // Ressources qui suffisent enfin pour une construction, une unité… (« Ressources disponibles à … ») : la page
+    // se met à jour pour proposer le bouton.
+    const reloadAt = Number(document.querySelector('[data-reload-at]')?.dataset.reloadAt);
+    if (reloadAt && reloadAt <= now && !editing && !(reloadAt <= loadedAt && now - loadedAt < 5000)) {
+      if (isOverview) refreshOverview();
+      else if (!reloading) {
+        reloading = true;
+        setTimeout(() => window.location.reload(), 500);
+      }
+    }
     // Le serveur peut traiter la prochaine unité quelques secondes après son échéance.
     // Continuer à synchroniser le recrutement même si son minuteur a disparu du plan.
     if (isOverview) {
@@ -1324,4 +1343,41 @@ window.Adarma = (() => {
   measure();
   if (window.ResizeObserver) new ResizeObserver(measure).observe(header);
   else window.addEventListener('resize', measure);
+})();
+
+// Ouvrir chaque page de discussion au dernier message de sa zone défilante.
+(() => {
+  const messages = document.querySelector('[data-conversation-messages]');
+  if (!messages) return;
+  const scrollToLast = () => { messages.scrollTop = messages.scrollHeight; };
+  scrollToLast();
+  if (document.readyState !== 'complete') window.addEventListener('load', scrollToLast, { once: true });
+})();
+
+// Quête du tutoriel en cours (en-tête, data-quest-hints ; game/tutorial.js) : les liens vers la page à ouvrir
+// ('link:<chemin>', sauf celle où l'on est déjà) et les boutons ou lignes à utiliser (sélecteurs) pulsent en doré.
+(() => {
+  const source = document.querySelector('[data-quest-hints]');
+  if (!source) return;
+  let targets;
+  try { targets = JSON.parse(source.dataset.questHints); } catch { return; }
+  const base = `/village/${source.dataset.questVillage}`;
+  const label = `Quête « ${source.dataset.questTitle} »`;
+  const mark = (el) => {
+    el.classList.add('quest-hint');
+    if (!el.title.includes(label)) el.title = el.title ? `${el.title} · ${label}` : label;
+  };
+  // Les liens d'une quête forment un chemin (point de ralliement → collecte) : sur une de ses pages, seules les pages
+  // suivantes clignotent. Un lien doit viser la page exacte, sans paramètre (?tab=troops n'est pas la page visée).
+  const paths = targets.filter((t) => t.startsWith('link:')).map((t) => base + (t.slice(5) ? `/${t.slice(5)}` : ''));
+  const here = window.location.pathname.replace(/\/$/, '');
+  const next = paths.slice(paths.indexOf(here) + 1);
+  document.querySelectorAll('a[href]').forEach((a) => {
+    const url = new URL(a.href, window.location.href);
+    if (a.closest('[data-quest-skip]') || url.origin !== window.location.origin || url.search) return;
+    if (next.includes(url.pathname.replace(/\/$/, ''))) mark(a);
+  });
+  for (const selector of targets.filter((t) => !t.startsWith('link:'))) {
+    try { document.querySelectorAll(selector).forEach(mark); } catch { /* sélecteur invalide : ignoré */ }
+  }
 })();

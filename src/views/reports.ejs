@@ -89,7 +89,7 @@
         </div>
         <ul data-lazy-list="reports">
           <% for (const r of lr.items) { const k = kind(r); %>
-            <li class="flex min-h-13.5 items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 <%= r.isRead ? '' : 'bg-gold-400/5' %>">
+            <li class="flex min-h-13.5 items-center gap-3 border-b border-bronze-700/35 px-4.5 py-2 last:border-b-0 <%= r.isRead ? '' : 'bg-gold-400/5' %>"<%- r.isRead ? '' : ' data-report-unread' %>>
               <input type="checkbox" name="ids" value="<%= r.id %>" class="<%= ui.checkbox %>" aria-label="Sélectionner">
               <a href="/village/<%= vid %>/reports/<%= r.id %>" class="group flex min-w-0 flex-1 items-center gap-3 no-underline">
                 <span class="relative">

@@ -212,17 +212,19 @@ function sideNav(items, { label = 'Menu', cls = '', at = 'md' } = {}) {
 
 /**
  * Barre de progression à libellé (fin du monde, sceaux…) : remplissage de `from` à `goal`, rouge, puis vert une fois
- * l'objectif atteint ; texte centré (par défaut « valeur / objectif »). `cls` : largeur, marges.
+ * l'objectif atteint ; texte centré (par défaut « valeur / objectif »). `cls` : largeur, marges ; `size` : 'md', ou 'sm'
+ * (barre basse, petit texte : conditions des quêtes).
  * progressBar(18, 20) ; progressBar(590, 918, { from: 300 }) ; progressBar(3, 14, { label: '3 / 14 jours' }).
  */
-function progressBar(value, goal, { from = 0, label = null, cls = 'min-w-44' } = {}) {
+function progressBar(value, goal, { from = 0, label = null, cls = 'min-w-44', size = 'md' } = {}) {
   const span = goal - from;
   const width = span > 0 ? Math.max(0, Math.min(100, (100 * (value - from)) / span)) : 0;
   const done = goal > 0 && value >= goal;
   const text = label !== null ? label : `${NUMBER_FR.format(Math.floor(value))} / ${NUMBER_FR.format(Math.floor(goal))}`;
-  return `<span class="relative flex h-6 items-center justify-center overflow-hidden border border-black bg-night shadow-[inset_0_1px_2px_#0006] ${cls}">`
+  const sm = size === 'sm';
+  return `<span class="relative flex ${sm ? 'h-[18px]' : 'h-6'} items-center justify-center overflow-hidden border border-black bg-night shadow-[inset_0_1px_2px_#0006] ${cls}">`
     + `<span class="absolute inset-y-0 left-0 ${done ? 'bg-olive-500' : 'bg-blood-700'}" style="width: ${width.toFixed(1)}%"></span>`
-    + `<span class="relative text-[13px] font-semibold text-parchment-100 tabular-nums">${text}</span></span>`;
+    + `<span class="relative ${sm ? 'text-[11px] leading-none' : 'text-[13px]'} font-semibold text-parchment-100 tabular-nums">${text}</span></span>`;
 }
 
 module.exports = { ui, btn, panelHead, segTabs, segMenu, sideNav, esc, progressBar };

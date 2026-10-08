@@ -19,6 +19,8 @@ const User = sequelize.define('User', {
   gameShadows: { type: DataTypes.BOOLEAN, allowNull: true },
   // Emplacement de la barre des favoris (src/web/quickbarPositions.js) : top, bottom, left, right ; nul = top.
   quickbarPosition: { type: DataTypes.STRING(8), allowNull: true },
+  // Encarts de rappel de la quête en cours (pages de la quête) : affichés sauf si décoché (Compte → Quêtes).
+  questReminders: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
   // Solde d'Adartons, la monnaie de la boutique (voir ShopService) ; chaque mouvement est inscrit dans AdartonTransactions.
   adartons: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   // Dernière happy hour déjà annoncée par la popup du jeu (fin du créneau, en ISO) : une seule fois par créneau.
@@ -317,6 +319,9 @@ const Player = sequelize.define(
     managerSettings: { type: DataTypes.JSON, allowNull: true },
     // Dernière page du jeu vue par le joueur (à la minute près) : notifications « seulement si je ne suis pas connecté ».
     lastSeenAt: { type: DataTypes.DATE, allowNull: true },
+    // Quêtes du tutoriel ouvertes (ou leur bulle d'accueil fermée) : la bulle qui montre le bouton des quêtes à
+    // l'arrivée sur le monde ne s'affiche plus.
+    tutorialSeenAt: { type: DataTypes.DATE, allowNull: true },
   },
   { indexes: [{ unique: true, fields: ['userId', 'worldId'] }, { fields: ['tribeId'] }, { fields: ['worldId', 'points'] }] },
 );
@@ -952,6 +957,27 @@ const SealOffer = sequelize.define('SealOffer', {
   count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
 }, { indexes: [{ fields: ['tribeId'] }, { fields: ['userId'] }] });
 
+/**
+ * Récompense à récupérer, en attente tant que `collectedAt` est nul :
+ * - de construction (réglages `buildRewards`, voir game/buildRewards.js) : un niveau de bâtiment construit pour la
+ *   première fois par le joueur sur ce monde (une ligne par `building` et `level`) ; `villageId` : village où il a été
+ *   construit (pour l'affichage, sans contrainte) ;
+ * - de quête du tutoriel (game/tutorial.js) : `building` vaut 'quest' et `level` le numéro de la quête ; ressources,
+ *   ou troupes (`units`).
+ */
+const BuildReward = sequelize.define('BuildReward', {
+  playerId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Players', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  villageId: { type: DataTypes.INTEGER, allowNull: true },
+  building: { type: DataTypes.STRING(16), allowNull: false },
+  level: { type: DataTypes.INTEGER, allowNull: false },
+  wood: { type: DataTypes.INTEGER, allowNull: false },
+  stone: { type: DataTypes.INTEGER, allowNull: false },
+  iron: { type: DataTypes.INTEGER, allowNull: false },
+  units: { type: DataTypes.JSON, allowNull: true },
+  earnedAt: { type: DataTypes.DATE, allowNull: false },
+  collectedAt: { type: DataTypes.DATE, allowNull: true },
+}, { indexes: [{ unique: true, fields: ['playerId', 'building', 'level'] }, { fields: ['playerId', 'collectedAt'] }] });
+
 module.exports = {
   sequelize, Seal, SealEvent, SealOffer, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
@@ -959,5 +985,5 @@ module.exports = {
   TribeForumSection, TribeForumThread, TribeForumPost, TribeForumRead, TribeForumMute, TribeForumPoll, TribeForumVote, TribeForumShare,
   TribeOperation, TribeOperationTarget, TribeOperationClaim,
   ManagerTemplate, ManagerVillage, TradeRoute,
-  Entitlement, AdartonTransaction,
+  Entitlement, AdartonTransaction, BuildReward,
 };

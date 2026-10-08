@@ -23,6 +23,7 @@
     <a href="/village/<%= ctx.village.id %>/account" class="<%= ui.link %> font-normal">Compte</a>
     <a href="/worlds" class="<%= ui.link %> font-normal">Déconnexion</a>
   </div>
+  <% if (ctx.state?.nextAffordableAt) { %><span hidden data-reload-at="<%= ctx.state.nextAffordableAt.getTime() %>"></span><% } %>
   <div class="tabular-nums">Heure du serveur : <b class="text-parchment-100" data-clock="<%= now.getTime() %>"><%= now.toLocaleString('fr-FR') %></b></div>
   <nav class="flex basis-full flex-wrap gap-x-3 gap-y-0.5 border-t border-bronze-800 pt-1 text-parchment-700" aria-label="Informations légales">
     <% for (const [href, label] of legalLinks) { %><a href="<%= href %>" class="no-underline transition hover:text-parchment-100"><%= label %></a><% } %>

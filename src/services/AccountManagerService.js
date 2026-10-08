@@ -872,9 +872,10 @@ class AccountManagerService {
   /** Démolition (option du modèle) : un niveau d'un bâtiment du modèle qui dépasse son niveau visé. */
   static async runDemolish(ctx, tpl, t, out) {
     const targets = managerTemplates.targets(tpl.steps);
-    for (const [id, level] of Object.entries(targets)) {
+    // Tous les bâtiments du village : un bâtiment absent du modèle (cachette d'un modèle offensif…) y est au niveau 0.
+    for (const id of Object.keys(ctx.state.buildings)) {
       const type = registry.BUILDINGS.get(id);
-      if (!type || ctx.state.level(id) <= Math.max(level, type.minLevel)) continue;
+      if (!type || ctx.state.level(id) <= Math.max(targets[id] || 0, type.minLevel)) continue;
       if (ctx.buildOrders.some((o) => o.building === id)) continue;
       const option = VillageService.demolishOption(ctx, type);
       if (option.blockers.length) {

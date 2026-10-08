@@ -219,8 +219,7 @@ router.post('/messages/delete', ah(async (req, res) => {
 
 
 router.get('/messages/:conversationId', ah(async (req, res) => {
-  const all = req.query.tout === '1';
-  const conversation = await MessageService.read(me(req), req.params.conversationId, all ? { limit: null } : {});
+  const conversation = await MessageService.read(me(req), req.params.conversationId, { page: req.query.page });
   res.locals.unreadMessages = await MessageService.unreadCount(me(req));
   res.render('conversation', { page: 'messages', conversation, MessageGroups: MessageService.GROUPS });
 }));

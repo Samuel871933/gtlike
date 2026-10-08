@@ -89,7 +89,15 @@ test('affordableAt : heure où la production couvre le coût, null au-delà de l
   const state = new VillageState({ buildings: { wood: 1, stone: 1, iron: 1, storage: 1 }, units: {}, wood: 0, stone: 30, iron: 60, resourcesAt: now }, world1);
   const p = state.productionPerHour();
   // Le bois manque le plus : 60 à produire.
-  assert.equal(state.affordableAt({ wood: 60, stone: 30, iron: 0 }, now).getTime(), now.getTime() + Math.ceil((60 / p.wood) * 3600) * 1000);
+  const at = state.affordableAt({ wood: 60, stone: 30, iron: 0 }, now);
+  assert.equal(at.getTime(), now.getTime() + Math.ceil((60 / p.wood) * 3600000));
+  // Même heure quand on la recalcule plus tard (page rechargée) : elle ne glisse pas d'un affichage à l'autre.
+  for (const ms of [1234, 61789, 600001]) {
+    const later = new Date(now.getTime() + ms);
+    const reloaded = new VillageState(state.toData(), world1);
+    reloaded.accrue(later);
+    assert.ok(Math.abs(reloaded.affordableAt({ wood: 60, stone: 30, iron: 0 }, later) - at) <= 1, `${ms} ms plus tard`);
+  }
   assert.equal(state.affordableAt({ wood: 0, stone: 0, iron: 0 }, now).getTime(), now.getTime());
   assert.equal(state.affordableAt({ wood: 5000, stone: 0, iron: 0 }, now), null);
 });

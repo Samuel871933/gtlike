@@ -27,6 +27,13 @@ const DEFAULTS = {
   // comme sur GT, la file continue jusqu'à `maxQueue` ordres, chaque ordre supplémentaire coûtant `extraOrderFactor`
   // fois le précédent (×1,25 : +25 %, +56 %, +95 %…).
   premium: { buildQueueBonus: 3, extraOrderFactor: 1.25, maxQueue: 20 },
+  // Récompenses de construction (comme sur Guerre Tribale) : chaque niveau de chaque bâtiment, construit pour la
+  // première fois par le joueur sur ce monde, rend `percent` de son coût, au moins `min` et au plus `max` de chaque
+  // ressource ; seulement pendant les `days` premiers jours du monde (0 : toute la partie). Voir game/buildRewards.js.
+  buildRewards: { active: true, percent: 0.1, min: 100, max: 2500, days: 30 },
+  // Tutoriel (comme les quêtes de Guerre Tribale) : une suite de quêtes guidées, récompensées en ressources ou en
+  // troupes (voir game/tutorial.js).
+  tutorial: { active: true },
   startBuildings: { main: 1, farm: 1, storage: 1, place: 1 },
   startResources: { wood: 500, stone: 500, iron: 500 },
   // Placement. emptyVillages : villages barbares créés à chaque inscription, en % comme coord.empty_villages de
@@ -145,6 +152,8 @@ class WorldConfig {
       church: { ...DEFAULTS.church, ...(raw.church || {}) },
       seals: { ...DEFAULTS.seals, ...(raw.seals || {}) },
       premium: { ...DEFAULTS.premium, ...(raw.premium || {}) },
+      buildRewards: { ...DEFAULTS.buildRewards, ...(raw.buildRewards || {}) },
+      tutorial: { ...DEFAULTS.tutorial, ...(raw.tutorial || {}) },
       knightItems: { ...DEFAULTS.knightItems, ...(raw.knightItems || {}) },
       startBuildings: raw.startBuildings || DEFAULTS.startBuildings,
     };

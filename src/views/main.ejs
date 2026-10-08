@@ -15,8 +15,27 @@
   const tabHref = (t) => `/village/${vid}/main${t === 'demolition' ? '?tab=demolition' : ''}`;
   const clock = (s) => `<span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600">${icon('clock', 'size-3.5', 2)}</span>${duration(s)}</span>`;
   const rows = [...available, ...maxed];
-  const nameCell = (o, level) => `
-    <div class="flex items-center gap-3">
+  // Info-bulle d'un bâtiment (onglet Construction) : son rôle, son effet au niveau actuel et au suivant, et ce que le
+  // niveau suivant débloque (bâtiments dont c'est la dernière condition manquante).
+  const unlocksAt = (id, level) => locked.filter((l) => l.missing.length && l.missing.every((m) => m.building === id && m.level <= level)).map((l) => l.type.name);
+  const infoTip = (o, level) => {
+    const next = o.maxed ? null : level + 1;
+    const now_ = level > 0 ? buildingStat(o.type.id, level, ctx.cfg) : null;
+    const then = next ? buildingStat(o.type.id, next, ctx.cfg) : null;
+    const unlocks = next ? unlocksAt(o.type.id, next) : [];
+    const stat = then || now_;
+    return `<div class="pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden w-72 flex-col gap-1.5 border-2 border-black bg-panel-top p-2.5 text-left text-[13px] font-normal shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000] group-hover/info:flex group-focus-within/info:flex" role="tooltip">
+      <span class="font-semibold text-parchment-100">${esc(o.type.name)} <span class="font-normal text-gold-400">· ${level > 0 ? `niveau ${level}` : 'non construit'}${next ? ` → ${next}` : ''}</span></span>
+      <span class="text-parchment-400">${esc(o.type.description)}</span>
+      ${stat ? `<span class="flex flex-wrap items-baseline gap-x-1.5 border-t border-bronze-800 pt-1.5"><span class="text-parchment-500">${esc(stat.label)} :</span>
+        <span class="font-semibold text-parchment-100 tabular-nums">${now_ ? esc(now_.value) : '—'}</span>
+        ${then ? `<span class="text-gold-400">${icon('arrowRight', 'size-3', 2.6)}</span><span class="font-semibold text-gold-200 tabular-nums">${esc(then.value)}</span><span class="text-parchment-500">au niveau ${next}</span>` : ''}</span>` : ''}
+      ${unlocks.length ? `<span class="border-t border-bronze-800 pt-1.5"><span class="text-parchment-500">Le niveau ${next} débloque :</span> <span class="font-semibold text-parchment-100">${unlocks.map(esc).join(', ')}</span></span>` : ''}
+      ${o.maxed ? '<span class="text-parchment-500">Niveau maximum atteint.</span>' : ''}
+    </div>`;
+  };
+  const nameCell = (o, level, tip = false) => `
+    <div class="${tip ? 'group/info relative ' : ''}flex items-center gap-3">${tip ? infoTip(o, level) : ''}
       <span class="relative shrink-0">
         ${buildingImg(o.type.id, level, 'h-[35px] w-10 minimal:h-7 minimal:w-8')}
       </span>
@@ -34,7 +53,7 @@
 
   <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
   <div class="<%= ui.buildingGrid %>">
-    <div class="<%= ui.buildingAside %>"><%- include('partials/building-illustration', { buildingId: 'main' }) %></div>
+    <div class="<%= ui.buildingAside %>"><%- include('partials/building-illustration', { buildingId: 'main' }) %><%- include('partials/quest-aside') %></div>
     <div class="flex min-w-0 flex-col gap-5">
 
   <%- segTabs([[tabHref('build'), 'Construction', tab === 'build'], [tabHref('demolition'), 'Démolition', tab === 'demolition']]) %>
@@ -113,7 +132,8 @@
           <span>La prochaine construction dépasse les <%= ctx.buildQueueSlots %> emplacements au prix normal : les coûts ci-dessous incluent <strong class="font-semibold text-gold-200">+<%= surcharge %> %</strong>. Survole un coût pour voir le prix normal.</span>
         </p>
       <% } %>
-      <div class="overflow-x-auto">
+      <%# Défilement horizontal sur écran étroit seulement : au-delà, les info-bulles des bâtiments débordent du tableau. %>
+      <div class="overflow-x-auto md:overflow-visible">
         <table class="<%= ui.table %>">
           <thead>
             <tr>
@@ -124,8 +144,9 @@
           </thead>
           <tbody>
           <% for (const o of rows) { %>
-            <tr>
-              <td class="md:min-w-56"><%- nameCell(o, o.current) %></td>
+            <%# data-build-row : ligne mise en avant par une quête du tutoriel (game/tutorial.js). %>
+            <tr data-build-row="<%= o.type.id %>">
+              <td class="md:min-w-56"><%- nameCell(o, o.current, true) %></td>
               <% if (o.maxed) { %>
                 <td colspan="6" class="text-center text-sm text-parchment-500">Bâtiment complètement terminé</td>
               <% } else { const reason = o.blockers[0] || null; %>
@@ -145,11 +166,11 @@
                   <% } else if (reason) { %>
                     <span class="text-[13px] text-parchment-500"><%= reason %></span>
                   <% } else if (o.lacksResources) { %>
-                    <span class="text-[13px] leading-tight text-parchment-500"><%= o.availableAt ? `Ressources disponibles ${when(o.availableAt, now)}` : 'Ressources insuffisantes' %></span>
+                    <span class="text-[13px] leading-tight text-parchment-500"><%= resourcesWhen(ctx.state, o.cost, now) %></span>
                   <% } else { %>
                     <form method="post" action="/village/<%= vid %>/build" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                       <input type="hidden" name="building" value="<%= o.type.id %>">
-                      <button class="<%= btn('gold', 'sm', 'min-w-28') %>"><%= o.level === 1 ? 'Construire' : `Niveau ${o.level}` %></button>
+                      <button class="<%= btn('gold', 'sm', 'min-w-28') %>" data-build-submit><%= o.level === 1 ? 'Construire' : `Niveau ${o.level}` %></button>
                     </form>
                   <% } %>
                   <span class="mt-1 flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs md:hidden"><%- include('partials/cost', { cost: o.cost, pop: o.pop, have: ctx.state.resources }) %><%- clock(o.duration) %></span>

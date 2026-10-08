@@ -22,6 +22,7 @@ const seq = (list) => list.map(([building, level]) => ({ building, level }));
 
 // Départ commun (jusqu'à environ 1 500 points) : mines, QG, caserne et forge pour les premières troupes.
 const OPENING = [
+  ['place', 1],
   ['wood', 1], ['stone', 1], ['iron', 1], ['wood', 2], ['stone', 2], ['main', 2], ['wood', 3], ['stone', 3], ['iron', 2],
   ['main', 3], ['barracks', 1], ['farm', 2], ['storage', 2], ['wood', 5], ['stone', 5], ['iron', 4], ['storage', 4],
   ['farm', 4], ['main', 5], ['market', 1], ['smith', 1], ['wood', 8], ['stone', 8], ['iron', 6], ['storage', 8],

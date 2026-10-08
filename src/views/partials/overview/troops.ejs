@@ -14,7 +14,8 @@
     <% } %>
   </div>
   <div class="flex flex-col gap-1.5 border-t border-bronze-800 px-2.5 py-2">
-    <a href="<%= recruitHref %>" class="<%= btn('dark', 'md', 'w-full') %>">Recruter des unités</a>
+    <%# data-quest-skip : sans caserne, ce lien mène au QG ; il ne doit pas clignoter pour une quête de construction. %>
+    <a href="<%= recruitHref %>" class="<%= btn('dark', 'md', 'w-full') %>" data-quest-skip>Recruter des unités</a>
     <% if (ctx.state.level('place') > 0) { %><a href="/village/<%= vid %>/place?tab=troops" class="<%= ui.link %> self-center text-[13px]">» Détail des troupes</a><% } %>
   </div>
 </section>

@@ -138,6 +138,26 @@ test('gestionnaire de villages : file au prix normal, entrepôt et bâtiments re
   assert.equal(first.building, 'storage');
 });
 
+test('gestionnaire de villages : démolition, y compris des bâtiments absents du modèle', async () => {
+  const c = await cfg();
+  await BuildOrder.destroy({ where: { villageId: home.id } });
+  const tpl = await AccountManagerService.createBuildTemplate(alice.id, { name: 'Sans cachette' });
+  for (const [building, levels] of [['main', 15], ['farm', 10], ['storage', 10]]) {
+    await AccountManagerService.editBuildSteps(alice.id, tpl.id, { op: 'add', building, levels }, c);
+  }
+  await AccountManagerService.editBuildSteps(alice.id, tpl.id, { op: 'demolish', on: '1' }, c);
+  // Liste terminée ; la cachette n'est pas dans le modèle : elle doit descendre à 0.
+  const targets = managerTemplates.targets((await AccountManagerService.buildTemplate(alice.id, `tpl:${tpl.id}`)).steps);
+  assert.ok(targets.main >= c.demolishMainLevel && !targets.hide);
+  await setVillage(home.id, { buildings: { ...targets, hide: 3 }, loyalty: 100, ...plain });
+  await AccountManagerService.applyBuild(alice.id, [home.id], { action: 'use', template: `tpl:${tpl.id}` });
+  await ManagerVillage.update({ checkAt: null }, { where: { villageId: home.id } });
+  await AccountManagerService.runDue(new Date());
+  const orders = await BuildOrder.findAll({ where: { villageId: home.id } });
+  assert.deepEqual(orders.map((o) => `${o.building}${o.level}${o.demolish ? '-' : ''}`), ['hide2-']);
+  await BuildOrder.destroy({ where: { villageId: home.id } });
+});
+
 test('gestionnaire de villages : pause, sans premium rien ne se construit, conquête', async () => {
   await BuildOrder.destroy({ where: { villageId: home.id } });
   await AccountManagerService.applyBuild(alice.id, [home.id], { action: 'use', template: 'sys:resources' });

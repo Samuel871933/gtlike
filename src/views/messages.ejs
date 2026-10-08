@@ -23,7 +23,7 @@
   <% } else { %>
     <% const lm = lazy('messages', inbox.rows) %>
     <form id="messages-select" method="post" action="<%= m %>/delete" data-page-ids="<%= inbox.rows.map((r) => r.conversation.id).join(',') %>" data-confirm="Effacer les conversations sélectionnées ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
-    <div class="overflow-x-auto">
+    <div class="messages-scroll">
       <table class="<%= ui.table %>">
         <thead><tr><th class="w-8"></th><th>Objet</th><th>Joueur</th><th class="text-right">Dernier message</th></tr></thead>
         <tbody data-lazy-list="messages">
@@ -56,7 +56,7 @@
   <% if (!circulars.length) { %>
     <p class="<%= ui.empty %>">Vous n'avez envoyé aucun mail circulaire. Dans « Écrire un message », le bouton Tribu du champ À envoie à toute la tribu ou à ses ducs, barons et diplomates.</p>
   <% } else { %>
-    <div class="overflow-x-auto">
+    <div class="messages-scroll">
       <table class="<%= ui.table %>">
         <thead><tr><th>Objet</th><th>Destinataires</th><th class="text-right">Envoyé</th><th class="text-right">Dernier message</th></tr></thead>
         <tbody>

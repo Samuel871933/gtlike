@@ -290,7 +290,7 @@ test('bâtiments favoris : l’étoile ajoute ou retire un bâtiment de la barre
   await http(`${joined.location}/buildings/main/favorite`, { method: 'POST', form: { _csrf: tokenOf(after.html) } });
   assert.doesNotMatch(quickbar((await http(joined.location)).html), /Quartier général/);
   const unknown = await http(`${joined.location}/buildings/church/favorite`, { method: 'POST', form: { _csrf: tokenOf(after.html) } });
-  assert.equal(unknown.status, 404);
+  assert.equal(unknown.status, 302, 'refus affiché sur la page d’origine');
 });
 
 test('classement : menu des types, page du joueur, aller à un rang, recherche', async () => {
@@ -319,13 +319,22 @@ test('carte : tailles et calques mémorisés sur le joueur, marquages', async ()
   const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
   const map = `${joined.location}/map`;
 
-  // Tailles de Guerre Tribale, mémorisées : la page suivante les garde sans paramètre.
-  await http(`${map}?size=30&mini=120`);
+  const initial = await http(map);
+  assert.match(initial.html, /data-step="5" data-mini-step="1" data-mini-pos="side"/);
+  // Les proportions choisies restent mémorisées pour les visites suivantes.
+  await http(`${map}/settings`, { method: 'POST', form: { _csrf: tokenOf(initial.html), step: '4', miniStep: '2' } });
   const again = await http(map);
-  assert.match(again.html, /data-map data-size="30"/);
-  assert.match(again.html, /data-mini-map data-size="120"/);
-  assert.equal((await http(`${map}?size=12`)).status, 200);
-  assert.match((await http(map)).html, /data-map data-size="30"/, 'une taille inconnue ne remplace pas la taille mémorisée');
+  assert.match(again.html, /data-step="4" data-mini-step="2"/);
+  await http(`${map}/settings`, { method: 'POST', form: { _csrf: tokenOf(again.html), step: '12' } });
+  assert.match((await http(map)).html, /data-step="4" data-mini-step="2"/, 'une taille inconnue ne remplace pas le réglage mémorisé');
+  // Zoom de la carte mémorisé (borné à ×1/3 – ×3), sans toucher aux tailles.
+  assert.match(again.html, /data-zoom="1"/);
+  await http(`${map}/settings`, { method: 'POST', form: { _csrf: tokenOf(again.html), zoom: '1.734' } });
+  assert.match((await http(map)).html, /data-step="4" data-mini-step="2" data-mini-pos="side" data-zoom="1.73"/);
+  await http(`${map}/settings`, { method: 'POST', form: { _csrf: tokenOf(again.html), zoom: '9' } });
+  assert.match((await http(map)).html, /data-zoom="3"/);
+  await http(`${map}/settings`, { method: 'POST', form: { _csrf: tokenOf(again.html), zoom: 'abc', step: '4' } });
+  assert.match((await http(map)).html, /data-zoom="3"/, 'un zoom illisible ne remplace pas le réglage mémorisé');
 
   // Calque désactivé : plus rendu sur la grille.
   const token = tokenOf(again.html);
@@ -346,9 +355,9 @@ test('carte : tailles et calques mémorisés sur le joueur, marquages', async ()
   assert.ok(mini.some(([mx, my, kind]) => mx === Number(x) && my === Number(y) && kind === 'current'));
 
   // Taille changée en direct (map.js) puis mémorisée ; carte du monde chargée à l'ouverture de sa fenêtre.
-  const saved = await http(`${map}/settings`, { method: 'POST', form: { _csrf: token, size: '9' } });
+  const saved = await http(`${map}/settings`, { method: 'POST', form: { _csrf: token, step: '5' } });
   assert.equal(saved.status, 302);
-  assert.match((await http(map)).html, /data-map data-size="9"/);
+  assert.match((await http(map)).html, /data-step="5" data-mini-step="1"/);
   const world = JSON.parse((await http(`${map}/world`)).html);
   assert.ok(world.size > 0 && world.villages.some(([wx, wy, kind]) => wx === Number(x) && wy === Number(y) && kind === 'current'));
 
@@ -391,6 +400,8 @@ test('bâtiments : la date de disponibilité des ressources s\'affiche quand ell
     const page = await http(`${joined.location}/${path}`.replace(/\/$/, ''));
     assert.equal(page.status, 200, path);
     assert.match(page.html, /Ressources disponibles (aujourd&#39;hui|demain|le )/, path);
+    // Heure la plus proche transmise à game.js, qui actualise la page à ce moment.
+    assert.match(page.html, /data-reload-at="\d+"/, path);
   }
 });
 
@@ -429,6 +440,23 @@ test('messagerie : boîte, écriture avec groupe de tribu, mail circulaire, effa
   assert.match(refused.html, /Texte conservé/);
   const sent = await http(m, { method: 'POST', form: { to: '', group: 'tribe', subject: 'Rassemblement', body: 'Ce soir', _csrf: tokenOf(form.html) } });
   assert.match(sent.location, /\/messages\/\d+$/);
+
+  const { ConversationMessage } = require('../src/models');
+  await ConversationMessage.bulkCreate(Array.from({ length: 55 }, (_, i) => ({
+    conversationId: Number(sent.location.split('/').pop()), playerId: bob.id,
+    body: `Pagination échange ${i + 1}`, createdAt: new Date(Date.now() + i + 1000),
+  })));
+  const discussion = await http(sent.location);
+  assert.equal(discussion.status, 200);
+  assert.match(discussion.html, /data-conversation-messages/);
+  assert.match(discussion.html, /Pagination échange 55/);
+  assert.doesNotMatch(discussion.html, /Pagination échange 1<\/p>/);
+  assert.match(discussion.html, /href="\?page=2"/);
+  const older = await http(`${sent.location}?page=2`);
+  assert.equal(older.status, 200);
+  assert.match(older.html, /Pagination échange 1<\/p>/);
+  assert.doesNotMatch(older.html, /Pagination échange 55/);
+  assert.doesNotMatch((await http(`${sent.location}?tout=1`)).html, /Pagination échange 1<\/p>/);
 
   const circ = await http(`${m}/circular`);
   assert.match(circ.html, /Rassemblement/);

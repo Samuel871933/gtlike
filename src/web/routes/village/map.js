@@ -54,14 +54,20 @@ function share(prefs, changed = 'step') {
   }
   return prefs;
 }
+// Zoom de la carte (×1/3 à ×3), arrondi au centième ; null s'il n'est pas valable.
+function zoomOf(value) {
+  const z = Number(value);
+  return Number.isFinite(z) && z > 0 ? Math.round(Math.min(3, Math.max(1 / 3, z)) * 100) / 100 : null;
+}
 // Réglages mémorisés ; les anciens (size en cases, mini en cases) sont convertis au plus proche.
 function mapPrefs(saved) {
   const pick = (value, list, fallback) => (list.includes(value) ? value : fallback);
-  const oldStep = saved.size ? Math.min(6, Math.max(1, Math.round(saved.size / 5))) : 4;
+  const oldStep = saved.size ? Math.min(6, Math.max(1, Math.round(saved.size / 5))) : 5;
   const prefs = {
     step: pick(Number(saved.step), STEPS, oldStep),
     miniStep: pick(Number(saved.miniStep), STEPS, 1),
     miniPos: pick(saved.miniPos, MINI_POSITIONS, 'side'),
+    zoom: zoomOf(saved.zoom) ?? 1,
   };
   return share(prefs);
 }
@@ -164,6 +170,7 @@ router.post('/map/settings', ah(async (req, res) => {
   if (STEPS.includes(Number(req.body.step))) prefs.step = Number(req.body.step);
   if (STEPS.includes(Number(req.body.miniStep))) prefs.miniStep = Number(req.body.miniStep);
   if (MINI_POSITIONS.includes(req.body.miniPos)) prefs.miniPos = req.body.miniPos;
+  if (zoomOf(req.body.zoom) != null) prefs.zoom = zoomOf(req.body.zoom);
   share(prefs, req.body.miniStep && !req.body.step ? 'miniStep' : 'step');
   const { size, mini, mapZoomV2, mapMiniZoomV2, ...rest } = saved;
   await player.update({ mapSettings: { ...rest, ...prefs } });

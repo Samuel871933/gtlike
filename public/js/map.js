@@ -15,9 +15,9 @@
   // ou à gauche (`miniPos` side, left), les deux se partagent la largeur (5/6 + 1/6 : toute la page). Sinon elle est en
   // dessous (below) ou par-dessus la carte, dans un coin (over). La fenêtre de la carte fait `viewW` × `viewH` px,
   // au pixel près ; `baseSize` : cases de côté qui y tiennent ; `size` : cases dessinées (impair, pour centrer la
-  // case du centre ; moins nombreuses quand on zoome, plus quand on dézoome : `zoom`, molette en tenant la carte,
-  // de ×1/3 à ×3). `ox`, `oy` : décalage en px (à l'écran) qui centre ces cases dans la fenêtre.
-  let step = Number(frame.dataset.step) || 4;
+  // case du centre ; moins nombreuses quand on zoome, plus quand on dézoome : `zoom`, molette ou échelle de zoom,
+  // de ×1/3 à ×3, mémorisé sur le joueur comme les tailles). `ox`, `oy` : décalage en px (à l'écran) qui centre ces cases dans la fenêtre.
+  let step = Number(frame.dataset.step) || 5;
   let miniStep = Number(frame.dataset.miniStep) || 1;
   let miniPos = frame.dataset.miniPos || 'side';
   const beside = (pos) => pos === 'side' || pos === 'left';
@@ -26,7 +26,10 @@
   let ox = 0;
   let oy = 0;
   let baseSize = Number(frame.dataset.size);
-  let zoom = 1;
+  const MIN_ZOOM = 1 / 3;
+  const MAX_ZOOM = 3;
+  const clampZoom = (z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+  let zoom = clampZoom(Number(frame.dataset.zoom) || 1);
   let size = baseSize;
   let half = Math.floor(size / 2);
   const base = window.location.pathname.replace(/\/map$/, '');
@@ -1073,17 +1076,39 @@
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
 
-  // Zoom : molette en tenant la carte cliquée (sans clic, la molette fait défiler la page), de ×1/3 à ×3 (autant
-  // de dézoom que de zoom), autour de la souris. La carte n'est jamais redessinée pour zoomer : l'image entière
+  // Zoom : molette sur la carte (autour de la souris) ou échelle de zoom (autour du centre), de ×1/3 à ×3 (autant
+  // de dézoom que de zoom). La carte n'est jamais redessinée pour zoomer : l'image entière
   // (terrain, décors, villages, notes, pastilles) est agrandie ou réduite d'un bloc ; en dézoomant, les blocs qui
   // entrent dans la vue s'ajoutent comme en glissant. À l'arrêt, l'image est rafraîchie nette à sa taille (recrisp).
-  const MIN_ZOOM = 1 / 3;
-  const MAX_ZOOM = 3;
   const zoomLabel = frame.querySelector('[data-map-zoom]');
+  const zoomTrack = frame.querySelector('[data-zoom-track]');
+  const zoomThumb = frame.querySelector('[data-zoom-thumb]');
+  // Échelle de zoom : logarithmique, ×3 en haut, ×1/3 en bas, ×1 au milieu ; 4 px de marge à chaque bout.
+  const ZOOM_PAD = 4;
+  const zoomAt = (y) => {
+    const h = zoomTrack.clientHeight - 2 * ZOOM_PAD;
+    const f = Math.max(0, Math.min(1, (y - ZOOM_PAD) / h));
+    return Math.exp(Math.log(MAX_ZOOM) - f * (Math.log(MAX_ZOOM) - Math.log(MIN_ZOOM)));
+  };
   function showZoom(z = zoom) {
+    if (zoomThumb) {
+      const f = (Math.log(MAX_ZOOM) - Math.log(z)) / (Math.log(MAX_ZOOM) - Math.log(MIN_ZOOM));
+      zoomThumb.style.top = `calc(${ZOOM_PAD}px + (100% - ${2 * ZOOM_PAD}px) * ${f})`;
+      zoomTrack.setAttribute('aria-valuenow', String(Math.round(z * 100) / 100));
+      zoomTrack.setAttribute('aria-valuetext', `×${num(Math.round(z * 10) / 10)}`);
+    }
     if (!zoomLabel) return;
     zoomLabel.hidden = Math.abs(z - 1) < 0.01;
     setText(zoomLabel, `×${num(Math.round(z * 10) / 10)}`);
+  }
+  // Zoom mémorisé sur le joueur (comme les tailles de la carte), une fois le geste terminé.
+  let zoomSave = 0;
+  function saveZoom() {
+    clearTimeout(zoomSave);
+    zoomSave = setTimeout(() => {
+      const body = new URLSearchParams({ _csrf: frame.dataset.csrf, zoom: String(Math.round(zoom * 100) / 100) });
+      fetch(`${base}/map/settings`, { method: 'POST', body, headers: { accept: 'application/json' } }).catch(() => {});
+    }, 600);
   }
   layer.style.transformOrigin = '0 0';
   // Zoom posé à `z`, le point du monde sous (px, py) (px dans la fenêtre) restant sous la souris : la case `cx` est
@@ -1119,23 +1144,63 @@
     zg = null;
     recrisp();
     settle();
+    saveZoom();
   }
-  viewport.addEventListener('wheel', (e) => {
-    if (!drag) return;
-    e.preventDefault();
-    const r = viewport.getBoundingClientRect();
+  // Zoom visé `target` autour du point (px, py) de la fenêtre (par défaut son centre), animé.
+  function zoomTo(target, px = viewW / 2, py = viewH / 2) {
     if (!zg) {
-      zg = { target: zoom, px: 0, py: 0 };
-      // La molette fait partie du geste : relâcher ne sera pas pris pour un clic sur une case.
-      drag.moved = true;
+      zg = { target: zoom, px, py };
       hideTip(); closeMenu();
     }
-    zg.px = e.clientX - r.left; zg.py = e.clientY - r.top;
+    zg.px = px; zg.py = py;
+    zg.target = clampZoom(target);
+    if (!zoomFrame) zoomFrame = requestAnimationFrame(zoomStep);
+  }
+  // Molette au survol de la carte (pas sur ses commandes ni sur la mini-carte posée dessus).
+  viewport.addEventListener('wheel', (e) => {
+    if (e.target.closest('[data-mini-over]')) return;
+    e.preventDefault();
+    // Pendant un glisser, la molette fait partie du geste : relâcher ne sera pas pris pour un clic sur une case.
+    if (drag) drag.moved = true;
+    const r = viewport.getBoundingClientRect();
     // Un cran de molette ≈ ×1,2 ; un pavé tactile envoie de petits pas, d'autant plus fins.
     const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
-    zg.target = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zg.target * Math.exp(-delta * 0.0018)));
-    if (!zoomFrame) zoomFrame = requestAnimationFrame(zoomStep);
+    zoomTo((zg ? zg.target : zoom) * Math.exp(-delta * 0.0018), e.clientX - r.left, e.clientY - r.top);
   }, { passive: false });
+  // Échelle de zoom : + et − d'un cran (×1,25), clic ou glisser sur l'échelle, flèches du clavier dessus.
+  const ZOOM_NOTCH = 1.25;
+  frame.querySelectorAll('[data-zoom-step]').forEach((b) => b.addEventListener('click', () => {
+    zoomTo((zg ? zg.target : zoom) * ZOOM_NOTCH ** Number(b.dataset.zoomStep));
+  }));
+  if (zoomTrack) {
+    let trackDrag = null;
+    const fromPointer = (e) => {
+      const target = zoomAt(e.clientY - zoomTrack.getBoundingClientRect().top);
+      // Près de ×1 : s'y accroche, pour revenir à la taille normale d'un clic.
+      zoomTo(Math.abs(Math.log(target)) < 0.06 ? 1 : target);
+    };
+    zoomTrack.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      trackDrag = e.pointerId;
+      zoomTrack.setPointerCapture(e.pointerId);
+      fromPointer(e);
+    });
+    zoomTrack.addEventListener('pointermove', (e) => { if (trackDrag === e.pointerId) fromPointer(e); });
+    const endTrack = (e) => { if (trackDrag === e.pointerId) trackDrag = null; };
+    zoomTrack.addEventListener('pointerup', endTrack);
+    zoomTrack.addEventListener('pointercancel', endTrack);
+    zoomTrack.addEventListener('keydown', (e) => {
+      const steps = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+      if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); e.stopPropagation(); zoomTo(e.key === 'Home' ? MAX_ZOOM : MIN_ZOOM); return; }
+      if (!steps) return;
+      e.preventDefault();
+      e.stopPropagation(); // pas de déplacement de la carte par les flèches
+      zoomTo((zg ? zg.target : zoom) * ZOOM_NOTCH ** steps);
+    });
+    zoomTrack.setAttribute('aria-valuemin', String(Math.round(MIN_ZOOM * 100) / 100));
+    zoomTrack.setAttribute('aria-valuemax', String(MAX_ZOOM));
+  }
+  showZoom();
 
   // Flèches du cadre et clavier (flèches : 1 case, Maj + flèche : une demi-carte).
   frame.querySelectorAll('[data-map-step]').forEach((b) => b.addEventListener('click', () => {
@@ -1695,7 +1760,6 @@
       else miniPos = select.value;
       const body = new URLSearchParams({ _csrf: frame.dataset.csrf, [key]: select.value });
       for (const [k, n] of share(key)) body.set(k, String(n));
-      if (key === 'step') { zoom = 1; showZoom(); }
       render();
       settle();
       fetch(`${base}/map/settings`, { method: 'POST', body, headers: { accept: 'application/json' } }).catch(() => {});

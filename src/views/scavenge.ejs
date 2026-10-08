@@ -83,7 +83,7 @@
                 data-loot="<%= option.lootFactor %>" data-speed="<%= ctx.cfg.speed %>" data-carry='<%= JSON.stringify(carry) %>'><input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <% for (const u of units) { %><input type="hidden" name="<%= u.id %>" value="0"><% } %>
             <div class="mt-auto flex justify-end">
-              <button class="<%= btn('gold') %>"><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
+              <button class="<%= btn('gold') %>" data-scavenge-send><%- icon('send', 'size-3.5', 2.2) %>Envoyer</button>
             </div>
           </form>
         <% } else if (unlocking) { %>

@@ -1,7 +1,14 @@
-<%# Barre de titre d'une page de contenu (liseré aux couleurs du thème, grand titre Cinzel). Locals : kicker, title, sub. %>
-<div class="<%= ui.panel %> flex flex-col gap-0.5 py-3 pr-3.5 pl-5">
+<%# Barre de titre d'une page de contenu. Locals : kicker, title, sub, illustration (facultative). %>
+<div class="<%= ui.panel %> flex items-center gap-3.5 py-3 pr-3.5 pl-5 sm:gap-5">
   <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-head)_0_8px,var(--color-head-dark)_8px_16px)]" aria-hidden="true"></div>
+  <% if (typeof illustration !== 'undefined' && illustration) { %>
+    <span class="flex size-14 shrink-0 items-center justify-center border-[3px] border-black bg-panel-hi shadow-[4px_4px_0_rgba(0,0,0,0.6)]">
+      <img src="<%= illustration %>" alt="" width="48" height="48" class="size-12 object-contain">
+    </span>
+  <% } %>
+  <div class="flex min-w-0 flex-1 flex-col gap-0.5">
   <% if (typeof kicker !== 'undefined' && kicker) { %><span class="text-[11px] tracking-[0.02em] text-gold-400"><%= kicker %></span><% } %>
   <h1 class="m-0 font-display text-[26px] font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[30px]"><%= title %></h1>
   <% if (typeof sub !== 'undefined' && sub) { %><p class="text-sm text-parchment-500"><%= sub %></p><% } %>
+  </div>
 </div>

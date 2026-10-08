@@ -24,6 +24,14 @@ const GROUPS = [
     { key: 'premium.maxQueue', label: 'File maximale avec le premium', type: 'number', min: 1, max: 50, step: 1, hint: 'Au-delà des emplacements au prix normal, un joueur premium peut encore ajouter des constructions jusqu’à ce total, de plus en plus chères.' },
     { key: 'premium.extraOrderFactor', label: 'Surcoût par construction en plus (%)', type: 'number', min: 0, max: 100, step: 5, scale: 0.01, offset: 1, hint: 'Chaque construction au-delà des emplacements au prix normal coûte ce pourcentage de plus que la précédente (25 % sur Guerre Tribale : +25 %, +56 %, +95 %…).' },
   ] },
+  { title: 'Quêtes et récompenses', intro: 'Comme sur Guerre Tribale : un tutoriel de quêtes guide les nouveaux joueurs, et au début du monde chaque niveau de bâtiment construit pour la première fois rend une part de son coût. Tout se récupère dans les récompenses.', settings: [
+    { key: 'tutorial.active', label: 'Quêtes du tutoriel', type: 'bool', hint: 'Une quinzaine de quêtes pour apprendre le jeu (économie, armée, pillage, tribu), récompensées en ressources et en troupes.' },
+    { key: 'buildRewards.active', label: 'Récompenses de construction', type: 'bool', hint: 'Chaque niveau de bâtiment construit pour la première fois rend une part de son coût. Un même niveau ne rapporte qu’une fois par joueur, même construit dans un autre village.' },
+    { key: 'buildRewards.percent', label: 'Part du coût rendue (%)', type: 'number', min: 1, max: 100, step: 1, scale: 0.01, hint: 'Pourcentage du coût de chaque ressource rendu à la fin de la construction.' },
+    { key: 'buildRewards.min', label: 'Minimum par ressource', type: 'number', min: 0, max: 10000, step: 10, hint: 'Récompense minimale de chaque ressource, même pour un niveau bon marché.' },
+    { key: 'buildRewards.max', label: 'Maximum par ressource', type: 'number', min: 0, max: 100000, step: 100, hint: 'Plafond de chaque ressource, même pour un niveau très cher.' },
+    { key: 'buildRewards.days', label: 'Durée (jours)', type: 'number', min: 0, max: 365, step: 1, hint: 'Seules les constructions terminées pendant ces premiers jours du monde rapportent (jours réels). 0 : toute la partie.' },
+  ] },
   { title: 'Unités et modules', intro: 'Les unités et les fonctionnalités disponibles. Tout ce qui est décoché disparaît du monde (bâtiments, unités, menus).', settings: [
     { key: 'features.archer', label: 'Archers et archers montés', type: 'bool', hint: 'Ajoute l’archer (caserne) et l’archer monté (écurie), et la défense contre les archers.' },
     { key: 'features.knight', label: 'Paladin', type: 'bool', hint: 'Ajoute la statue et le paladin, qui renforce les troupes qu’il accompagne.' },

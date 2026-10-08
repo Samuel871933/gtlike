@@ -24,31 +24,13 @@
 %>
 <div class="flex flex-col gap-5">
   <%# En-tête comme les pages de bâtiment et les sceaux : vignette, titre, étoile des favoris (de l'onglet affiché), repères. %>
-  <section class="<%= ui.panel %>">
-    <div class="absolute inset-y-0 left-0 w-1.5 border-r-2 border-black bg-[repeating-linear-gradient(180deg,var(--color-action)_0_8px,var(--color-action-deep)_8px_16px)]" aria-hidden="true"></div>
-    <div class="flex flex-col gap-3 py-2.5 pr-3.5 pl-5 sm:flex-row sm:items-center sm:gap-5">
-      <div class="flex min-w-0 flex-1 items-center gap-3.5">
-        <span class="flex size-14 shrink-0 items-center justify-center border-[3px] border-black bg-panel-hi shadow-[4px_4px_0_rgba(0,0,0,0.6)]"><img src="/img/manager/account-manager.webp" width="48" height="48" alt="" class="size-12 object-contain"></span>
-        <div class="flex min-w-0 flex-col gap-0.5">
-          <div class="flex items-center gap-1.5">
-            <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[28px]">Gestionnaire de compte</h1>
-            <%- favStar(vid, 'manager', favoriteBuildings(player, ctx).includes(starKey), csrfToken, 'size-8', starTab) %>
-          </div>
-          <p class="text-sm text-parchment-500">Construit, recherche, recrute, envoie et équilibre tes ressources à ta place, même quand tu n’es pas connecté.</p>
-        </div>
-      </div>
-      <div class="flex shrink-0 flex-wrap gap-1.5">
-        <dl class="flex flex-col border border-bronze-800 border-t-2 border-t-bronze-500 bg-night px-2.5 py-1 sm:min-w-40 sm:text-right">
-          <dt class="text-[10px] tracking-[0.02em] text-parchment-500">Villages gérés</dt>
-          <dd class="text-lg font-semibold text-parchment-100 tabular-nums"><%= num(managed) %> <span class="text-sm font-normal text-parchment-500">/ <%= num(pagination.total) %></span></dd>
-        </dl>
-        <dl class="flex flex-col border border-bronze-800 border-t-2 border-t-gold-400 bg-night px-2.5 py-1 sm:text-right">
-          <dt class="text-[10px] tracking-[0.02em] text-parchment-500">Premium</dt>
-          <dd class="text-lg font-semibold <%= premium ? 'text-olive-300' : 'text-parchment-500' %>"><%= premium ? 'actif' : 'inactif' %></dd>
-        </dl>
-      </div>
-    </div>
-  </section>
+  <%- include('partials/content-header', {
+    illustration: '/img/manager/account-manager.webp',
+    title: 'Gestionnaire de compte',
+    sub: 'Construit, recherche, recrute, envoie et équilibre tes ressources à ta place, même quand tu n’es pas connecté.',
+    titleAction: favStar(vid, 'manager', favoriteBuildings(player, ctx).includes(starKey), csrfToken, 'size-8', starTab),
+    aside: include('partials/manager-header-stats'),
+  }) %>
 
   <section class="<%= ui.panel %>">
     <%- panelHead('Gestionnaire', tabs) %>

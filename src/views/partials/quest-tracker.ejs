@@ -1,0 +1,65 @@
+<%#
+  Encart de la quête du tutoriel en cours (pages concernées seulement : TutorialService.hints, `pages`) : vignette,
+  conditions avec leur progression, récompense, et l'action (voir la quête, ou la terminer).
+  `variant` : 'top' (en-tête, en ligne) ou 'aside' (colonne de gauche des pages de bâtiment, empilé).
+%>
+<% const q = questHints; const vid = ctx.village.id; const aside = variant === 'aside';
+   const chip = 'inline-flex items-center gap-1 border border-bronze-700 bg-night px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap text-parchment-100 tabular-nums';
+   const prizes = [
+     ...RESOURCES.filter((r) => (q.reward[r.id] || 0) > 0).map((r) => `<span class="${chip}" title="${r.label}">${resourceIcon(r.id, 'size-4')}${num(q.reward[r.id])}</span>`),
+     ...Object.entries(q.reward.units || {}).map(([id, n]) => `<span class="${chip}" title="${unitName(id)}">${unitIcon(id, 'size-4 min-h-4 min-w-4')}${num(n)}</span>`),
+   ].join('');
+   // Barre de progression commune (ui.progressBar), libellé : « 1 / 3 », ou l'état d'une condition sans compteur.
+   const status = (g) => (g.need > 1 ? `${num(g.have)} / ${num(g.need)}` : g.done ? 'Fait' : g.started ? 'En cours' : 'À faire');
+   const bar = (g, cls) => progressBar(g.have, g.need, { label: status(g), cls, size: 'sm' });
+   const action = q.ready
+     ? `<form method="post" action="/village/${vid}/quests/${q.id}/complete"><input type="hidden" name="_csrf" value="${esc(csrfToken)}"><button class="${btn('gold', 'sm', aside ? 'w-full justify-center' : '')} quest-hint">${icon('check', 'size-3.5', 2.4)}Terminer la quête</button></form>`
+     : `<a href="/village/${vid}/rewards?tab=quests" class="${btn('dark', 'sm', aside ? 'w-full justify-center' : '')}">Voir la quête</a>`; %>
+<section class="<%= ui.panel %> min-w-0 overflow-hidden border-l-4 <%= q.ready ? 'border-l-olive-500' : 'border-l-gold-400' %>" aria-label="Quête en cours" data-quest-tracker="<%= aside ? 'aside' : 'top' %>">
+  <% if (aside) { %>
+    <img src="/img/quests/<%= q.id %>.webp?v=1" alt="" width="960" height="400" class="block aspect-[12/5] w-full border-b border-black object-cover">
+    <div class="flex flex-col gap-2.5 p-3">
+      <div>
+        <div class="text-xs font-semibold text-gold-400">Quête <%= q.index %> sur <%= q.total %></div>
+        <div class="font-display text-lg leading-tight text-parchment-100"><%= q.title %></div>
+      </div>
+      <ul class="m-0 flex list-none flex-col gap-2 p-0">
+        <% for (const g of q.goals) { %>
+          <li class="flex flex-col gap-1 text-[13px]">
+            <span class="<%= g.done ? 'text-parchment-500' : 'text-parchment-200' %>"><%= g.label %></span>
+            <%- bar(g, 'w-full') %>
+          </li>
+        <% } %>
+      </ul>
+      <div class="flex flex-wrap items-center gap-1.5 border-t border-bronze-800 pt-2.5"><span class="text-xs text-parchment-500">Récompense</span><%- prizes %></div>
+      <%- action %>
+    </div>
+  <% } else { %>
+    <%# En ligne : vignette | titre et conditions (barre sous chaque libellé) | récompense | action ;
+        colonnes séparées par des filets. Écran étroit : empilé, sans vignette. %>
+    <div class="grid md:grid-cols-[9rem_minmax(0,1fr)_auto_auto]">
+      <img src="/img/quests/<%= q.id %>.webp?v=1" alt="" width="960" height="400" class="hidden size-full min-h-full border-r border-black object-cover md:block">
+      <div class="flex min-w-0 flex-col justify-center gap-2 px-3.5 py-2.5">
+        <div class="flex flex-wrap items-baseline gap-x-2">
+          <span class="text-xs font-semibold text-gold-400">Quête <%= q.index %> sur <%= q.total %></span>
+          <span class="font-display text-base leading-tight text-parchment-100"><%= q.title %></span>
+        </div>
+        <%# Chaque condition : libellé, sa barre juste dessous, alignés à gauche sur le titre ; plusieurs conditions se
+            rangent côte à côte, en colonnes de même largeur. %>
+        <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(10rem,15rem))] gap-x-4 gap-y-2 p-0">
+          <% for (const g of q.goals) { %>
+            <li class="flex min-w-0 flex-col gap-1 text-[13px]">
+              <span class="truncate <%= g.done ? 'text-parchment-500' : 'text-parchment-200' %>"><%= g.label %></span>
+              <%- bar(g, 'w-full') %>
+            </li>
+          <% } %>
+        </ul>
+      </div>
+      <div class="flex flex-col justify-center gap-1.5 border-bronze-800 px-3.5 py-2.5 max-md:border-t md:border-l">
+        <span class="text-xs font-semibold text-parchment-500">Récompense</span>
+        <div class="flex flex-wrap gap-1.5"><%- prizes %></div>
+      </div>
+      <div class="flex items-center border-bronze-800 px-3.5 py-2.5 max-md:border-t md:border-l"><%- action %></div>
+    </div>
+  <% } %>
+</section>

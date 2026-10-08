@@ -1,0 +1,170 @@
+<%- include('partials/header', { title: tab === 'quests' ? 'Quêtes' : 'Récompenses' }) %>
+<%
+  // Quêtes du tutoriel et récompenses à récupérer (routes/village/rewards.js). Une récompense qui ferait déborder
+  // l'entrepôt, ou des troupes que la ferme ne peut pas loger, attendent (rien ne se perd).
+  const vid = ctx.village.id;
+  const r = ctx.cfg.buildRewards;
+  const cap = ctx.state.storageCapacity();
+  const unitsPop = (units) => Object.entries(units || {}).reduce((n, [id, k]) => n + unitPop(id) * k, 0);
+  const blocker = (rw) => (RESOURCES.some((res) => ctx.state.resources[res.id] + rw[res.id] > cap) ? 'Entrepôt trop plein'
+    : rw.units && ctx.popUsed() + unitsPop(rw.units) > ctx.state.farmCapacity() ? 'Ferme trop petite' : null);
+  const villageName = (id) => (myVillages.find((v) => v.id === id) || {}).name;
+  const questOf = (id) => tutorial && tutorial.list.find((q) => q.id === id);
+  // « 10 lanciers », « 10 porteurs d'épée » : premier mot au pluriel, sauf les noms collectifs (cavalerie, milice).
+  const unitsLabel = (id, n) => {
+    const name = unitName(id).toLowerCase();
+    if (n < 2 || /^(cavalerie|milice)/.test(name)) return name;
+    return name.replace(/^(\S+?)(s|x)?(?=\s|$)/, (w, stem, end) => (end ? w : `${stem}s`));
+  };
+  // Récompense en pastilles : ressources non nulles, puis troupes.
+  const chip = 'inline-flex items-center gap-1.5 border border-bronze-700 bg-night px-2 py-1 text-sm font-semibold whitespace-nowrap text-parchment-100 tabular-nums shadow-[1px_1px_0_#000]';
+  const prize = (p) => [
+    ...RESOURCES.filter((res) => (p[res.id] || 0) > 0).map((res) => `<span class="${chip}" title="${res.label}">${resourceIcon(res.id, 'size-5')}${num(p[res.id])}</span>`),
+    ...Object.entries(p.units || {}).map(([id, n]) => `<span class="${chip}" title="${unitName(id)}">${unitIcon(id, 'size-5 min-h-5 min-w-5')}${num(n)} ${esc(unitsLabel(id, n))}</span>`),
+  ].join('');
+  // Illustration d'une quête (scripts/generate-quest-art.js) et image d'une condition.
+  const questArt = (q) => `/img/quests/${q.id}.webp?v=1`;
+  const goalImg = (img) => (img.building ? buildingImg(img.building, img.level, 'h-9 w-10')
+    : img.unit ? unitIcon(img.unit, 'size-8 min-h-8 min-w-8')
+      : `<span class="flex h-9 w-10 items-center justify-center text-gold-400">${icon(img.icon, 'size-5', 2)}</span>`);
+  const tabs = [[`/village/${vid}/rewards?tab=rewards`, `Récompenses${rewards.length ? ` (${rewards.length})` : ''}`, tab === 'rewards']];
+  if (tutorial) tabs.unshift([`/village/${vid}/rewards?tab=quests`, 'Quêtes', tab === 'quests']);
+%>
+<div class="flex flex-col gap-3.5">
+  <%- include('partials/content-header', { illustration: '/img/quests/quests-rewards.webp', title: tutorial ? 'Quêtes et récompenses' : 'Récompenses', sub: tutorial ? 'Les quêtes du tutoriel t’apprennent le jeu pas à pas ; chacune rapporte des ressources ou des troupes, à récupérer dans l’onglet Récompenses.' : 'Les récompenses de construction, à récupérer dans ce village.' }) %>
+
+  <% if (tab === 'quests') { const { current, progress, list } = tutorial; const doneCount = tutorial.done.size; %>
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead(`Tutoriel · ${doneCount} / ${list.length}`, segTabs(tabs)) %>
+      <%# Avancée du tutoriel. %>
+      <div class="h-1.5 bg-night" role="progressbar" aria-valuemin="0" aria-valuemax="<%= list.length %>" aria-valuenow="<%= doneCount %>" aria-label="Quêtes terminées">
+        <div class="h-full bg-gold-400" style="width: <%= Math.round((doneCount / list.length) * 100) %>%"></div>
+      </div>
+      <% if (!current) { %>
+        <div class="flex flex-col items-center gap-3 px-4 py-8 text-center">
+          <span class="<%= ui.medallionGold %> size-14"><%- icon('check', 'size-7', 2.6) %></span>
+          <h2 class="m-0 font-display text-xl text-parchment-100">Tutoriel terminé</h2>
+          <p class="m-0 max-w-xl text-parchment-400">Tu connais maintenant les bases. Pense à récupérer les récompenses des quêtes ; la suite, c’est à toi de l’écrire.</p>
+        </div>
+      <% } else { %>
+        <%# Quête en cours. Ordinateur : illustration (même format pour toutes les quêtes), puis récompense et action à
+            gauche ; titre, texte et conditions à droite. Mobile : illustration, conditions, récompense et action. %>
+        <article class="grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:grid-rows-[auto_1fr]">
+          <div class="relative aspect-[12/5] overflow-hidden border-b border-bronze-800 bg-night md:col-start-1 md:row-start-1">
+            <img src="<%= questArt(current) %>" alt="" width="960" height="400" class="absolute inset-0 size-full object-cover">
+            <span class="absolute top-3 left-3 border border-black bg-night/85 px-2 py-0.5 text-xs font-semibold text-gold-200 shadow-[1px_1px_0_#000]">Quête <%= list.indexOf(current) + 1 %> sur <%= list.length %></span>
+          </div>
+          <div class="flex min-w-0 flex-col gap-3.5 px-4 py-4 md:col-start-2 md:row-span-2 md:row-start-1 md:border-l md:border-bronze-800">
+            <div>
+              <h2 class="m-0 font-display text-2xl text-parchment-100"><%= current.title %></h2>
+              <p class="mt-1.5 mb-0 text-parchment-300"><%= current.text %></p>
+            </div>
+            <div class="flex flex-col gap-2">
+              <h3 class="m-0 text-[13px] font-semibold text-parchment-500">Conditions</h3>
+              <ul class="m-0 flex list-none flex-col gap-2 p-0">
+                <% for (const g of progress.goals) { %>
+                  <li class="flex items-center gap-3 border border-bronze-800 bg-panel-top px-2.5 py-2">
+                    <%- goalImg(g.img) %>
+                    <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <span class="truncate text-sm <%= g.done ? 'text-parchment-400' : 'text-parchment-100' %>"><%= g.label %></span>
+                      <%# Barre de progression commune (ui.progressBar) : « 1 / 3 », ou l'état d'une condition sans compteur. %>
+                      <%- progressBar(g.have, g.need, { label: g.need > 1 ? `${num(g.have)} / ${num(g.need)}` : g.done ? 'Fait' : g.started ? 'En cours' : 'À faire', cls: 'w-full', size: 'sm' }) %>
+                    </div>
+                  </li>
+                <% } %>
+              </ul>
+            </div>
+          </div>
+          <%# Récompense et action sur une même ligne, alignées en bas (l'action passe dessous si la place manque). %>
+          <div class="flex flex-wrap items-end justify-between gap-3 border-t border-bronze-800 bg-panel-top px-4 py-3.5 md:col-start-1 md:row-start-2 md:border-t-0">
+            <div class="flex flex-col gap-2">
+              <h3 class="m-0 text-[13px] font-semibold text-parchment-500">Récompense</h3>
+              <div class="flex flex-wrap gap-1.5"><%- prize(current.reward) %></div>
+            </div>
+            <% if (progress.done) { %>
+              <form method="post" action="/village/<%= vid %>/quests/<%= current.id %>/complete"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="<%= btn('gold', 'md') %> quest-hint" title="Toutes les conditions sont remplies"><%- icon('check', 'size-3.5', 2.4) %>Terminer la quête</button>
+              </form>
+            <% } else { %>
+              <a href="/village/<%= vid %><%= current.link ? `/${current.link}` : '' %>" class="<%= btn('dark', 'md') %>">Y aller<%- icon('arrowRight', 'size-3.5', 2.2) %></a>
+            <% } %>
+          </div>
+        </article>
+      <% } %>
+    </section>
+
+    <%# Étapes du tutoriel : vignettes ; les quêtes à venir restent cachées. %>
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead('Étapes') %>
+      <ol class="m-0 grid list-none grid-cols-3 gap-1.5 p-2 sm:gap-2 sm:p-2.5 lg:grid-cols-5">
+        <% list.forEach((q, i) => { const done = tutorial.done.has(q.id); const isCurrent = current && q.id === current.id; const hidden = !done && !isCurrent; %>
+          <li class="relative overflow-hidden border-2 <%= isCurrent ? 'border-gold-400 shadow-[0_0_0_1px_#000,2px_2px_0_#000]' : 'border-black' %> <%= hidden ? 'bg-panel-top' : 'bg-night' %>"<%- isCurrent ? ' aria-current="step"' : '' %>>
+            <div class="relative aspect-[12/5] overflow-hidden">
+              <img src="<%= questArt(q) %>" alt="" width="960" height="400" loading="lazy" class="size-full object-cover <%= hidden ? 'scale-110 opacity-25 blur-[2px] grayscale' : done ? 'brightness-75' : '' %>">
+              <span class="absolute top-1.5 left-1.5 flex size-6 items-center justify-center border border-black text-xs font-semibold tabular-nums shadow-[1px_1px_0_#000] <%= done ? 'bg-olive-600 text-on-accent' : isCurrent ? 'bg-gold-400 text-night' : 'bg-night text-parchment-500' %>"><%- done ? icon('check', 'size-3.5', 2.8) : i + 1 %></span>
+              <% if (hidden) { %><span class="absolute inset-0 flex items-center justify-center text-parchment-500"><%- icon('lock', 'size-5', 2) %></span><% } %>
+            </div>
+            <div class="truncate border-t border-bronze-800 px-1.5 py-1 text-xs sm:px-2 sm:py-1.5 sm:text-[13px] <%= isCurrent ? 'font-semibold text-parchment-100' : done ? 'text-parchment-400' : 'text-parchment-700' %>"><%= hidden ? 'Quête à venir' : q.title %></div>
+          </li>
+        <% }) %>
+      </ol>
+    </section>
+  <% } else { %>
+    <% if (r.active) { %>
+      <p class="<%= ui.alertInfo %>">
+        Récompenses de construction : chaque niveau de bâtiment construit pour la première fois sur ce monde rend <%= Math.round(r.percent * 100) %> % de son coût, au moins <%= num(r.min) %> et au plus <%= num(r.max) %> de chaque ressource ; un même niveau ne rapporte qu’une fois, même dans un autre village.
+        <%= rewardsOpen ? (rewardsEnd ? `Jusqu’à la fin de la période : ${when(rewardsEnd, now, { ms: false })}.` : 'Pendant toute la partie.') : 'La période est terminée : les nouvelles constructions ne rapportent plus rien.' %>
+      </p>
+    <% } %>
+    <section class="<%= ui.panel %> min-w-0">
+      <%- panelHead('À récupérer', segTabs(tabs)) %>
+      <% if (!rewards.length) { %>
+        <div class="<%= ui.panelBody %>"><p class="text-parchment-500">Aucune récompense en attente.<%= collected ? ` Déjà récupérées : ${num(collected)}.` : '' %></p></div>
+      <% } else { %>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-bronze-800 px-3 py-2 text-sm">
+          <span class="text-parchment-400"><%= rewards.length %> récompense<%= rewards.length > 1 ? 's' : '' %> à récupérer dans <b class="text-parchment-100"><%= ctx.village.name %></b></span>
+          <form method="post" action="/village/<%= vid %>/rewards/collect"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= btn('gold', 'sm') %>">Tout récupérer ici</button>
+          </form>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="<%= ui.table %>">
+            <thead><tr><th>Origine</th><th>Récompense</th><th class="text-right"></th></tr></thead>
+            <tbody>
+            <% for (const rw of rewards) { const why = blocker(rw); const quest = rw.building === 'quest'; %>
+              <tr>
+                <td>
+                  <% if (quest) { const q = questOf(rw.level); %>
+                    <span class="flex items-center gap-2.5">
+                      <% if (q) { %><img src="<%= questArt(q) %>" alt="" width="960" height="400" loading="lazy" class="h-8 w-16 shrink-0 border border-black object-cover"><% } else { %><span class="flex h-8 w-16 shrink-0 items-center justify-center text-gold-400"><%- icon('flag', 'size-5', 2) %></span><% } %>
+                      <span class="flex flex-col leading-tight"><span class="font-semibold text-parchment-100"><%= q ? q.title : 'Quête' %></span><span class="text-[13px] text-gold-400">Quête du tutoriel</span></span>
+                    </span>
+                  <% } else { %>
+                    <span class="flex items-center gap-2.5">
+                      <span class="flex h-8 w-16 shrink-0 items-center justify-center"><%- buildingImg(rw.building, rw.level, 'h-8 w-10') %></span>
+                      <span class="flex flex-col leading-tight"><span class="font-semibold text-parchment-100"><%= buildingName(rw.building) %> <span class="font-normal text-gold-400">niveau <%= rw.level %></span></span><span class="text-[13px] text-parchment-500"><%= villageName(rw.villageId) || 'Construction' %></span></span>
+                    </span>
+                  <% } %>
+                </td>
+                <td><span class="flex flex-wrap gap-1.5"><%- prize(rw) %></span></td>
+                <td class="text-right">
+                  <% if (!why) { %>
+                    <form method="post" action="/village/<%= vid %>/rewards/collect" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="hidden" name="id" value="<%= rw.id %>">
+                      <button class="<%= btn('gold', 'sm', 'min-w-24') %>">Récupérer</button>
+                    </form>
+                  <% } else { %>
+                    <span class="text-[13px] text-parchment-500"><%= why %></span>
+                  <% } %>
+                </td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+        <p class="border-t border-bronze-800 px-3 py-2 text-[13px] text-parchment-500">Les ressources et les troupes arrivent dans le village courant. Une récompense qui ne tient pas dans l’entrepôt ou la ferme attend qu’il y ait de la place.<%= collected ? ` Déjà récupérées : ${num(collected)}.` : '' %></p>
+      <% } %>
+    </section>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

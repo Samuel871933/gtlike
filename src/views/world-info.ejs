@@ -68,6 +68,8 @@
       ['Archers', yes(cfg.features.archer)],
       ['Église', cfg.features.church ? `Oui, zone de ${cfg.church.radius.slice(1).join(', ')} cases (première église : ${cfg.church.firstRadius}), force hors zone ${Math.round(cfg.church.faithless * 100)} %` : 'Non'],
       ['Collecte', yes(cfg.scavenging.active)],
+      ['Quêtes du tutoriel', yes(cfg.tutorial.active)],
+      ['Récompenses de construction', cfg.buildRewards.active ? `${Math.round(cfg.buildRewards.percent * 100)} % du coût (${num(cfg.buildRewards.min)} à ${num(cfg.buildRewards.max)} par ressource), ${cfg.buildRewards.days ? `les ${cfg.buildRewards.days} premiers jours` : 'toute la partie'}` : 'Non'],
       ['Sceaux', cfg.features.seals ? `Oui, un par village, retirable après ${cfg.seals.lockHours} h${world.isPrivate() ? ' (aucun gain sur un serveur privé)' : ''}` : 'Non'],
       ['Mode sommeil', cfg.sleep.active ? `${cfg.sleep.minHours} à ${cfg.sleep.maxHours} h, activé après ${h(cfg.sleep.delayMinutes)}` : 'Non'],
       ['Remplaçant (mode vacances)', cfg.sitter.allow ? `Oui, ${cfg.sitter.maxAccounts} comptes max` : 'Non'],

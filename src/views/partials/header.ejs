@@ -153,6 +153,39 @@
   <%# Écran étroit : les favoris passent sous le nom du village, sur toute la largeur. %>
   <div class="flex min-w-0 flex-[1_1_520px] items-center gap-1.5 max-md:flex-wrap">
     <div class="flex shrink-0 items-center gap-1">
+      <%# Quêtes et récompenses (le livre des quêtes de GT) : sur les mondes à quêtes, ou tant que le monde donne des
+          récompenses de construction ou qu'il en reste à récupérer ; la pastille compte les récompenses en attente. %>
+      <% if (rewardsPending || ctx.cfg.tutorial.active || buildRewardsOpen(ctx.cfg, ctx.world, now)) {
+           // Première arrivée sur le monde (titulaire) : bulle d'accueil vers les quêtes ; le bouton clignote aussi.
+           const questIntro = questHints && questHints.intro && !asSitter;
+           const toQuests = questHints && (questHints.ready || questIntro); %>
+        <div class="relative mr-1 flex">
+          <%# Quête terminable : le bouton clignote (.quest-hint), et ses cibles restent éteintes. %>
+          <a href="/village/<%= ctx.village.id %>/rewards<%= toQuests ? '?tab=quests' : '' %>" class="<%= arrow %> relative <%= rewardsPending ? 'text-gold-200' : '' %> <%= questHints && (questHints.ready || questIntro) ? 'quest-hint' : '' %>" title="<%= questHints && questHints.ready ? `Quête « ${questHints.title} » : terminée, viens chercher ta récompense` : `Quêtes et récompenses${rewardsPending ? ` : ${rewardsPending} à récupérer` : ''}` %>" aria-label="Quêtes et récompenses<%= rewardsPending ? ` (${rewardsPending} à récupérer)` : '' %>">
+            <%- icon('gift', 'size-4', 2) %>
+            <% if (rewardsPending) { %><span class="absolute -top-2 -right-2 min-w-4 border border-black bg-blood-600 px-0.5 text-center text-[10px] leading-[14px] font-semibold text-on-accent tabular-nums"><%= rewardsPending > 99 ? '99+' : rewardsPending %></span><% } %>
+          </a>
+          <% if (questIntro) { %>
+            <%# Bulle d'accueil, flèche vers le bouton : disparaît une fois les quêtes ouvertes ou la bulle fermée. %>
+            <div class="quest-intro absolute top-full left-0 z-40 mt-3.5 w-[min(20rem,calc(100vw-1.5rem))] border-2 border-black bg-panel-top p-3.5 shadow-[3px_3px_0_#000]" role="dialog" aria-labelledby="quest-intro-title">
+              <span class="absolute -top-[9px] left-[6px] size-4 rotate-45 border-t-2 border-l-2 border-black bg-panel-top" aria-hidden="true"></span>
+              <form method="post" action="/village/<%= ctx.village.id %>/quests/intro/dismiss" class="absolute top-1.5 right-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="flex size-6 cursor-pointer items-center justify-center text-parchment-500 hover:text-parchment-100" title="Fermer" aria-label="Fermer"><%- icon('close', 'size-3.5', 2.6) %></button>
+              </form>
+              <div class="flex items-start gap-3 pr-5">
+                <span class="<%= ui.medallionGold %> size-9"><%- icon('gift', 'size-4.5', 2) %></span>
+                <div class="min-w-0">
+                  <p id="quest-intro-title" class="m-0 font-display text-lg leading-tight text-parchment-100">Nouveau sur ce monde ?</p>
+                  <p class="mt-1 mb-0 text-sm text-parchment-300">Les quêtes te guident pas à pas dans tes premières heures et rapportent des ressources et des troupes.</p>
+                </div>
+              </div>
+              <a href="/village/<%= ctx.village.id %>/rewards?tab=quests" class="<%= btn('gold', 'md', 'mt-3 w-full justify-center') %>">Voir les quêtes<%- icon('arrowRight', 'size-3.5', 2.2) %></a>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+      <%# Cibles de la quête en cours (game/tutorial.js) : game.js fait clignoter les liens et boutons concernés. %>
+      <% if (questHints && !questHints.ready && questHints.targets.length) { %><span hidden data-quest-hints="<%= JSON.stringify(questHints.targets) %>" data-quest-title="<%= questHints.title %>" data-quest-village="<%= ctx.village.id %>"></span><% } %>
       <% if (prev) { %><a href="/village/<%= prev.id %>" data-village-link class="<%= arrow %>" title="Village précédent : <%= prev.name %>" aria-label="Village précédent"><%- icon('chevronLeft', 'size-3.5', 2.6) %></a><% } %>
       <%# Nom du village : lien vers son aperçu. Le bouton à côté ouvre la liste des villages pour changer de village
           (même page, autre village). %>
@@ -230,6 +263,9 @@
 
 <% if (quickbarPos !== 'top') { %><%- include('quickbar') %><% } %>
 <main class="relative z-[2] mx-auto flex w-full max-w-[1500px] minimal:max-w-[1120px] grow flex-col gap-3.5 px-2.5 pt-3.5 pb-10 minimal:gap-2.5 minimal:py-6">
+<%# Quête en cours : encart de rappel sur les pages où elle se joue (pas sur les quêtes elles-mêmes, ni pendant la
+    bulle d'accueil). %>
+<% if (questTrackerShown(questHints, asSitter, currentPath, ctx.village.id, user)) { %><%- include('quest-tracker', { variant: 'top' }) %><% } %>
 <% if (happyPopup) { %><%- include('happy-hour-popup') %><% } %>
 <% } else {
   const lobbyLink = (href, label, active) => `<a href="${href}" class="shrink-0 text-[13px] font-semibold tracking-[0.02em] no-underline transition ${active ? 'text-parchment-100' : 'text-gold-400 hover:text-parchment-100'}">${label}</a>`;

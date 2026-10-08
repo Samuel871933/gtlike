@@ -133,7 +133,8 @@ class VillageState {
       if (cost[r] > cap || !(prod[r] > 0)) return null;
       wait = Math.max(wait, (missing / prod[r]) * 3600);
     }
-    return new Date(new Date(now).getTime() + Math.ceil(wait) * 1000);
+    // À la milliseconde : arrondir l'attente à la seconde décalait l'heure affichée à chaque rechargement.
+    return new Date(new Date(now).getTime() + Math.ceil(wait * 1000));
   }
 
   pay(cost) {
