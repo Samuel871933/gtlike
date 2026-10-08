@@ -9,9 +9,6 @@ const { ah, flash, requireAuth } = require('../middleware');
 
 const router = express.Router();
 
-// Aperçu permanent de la fenêtre « Partie trouvée » sur /matchup (mise au point du design) : à repasser à false.
-const PREVIEW_MATCH_READY = true;
-
 /** Action du matchup : erreur de jeu affichée en message sur la page, puis retour à la page. */
 const action = (fn) => ah(async (req, res) => {
   try {
@@ -37,12 +34,7 @@ router.get('/matchup', ah(async (req, res) => {
   ]);
   // Joueurs en recherche par format (indication d'attente).
   const searching = Object.fromEntries(Object.keys(mu.FORMATS).map((f) => [f, queue.filter((e) => e.format === f).reduce((s, e) => s + e.size, 0)]));
-  // APERÇU de la fenêtre « Partie trouvée », affichée en permanence pour la mise au point du design (à retirer :
-  // PREVIEW_MATCH_READY = false). ?apercu=0 la masque ; elle n'agit sur rien (accepter ou refuser ne trouvent aucune partie).
-  const previewProposal = PREVIEW_MATCH_READY && req.query.apercu !== '0' && !(status && status.proposal)
-    ? { id: 0, format: '2v2', expiresAt: new Date(res.locals.now.getTime() + MatchService.ACCEPT_MS), accepted: false, acceptedCount: 2, total: 4, preview: true }
-    : null;
-  res.render('matchup', { ratings, status, history, searching, previewProposal, mu, lobbyPage: 'matchup' });
+  res.render('matchup', { ratings, status, history, searching, mu, lobbyPage: 'matchup' });
 }));
 
 // Classement : une page par ladder (?ladder=duel | team), 25 lignes par page ; sans ?page=, celle du joueur connecté.

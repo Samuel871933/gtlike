@@ -826,7 +826,6 @@ html.game_style body::before,
 /* Même cadre que les encarts du lobby (ui.lobbyCard) : trait d'encre, filet bronze, ombre portée ; bandeau de titre (ui.lobbyCardHead). */
 .match-ready { position: relative; width: 100%; max-width: 480px; max-height: calc(100dvh - 2rem); overflow-y: auto; border: 2px solid #000; background: var(--color-panel-top); box-shadow: inset 0 0 0 1px var(--color-bronze-500), 5px 5px 0 #000; text-align: center; }
 .match-ready__head { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-bottom: 2px solid var(--color-bronze-500); background: var(--color-head); padding: .5rem .75rem; color: var(--color-parchment-100); font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: .02em; text-align: left; }
-.match-ready__head small { color: var(--color-gold-400); font-family: var(--font-sans); font-size: .8rem; font-weight: 500; letter-spacing: 0; }
 .match-ready::before { content: ''; position: absolute; inset: 0; top: 42px; background: linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--color-panel-top) 70%, transparent) 48%, var(--color-panel-top) 64%), url('/img/matchup/match-ready.webp') center top / cover no-repeat; pointer-events: none; }
 /* Le titre commence sous l'emblème de l'illustration. */
 .match-ready__content { position: relative; display: flex; flex-direction: column; align-items: center; padding: 200px 2rem 1.5rem; }

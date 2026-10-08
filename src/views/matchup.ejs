@@ -155,6 +155,6 @@
     <% } %>
   </div>
 </section>
-<% if (proposal || previewProposal) { %><%- include('partials/match-ready', { proposal: proposal || previewProposal, now }) %><% } %>
+<% if (proposal) { %><%- include('partials/match-ready', { proposal, now }) %><% } %>
 <% if (user) { %><script src="<%= asset('/js/matchup.js') %>" defer></script><% } %>
 <%- include('partials/footer') %>

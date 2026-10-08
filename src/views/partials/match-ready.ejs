@@ -4,7 +4,7 @@
    const percent = Math.min(100, remaining / duration * 100); %>
 <div class="match-ready-overlay" role="dialog" aria-modal="true" aria-labelledby="proposal-title" aria-describedby="proposal-status">
   <section class="match-ready">
-    <div class="match-ready__head"><span>Matchup classé · <%= proposal.format %></span><% if (proposal.preview) { %><small>Aperçu · <a href="/matchup?apercu=0" class="<%= ui.link %>">fermer</a></small><% } %></div>
+    <div class="match-ready__head"><span>Matchup classé · <%= proposal.format %></span></div>
     <div class="match-ready__content">
       <h2 id="proposal-title" class="match-ready__title">Partie trouvée</h2>
       <p id="proposal-status" class="match-ready__status"><%= proposal.accepted ? 'Tu as accepté. En attente des autres joueurs.' : 'Le champ de bataille vous attend.' %></p>
