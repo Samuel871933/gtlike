@@ -18,6 +18,15 @@ const register = (name) => {
   return AuthService.register({ username: `${name}${n}`, email: `${name}${n}@example.com`, password: 'motdepasse' });
 };
 
+/** Partie trouvée puis acceptée par tous ses joueurs : la partie créée. */
+async function matchFor(users, now = new Date()) {
+  const [proposal] = await MatchService.matchmake(now);
+  assert.ok(proposal, 'partie trouvée');
+  let match = null;
+  for (const u of users) match = (await MatchService.accept(u, now)) || match;
+  return match;
+}
+
 test.before(() => sequelize.sync({ force: true }));
 test.after(() => sequelize.close());
 
@@ -90,7 +99,7 @@ async function startTwoVsTwo() {
   await MatchService.enqueue(users[0], '2v2', now);
   await MatchService.enqueue(users[2], '2v2', now);
   await MatchService.enqueue(users[3], '2v2', now);
-  const [match] = await MatchService.matchmake(now);
+  const match = await matchFor(users, now);
   await MatchService.leaveGroup(users[0]);
   return { users, match, now };
 }
@@ -103,7 +112,7 @@ test('partie : monde rapide hors des listes, une tribu par équipe, villages fac
   assert.ok(!world.isPrivate());
   assert.equal(world.isOpen, false);
   const cfg = world.getConfig();
-  assert.deepEqual([cfg.speed, cfg.unitSpeed], [600, 1]);
+  assert.deepEqual([cfg.speed, cfg.unitSpeed], [5000, 0.12]);
   assert.ok(!cfg.hasFeature('archer') && !cfg.hasFeature('knight'), 'sans archers ni paladin');
   assert.ok(!cfg.tutorial.active && !cfg.buildRewards.active, 'sans quêtes ni récompenses');
   assert.equal(require('../src/services/AchievementService').definitionsFor(cfg).length, 0, 'sans succès');
@@ -118,10 +127,23 @@ test('partie : monde rapide hors des listes, une tribu par équipe, villages fac
 
   const players = await Player.findAll({ where: { worldId: world.id }, include: [Village] });
   assert.equal(players.length, 4);
-  assert.equal(new Set(players.map((p) => p.Villages[0].x)).size, 2, 'deux lignes de villages');
-  assert.equal(players[0].Villages[0].units.axe, mu.START_UNITS.axe);
+  // Placés au hasard, mais à MIN_PLAYER_DISTANCE cases au moins les uns des autres.
+  for (const a of players) for (const b of players) {
+    if (a !== b) assert.ok(Math.hypot(a.Villages[0].x - b.Villages[0].x, a.Villages[0].y - b.Villages[0].y) >= mu.MIN_PLAYER_DISTANCE);
+  }
+  // Village neuf, sans troupes, comme sur un monde normal.
+  assert.deepEqual(players[0].Villages[0].units, {});
+  assert.equal(players[0].Villages[0].buildings.main, 1);
   assert.equal(await Village.count({ where: { worldId: world.id, playerId: null } }), 8);
 
+  // Barbares : partent de zéro et grandissent presque au rythme d'un joueur (environ 200 points par minute).
+  const barbarian = require('../src/game/barbarian');
+  const VillageState = require('../src/game/VillageState');
+  const barb = await Village.findOne({ where: { worldId: world.id, playerId: null } });
+  const state = new VillageState(barb.toJSON(), cfg);
+  const start = state.points();
+  barbarian.grow(state, new Date(0), new Date(10 * 60000), cfg);
+  assert.ok(state.points() - start > 1500, `10 minutes : +${state.points() - start} points`);
   // Équipes figées pendant la partie ; plus de recherche possible tant qu'elle dure.
   await assert.rejects(TribeService.leave(players[0].id), /ne changent pas/);
   await assert.rejects(TribeService.create(players[0].id, { name: 'Dissidents', tag: 'DIS' }), /ne changent pas/);
@@ -156,7 +178,7 @@ test('fin du temps : l’équipe qui a le plus de points gagne ; abandon de tout
   const now = new Date();
   await MatchService.enqueue(a, '1v1', now);
   await MatchService.enqueue(b, '1v1', now);
-  const [match] = await MatchService.matchmake(now);
+  const match = await matchFor([a, b], now);
   const pb = await Player.findOne({ where: { worldId: match.worldId, userId: b.id } });
   await pb.update({ killsAttacker: 500 });
   // Les autres parties en cours (tests précédents) se terminent aussi : on suit celle-ci.
@@ -169,7 +191,7 @@ test('fin du temps : l’équipe qui a le plus de points gagne ; abandon de tout
 
   await MatchService.enqueue(a, '1v1', now);
   await MatchService.enqueue(b, '1v1', now);
-  await MatchService.matchmake(now);
+  await matchFor([a, b], now);
   await MatchService.forfeit(a, new Date(match.endsAt.getTime() + 5000));
   const [last] = await MatchService.history(a.id, 1);
   assert.deepEqual([last.result, last.reason], ['loss', 'forfeit']);
@@ -193,4 +215,47 @@ test('classement : comptes placés seulement, par elo, rang et ligues comptés p
   const counts = await MatchService.leagueCounts('duel');
   assert.ok(counts.get('gold') >= 1);
   assert.ok(counts.get('bronze') >= 1);
+});
+
+test('partie trouvée : 15 s pour accepter ; refus ou absence = annulée, ceux qui ont accepté retournent dans la file', async () => {
+  const [a, b, c] = [await register('Pret'), await register('Refus'), await register('Absent')];
+  const now = new Date();
+  await MatchService.enqueue(a, '1v1', new Date(now - 30000));
+  await MatchService.enqueue(b, '1v1', now);
+  const [proposal] = await MatchService.matchmake(now);
+  assert.equal((await MatchService.status(a.id)).proposal.total, 2);
+  assert.equal(await MatchService.accept(a, now), null, 'en attente de l’autre joueur');
+  await assert.rejects(MatchService.enqueue(a, '2v2', now), /Une partie t’attend/);
+  // Refus : annulée, celui qui avait accepté retrouve sa place (son heure d'entrée), l'autre sort de la file.
+  await MatchService.decline(b, now);
+  const back = await MatchService.status(a.id);
+  assert.equal(back.proposal, null);
+  assert.equal(new Date(back.queue.queuedAt).getTime(), now - 30000);
+  assert.equal((await MatchService.status(b.id)).queue, null);
+  assert.ok(proposal.id);
+
+  // Absence : le délai passe sans réponse.
+  await MatchService.enqueue(c, '1v1', now);
+  await MatchService.matchmake(now);
+  await MatchService.accept(a, now);
+  await MatchService.expireProposals(new Date(now.getTime() + MatchService.ACCEPT_MS + 1000));
+  assert.ok((await MatchService.status(a.id)).queue);
+  assert.equal((await MatchService.status(c.id)).queue, null);
+  await assert.rejects(MatchService.accept(c, now), /Aucune partie/);
+  await MatchService.cancel(a);
+});
+
+test('fin de partie : endedFor la termine dès le temps écoulé ; fin gratuite des constructions désactivée', async () => {
+  const [a, b] = [await register('Fin'), await register('Fin')];
+  const now = new Date();
+  await MatchService.enqueue(a, '1v1', now);
+  await MatchService.enqueue(b, '1v1', now);
+  const match = await matchFor([a, b], now);
+  const world = await World.findByPk(match.worldId);
+  assert.equal(world.getConfig().freeFinishSeconds, 0);
+  assert.equal(await MatchService.endedFor(world, now), null);
+  const ended = await MatchService.endedFor(world, new Date(match.endsAt.getTime() + 1));
+  assert.equal(ended.status, 'ended');
+  const results = await MatchService.results(match.id);
+  assert.equal(results.teams.flatMap((t) => t.rows).length, 2);
 });

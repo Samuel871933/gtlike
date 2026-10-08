@@ -111,6 +111,8 @@ const ui = {
   // Bouton-icône actif (page courante, action principale).
   iconBtnOn: 'inline-flex size-[30px] minimal:size-6 shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-action text-on-accent shadow-[inset_0_0_0_1px_var(--color-gold-400),2px_2px_0_#000] transition hover:bg-action-hi',
   iconBtnSm: 'inline-flex size-[22px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-blood-900 text-on-accent shadow-[1px_1px_0_#000] transition hover:bg-blood-600',
+  // Même petit bouton, en vert : valider (terminer gratuitement une construction).
+  iconBtnSmOk: 'inline-flex size-[22px] shrink-0 cursor-pointer items-center justify-center border-2 border-black bg-olive-700 text-on-accent shadow-[1px_1px_0_#000] transition hover:bg-olive-500',
 
   // Onglets segmentés (VUE VILLAGE / LISTE, SORTANTS / ENTRANTS…), posés sur un bandeau rouge.
   // Puces de filtre (forum de la tribu, groupes de villages) : la puce active prend le fond du thème.

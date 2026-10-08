@@ -923,6 +923,12 @@ test('matchup : onglet public, recherche à deux, entrée dans la partie avec sa
   }
 
   await require('../src/services/MatchService').tick(new Date());
+  // Fenêtre « Partie trouvée » : chacun accepte.
+  for (const http of players) {
+    const lobby = await http('/matchup');
+    assert.match(lobby.html, /Partie trouvée/);
+    await http('/matchup/accept', { method: 'POST', form: { _csrf: tokenOf(lobby.html) } });
+  }
   const status = JSON.parse((await players[0]('/matchup/status')).html);
   assert.ok(status.match);
   const play = await players[0](status.match.url);
@@ -930,13 +936,16 @@ test('matchup : onglet public, recherche à deux, entrée dans la partie avec sa
   const village = await players[0](play.location);
   assert.match(village.html, /Matchup 1v1/);
   assert.match(village.html, /action="\/matchup\/forfeit"/);
-  // Rien de ce qui n'existe pas en matchup : boutique, classement du monde, collecte, succès, quêtes, gestionnaire,
+  // Rien de ce qui n'existe pas en matchup : boutique, classement du monde, succès, quêtes, gestionnaire,
   // diplomatie ; pages correspondantes introuvables.
-  for (const text of ['Adartons', '/ranking"', 'Collecte', 'Succès', '/rewards', '/manager', 'Diplomatie', 'Archer']) {
+  for (const text of ['Adartons', '/ranking"', 'Succès', '/rewards', '/manager', 'Diplomatie', 'Archer']) {
     assert.ok(!village.html.includes(text), `pas de ${text}`);
   }
   assert.match(village.html, /Équipe \[(BLEU|ROUGE)\]/);
-  for (const page of ['/ranking', '/manager', '/farm', '/rewards', '/scavenge']) assert.equal((await players[0](play.location + page)).status, 404, page);
+  for (const page of ['/ranking', '/manager', '/farm', '/rewards']) assert.equal((await players[0](play.location + page)).status, 404, page);
+  // Raccourcis d'attaque (modèle favori envoyé depuis la carte) : toujours disponibles.
+  const sent = await players[0](`${play.location}/farm/send`, { method: 'POST', form: { _csrf: tokenOf(village.html), template: '0', target: '0' } });
+  assert.notEqual(sent.status, 404);
   const team = await players[0](`${play.location}/tribe`);
   assert.ok(!team.html.includes('Quitter la tribu') && !team.html.includes('tab=diplomacy'));
   assert.ok(!(await players[0](`${play.location}/account`)).html.includes('Quitter ce monde'));
@@ -944,6 +953,10 @@ test('matchup : onglet public, recherche à deux, entrée dans la partie avec sa
   await players[0]('/matchup/forfeit', { method: 'POST', form: { _csrf: tokenOf(village.html) } });
   const after = await players[0]('/matchup');
   assert.match(after.html, /Défaite/);
+  // Partie terminée : les pages du jeu mènent à l'écran de fin, plus rien ne se joue.
+  const closed = await players[0](play.location);
+  assert.match(closed.location, /^\/matchup\/partie\/\d+$/);
+  assert.match((await players[0](closed.location)).html, /Défaite/);
   assert.equal(JSON.parse((await players[1]('/matchup/status')).html).match, null);
   assert.match((await players[1]('/matchup')).html, /Victoire/);
 });

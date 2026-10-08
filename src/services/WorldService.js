@@ -106,8 +106,11 @@ class WorldService {
     return pool[Math.floor(rng() * pool.length)].id;
   }
 
-  /** Premier village d'un joueur (et ses barbares autour), points et nombre de villages du joueur à jour. */
-  static async settle(world, player, { direction = 'random', now, rng }, transaction) {
+  /**
+   * Premier village d'un joueur (et ses barbares autour), points et nombre de villages du joueur à jour.
+   * `minPlayerDistance` : au moins ce nombre de cases de tout autre village de joueur (parties du matchup).
+   */
+  static async settle(world, player, { direction = 'random', now, rng, minPlayerDistance = 0 }, transaction) {
     const cfg = world.getConfig();
     // Emplacements du village et de ses barbares (autour de lui : ses premières cibles de pillage). On part du
     // bord de la zone peuplée et on avance par bandes de MapPlacer.BAND cases : chaque bande ne lit que ses
@@ -117,13 +120,17 @@ class WorldService {
       where: { worldId: world.id, playerId: { [Op.ne]: null } }, order: [['id', 'DESC']], attributes: ['x', 'y'], raw: true, transaction,
     });
     const barbarians = MapPlacer.barbariansOnJoin(cfg.placement.emptyVillages, rng);
+    const apart = minPlayerDistance > 0 ? {
+      min: minPlayerDistance,
+      spots: await Village.findAll({ where: { worldId: world.id, playerId: { [Op.ne]: null } }, attributes: ['x', 'y'], raw: true, transaction }),
+    } : null;
     let spots = null;
     for (let r = MapPlacer.startRadius(cfg, count, last); !spots; r += MapPlacer.BAND) {
       if (r > MapPlacer.edge(cfg)) throw new GameError("La carte est pleine : plus aucun emplacement libre.");
       const ring = MapPlacer.bandRing(r);
       const coords = await WorldService.villagesInRing(world.id, cfg.center, ring, transaction);
       const placer = new MapPlacer(cfg, new Set(coords.map((c) => MapPlacer.key(c.x, c.y))), rng, { count, ring });
-      const spot = placer.trySpot({ direction, radius: r, until: r + MapPlacer.BAND });
+      const spot = placer.trySpot({ direction, radius: r, until: r + MapPlacer.BAND, apart });
       if (spot) spots = { spot, barbs: Array.from({ length: barbarians }, () => placer.findNear(spot)) };
     }
 

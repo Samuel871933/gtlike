@@ -605,6 +605,13 @@ function cosmeticPreview(kind, id) {
 
 const ImageService = require('../services/ImageService');
 
+/** Délai de fin gratuite d'une construction, en clair : « 3 minutes », « 5 secondes » (mondes rapides). */
+function freeFinishLabel(cfg) {
+  const s = cfg.freeFinishSeconds;
+  if (s >= 120) return `${Math.round(s / 60)} minutes`;
+  return `${s} seconde${s > 1 ? 's' : ''}`;
+}
+
 module.exports = {
   ...require('./ui'),
   // Tracés des icônes (grille 24 × 24), repris dans d'autres SVG (sceaux, voir sealSvg.js).
@@ -649,6 +656,7 @@ module.exports = {
   buildingStat,
   icon,
   duration,
+  freeFinishLabel,
   when,
   whenShort,
   // L'encart de la quête en cours s'affiche-t-il sur cette page (pages de la quête, hors bulle d'accueil et remplaçant) ?

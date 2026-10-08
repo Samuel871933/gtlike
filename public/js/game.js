@@ -88,22 +88,134 @@ window.Adarma = (() => {
         if (updated && info.innerHTML !== updated.innerHTML) info.innerHTML = updated.innerHTML;
       });
 
-      // Repartir des ressources calculées par le serveur après la fin d'une activité.
-      // Prochaine heure où des ressources suffiront : celle de la page à jour (ou plus aucune).
-      const currentReload = document.querySelector('[data-reload-at]');
-      const updatedReload = fresh.querySelector('[data-reload-at]');
-      if (currentReload) currentReload.replaceWith(updatedReload || '');
-      else if (updatedReload) document.querySelector('[data-clock]')?.parentElement.before(updatedReload);
-
-      const updatedResources = fresh.querySelectorAll('[data-res]');
-      document.querySelectorAll('[data-res]').forEach((el, i) => {
-        const next = updatedResources[i];
-        if (!next) return;
-        for (const key of ['res', 'cap', 'rate', 'at']) el.dataset[key] = next.dataset[key];
-      });
+      syncResources(fresh);
     } catch { /* Le minuteur reste visible ; une prochaine échéance réessaiera. */ }
     finally { refreshingOverview = false; }
   }
+
+  // Repartir des ressources calculées par le serveur après la fin d'une activité ; prochaine heure où des ressources
+  // suffiront : celle de la page à jour (ou plus aucune).
+  function syncResources(fresh) {
+    const currentReload = document.querySelector('[data-reload-at]');
+    const updatedReload = fresh.querySelector('[data-reload-at]');
+    if (currentReload) currentReload.replaceWith(updatedReload || '');
+    else if (updatedReload) document.querySelector('[data-clock]')?.parentElement.before(updatedReload);
+
+    const updatedResources = fresh.querySelectorAll('[data-res]');
+    document.querySelectorAll('[data-res]').forEach((el, i) => {
+      const next = updatedResources[i];
+      if (!next) return;
+      for (const key of ['res', 'cap', 'rate', 'at']) el.dataset[key] = next.dataset[key];
+    });
+  }
+
+  // Pages à blocs vivants (data-live="clé" : file de recrutement, effectifs…) : une échéance remplace ces blocs par ceux
+  // de la page à jour, sans recharger ; les formulaires gardent leur saisie (le recrutement reprend ressources et
+  // maximums du serveur). Les autres pages se rechargent (en gardant aussi la saisie, voir reloadKeepingInputs).
+  const livePage = Boolean(document.querySelector('[data-live]'));
+  let refreshingLive = false;
+  let nextLiveRefresh = 0;
+  let pendingLive = null;
+  async function refreshLive() {
+    // Au plus une mise à jour toutes les 1,5 s : une échéance qui tombe entre-temps est reportée, jamais perdue.
+    const wait = refreshingLive ? 300 : nextLiveRefresh - Date.now();
+    if (wait > 0) {
+      if (!pendingLive) pendingLive = setTimeout(() => { pendingLive = null; refreshLive(); }, wait);
+      return;
+    }
+    refreshingLive = true;
+    nextLiveRefresh = Date.now() + 1500;
+    try {
+      const response = await fetch(window.location.href, { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) return;
+      const template = document.createElement('template');
+      template.innerHTML = await response.text();
+      const fresh = template.content;
+      const keys = (root) => [...root.querySelectorAll('[data-live]')].map((el) => el.dataset.live).join('|');
+      // Page qui a changé de forme (file apparue ou vide, bâtiment terminé…) : rechargement complet.
+      if (keys(fresh) !== keys(document)) {
+        reloadKeepingInputs();
+        return;
+      }
+      document.querySelectorAll('[data-live]').forEach((el) => {
+        const updated = fresh.querySelector(`[data-live="${CSS.escape(el.dataset.live)}"]`);
+        if (updated && updated.innerHTML !== el.innerHTML) el.replaceWith(updated);
+      });
+      // Formulaires gardés (saisie en cours) : seulement leurs maximums, effectifs et champs actifs à jour.
+      document.querySelectorAll('form[action]').forEach((form) => {
+        const updated = fresh.querySelector(`form[action="${CSS.escape(form.getAttribute('action'))}"]`);
+        if (!updated) return;
+        for (const key of ['have', 'recruit']) if (updated.dataset[key] !== undefined) form.dataset[key] = updated.dataset[key];
+        updated.querySelectorAll('[data-fill]').forEach((b) => {
+          const mine = form.querySelector(`[data-fill="${CSS.escape(b.dataset.fill)}"]`);
+          if (!mine) return;
+          // Recrutement : maximum du serveur (data-cap), le maximum affiché suit la saisie (recruitTotal).
+          if (mine.dataset.cap !== undefined) mine.dataset.cap = b.dataset.cap;
+          else { mine.dataset.max = b.dataset.max; mine.className = b.className; setText(mine, b.textContent); }
+        });
+        updated.querySelectorAll('input[name]:not([type=hidden])').forEach((input) => {
+          const mine = form.querySelector(`input[name="${CSS.escape(input.name)}"]`);
+          if (!mine) return;
+          mine.disabled = input.disabled;
+          if (input.max) mine.max = input.max;
+        });
+        if (form.matches('[data-recruit]')) recruitTotal(form);
+      });
+      syncResources(fresh);
+    } catch { /* Une prochaine échéance réessaiera. */ }
+    finally { refreshingLive = false; }
+  }
+
+  // Une échéance est passée : mise à jour des panneaux (aperçu, pages à blocs vivants) ou rechargement de la page.
+  function refreshPage() {
+    if (isOverview) refreshOverview();
+    else if (livePage) refreshLive();
+    else if (!reloading) {
+      reloading = true;
+      setTimeout(reloadKeepingInputs, 500);
+    }
+  }
+  // Comptes à rebours déjà échus et traités : une seule mise à jour chacun (sinon toutes les secondes).
+  const expired = new WeakSet();
+
+  // Saisies gardées d'un rechargement automatique à l'autre (unité terminée, ressources arrivées…) : les nombres tapés
+  // dans les formulaires (recrutement, marché…) et le champ en cours de saisie sont rendus au chargement suivant de la
+  // même page. Sur un monde rapide, une unité sort chaque seconde : sans cela, chaque saisie serait effacée.
+  const KEEP_KEY = 'adarma:keep-inputs';
+  const KEEP_MS = 60000;
+  const keepable = 'form input[name]:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=password]):not([type=file])';
+  const keyOf = (input) => `${input.form.getAttribute('action') || ''}|${input.name}`;
+  function reloadKeepingInputs() {
+    try {
+      const values = {};
+      document.querySelectorAll(keepable).forEach((input) => {
+        if (input.value !== input.defaultValue) values[keyOf(input)] = input.value;
+      });
+      const active = document.activeElement && document.activeElement.matches && document.activeElement.matches(keepable) ? keyOf(document.activeElement) : null;
+      sessionStorage.setItem(KEEP_KEY, JSON.stringify({ page: location.pathname + location.search, at: Date.now(), values, active }));
+    } catch { /* Stockage indisponible (navigation privée) : rechargement simple. */ }
+    window.location.reload();
+  }
+  // Rendu après le chargement du reste du script : les écouteurs (total du recrutement…) recalculent avec ces valeurs.
+  setTimeout(() => {
+    let kept = null;
+    try {
+      kept = JSON.parse(sessionStorage.getItem(KEEP_KEY) || 'null');
+      sessionStorage.removeItem(KEEP_KEY);
+    } catch { return; }
+    if (!kept || kept.page !== location.pathname + location.search || Date.now() - kept.at > KEEP_MS) return;
+    document.querySelectorAll(keepable).forEach((input) => {
+      const key = keyOf(input);
+      if (Object.hasOwn(kept.values, key)) {
+        input.value = kept.values[key];
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (key === kept.active) {
+        input.focus();
+        try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* champ numérique */ }
+      }
+    });
+  }, 0);
 
   // Au-delà de 50 comptes à rebours (aperçu Arrivant), un observateur retient ceux qui sont à l'écran : les autres
   // ne sont pas réécrits chaque seconde. Les comptes ajoutés en cours de route (aperçu du village) sont observés aussi.
@@ -165,23 +277,17 @@ window.Adarma = (() => {
       }
       if (left <= 0) {
         if (Number(el.dataset.countdown) <= loadedAt && now - loadedAt < 5000) return;
-        if (isOverview) refreshOverview();
-        else if (!reloading) {
-          reloading = true;
-          setTimeout(() => window.location.reload(), 500);
-        }
+        // Aperçu : il se resynchronise lui-même (au plus toutes les 5 s) ; ailleurs, une fois par compte à rebours.
+        if (!isOverview && expired.has(el)) return;
+        expired.add(el);
+        refreshPage();
       }
     });
     // Ressources qui suffisent enfin pour une construction, une unité… (« Ressources disponibles à … ») : la page
     // se met à jour pour proposer le bouton.
     const reloadAt = Number(document.querySelector('[data-reload-at]')?.dataset.reloadAt);
-    if (reloadAt && reloadAt <= now && !editing && !(reloadAt <= loadedAt && now - loadedAt < 5000)) {
-      if (isOverview) refreshOverview();
-      else if (!reloading) {
-        reloading = true;
-        setTimeout(() => window.location.reload(), 500);
-      }
-    }
+    // Une page à blocs vivants se met à jour même pendant une saisie (elle la garde).
+    if (reloadAt && reloadAt <= now && (livePage || !editing) && !(reloadAt <= loadedAt && now - loadedAt < 5000)) refreshPage();
     // Le serveur peut traiter la prochaine unité quelques secondes après son échéance.
     // Continuer à synchroniser le recrutement même si son minuteur a disparu du plan.
     if (isOverview) {
@@ -670,14 +776,15 @@ window.Adarma = (() => {
     if (recruit) recruitTotal(recruit);
   });
 
-  // Point de ralliement : Entrée choisit « Attaquer » même après un clic sur un bouton de remplissage max.
+  // Point de ralliement et recrutement : Entrée choisit « Attaquer » / « Recruter », même après un clic sur un bouton
+  // de remplissage max (qui garde le focus) ou avec une saisie au-delà du maximum affiché (le serveur tranche).
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.isComposing || !(e.target instanceof Element)) return;
-    const form = e.target.closest('form[data-attack-on-enter]');
-    const attack = form && form.querySelector('[data-attack-submit]');
-    if (!attack || e.target.closest('button[type="submit"]')) return;
+    const form = e.target.closest('form[data-attack-on-enter], form[data-recruit]');
+    const submit = form && form.querySelector('[data-attack-submit], [data-recruit-submit]');
+    if (!submit || e.target.closest('button[type="submit"]')) return;
     e.preventDefault();
-    if (!e.repeat) form.requestSubmit(attack);
+    if (!e.repeat) form.requestSubmit(submit);
   });
 
   // Plan du village : le survol d'un bâtiment affiche son encart (coût, Améliorer) sous le plan ; le clic ouvre sa page.

@@ -12,6 +12,7 @@ const DEFAULTS = {
   buildQueueSlots: 2,
   cancelRefund: 0.9,
   // Construction en cours terminée gratuitement quand il lui reste au plus ce temps (secondes réelles), comme sur GT.
+  // Toujours 3 minutes (pas un réglage de serveur privé) ; 0 la désactive : parties classées du matchup.
   freeFinishSeconds: 180,
   // Démolition au quartier général (comme sur GT) : QG de ce niveau au moins, loyauté à 100 %.
   demolishMainLevel: 15,

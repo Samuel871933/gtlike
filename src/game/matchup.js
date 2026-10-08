@@ -21,63 +21,38 @@ const TEAMS = [
 ];
 
 /**
- * Réglages du monde d'une partie : tout va vite. Vitesse ×600 pour l'économie comme pour les troupes (un bélier
- * traverse la carte en 50 s environ, une hache en 30 s), villages de départ développés (académie construite, mines 22)
- * et petite armée : on attaque dès la première seconde. Nobles moins chers et loyauté qui tombe plus vite : deux nobles
- * prennent un village. Sans archers, archers montés ni paladin ; les équipes sont les seules tribus (pas d'autre
- * tribu à créer, voir TribeService.assertTeamsOpen). Rien à gagner pour le compte hors de l'elo : ni quêtes,
- * ni récompenses de construction, ni succès, ni sceaux (SealService.canEarn), ni succès quotidiens.
+ * Réglages du monde d'une partie : ceux d'un monde normal (WorldConfig), dont seuls les facteurs de croissance changent.
+ * - Économie ×5000 à partir d'un village neuf : l'académie peut être construite vers la 10e minute.
+ * - Troupes ×0,12, soit des trajets à ×600 : une hache traverse 15 cases en 30 s environ, on voit venir une attaque.
+ * - Barbares : environ 200 points par minute, jusqu'à 9 000 points (ils valent la peine d'être pillés puis anoblis) ;
+ *   deux par joueur, placés autour de lui comme sur un monde normal (placement.emptyVillages).
+ * Retiré pour le classé : archers, archers montés, paladin, église, milice, sceaux (modules), quêtes, récompenses de
+ * construction et succès. Durées réelles qui n'ont pas de sens sur 25 minutes : pas de protection des débutants (elle
+ * bloquerait toute la partie), pas de mode vacances (personne d'autre ne joue une partie classée). Les équipes sont
+ * les seules tribus (TribeService.assertTeamsOpen).
  */
 function worldConfig() {
+  const speed = 5000;
   return {
-    speed: 600,
-    unitSpeed: 1,
-    mapSize: 100,
+    speed,
+    unitSpeed: 0.12,
     newbieDays: 0,
-    moral: false,
-    luck: 0.15,
-    tech: 'none',
+    // Pas de fin gratuite des constructions : à ×5000, presque tout se terminerait d'un clic.
+    freeFinishSeconds: 0,
     features: { archer: false, knight: false, church: false, militia: false, seals: false },
-    freeFinishSeconds: 5,
-    commandCancelSeconds: 30,
     buildRewards: { active: false },
     tutorial: { active: false },
     achievements: { active: false },
-    scavenging: { active: false },
     sitter: { allow: false },
-    bots: { count: 0 },
-    placement: { emptyVillages: 0 },
-    barbarian: { growthPerDay: 0, troops: false },
-    tribe: { memberLimit: 5, noHarm: true, supportOnlyTribe: true },
+    placement: { emptyVillages: 200 },
+    // Points par jour × vitesse du monde : 200 points par minute.
+    barbarian: { growthPerDay: Math.round((200 * 1440) / speed), maxPoints: 9000 },
     victory: { type: 'none' },
-    startBuildings: {
-      main: 20, barracks: 20, stable: 15, garage: 5, snob: 1, smith: 20, place: 1, market: 10,
-      wood: 22, stone: 22, iron: 22, farm: 25, storage: 25, hide: 3, wall: 10,
-    },
-    startResources: { wood: 40000, stone: 40000, iron: 40000 },
-    snob: { coin: { wood: 8000, stone: 9000, iron: 7000 }, loyaltyLossMin: 40, loyaltyLossMax: 60 },
   };
 }
 
-/** Armée de départ de chaque joueur. */
-const START_UNITS = { spear: 600, sword: 400, axe: 600, spy: 20, light: 250, ram: 20 };
-
-/**
- * Emplacements des villages de départ et des barbares, au centre `c` d'une carte : les bleus à l'ouest, les rouges à
- * l'est (16 cases entre les deux lignes), coéquipiers espacés de 4 cases ; deux barbares par joueur entre les lignes.
- */
-function layout(teamSize, c) {
-  const spots = []; const barbs = [];
-  for (const team of [1, 2]) {
-    const side = team === 1 ? -1 : 1;
-    for (let i = 0; i < teamSize; i++) {
-      const y = c + Math.round((i - (teamSize - 1) / 2) * 4);
-      spots.push({ team, slot: i, x: c + side * 8, y });
-      barbs.push({ x: c + side * 4, y }, { x: c + side * 2, y: y + 1 });
-    }
-  }
-  return { spots, barbs };
-}
+/** Écart minimal (cases) entre les villages de départ de deux joueurs, placés au hasard comme sur un monde normal. */
+const MIN_PLAYER_DISTANCE = 12;
 
 /** Score d'une équipe à la fin du temps : points des joueurs (villages, bâtiments) et adversaires vaincus. */
 const teamScore = (players) => players.reduce((s, p) => s + p.points + p.killsAttacker + p.killsDefender + p.killsSupporter, 0);
@@ -185,6 +160,6 @@ function split(chosen, teamSize) {
 }
 
 module.exports = {
-  FORMATS, isFormat, LADDERS, ladderOf, MATCH_MINUTES, TEAMS, worldConfig, START_UNITS, layout, teamScore,
+  FORMATS, isFormat, LADDERS, ladderOf, MATCH_MINUTES, TEAMS, worldConfig, MIN_PLAYER_DISTANCE, teamScore,
   START_ELO, PLACEMENT_GAMES, expected, kFactor, average, eloDelta, LEAGUES, DIVISIONS, leagueOf, eloWindow, formMatch,
 };

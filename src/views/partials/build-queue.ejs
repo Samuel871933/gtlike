@@ -16,10 +16,10 @@
         <span class="<%= ui.track %>"><span class="<%= ui.fill %>" style="width: <%= pct.toFixed(1) %>%"<%- running ? ` data-progress-start="${start}" data-progress-end="${end}"` : '' %>></span></span>
         <span class="text-[13px] text-parchment-500">Achèvement <%= when(o.endsAt, now) %></span>
       </div>
-<% if (running && !o.demolish) { const freeAt = end - ctx.cfg.freeFinishSeconds * 1000; %>
+<% if (running && !o.demolish && ctx.cfg.freeFinishSeconds > 0) { const freeAt = end - ctx.cfg.freeFinishSeconds * 1000; %>
         <%# Terminer gratuitement : visible dès qu'il reste au plus 3 minutes (game.js l'affiche au bon moment). %>
         <form method="post" action="/village/<%= ctx.village.id %>/build/<%= o.id %>/finish" class="<%= now >= freeAt ? '' : 'hidden' %>" data-free-at="<%= freeAt %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="<%= btn('gold', 'sm') %>" title="Gratuit : moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes">Terminer</button>
+          <button class="<%= ui.iconBtnSmOk %>" title="Terminer gratuitement (moins de <%= freeFinishLabel(ctx.cfg) %> restantes)" aria-label="Terminer gratuitement"><%- icon('check', 'size-3', 3.2) %></button>
         </form>
       <% } %>
       <form method="post" action="/village/<%= ctx.village.id %>/build/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -28,7 +28,7 @@
     </div>
   <% } %>
   <p class="text-xs text-parchment-600">
-    File <%= ctx.buildOrders.length %>/<%= ctx.buildQueueMax %><% if (ctx.premium) { %> (premium<%= ctx.buildQueueMax > ctx.buildQueueSlots ? `, ${ctx.buildQueueSlots} au prix normal` : '' %>)<% } else { %> (<a href="/shop/item/premium?world=<%= encodeURIComponent(ctx.world.slug) %>" class="<%= ui.link %>">premium : <%= ctx.buildQueueSlots + ctx.cfg.premium.buildQueueBonus %></a>)<% } %> · une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources · une construction se termine gratuitement quand il lui reste moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes.
+    File <%= ctx.buildOrders.length %>/<%= ctx.buildQueueMax %><% if (ctx.premium) { %> (premium<%= ctx.buildQueueMax > ctx.buildQueueSlots ? `, ${ctx.buildQueueSlots} au prix normal` : '' %>)<% } else if (!inMatch) { %> (<a href="/shop/item/premium?world=<%= encodeURIComponent(ctx.world.slug) %>" class="<%= ui.link %>">premium : <%= ctx.buildQueueSlots + ctx.cfg.premium.buildQueueBonus %></a>)<% } %> · une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources<% if (ctx.cfg.freeFinishSeconds > 0) { %> · une construction se termine gratuitement quand il lui reste moins de <%= freeFinishLabel(ctx.cfg) %><% } %>.
   </p>
 <% } else { %>
   <p class="text-parchment-500">Aucune construction en cours.</p>

@@ -23,11 +23,14 @@
         </div>
       <% } %>
 
-      <%- include('../recruit-queue', { orders: queue, showEmpty: false }) %>
+      <%# Blocs vivants (data-live) : à la fin d'une unité, game.js les remplace par ceux de la page à jour, sans recharger
+          ni effacer la saisie. %>
+      <div data-live="recruit-queue"><%- include('../recruit-queue', { orders: queue, showEmpty: false }) %></div>
 
       <% if (available.length) { %>
         <%# data-recruit : coût et durée unitaires, ressources et population disponibles (total calculé par game.js). %>
-        <form method="post" action="/village/<%= vid %>/recruit/<%= building %>" class="<%= queue.length ? 'border-t-2 border-bronze-800' : '' %>"
+        <%# novalidate : une saisie au-delà du maximum affiché part quand même (Entrée), le serveur tranche. %>
+        <form method="post" action="/village/<%= vid %>/recruit/<%= building %>" novalidate class="<%= queue.length ? 'border-t-2 border-bronze-800' : '' %>"
               data-recruit="<%= JSON.stringify(Object.fromEntries(available.map((o) => [o.type.id, { ...o.type.cost, pop: o.type.pop, time: o.duration }]))) %>"
               data-have="<%= JSON.stringify({ ...ctx.state.resources, pop: ctx.state.farmCapacity() - ctx.popUsed() }) %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="overflow-x-auto">
@@ -50,7 +53,7 @@
                   <% } %>
                   <td class="whitespace-nowrap tabular-nums text-parchment-300 max-md:hidden"><span class="inline-flex items-center gap-1.5"><span><%- resourceIcon('pop') %></span><%= num(o.type.pop) %></span></td>
                   <td class="whitespace-nowrap tabular-nums text-parchment-300 max-md:hidden"><span class="inline-flex items-center gap-1.5"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span></td>
-                  <td class="text-center whitespace-nowrap tabular-nums max-md:hidden"><span class="font-semibold text-parchment-100"><%= num(o.count) %></span><span class="text-parchment-500">/<%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></td>
+                  <td class="text-center whitespace-nowrap tabular-nums max-md:hidden" data-live="count-<%= o.type.id %>"><span class="font-semibold text-parchment-100"><%= num(o.count) %></span><span class="text-parchment-500">/<%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></td>
                   <td class="text-right">
                     <span class="inline-flex items-center justify-end gap-2 whitespace-nowrap">
                       <input type="number" name="<%= o.type.id %>" min="0" max="<%= o.max %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Recruter : <%= o.type.name %>">

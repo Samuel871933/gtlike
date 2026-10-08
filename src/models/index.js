@@ -1027,6 +1027,17 @@ const MatchQueue = sequelize.define('MatchQueue', {
 }, { tableName: 'MatchQueue', indexes: [{ fields: ['format', 'queuedAt'] }] });
 
 /**
+ * Partie trouvée, en attente d'acceptation (comme sur League of Legends) : les entrées de la file retenues, en deux
+ * équipes (`teams` : [[{ userIds, size, rating, queuedAt }…], […]]), les comptes qui ont accepté et l'échéance.
+ */
+const MatchProposal = sequelize.define('MatchProposal', {
+  format: { type: DataTypes.STRING(4), allowNull: false },
+  teams: { type: DataTypes.JSON, allowNull: false },
+  accepted: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+  expiresAt: { type: DataTypes.DATE, allowNull: false },
+});
+
+/**
  * Partie du matchup, sur son propre monde (World.access 'match'). `status` : running | ended ; `winnerTeam` 1 ou 2
  * (nul : égalité) ; `reason` : conquest | time | forfeit ; `scores` : [score équipe 1, score équipe 2] à la fin.
  */
@@ -1070,5 +1081,5 @@ module.exports = {
   TribeOperation, TribeOperationTarget, TribeOperationClaim,
   ManagerTemplate, ManagerVillage, TradeRoute,
   Entitlement, AdartonTransaction, BuildReward,
-  MatchRating, MatchGroup, MatchGroupMember, MatchQueue, Match, MatchPlayer,
+  MatchRating, MatchGroup, MatchGroupMember, MatchQueue, MatchProposal, Match, MatchPlayer,
 };

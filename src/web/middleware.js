@@ -161,6 +161,15 @@ const loadVillage = ah(async (req, res, next) => {
     access = await VillageService.assertAccess(villageId, req.user.id);
   }
   const { village: owned, asSitter } = access;
+  // Partie du matchup terminée (temps écoulé, conquête, abandon) : plus rien ne se joue, écran de fin de partie.
+  const ownedWorld = await VillageService.cachedWorld(owned.worldId);
+  if (ownedWorld.access === 'match') {
+    const ended = await require('../services/MatchService').endedFor(ownedWorld, now);
+    if (ended) {
+      const url = `/matchup/partie/${ended.id}`;
+      return req.get('accept') === 'application/json' ? res.status(409).json({ error: 'La partie est terminée.', url }) : res.redirect(url);
+    }
+  }
   req.asSitter = asSitter;
   res.locals.asSitter = asSitter;
   // Chemin de la page (sans paramètres) : l'encart de quête de l'en-tête ne s'affiche que sur les pages concernées.

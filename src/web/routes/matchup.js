@@ -60,6 +60,15 @@ router.get('/matchup/classement', ah(async (req, res) => {
   });
 }));
 
+/** Écran de fin de partie : vainqueur, raison, scores, chaque joueur et sa variation d'elo (public). */
+router.get('/matchup/partie/:matchId', ah(async (req, res) => {
+  const data = await MatchService.results(Number(req.params.matchId));
+  if (!data) throw new GameError('Partie introuvable.', 404);
+  if (data.match.status !== 'ended') return res.redirect('/matchup');
+  const ratings = await MatchService.ratingsOf(req.user ? req.user.id : null);
+  res.render('matchup-result', { ...data, ratings, mu, lobbyPage: 'matchup' });
+}));
+
 /** État relu par la page toutes les quelques secondes (garde l'entrée dans la file, annonce la partie trouvée). */
 router.get('/matchup/status', requireAuth, ah(async (req, res) => {
   res.set('Cache-Control', 'no-store').json(await MatchService.status(req.user.id));
@@ -67,6 +76,12 @@ router.get('/matchup/status', requireAuth, ah(async (req, res) => {
 
 router.post('/matchup/queue', requireAuth, action((req) => MatchService.enqueue(req.user, String(req.body.format || ''))));
 router.post('/matchup/cancel', requireAuth, action((req) => MatchService.cancel(req.user)));
+// Partie trouvée : accepter (le dernier à accepter entre directement dans la partie) ou refuser.
+router.post('/matchup/accept', requireAuth, action(async (req, res) => {
+  const match = await MatchService.accept(req.user);
+  if (match) res.redirect((await MatchService.status(req.user.id)).match.url);
+}));
+router.post('/matchup/decline', requireAuth, action((req) => MatchService.decline(req.user)));
 router.post('/matchup/group', requireAuth, action((req) => MatchService.createGroup(req.user)));
 router.post('/matchup/group/join', requireAuth, action((req) => MatchService.joinGroup(req.user, req.body.code)));
 router.post('/matchup/group/leave', requireAuth, action((req) => MatchService.leaveGroup(req.user)));

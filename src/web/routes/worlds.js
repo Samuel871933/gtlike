@@ -335,7 +335,12 @@ router.post('/servers/join', ah(async (req, res) => {
 router.get('/worlds/:slug/play', requireAuth, ah(async (req, res) => {
   const world = await findWorld(req.params.slug);
   const player = await WorldService.getPlayer(req.user.id, world.id);
-  if (!player) return res.redirect('/worlds');
+  if (!player) return res.redirect(world.isMatch() ? '/matchup' : '/worlds');
+  // Matchup : partie terminée (ou plus aucun village) → écran de fin de partie.
+  if (world.isMatch()) {
+    const ended = await require('../../services/MatchService').endedFor(world);
+    if (ended) return res.redirect(`/matchup/partie/${ended.id}`);
+  }
   const village = await Village.findOne({ where: { playerId: player.id }, order: [['id', 'ASC']] });
   if (!village) {
     flash(req, 'error', "Vous avez perdu tous vos villages sur ce monde : vous pouvez recommencer.");

@@ -102,7 +102,7 @@
   </details>
 </section>
 
-<section class="<%= ui.panel %>">
+<section class="<%= ui.panel %>" data-live="place-outgoing">
   <%- panelHead('Vos ordres', `<span class="${ui.headCount}">${outgoing.length}</span>`) %>
   <div>
     <% if (outgoing.length) { %><%- moveHead %><% } %>
@@ -136,7 +136,7 @@
   </div>
 </section>
 
-<section class="<%= ui.panel %>">
+<section class="<%= ui.panel %>" data-live="place-incoming">
   <%- panelHead('Arrivées', `<span class="flex items-center gap-3">${incoming.length ? `<a href="/village/${vid}/incomings?target=${vid}" class="${btn('dark', 'sm')}">Aperçu Arrivant</a>` : ''}<span class="${ui.headCount}">${incoming.length}</span></span>`) %>
   <div>
     <% if (incoming.length) { %><%- moveHead %><% } %>

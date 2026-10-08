@@ -11,7 +11,8 @@
   const why = { conquest: 'par conquête', forfeit: 'par abandon', time: 'aux points' }[match.reason] || '';
   const side = (n, label, cls) => `<span class="flex items-center gap-1.5 ${mine && mine.team === n ? 'font-semibold text-parchment-100' : 'text-parchment-300'}"><span class="size-2.5 rotate-45 border border-black ${cls}"></span>${label} <b class="font-semibold tabular-nums">${num(scores[n - 1])}</b></span>`;
 %>
-<div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-x-4 gap-y-1.5">
+<%# Partie en cours : matchup.js surveille sa fin (conquête, abandon, temps) et ouvre l'écran de fin de partie. %>
+<div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-x-4 gap-y-1.5"<% if (running) { %> data-match-live="<%= match.id %>"<% } %>>
   <span class="flex items-center gap-1.5 font-display font-semibold text-gold-200"><%- icon('sword', 'size-4', 2.2) %>Matchup <%= match.format %></span>
   <%- side(1, 'Bleus', 'bg-steel-500') %>
   <span class="text-parchment-500">contre</span>
@@ -32,3 +33,4 @@
     <a href="/matchup" class="<%= btn('gold', 'sm', 'ml-auto') %>">Retour au matchup</a>
   <% } %>
 </div>
+<% if (running) { %><script src="<%= asset('/js/matchup.js') %>" defer></script><% } %>

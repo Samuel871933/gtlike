@@ -107,9 +107,11 @@ class MapPlacer {
 
   /**
    * Cherche un emplacement libre sur l'anneau de rayon `radius`, élargi peu à peu jusqu'à `until` ; null sinon.
-   * `margin` = cases libres exigées autour (1 pour un joueur, 0 pour un village barbare).
+   * `margin` = cases libres exigées autour (1 pour un joueur, 0 pour un village barbare). `apart` : { spots, min },
+   * au moins `min` cases de chacun de ces villages (joueurs d'une partie du matchup).
    */
-  trySpot({ direction = 'random', radius, until, margin = 1 } = {}) {
+  trySpot({ direction = 'random', radius, until, margin = 1, apart = null } = {}) {
+    const farEnough = (x, y) => !apart || apart.spots.every((s) => Math.hypot(s.x - x, s.y - y) >= apart.min);
     const [a0, a1] = DIRECTIONS[direction] || DIRECTIONS.random;
     const c = this.world.center;
     const stop = until ?? (this.ring ? this.ring.max : MapPlacer.edge(this.world));
@@ -119,7 +121,7 @@ class MapPlacer {
         const dist = Math.max(0, r + (this.rng() * 5 - 2));
         const x = Math.round(c + dist * Math.cos(angle));
         const y = Math.round(c + dist * Math.sin(angle));
-        if (this.isFree(x, y, margin)) return this.take(x, y);
+        if (this.isFree(x, y, margin) && farEnough(x, y)) return this.take(x, y);
       }
     }
     return null;

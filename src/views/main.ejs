@@ -54,7 +54,9 @@
   <%# Comme sur GT : grande illustration du bâtiment à gauche sur les écrans larges (vignette dans l'en-tête sinon). %>
   <div class="<%= ui.buildingGrid %>">
     <div class="<%= ui.buildingAside %>"><%- include('partials/building-illustration', { buildingId: 'main' }) %><%- include('partials/quest-aside') %></div>
-    <div class="flex min-w-0 flex-col gap-5">
+    <%# Bloc vivant (data-live) : à la fin d'une construction, game.js le remplace par celui de la page à jour, sans
+        recharger (pas de saisie ici). %>
+    <div class="flex min-w-0 flex-col gap-5" data-live="main">
 
   <%- segTabs([[tabHref('build'), 'Construction', tab === 'build'], [tabHref('demolition'), 'Démolition', tab === 'demolition']]) %>
 
@@ -86,10 +88,10 @@
               <td class="whitespace-nowrap text-parchment-300 max-sm:hidden"><%= when(o.endsAt, now) %></td>
               <td class="text-right">
                 <div class="inline-flex items-center gap-1.5">
-                  <% if (running && !o.demolish) { %>
+                  <% if (running && !o.demolish && ctx.cfg.freeFinishSeconds > 0) { %>
                     <%# Terminer gratuitement : visible dès qu'il reste au plus 3 minutes (game.js l'affiche au bon moment). %>
                     <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/finish" class="<%= now >= freeAt ? '' : 'hidden' %>" data-free-at="<%= freeAt %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <button class="<%= btn('gold', 'sm') %>" title="Gratuit : moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes">Terminer</button>
+                      <button class="<%= ui.iconBtnSmOk %>" title="Terminer gratuitement (moins de <%= freeFinishLabel(ctx.cfg) %> restantes)" aria-label="Terminer gratuitement"><%- icon('check', 'size-3', 3.2) %></button>
                     </form>
                   <% } %>
                   <form method="post" action="/village/<%= vid %>/build/<%= o.id %>/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -115,8 +117,8 @@
       <% } %>
       <p class="border-t border-bronze-800 px-3 py-1.5 text-xs text-parchment-600">
         <% if (ctx.premium && ctx.buildQueueMax > ctx.buildQueueSlots) { %>Premium : <%= ctx.buildQueueSlots %> constructions au prix normal, puis jusqu’à <%= ctx.buildQueueMax %>, chacune <%= extraPct %> % plus chère que la précédente<%= surcharge ? ` (prochaine : +${surcharge} %)` : '' %> ·<% } %>
-        Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources (rien pour une démolition) ·
-        moins de <%= Math.round(ctx.cfg.freeFinishSeconds / 60) %> minutes restantes : « Terminer » est gratuit.
+        Une annulation rembourse <%= Math.round(ctx.cfg.cancelRefund * 100) %> % des ressources (rien pour une démolition)<% if (ctx.cfg.freeFinishSeconds > 0) { %> ·
+        moins de <%= freeFinishLabel(ctx.cfg) %> restantes : la terminer (✓) est gratuit<% } %>.
       </p>
     </section>
   <% } %>

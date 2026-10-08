@@ -403,6 +403,7 @@ class VillageService {
     return VillageService.withVillage(villageId, async (ctx, t) => {
       const order = ctx.buildOrders.find((o) => o.id === Number(orderId));
       if (!order) throw new GameError('Cette construction est déjà terminée.', 404);
+      if (ctx.cfg.freeFinishSeconds <= 0) throw new GameError('Les constructions ne peuvent pas être terminées plus tôt sur ce monde.');
       if (order.demolish) throw new GameError('Une démolition ne peut pas être terminée plus tôt.');
       if (new Date(order.startsAt) > ctx.now) throw new GameError('Seule la construction en cours peut être terminée.');
       const left = new Date(order.endsAt) - ctx.now;
@@ -417,7 +418,7 @@ class VillageService {
 
   /** La construction en cours peut-elle être terminée gratuitement (au plus `freeFinishSeconds` restantes) ? */
   static canFinishFree(order, cfg, now) {
-    return !order.demolish && new Date(order.startsAt) <= now && new Date(order.endsAt) - now <= cfg.freeFinishSeconds * 1000;
+    return cfg.freeFinishSeconds > 0 && !order.demolish && new Date(order.startsAt) <= now && new Date(order.endsAt) - now <= cfg.freeFinishSeconds * 1000;
   }
 
   /**

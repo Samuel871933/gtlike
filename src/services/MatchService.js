@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
 const {
-  sequelize, User, World, Player, Village, Tribe, Report, MatchRating, MatchGroup, MatchGroupMember, MatchQueue, Match, MatchPlayer,
+  sequelize, User, World, Player, Village, Tribe, Report, MatchRating, MatchGroup, MatchGroupMember, MatchQueue, MatchProposal, Match, MatchPlayer,
 } = require('../models');
 const GameError = require('./GameError');
 const WorldService = require('./WorldService');
@@ -12,10 +12,18 @@ const mu = require('../game/matchup');
 // Entrée de la file retirée quand plus personne n'a ouvert la page du matchup depuis ce délai (la page se signale
 // toutes les quelques secondes) : on ne lance pas de partie pour un joueur parti.
 const QUEUE_STALE_MS = 60000;
+// Partie trouvée : chaque joueur a ce délai pour l'accepter (comme sur League of Legends), sinon elle est annulée.
+const ACCEPT_MS = 15000;
 const MAX_GROUP = 5;
+// Croissance des barbares des parties en cours : toutes les 20 s.
+const BARBARIAN_EVERY_MS = 20000;
+let lastBarbarianGrowth = 0;
 // Code d'un groupe : sans caractères ambigus (0/O, 1/I).
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const newCode = (n = 6) => Array.from(crypto.randomBytes(n), (b) => CODE_CHARS[b % CODE_CHARS.length]).join('');
+
+/** Comptes d'une partie trouvée (toutes équipes). */
+const proposalUsers = (proposal) => proposal.teams.flat().flatMap((e) => e.userIds);
 
 /**
  * Matchup : parties compétitives courtes (voir game/matchup.js). Les joueurs entrent dans la file seuls ou en groupe ;
@@ -163,15 +171,22 @@ class MatchService {
   static async runningOf(userId, t) {
     return MatchPlayer.findOne({
       where: { userId },
-      include: [{ model: Match, where: { status: 'running' }, include: [{ model: World, attributes: ['id', 'slug', 'name'] }] }],
+      include: [{ model: Match, where: { status: 'running' }, include: [{ model: World, attributes: ['id', 'slug', 'name', 'access', 'endedAt'] }] }],
       transaction: t,
     });
   }
 
-  /** Ni dans la file, ni en partie : sinon erreur. */
+  /** Partie trouvée en attente d'acceptation qui concerne ce compte (il y en a peu : lues en entier), ou null. */
+  static async proposalOf(userId, t) {
+    const proposals = await MatchProposal.findAll({ transaction: t });
+    return proposals.find((p) => proposalUsers(p).includes(userId)) || null;
+  }
+
+  /** Ni dans la file, ni devant une partie à accepter, ni en partie : sinon erreur. */
   static async assertIdle(userId, t) {
     if (await MatchService.runningOf(userId, t)) throw new GameError('Tu as une partie en cours : termine-la d’abord.');
     if (await MatchService.entryOf(userId, t)) throw new GameError('Tu es déjà dans la file d’attente.');
+    if (await MatchService.proposalOf(userId, t)) throw new GameError('Une partie t’attend : accepte-la ou refuse-la.');
   }
 
   /** Entrer dans la file pour un format, seul ou avec son groupe (le chef seulement). */
@@ -192,8 +207,9 @@ class MatchService {
     });
   }
 
-  /** Quitter la file (n'importe quel membre du groupe arrête la recherche du groupe). */
-  static async cancel(user) {
+  /** Quitter la file (n'importe quel membre du groupe arrête la recherche du groupe) ; devant une partie trouvée : la refuser. */
+  static async cancel(user, now = new Date()) {
+    if (await MatchService.proposalOf(user.id)) return MatchService.decline(user, now);
     await sequelize.transaction((t) => MatchService.dropEntriesOf([user.id], t));
   }
 
@@ -202,12 +218,19 @@ class MatchService {
    * file) : { queue, match, group }.
    */
   static async status(userId, now = new Date()) {
-    const [entry, running, group] = await Promise.all([
-      MatchService.entryOf(userId), MatchService.runningOf(userId), MatchService.groupOf(userId),
+    const [entry, found, group, proposal] = await Promise.all([
+      MatchService.entryOf(userId), MatchService.runningOf(userId), MatchService.groupOf(userId), MatchService.proposalOf(userId),
     ]);
+    // Partie dont le temps est écoulé (ou conquise) : terminée ici, sans attendre la boucle de jeu.
+    const running = found && !(await MatchService.endedFor(found.Match.World, now)) ? found : null;
     if (entry) await entry.update({ seenAt: now }, { silent: true });
     return {
       queue: entry ? { format: entry.format, queuedAt: entry.queuedAt, size: entry.size, rating: entry.rating } : null,
+      // Partie trouvée à accepter : échéance, son propre choix, nombre de joueurs qui ont accepté.
+      proposal: proposal ? {
+        id: proposal.id, format: proposal.format, expiresAt: proposal.expiresAt, accepted: proposal.accepted.includes(userId),
+        acceptedCount: proposal.accepted.length, total: proposalUsers(proposal).length,
+      } : null,
       match: running ? {
         id: running.Match.id, format: running.Match.format, endsAt: running.Match.endsAt, team: running.team,
         slug: running.Match.World.slug, url: `/worlds/${encodeURIComponent(running.Match.World.slug)}/play`,
@@ -221,7 +244,10 @@ class MatchService {
 
   // ---------------------------------------------------------------------------------------------- Matchmaking
 
-  /** Forme toutes les parties possibles (après avoir retiré les entrées sans nouvelles) ; renvoie les parties créées. */
+  /**
+   * Forme toutes les parties possibles (après avoir retiré les entrées sans nouvelles) : chacune devient une partie
+   * trouvée, à accepter par tous ses joueurs (accept). Renvoie les propositions créées.
+   */
   static async matchmake(now = new Date()) {
     await MatchQueue.destroy({ where: { seenAt: { [Op.lt]: new Date(now - QUEUE_STALE_MS) } } });
     const created = [];
@@ -230,29 +256,82 @@ class MatchService {
         const entries = await MatchQueue.findAll({ where: { format }, order: [['queuedAt', 'ASC'], ['id', 'ASC']] });
         const found = mu.formMatch(entries, mu.FORMATS[format], now);
         if (!found) break;
-        const match = await MatchService.createMatch(format, found.teams, now).catch((err) => {
+        const proposal = await MatchService.propose(format, found.teams, now).catch((err) => {
           // Entrée retirée entre-temps (annulation) : on retentera au prochain tour.
           if (err instanceof GameError) return null;
           throw err;
         });
-        if (!match) break;
-        created.push(match);
+        if (!proposal) break;
+        created.push(proposal);
       }
     }
     return created;
   }
 
-  /**
-   * Crée la partie : son monde (petite carte très rapide), une tribu par équipe, le village de départ (et son armée)
-   * de chaque joueur face à l'équipe adverse, des barbares entre les deux lignes. Les entrées de la file sont retirées.
-   */
-  static async createMatch(format, teams, now = new Date()) {
-    const teamSize = mu.FORMATS[format];
+  /** Partie trouvée : les entrées quittent la file et attendent l'acceptation de chacun pendant ACCEPT_MS. */
+  static async propose(format, teams, now = new Date()) {
     return sequelize.transaction(async (t) => {
       const entryIds = teams.flat().map((e) => e.id);
       if ((await MatchQueue.destroy({ where: { id: entryIds }, transaction: t })) !== entryIds.length) {
         throw new GameError('File modifiée pendant la création de la partie.');
       }
+      const plain = teams.map((team) => team.map((e) => ({ userIds: e.userIds, size: e.size, rating: e.rating, queuedAt: e.queuedAt })));
+      return MatchProposal.create({ format, teams: plain, accepted: [], expiresAt: new Date(now.getTime() + ACCEPT_MS) }, { transaction: t });
+    });
+  }
+
+  /** Accepter la partie trouvée ; quand tous ont accepté, la partie est créée (renvoie alors la partie). */
+  static async accept(user, now = new Date()) {
+    return sequelize.transaction(async (t) => {
+      const found = await MatchService.proposalOf(user.id, t);
+      if (!found) throw new GameError('Aucune partie à accepter.');
+      const proposal = await MatchProposal.findByPk(found.id, { transaction: t, lock: t.LOCK.UPDATE });
+      if (!proposal) throw new GameError('Cette partie a été annulée.');
+      if (now > proposal.expiresAt) throw new GameError('Trop tard : la partie a été annulée.');
+      if (!proposal.accepted.includes(user.id)) await proposal.update({ accepted: [...proposal.accepted, user.id] }, { transaction: t });
+      if (proposal.accepted.length < proposalUsers(proposal).length) return null;
+      await proposal.destroy({ transaction: t });
+      return MatchService.createMatch(proposal.format, proposal.teams, now, t);
+    });
+  }
+
+  /** Refuser la partie trouvée : elle est annulée tout de suite (les autres retournent dans la file). */
+  static async decline(user, now = new Date()) {
+    const proposal = await MatchService.proposalOf(user.id);
+    if (!proposal) throw new GameError('Aucune partie à refuser.');
+    await MatchService.cancelProposal(proposal.id, now);
+  }
+
+  /**
+   * Partie trouvée annulée (refus, ou délai écoulé) : les entrées dont tous les joueurs ont accepté retournent dans la
+   * file à leur place d'origine ; les autres (refus, absence) en sortent.
+   */
+  static async cancelProposal(proposalId, now = new Date()) {
+    await sequelize.transaction(async (t) => {
+      const proposal = await MatchProposal.findByPk(proposalId, { transaction: t, lock: t.LOCK.UPDATE });
+      if (!proposal) return;
+      for (const entry of proposal.teams.flat()) {
+        if (!entry.userIds.every((u) => proposal.accepted.includes(u))) continue;
+        await MatchQueue.create({
+          format: proposal.format, userIds: entry.userIds, size: entry.size, rating: entry.rating, queuedAt: entry.queuedAt, seenAt: now,
+        }, { transaction: t });
+      }
+      await proposal.destroy({ transaction: t });
+    });
+  }
+
+  /** Parties trouvées dont le délai d'acceptation est écoulé : annulées. */
+  static async expireProposals(now = new Date()) {
+    for (const p of await MatchProposal.findAll({ where: { expiresAt: { [Op.lt]: now } } })) await MatchService.cancelProposal(p.id, now);
+  }
+
+  /**
+   * Crée la partie : son monde, une tribu par équipe, le village de départ de chaque joueur et ses barbares.
+   * `teams` : deux listes d'entrées ({ userIds }) ; dans la transaction `tx` si elle est donnée.
+   */
+  static async createMatch(format, teams, now = new Date(), tx = null) {
+    const run = (fn) => (tx ? fn(tx) : sequelize.transaction(fn));
+    return run(async (t) => {
       let slug = `m${newCode(7).toLowerCase()}`;
       while (await World.findOne({ where: { slug }, transaction: t })) slug = `m${newCode(7).toLowerCase()}`;
       const world = await World.create({
@@ -262,30 +341,31 @@ class MatchService {
         worldId: world.id, format, ladder: mu.ladderOf(format), startedAt: now, endsAt: new Date(now.getTime() + mu.MATCH_MINUTES * 60000),
       }, { transaction: t });
 
-      const cfg = world.getConfig();
-      const { spots, barbs } = mu.layout(teamSize, cfg.center);
+      // Joueurs (et tribu de chaque équipe), puis leurs villages dans un ordre au hasard.
+      const seats = [];
       for (const [i, entries] of teams.entries()) {
         const meta = mu.TEAMS[i];
         const tribe = await Tribe.create({ worldId: world.id, name: meta.name, tag: meta.tag }, { transaction: t });
         const userIds = entries.flatMap((e) => e.userIds);
         const users = await User.findAll({ where: { id: userIds }, transaction: t });
-        const teamSpots = spots.filter((s) => s.team === meta.n);
         for (const [slot, userId] of userIds.entries()) {
           const user = users.find((u) => u.id === userId);
           const player = await Player.create({
             userId, worldId: world.id, name: user.username, tribeId: tribe.id, tribeRole: slot === 0 ? 'duke' : 'member', tribeJoinedAt: now,
           }, { transaction: t });
-          const village = await WorldService.createVillage(world, {
-            ...teamSpots[slot], player, name: `Village de ${user.username}`, isFirst: true, buildings: cfg.startBuildings, units: { ...mu.START_UNITS }, now,
-          }, t);
-          await player.update({ points: village.points, villageCount: 1 }, { transaction: t });
+          seats.push(player);
           const rating = await MatchService.rating(userId, match.ladder, t);
           await MatchPlayer.create({ matchId: match.id, userId, playerId: player.id, team: meta.n, eloBefore: rating.elo }, { transaction: t });
         }
       }
-      const barbBuildings = { main: 5, farm: 10, storage: 12, wood: 10, stone: 10, iron: 10, wall: 3 };
-      for (const spot of barbs) {
-        await WorldService.createVillage(world, { ...spot, player: null, name: 'Village barbare', buildings: barbBuildings, now }, t);
+      // Placement du mode normal (au hasard autour du centre, barbares autour de chaque joueur), avec un écart minimal
+      // entre joueurs pour qu'aucun ne soit écrasé dès les premières minutes.
+      for (let i = seats.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [seats[i], seats[j]] = [seats[j], seats[i]];
+      }
+      for (const player of seats) {
+        await WorldService.settle(world, player, { now, rng: Math.random, minPlayerDistance: mu.MIN_PLAYER_DISTANCE }, t);
       }
       return match;
     });
@@ -379,6 +459,37 @@ class MatchService {
     return mp;
   }
 
+  /**
+   * Partie terminée d'un monde du matchup (null si elle continue) : le temps écoulé ou la conquête la terminent ici
+   * aussitôt, sans attendre la boucle de jeu. Les pages du jeu renvoient alors à l'écran de fin de partie.
+   */
+  static async endedFor(world, now = new Date()) {
+    if (!world || world.access !== 'match') return null;
+    let match = await Match.findOne({ where: { worldId: world.id }, include: [{ model: MatchPlayer, as: 'players' }] });
+    if (!match) return null;
+    if (match.status === 'running') {
+      const outcome = await MatchService.outcome(match, now);
+      if (!outcome) return null;
+      match = await MatchService.finish(match.id, outcome, now) || await Match.findByPk(match.id);
+    }
+    return match.status === 'ended' ? match : null;
+  }
+
+  /** Écran de fin de partie : la partie, ses équipes et chaque joueur (points, villages, adversaires vaincus, elo). */
+  static async results(matchId) {
+    const match = await Match.findByPk(matchId, { include: [{ model: MatchPlayer, as: 'players', include: [{ model: User, attributes: ['id', 'username'] }] }] });
+    if (!match) return null;
+    const players = await Player.findAll({ where: { id: match.players.map((p) => p.playerId) } });
+    const rows = match.players.map((mp) => {
+      const p = players.find((x) => x.id === mp.playerId);
+      return {
+        team: mp.team, userId: mp.userId, name: p ? p.name : (mp.User ? mp.User.username : '?'), points: p ? p.points : 0, villages: p ? p.villageCount : 0,
+        kills: p ? p.killsAttacker + p.killsDefender + p.killsSupporter : 0, eloBefore: mp.eloBefore, eloAfter: mp.eloAfter, forfeited: Boolean(mp.forfeitedAt),
+      };
+    });
+    return { match, teams: [1, 2].map((n) => ({ ...mu.TEAMS[n - 1], rows: rows.filter((r) => r.team === n).sort((a, b) => b.points - a.points) })) };
+  }
+
   /** Partie d'un monde (barre de partie en jeu) : partie, joueurs, scores en direct ; null hors matchup. */
   static async forWorld(world) {
     if (!world || !world.isMatch()) return null;
@@ -395,20 +506,35 @@ class MatchService {
       order: [[Match, 'endedAt', 'DESC']], limit,
     });
     return rows.map((mp) => ({
-      format: mp.Match.format, endedAt: mp.Match.endedAt, reason: mp.Match.reason, scores: mp.Match.scores, team: mp.team,
+      id: mp.Match.id, format: mp.Match.format, endedAt: mp.Match.endedAt, reason: mp.Match.reason, scores: mp.Match.scores, team: mp.team,
       result: mp.Match.winnerTeam === null ? 'draw' : mp.Match.winnerTeam === mp.team ? 'win' : 'loss',
       delta: mp.eloAfter === null ? 0 : mp.eloAfter - mp.eloBefore, slug: mp.Match.World ? mp.Match.World.slug : null,
     }));
   }
 
-  /** Tour de la boucle de jeu : formation des parties, puis fin des parties en cours. */
+  /**
+   * Barbares des parties en cours, relus toutes les BARBARIAN_EVERY_MS (au lieu de 10 minutes ailleurs) : ils grandissent
+   * presque aussi vite que les joueurs, la carte doit suivre.
+   */
+  static async growBarbarians(now = new Date()) {
+    if (now - lastBarbarianGrowth < BARBARIAN_EVERY_MS) return;
+    lastBarbarianGrowth = now.getTime();
+    const VillageService = require('./VillageService');
+    const running = await Match.findAll({ where: { status: 'running' }, include: [World] });
+    for (const match of running) if (match.World) await VillageService.growBarbarians(match.World, now);
+  }
+
+  /** Tour de la boucle de jeu : parties trouvées expirées, formation des parties, fin des parties en cours, barbares. */
   static async tick(now = new Date()) {
+    await MatchService.expireProposals(now);
     await MatchService.matchmake(now);
     await MatchService.checkRunning(now);
+    await MatchService.growBarbarians(now);
   }
 }
 
 MatchService.QUEUE_STALE_MS = QUEUE_STALE_MS;
+MatchService.ACCEPT_MS = ACCEPT_MS;
 MatchService.MAX_GROUP = MAX_GROUP;
 
 module.exports = MatchService;
