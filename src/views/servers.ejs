@@ -57,7 +57,7 @@
             <tr class="<%= w.endedAt ? 'opacity-70' : '' %>">
               <td class="max-w-64">
                 <a href="/worlds?w=<%= w.slug %>" class="<%= ui.linkPlain %> block truncate font-semibold" title="<%= w.name %>"><%= w.name %></a>
-                <span class="text-xs <%= w.isPrivate() ? 'text-steel-300' : 'text-gold-400' %>"><%= worldType(w) %><%= w.ownerUserId === user.id ? ' · ton serveur' : '' %></span>
+                <span class="text-xs <%= w.isPrivate() ? 'text-steel-300' : 'text-gold-400' %>"><%= worldType(w) %><%= user && w.ownerUserId === user.id ? ' · ton serveur' : '' %></span>
               </td>
               <td class="text-right font-semibold tabular-nums"><%= num(r.players) %></td>
               <td class="whitespace-nowrap text-parchment-400" title="<%= new Date(w.createdAt).toLocaleDateString('fr-FR') %>"><%= worldAge(w, now) %></td>

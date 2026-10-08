@@ -104,7 +104,8 @@
 
   <div class="flex min-w-0 flex-col gap-5">
     <%# Image du profil (comme le blason de GT), masquée chez les autres joueurs s'ils n'en ont pas %>
-    <% if (isMe || (ownerPremium && subject.avatar)) { %>
+    <%# Matchup : pas d'image de profil (premium). %>
+    <% if (!inMatch && (isMe || (ownerPremium && subject.avatar))) { %>
     <section class="<%= ui.panel %>" id="image">
       <%- panelHead('Image du profil') %>
       <div class="<%= ui.panelBody %>">
@@ -157,7 +158,7 @@
     </section>
 
     <%# Succès quotidiens, en tête des succès (ceux obtenus au moins une fois ; tous sur son propre profil) ; porte l'ancre #succes. %>
-    <% const shownDaily = isMe ? daily : daily.filter((d) => d.count); %>
+    <% const shownDaily = !ctx.cfg.achievements.active ? [] : isMe ? daily : daily.filter((d) => d.count); %>
     <% if (shownDaily.length) { %>
     <section class="<%= ui.panel %> scroll-mt-28" id="succes">
       <%- panelHead('Succès quotidiens', `<span class="text-[13px] text-parchment-500">4 points chacun</span>`) %>

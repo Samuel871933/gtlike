@@ -144,11 +144,16 @@ router.get('/worlds/:slug/config.json', ah(async (req, res) => {
   res.json(world.getConfig());
 }));
 
-router.get('/worlds', requireAuth, ah(async (req, res) => {
+/**
+ * Accueil : mondes officiels et serveurs privés, visibles aussi sans connexion (la connexion est demandée en rejoignant
+ * un monde, voir requireAuth). Connecté : ses parties en cours, ses serveurs et ses remplacements en plus.
+ */
+const worldsPage = ah(async (req, res) => {
+  const userId = req.user ? req.user.id : null;
   // Serveurs privés sur code : visibles de leur créateur, de leurs joueurs, ou avec le code (?code=, lien partagé).
   const code = req.query.code || null;
-  const worlds = (await WorldService.listForUser(req.user.id)).filter((w) => PrivateServerService.canAccess(w.world, {
-    userId: req.user.id, isPlayer: Boolean(w.player), code: w.world.slug === req.query.w ? code : null,
+  const worlds = (await WorldService.listForUser(userId)).filter((w) => PrivateServerService.canAccess(w.world, {
+    userId, isPlayer: Boolean(w.player), code: w.world.slug === req.query.w ? code : null,
   }));
   const selected = worlds.find((w) => w.world.slug === req.query.w) || null;
   // Parties en cours : rang, premier village et prochaine attaque (encart « Campagne en cours »).
@@ -162,9 +167,16 @@ router.get('/worlds', requireAuth, ah(async (req, res) => {
     ]);
     w.campaign = { rank: better + 1, village: villages[0] || null, nextAttackAt: nextAttack ? nextAttack.arrivesAt : null };
   }
-  const popularServers = await PrivateServerService.popular(6);
-  res.render('worlds', { worlds, selected, code, popularServers, maxOwned: PrivateServerService.MAX_OWNED, directions: MapPlacer.DIRECTIONS, factions: FACTIONS });
-}));
+  const [popularServers, playerCounts] = await Promise.all([
+    PrivateServerService.popular(6),
+    WorldService.playerCounts(worlds.map((w) => w.world.id)),
+  ]);
+  res.render('worlds', { worlds, selected, code, popularServers, playerCounts, maxOwned: PrivateServerService.MAX_OWNED, directions: MapPlacer.DIRECTIONS, factions: FACTIONS });
+});
+
+// L'accueil connecté est sur /worlds ; hors connexion, / est la page d'accueil publique (référencée).
+router.get('/', (req, res, next) => (req.user ? res.redirect(`/worlds${req.originalUrl.slice(1)}`) : worldsPage(req, res, next)));
+router.get('/worlds', worldsPage);
 
 // ------------------------------------------------------------ Entrée dans un monde (page dédiée, par étapes)
 
@@ -265,14 +277,15 @@ const SERVER_SORTS = {
   victory: { dir: 'asc', key: (r) => VICTORY_NAMES[r.world.getConfig().victory.type] || '' },
   state: { dir: 'asc', key: serverState },
 };
-router.get('/servers', requireAuth, ah(async (req, res) => {
+router.get('/servers', ah(async (req, res) => {
+  const userId = req.user ? req.user.id : null;
   const type = SERVER_TYPES.includes(req.query.type) ? req.query.type : 'all';
   // Par défaut : les serveurs les plus récents d'abord.
   const sort = Object.hasOwn(SERVER_SORTS, req.query.tri) ? req.query.tri : 'recent';
   const dir = ['asc', 'desc'].includes(req.query.ordre) ? req.query.ordre : SERVER_SORTS[sort].dir;
   const q = String(req.query.q || '').trim();
-  const visible = (await WorldService.listForUser(req.user.id))
-    .filter((w) => PrivateServerService.canAccess(w.world, { userId: req.user.id, isPlayer: Boolean(w.player) }));
+  const visible = (await WorldService.listForUser(userId))
+    .filter((w) => PrivateServerService.canAccess(w.world, { userId, isPlayer: Boolean(w.player) }));
   const counts = await WorldService.playerCounts(visible.map((w) => w.world.id));
   const key = SERVER_SORTS[sort].key;
   const cmp = (a, b) => { const x = key(a); const y = key(b); return typeof x === 'string' ? x.localeCompare(y, 'fr') : x - y; };
@@ -309,7 +322,7 @@ router.post('/servers', requireAuth, ah(async (req, res) => {
 }));
 
 /** Rejoindre un serveur privé avec son code : ouvre sa fiche (le code suit jusqu'à l'inscription). */
-router.post('/servers/join', requireAuth, ah(async (req, res) => {
+router.post('/servers/join', ah(async (req, res) => {
   const world = await PrivateServerService.findByCode(req.body.code);
   if (!world) {
     flash(req, 'error', 'Aucun serveur privé en cours avec ce code.');

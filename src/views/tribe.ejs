@@ -3,9 +3,10 @@
   const vid = ctx.village.id;
   const t = `/village/${vid}/tribe`;
   // Droits et Invitations : onglets à part (comme sur GT), seulement pour ceux qui ont le droit correspondant.
-  const tabs = [['overview', 'Aperçu'], ['properties', 'Propriétés'], ['members', `Membres (${members.length})`],
-    ...(can('baron') ? [['rights', 'Droits']] : []), ...(can('invite') ? [['invites', invites.length ? `Invitations (${invites.length})` : 'Invitations']] : []),
-    ['diplomacy', 'Diplomatie'], ['operations', operationCount ? `Opérations (${operationCount})` : 'Opérations'], ['forum', forumUnread ? `Forum (${forumUnread})` : 'Forum']];
+  // Matchup : l'équipe de la partie, figée (ni propriétés, ni droits, ni invitations, ni diplomatie).
+  const tabs = [['overview', 'Aperçu'], ...(inMatch ? [] : [['properties', 'Propriétés']]), ['members', `Membres (${members.length})`],
+    ...(!inMatch && can('baron') ? [['rights', 'Droits']] : []), ...(!inMatch && can('invite') ? [['invites', invites.length ? `Invitations (${invites.length})` : 'Invitations']] : []),
+    ...(inMatch ? [] : [['diplomacy', 'Diplomatie']]), ['operations', operationCount ? `Opérations (${operationCount})` : 'Opérations'], ['forum', forumUnread ? `Forum (${forumUnread})` : 'Forum']];
   const relName = { ally: 'Allié', nap: 'PNA', enemy: 'Ennemi' };
   const relTag = 'inline-flex items-center gap-1.5 border px-2 py-0.5 text-[11px] font-semibold tracking-[0.02em]';
   const relBadge = {

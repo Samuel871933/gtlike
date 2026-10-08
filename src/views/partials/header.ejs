@@ -58,8 +58,9 @@
     [`${v}/map`, 'Carte', 'map', page === 'map', 0, ui.countBadge],
     [`${v}/reports`, 'Rapports', 'reports', page === 'reports', unreadReports, ui.countBadge],
     [`${v}/messages`, 'Messages', 'messages', page === 'messages', unreadMessages, `${ui.countBadge} bg-gold-400 text-night`],
-    [`${v}/tribe`, 'Tribu', 'tribe', page === 'tribe', tribeInvites + tribeForumUnread, ui.countBadge],
-    [`${v}/ranking`, 'Classement', 'ranking', page === 'ranking', 0, ui.countBadge],
+    [`${v}/tribe`, inMatch ? 'Équipe' : 'Tribu', 'tribe', page === 'tribe', tribeInvites + tribeForumUnread, ui.countBadge],
+    // Matchup : pas de classement du monde (la barre de partie donne le score des équipes).
+    ...(inMatch ? [] : [[`${v}/ranking`, 'Classement', 'ranking', page === 'ranking', 0, ui.countBadge]]),
   ];
 %>
 <%# 1. Barre du haut : logo et monde, menu principal, joueur et réglages. %>
@@ -92,22 +93,34 @@
       </a>
     <% } %>
     <%# Boutique (hors partie), avec ce monde présélectionné pour les achats « un monde ». %>
-    <%# Pièce d'Adarton et solde : accès à la boutique. %>
+    <%# Pièce d'Adarton et solde : accès à la boutique. Pas en matchup (rien ne s'y achète pour la partie). %>
+    <% if (!inMatch) { %>
     <a href="/shop?world=<%= encodeURIComponent(ctx.world.slug) %>" class="group flex shrink-0 items-center gap-1 no-underline" title="Boutique" aria-label="Boutique · <%= num(user ? user.adartons : 0) %> Adartons">
       <%- icon('adarton', 'size-7 minimal:size-6 drop-shadow-[0_0_6px_rgba(227,178,60,0.35)] transition group-hover:-rotate-12') %>
       <span class="text-[13px] font-semibold text-gold-200 tabular-nums max-sm:hidden egypt:text-gold-700"><%= num(user ? user.adartons : 0) %></span>
     </a>
+    <% } %>
     <a href="<%= v %>/account" class="<%= page === 'account' ? ui.iconBtnOn : ui.iconBtn %>" title="Compte" aria-label="Compte"><%- icon('settings', 'size-4', 2.2) %></a>
     <%# Fausse déconnexion, comme sur Guerre Tribale : on quitte le monde et on revient au choix des mondes (la session reste ouverte). %>
-    <a href="/worlds" class="<%= ui.iconBtn %>" title="Déconnexion : retour au choix des mondes" aria-label="Déconnexion"><%- icon('logout', 'size-4', 2.2) %></a>
+    <a href="<%= inMatch ? '/matchup' : '/worlds' %>" class="<%= ui.iconBtn %>" title="<%= inMatch ? 'Retour au matchup' : 'Déconnexion : retour au choix des mondes' %>" aria-label="<%= inMatch ? 'Retour au matchup' : 'Déconnexion' %>"><%- icon('logout', 'size-4', 2.2) %></a>
   </div>
 </div>
 
 <%
   // Contenu des menus déroulants de la barre du haut (ouverts au survol par game.js sous leur bouton ; le clic sur le bouton suit son lien).
-  const menus = [['reports', 'Rapports', [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']]
-    .map(([f, label]) => [`${v}/reports?filter=${f}`, label, unreadByFilter[f] || 0])]];
-  if (player && player.tribeId) {
+  // Filtres des rapports : sans Collecte ni Succès sur les mondes qui ne les ont pas.
+  const reportFilters = [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']]
+    .filter(([f]) => (f !== 'scavenge' || ctx.cfg.scavenging.active) && (f !== 'award' || ctx.cfg.achievements.active));
+  const menus = [['reports', 'Rapports', reportFilters.map(([f, label]) => [`${v}/reports?filter=${f}`, label, unreadByFilter[f] || 0])]];
+  if (player && player.tribeId && inMatch) {
+    // Matchup : l'équipe (tribu créée pour la partie, figée) ; ni droits, ni invitations, ni diplomatie.
+    menus.push(['tribe', player.Tribe ? `Équipe [${player.Tribe.tag}]` : 'Équipe', [
+      [`${v}/tribe`, 'Aperçu', 0],
+      [`${v}/tribe?tab=members`, 'Membres', 0],
+      [`${v}/tribe?tab=operations`, 'Opérations', 0],
+      [`${v}/tribe?tab=forum`, 'Forum', tribeForumUnread],
+    ]]);
+  } else if (player && player.tribeId) {
     menus.push(['tribe', player.Tribe ? `Tribu [${player.Tribe.tag}]` : 'Tribu', [
       [`${v}/tribe`, 'Aperçu', 0],
       [`${v}/tribe?tab=members`, 'Membres', 0],
@@ -285,7 +298,8 @@
       <%- lobbyLink('/shop', 'Boutique', current === 'shop') %>
       <%- lobbyLink('/account', 'Mon compte', current === 'account') %>
     <% } else { %>
-      <%- lobbyLink('/', 'Accueil', current === 'login') %>
+      <%- lobbyLink('/', 'Accueil', current === 'home') %>
+      <%- lobbyLink('/servers', 'Serveurs', current === 'servers') %>
       <%- lobbyLink('/register', 'Inscription', current === 'register') %>
       <%- lobbyLink('/rules', 'Règles', current === 'rules') %>
       <%- lobbyLink('/help', 'Aide', current === 'help') %>
@@ -313,7 +327,9 @@
 <% } %>
 <% } %>
 
-<% if (ctx && ctx.world.endedAt) { %>
+<% if (ctx && typeof matchBar !== 'undefined' && matchBar) { %>
+  <%- include('match-bar') %>
+<% } else if (ctx && ctx.world.endedAt) { %>
   <div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-2">
     <%- icon('victory', 'size-4') %><span class="font-semibold">Monde terminé :</span> <%= ctx.world.winnerFaction ? `les ${(ctx.world.victoryState || {}).winnerName} ont` : `${(ctx.world.victoryState || {}).winnerName} a` %> gagné. Le monde est en paix.
     <a href="/village/<%= ctx.village.id %>/ranking?type=victory" class="<%= ui.link %> ml-auto">Détails</a>

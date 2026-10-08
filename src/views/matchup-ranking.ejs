@@ -1,0 +1,72 @@
+<%- include('partials/header', { title: 'Classement du matchup' }) %>
+<%
+  // Classement du matchup (voir MatchService.leaderboard) : un ladder à la fois, 25 lignes par page. Publique.
+  const mine = user ? ratings[ladder] : null;
+  const href = (n) => `/matchup/classement?ladder=${ladder}&page=${n}`;
+  const badge = (rank, cls = 'size-3') => rank.league
+    ? `<span class="${cls} shrink-0 rotate-45 border border-black" style="background:${rank.league.color}"></span>`
+    : `<span class="${cls} shrink-0 rotate-45 border border-bronze-600 bg-night"></span>`;
+  const left = mine ? Math.max(0, mu.PLACEMENT_GAMES - mine.games) : 0;
+%>
+<div class="flex flex-col gap-3.5 pb-6">
+  <%- include('partials/page-title', { kicker: 'Matchup', title: 'Classement', sub: `Comptes classés (au moins ${mu.PLACEMENT_GAMES} parties), du plus haut elo au plus bas. Le duel (1v1) et les parties en équipe (2v2 à 5v5) ont chacun leur classement.` }) %>
+
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <%- segTabs(Object.entries(mu.LADDERS).map(([l, name]) => [`/matchup/classement?ladder=${l}`, `${name} · ${l === 'duel' ? '1v1' : '2v2 à 5v5'}`, ladder === l])) %>
+    <a href="/matchup" class="<%= ui.link %> inline-flex items-center gap-1.5 text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %>Retour au matchup</a>
+  </div>
+
+  <% if (mine) { %>
+    <%# Sa place : ligue, elo, rang ; en placement, les parties qui restent. %>
+    <section class="<%= ui.panel %> flex flex-wrap items-center gap-x-5 gap-y-2 px-3.5 py-2.5">
+      <span class="flex items-center gap-2 font-display text-lg font-semibold"><%- badge(mine.rank, 'size-3.5') %><%= mine.rank.label %></span>
+      <span class="text-sm text-parchment-300 tabular-nums"><b class="font-semibold text-parchment-100"><%= num(mine.elo) %></b> elo · <%= mine.wins %> V · <%= mine.losses %> D<%= mine.draws ? ` · ${mine.draws} N` : '' %></span>
+      <% if (position) { %>
+        <span class="text-sm text-parchment-300">Rang <b class="font-semibold text-gold-200 tabular-nums">#<%= num(position) %></b> sur <%= num(board.total) %></span>
+        <% if (Math.ceil(position / perPage) !== page) { %><a href="<%= href(Math.ceil(position / perPage)) %>" class="<%= ui.link %> ml-auto text-[13px]">» Voir ma place</a><% } %>
+      <% } else { %>
+        <span class="text-sm text-parchment-500">Encore <%= left %> partie<%= left > 1 ? 's' : '' %> de placement avant d’entrer au classement.</span>
+      <% } %>
+    </section>
+  <% } %>
+
+  <%# Ligues : seuil d'elo et nombre de comptes classés dans chacune. %>
+  <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-7">
+    <% for (const l of mu.LEAGUES) { %>
+      <div class="flex flex-col gap-0.5 border border-bronze-800 border-t-[3px] bg-night px-2 py-1.5" style="border-top-color:<%= l.color %>">
+        <span class="font-display text-[15px] leading-tight font-semibold"><%= l.name %></span>
+        <span class="text-xs text-parchment-500 tabular-nums"><%= l.min ? `dès ${num(l.min)} elo` : 'premiers pas' %> · <%= num(leagueCounts.get(l.id) || 0) %> joueur<%= (leagueCounts.get(l.id) || 0) > 1 ? 's' : '' %></span>
+      </div>
+    <% } %>
+  </div>
+
+  <section class="<%= ui.panel %>">
+    <% if (board.rows.length) { %>
+      <div class="overflow-x-auto">
+        <table class="<%= ui.table %> text-sm [&_td]:px-3 [&_td]:py-1.5 [&_th]:px-3">
+          <thead><tr>
+            <th class="text-right">#</th><th>Joueur</th><th>Ligue</th><th class="text-right">Elo</th>
+            <th class="text-right">Parties</th><th class="text-right">V / D / N</th><th class="text-right">Victoires</th>
+          </tr></thead>
+          <tbody>
+          <% for (const r of board.rows) { const me = user && r.user && r.user.id === user.id; %>
+            <tr class="<%= me ? 'bg-thead' : '' %>">
+              <td class="text-right text-parchment-500 tabular-nums"><%= num(r.position) %></td>
+              <td class="font-semibold <%= me ? 'text-gold-200' : '' %>"><%= r.user ? r.user.username : '—' %></td>
+              <td><span class="inline-flex items-center gap-1.5 whitespace-nowrap"><%- badge(r.rank, 'size-2.5') %><%= r.rank.label %></span></td>
+              <td class="text-right font-semibold tabular-nums"><%= num(r.elo) %></td>
+              <td class="text-right tabular-nums"><%= num(r.games) %></td>
+              <td class="text-right text-parchment-400 tabular-nums whitespace-nowrap"><%= r.wins %> / <%= r.losses %> / <%= r.draws %></td>
+              <td class="text-right tabular-nums"><%= r.games ? Math.round((100 * r.wins) / r.games) : 0 %> %</td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+      <% if (pages > 1) { %><div class="border-t border-bronze-900 px-3 py-2.5"><%- include('partials/pager', { page, pages, href }) %></div><% } %>
+    <% } else { %>
+      <p class="m-0 p-3.5 text-sm text-parchment-500">Personne n’est encore classé ici : il faut <%= mu.PLACEMENT_GAMES %> parties de placement pour entrer au classement.</p>
+    <% } %>
+  </section>
+</div>
+<%- include('partials/footer') %>

@@ -53,7 +53,11 @@ class ShopService {
       // `faction` : celle du joueur si l'appelant l'a déjà lue (null : aucune), sinon lue ici.
       userId && worldId ? (faction !== undefined ? factionKeysOf(faction) : ShopService.factionKeys(userId, worldId, t)) : [],
     ]);
-    return new Rights([...rows.map((r) => r.itemKey), ...offered]);
+    // Matchup : parties classées à armes égales, le premium (file de construction, gestionnaire, assistant de
+    // pillage…) n'y vaut rien ; thèmes et designs restent.
+    const keys = [...rows.map((r) => r.itemKey), ...offered];
+    const match = worldId && (await World.cached(worldId))?.access === 'match';
+    return new Rights(match ? keys.filter((k) => k !== 'premium') : keys);
   }
 
   /** Monde à factions : le design de village de sa faction est offert au joueur sur ce monde. */

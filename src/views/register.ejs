@@ -5,7 +5,7 @@
   <div class="<%= ui.authBody %>">
     <p class="text-sm text-parchment-300">Un compte, tous les mondes.</p>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
-    <form method="post" action="/register" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <form method="post" action="/register" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% if (next) { %><input type="hidden" name="next" value="<%= next %>"><% } %>
       <label class="<%= ui.label %>">Pseudo
         <input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="24" required autofocus class="<%= ui.input %> h-9 w-full">
       </label>
@@ -21,7 +21,7 @@
     </form>
     <div class="mt-auto flex flex-col gap-1.5 border-t border-dashed border-bronze-700 pt-2.5">
       <span class="text-xs text-parchment-500">Déjà inscrit ?</span>
-      <a href="/login" class="<%= btn('dark', 'sm', 'w-full') %>">Se connecter</a>
+      <a href="<%= next ? `/login?${new URLSearchParams({ next })}` : '/login' %>" class="<%= btn('dark', 'sm', 'w-full') %>">Se connecter</a>
     </div>
   </div>
 </div>

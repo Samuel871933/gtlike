@@ -1,0 +1,34 @@
+<%#
+  Barre d'une partie du matchup, en haut des pages du jeu (monde d'une partie, voir MatchService.forWorld) : format,
+  score des deux équipes, temps restant ; en fin de partie, résultat et variation d'elo du joueur.
+%>
+<%
+  const { match, scores } = matchBar;
+  const mine = match.players.find((p) => p.playerId === ctx.village.playerId) || null;
+  const running = match.status === 'running';
+  const result = !running && mine ? (match.winnerTeam === null ? 'Égalité' : match.winnerTeam === mine.team ? 'Victoire' : 'Défaite') : null;
+  const delta = mine && mine.eloAfter !== null ? mine.eloAfter - mine.eloBefore : null;
+  const why = { conquest: 'par conquête', forfeit: 'par abandon', time: 'aux points' }[match.reason] || '';
+  const side = (n, label, cls) => `<span class="flex items-center gap-1.5 ${mine && mine.team === n ? 'font-semibold text-parchment-100' : 'text-parchment-300'}"><span class="size-2.5 rotate-45 border border-black ${cls}"></span>${label} <b class="font-semibold tabular-nums">${num(scores[n - 1])}</b></span>`;
+%>
+<div class="<%= ui.alertInfo %> flex flex-wrap items-center gap-x-4 gap-y-1.5">
+  <span class="flex items-center gap-1.5 font-display font-semibold text-gold-200"><%- icon('sword', 'size-4', 2.2) %>Matchup <%= match.format %></span>
+  <%- side(1, 'Bleus', 'bg-steel-500') %>
+  <span class="text-parchment-500">contre</span>
+  <%- side(2, 'Rouges', 'bg-blood-600') %>
+  <% if (running) { %>
+    <span class="text-parchment-500">Fin dans <b class="font-semibold text-parchment-100 tabular-nums" data-countdown="<%= new Date(match.endsAt).getTime() %>"><%= duration((new Date(match.endsAt) - now) / 1000) %></b></span>
+    <span class="text-xs text-parchment-500">Prends tous les villages adverses pour gagner avant la fin ; sinon, le plus de points l’emporte.</span>
+    <% if (mine && mine.forfeitedAt) { %>
+      <span class="ml-auto text-xs text-parchment-500">Tu as abandonné</span>
+    <% } else if (mine && !asSitter) { %>
+      <form method="post" action="/matchup/forfeit" class="ml-auto" data-confirm="Abandonner la partie ? Ton équipe perd quand tous ses joueurs ont abandonné."><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="<%= btn('dark', 'sm') %>">Abandonner</button>
+      </form>
+    <% } %>
+  <% } else { %>
+    <span class="font-semibold <%= result === 'Victoire' ? 'text-olive-300' : result === 'Défaite' ? 'text-blood-450' : 'text-parchment-100' %>"><%= result || 'Partie terminée' %> <%= why %></span>
+    <% if (delta !== null) { %><span class="tabular-nums <%= delta >= 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= delta >= 0 ? '+' : '' %><%= delta %> elo</span><% } %>
+    <a href="/matchup" class="<%= btn('gold', 'sm', 'ml-auto') %>">Retour au matchup</a>
+  <% } %>
+</div>

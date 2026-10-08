@@ -153,6 +153,7 @@ class AchievementService {
   }
 
   static definitionsFor(cfg) {
+    if (cfg.achievements && !cfg.achievements.active) return [];
     return DEFINITIONS.filter((d) => cfg.hasFeature(d.feature));
   }
 

@@ -15,7 +15,7 @@
   const privateFeatures = [
     ['settings', 'Tes règles', 'Vitesse, unités, nuit, durée : tout se règle.'],
     ['lock', 'Entre amis', 'Ouvert à tous ou réservé à ceux qui ont le code.'],
-    ['adarton', 'Gratuit', 'Le jeu est gratuit ; la boutique est facultative.'],
+    ['gift', 'Gratuit', 'Le jeu est gratuit ; la boutique est facultative.'],
   ];
   const privateHref = typeof user !== 'undefined' && user ? '/servers/new' : '/register';
 %>
@@ -49,19 +49,12 @@
 
       <%# Présentation %>
       <div class="flex flex-col gap-2.5 border-2 border-black bg-night/80 p-3 shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#000]">
-        <% if (typeof lobbyPage !== 'undefined' && lobbyPage === 'login') { %>
+        <% if (typeof lobbyPage !== 'undefined' && (lobbyPage === 'login' || lobbyPage === 'home')) { %>
           <h1 class="m-0 font-display text-[19px] leading-[1.15] font-semibold text-balance">Jeu de stratégie et de gestion en ligne</h1>
         <% } else { %>
           <h2 class="m-0 font-display text-[19px] leading-[1.15] font-semibold text-balance">Le monde appartient aux conquérants</h2>
         <% } %>
         <p class="m-0 text-sm leading-snug text-pretty text-parchment-300">Développe ton village, gère tes ressources et tes bâtiments, forme ton armée et noue des alliances au sein de ta tribu. Conquiers des territoires dans un monde persistant où chaque décision compte.</p>
-        <%# Bouton principal (inscription) : seulement hors connexion ; connecté, les mondes sont dans la colonne de droite. %>
-        <% if (typeof cta !== 'undefined' && cta) { %>
-        <div class="flex flex-col gap-2">
-          <a href="<%= cta.href %>" class="<%= btn('gold', 'md', 'w-full') %>"><%= cta.label %></a>
-          <% if (typeof login !== 'undefined' && login) { %><a href="/login" class="<%= btn('dark', 'md', 'w-full') %>">Se connecter</a><% } %>
-        </div>
-        <% } %>
         <div class="grid grid-cols-3 gap-2">
           <% for (const [ic, t, sub] of features) { %>
             <div class="flex flex-col gap-0.5 border border-black bg-panel-top px-2 py-1.5 shadow-[inset_0_0_0_1px_var(--color-bronze-700),2px_2px_0_#000]">
@@ -71,7 +64,7 @@
             </div>
           <% } %>
         </div>
-        <%# Serveurs privés : trois encarts, puis les liens vers la création et la liste des serveurs. %>
+        <%# Serveurs privés : trois encarts (création et liste des serveurs : encart « Serveurs privés » de l'accueil). %>
         <div class="flex items-center gap-2 pt-1">
           <span class="size-[7px] rotate-45 border border-black bg-gold-400"></span>
           <span class="font-display text-[15px] font-semibold tracking-[0.02em]">Serveurs privés</span>
@@ -86,10 +79,13 @@
             </a>
           <% } %>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <a href="<%= privateHref %>" class="<%= btn('dark', 'sm', 'flex-1') %>"><%- icon('plus', 'size-3.5', 2.4) %>Créer un serveur</a>
-          <% if (typeof user !== 'undefined' && user) { %><a href="/servers" class="<%= btn('dark', 'sm', 'flex-1') %>"><%- icon('search', 'size-3.5', 2.2) %>Tous les serveurs</a><% } %>
+        <%# Inscription et connexion : seulement hors connexion, en bas de l'encart, côte à côte. %>
+        <% if (typeof cta !== 'undefined' && cta) { %>
+        <div class="mt-auto flex flex-wrap gap-2 border-t border-dashed border-bronze-700 pt-2.5">
+          <a href="<%= cta.href %>" class="<%= btn('gold', 'sm', 'flex-1') %>"><%= cta.label %></a>
+          <% if (typeof login !== 'undefined' && login) { %><a href="/login" class="<%= btn('dark', 'sm', 'flex-1') %>">Se connecter</a><% } %>
         </div>
+        <% } %>
       </div>
       </div>
 

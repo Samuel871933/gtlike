@@ -38,6 +38,12 @@ class TribeService {
     return player;
   }
 
+  /** Matchup : les équipes (tribus créées pour la partie) ne changent pas pendant la partie. */
+  static async assertTeamsOpen(player, t) {
+    const world = await World.findByPk(player.worldId, { attributes: ['access'], transaction: t });
+    if (world && world.access === 'match') throw new GameError('Les équipes d’une partie du matchup ne changent pas.', 403);
+  }
+
   static async requireRight(playerId, right, t) {
     const player = await TribeService.lockPlayer(playerId, t);
     if (!player.tribeId) throw new GameError("Vous n'êtes dans aucune tribu.");
@@ -66,6 +72,7 @@ class TribeService {
     if (!TAG_RE.test(tag)) throw new GameError('Le tag doit faire 1 à 6 caractères (lettres, chiffres, _ - . ! ?).');
     return sequelize.transaction(async (t) => {
       const player = await TribeService.lockPlayer(playerId, t);
+      await TribeService.assertTeamsOpen(player, t);
       if (player.tribeId) throw new GameError('Vous êtes déjà dans une tribu.');
       const taken = await Tribe.findOne({ where: { worldId: player.worldId, [Op.or]: [{ name }, { tag }] }, transaction: t });
       if (taken) throw new GameError(taken.tag === tag ? 'Ce tag est déjà pris.' : 'Ce nom est déjà pris.');
@@ -83,6 +90,7 @@ class TribeService {
   static async invite(managerId, playerName) {
     return sequelize.transaction(async (t) => {
       const manager = await TribeService.requireRight(managerId, 'invite', t);
+      await TribeService.assertTeamsOpen(manager, t);
       const target = await Player.findOne({ where: { worldId: manager.worldId, name: String(playerName || '').trim() }, transaction: t });
       if (!target) throw new GameError('Aucun joueur de ce nom sur ce monde.');
       if (target.isBot) throw new GameError('Les bots ne rejoignent pas de tribu.');
@@ -136,6 +144,7 @@ class TribeService {
   static async leave(playerId) {
     return sequelize.transaction(async (t) => {
       const player = await TribeService.lockPlayer(playerId, t);
+      await TribeService.assertTeamsOpen(player, t);
       if (!player.tribeId) throw new GameError("Vous n'êtes dans aucune tribu.");
       const tribeId = player.tribeId;
       const others = await Player.count({ where: { tribeId, id: { [Op.ne]: player.id } }, transaction: t });
@@ -167,6 +176,7 @@ class TribeService {
   static async kick(managerId, memberId) {
     return sequelize.transaction(async (t) => {
       const manager = await TribeService.requireRight(managerId, 'baron', t);
+      await TribeService.assertTeamsOpen(manager, t);
       const member = await Player.findOne({ where: { id: Number(memberId), tribeId: manager.tribeId }, transaction: t });
       if (!member) throw new GameError('Membre introuvable.', 404);
       if (member.id === manager.id) throw new GameError('Utilisez « Quitter la tribu ».');

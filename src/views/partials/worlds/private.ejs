@@ -10,24 +10,26 @@
             edge: playing(w) ? 'border-t-gold-400' : 'border-t-steel-500',
             tag: smallTag(w.world.access === 'code' ? ui.tagMuted : ui.tagGold, accessName(w.world)),
             primary: playing(w) ? `<b class="font-semibold text-parchment-100 tabular-nums">${num(w.player.points)} pts</b>` : 'Pas encore inscrit',
-            details: [w.world.ownerUserId === user.id ? 'Ton serveur' : '', `Accès : ${accessName(w.world).toLowerCase()}`].filter(Boolean),
+            details: [user && w.world.ownerUserId === user.id ? 'Ton serveur' : '', `Accès : ${accessName(w.world).toLowerCase()}`].filter(Boolean),
           }) %>
         <% } %>
       </div>
     <% } %>
 
-    <div class="<%= ui.kicker %><%= myServers.length ? ' mt-1' : '' %>">Serveurs publics les plus peuplés</div>
+    <div class="flex items-baseline justify-between gap-2<%= myServers.length ? ' mt-1' : '' %>">
+      <span class="<%= ui.kicker %>">Serveurs publics les plus peuplés</span>
+      <a href="/servers?type=private" class="<%= ui.link %> text-[13px]">» Tous les serveurs privés</a>
+    </div>
     <% if (publicServers.length) { %>
       <div class="<%= tileGrid %>">
-        <% for (const { world, players } of publicServers) { %>
+        <% for (const { world } of publicServers) { %>
           <%- worldTile(world, `/worlds?w=${world.slug}`, { edge: 'border-t-steel-500',
-            primary: `<b class="font-semibold text-parchment-100 tabular-nums">${num(players)} joueur${players > 1 ? 's' : ''}</b>` }) %>
+            primary: esc(subtitle(world)) }) %>
         <% } %>
       </div>
     <% } else { %>
       <p class="border border-dashed border-bronze-700 bg-night/60 px-2.5 py-2 text-sm text-parchment-500">Aucun serveur privé ouvert pour l’instant : crée le premier !</p>
     <% } %>
-    <a href="/servers?type=private" class="<%= ui.link %> self-end text-[13px]">» Tous les serveurs privés</a>
 
     <div class="<%= ui.kicker %> mt-1">Rejoindre ou créer</div>
     <div class="grid gap-2 sm:grid-cols-2">

@@ -1,6 +1,6 @@
 'use strict';
 
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const sequelize = require('../db');
 const WorldConfig = require('../game/WorldConfig');
 
@@ -74,7 +74,7 @@ const World = sequelize.define('World', {
   // Monde à factions : faction gagnante (elf, dwarf, orc, human ; voir game/factions.js).
   winnerFaction: { type: DataTypes.STRING(8), allowNull: true },
   // Serveur privé (voir PrivateServerService) : créé par un compte, accès 'open' (listé, ouvert à tous) ou 'code'
-  // (réservé aux détenteurs du code). Nuls pour les mondes officiels.
+  // (réservé aux détenteurs du code). Nuls pour les mondes officiels. 'match' : monde d'une partie du matchup.
   ownerUserId: { type: DataTypes.INTEGER, allowNull: true },
   access: { type: DataTypes.STRING(8), allowNull: true },
   joinCode: { type: DataTypes.STRING(12), allowNull: true },
@@ -82,8 +82,16 @@ const World = sequelize.define('World', {
 
 /** Monde officiel (créé par le jeu) ou serveur privé (créé par un joueur) ? */
 World.prototype.isPrivate = function isPrivate() {
-  return Boolean(this.access);
+  return this.access === 'open' || this.access === 'code';
 };
+
+/** Monde d'une partie du matchup (créé par MatchService, hors des listes de mondes) ? */
+World.prototype.isMatch = function isMatch() {
+  return this.access === 'match';
+};
+/** Filtres : mondes hors matchup ; mondes vivants (sans les parties du matchup terminées, qu'on ne fait plus tourner). */
+World.NOT_MATCH = { [Op.or]: [{ access: null }, { access: { [Op.ne]: 'match' } }] };
+World.LIVE = { [Op.or]: [{ access: null }, { access: { [Op.ne]: 'match' } }, { endedAt: null }] };
 
 // Un serveur privé est immuable une fois créé : ni son nom, ni ses réglages, ni son accès ne peuvent changer (seul
 // l'état de la partie évolue : fin du monde, vainqueur). Les mondes officiels restent réglés par scripts/seed.js.
@@ -978,6 +986,82 @@ const BuildReward = sequelize.define('BuildReward', {
   collectedAt: { type: DataTypes.DATE, allowNull: true },
 }, { indexes: [{ unique: true, fields: ['playerId', 'building', 'level'] }, { fields: ['playerId', 'collectedAt'] }] });
 
+// ------------------------------------------------------------------------- Matchup (voir services/MatchService.js)
+
+const userRef = (allowNull = false) => ({ type: DataTypes.INTEGER, allowNull, references: { model: 'Users', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+
+/** Elo d'un compte dans un classement du matchup (`ladder` : duel ou team, voir game/matchup.js). */
+const MatchRating = sequelize.define('MatchRating', {
+  userId: userRef(),
+  ladder: { type: DataTypes.STRING(8), allowNull: false },
+  elo: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1000 },
+  games: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  wins: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  losses: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  draws: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+}, { indexes: [{ unique: true, fields: ['userId', 'ladder'] }, { fields: ['ladder', 'elo'] }] });
+
+/** Groupe d'amis qui entrent ensemble dans la file (le chef lance la recherche) ; rejoint avec son code. */
+const MatchGroup = sequelize.define('MatchGroup', {
+  leaderUserId: userRef(),
+  code: { type: DataTypes.STRING(8), allowNull: false },
+}, { indexes: [{ unique: true, fields: ['code'] }] });
+
+/** Membre d'un groupe : un compte n'est que dans un groupe à la fois. */
+const MatchGroupMember = sequelize.define('MatchGroupMember', {
+  groupId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'MatchGroups', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  userId: userRef(),
+}, { indexes: [{ unique: true, fields: ['userId'] }] });
+
+/**
+ * Entrée de la file d'attente : un joueur seul ou un groupe (`userIds`), pour un format. `rating` : elo moyen dans le
+ * classement du format ; `seenAt` : dernière présence d'un des joueurs sur la page (entrée retirée sans nouvelles).
+ */
+const MatchQueue = sequelize.define('MatchQueue', {
+  format: { type: DataTypes.STRING(4), allowNull: false },
+  userIds: { type: DataTypes.JSON, allowNull: false },
+  size: { type: DataTypes.INTEGER, allowNull: false },
+  rating: { type: DataTypes.INTEGER, allowNull: false },
+  queuedAt: { type: DataTypes.DATE, allowNull: false },
+  seenAt: { type: DataTypes.DATE, allowNull: false },
+}, { tableName: 'MatchQueue', indexes: [{ fields: ['format', 'queuedAt'] }] });
+
+/**
+ * Partie du matchup, sur son propre monde (World.access 'match'). `status` : running | ended ; `winnerTeam` 1 ou 2
+ * (nul : égalité) ; `reason` : conquest | time | forfeit ; `scores` : [score équipe 1, score équipe 2] à la fin.
+ */
+const Match = sequelize.define('Match', {
+  worldId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Worlds', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  format: { type: DataTypes.STRING(4), allowNull: false },
+  ladder: { type: DataTypes.STRING(8), allowNull: false },
+  status: { type: DataTypes.STRING(8), allowNull: false, defaultValue: 'running' },
+  startedAt: { type: DataTypes.DATE, allowNull: false },
+  endsAt: { type: DataTypes.DATE, allowNull: false },
+  endedAt: { type: DataTypes.DATE, allowNull: true },
+  winnerTeam: { type: DataTypes.INTEGER, allowNull: true },
+  reason: { type: DataTypes.STRING(8), allowNull: true },
+  scores: { type: DataTypes.JSON, allowNull: true },
+}, { indexes: [{ unique: true, fields: ['worldId'] }, { fields: ['status'] }] });
+
+/** Joueur d'une partie : son équipe, son joueur sur le monde de la partie, son elo avant et après. */
+const MatchPlayer = sequelize.define('MatchPlayer', {
+  matchId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Matches', key: 'id' }, onDelete: 'CASCADE', onUpdate: 'CASCADE' },
+  userId: userRef(true),
+  playerId: { type: DataTypes.INTEGER, allowNull: false },
+  team: { type: DataTypes.INTEGER, allowNull: false },
+  eloBefore: { type: DataTypes.INTEGER, allowNull: false },
+  eloAfter: { type: DataTypes.INTEGER, allowNull: true },
+  forfeitedAt: { type: DataTypes.DATE, allowNull: true },
+}, { indexes: [{ fields: ['matchId'] }, { fields: ['userId'] }] });
+
+Match.hasMany(MatchPlayer, { as: 'players', foreignKey: 'matchId' });
+MatchPlayer.belongsTo(Match, { foreignKey: 'matchId' });
+MatchPlayer.belongsTo(User, { foreignKey: 'userId' });
+Match.belongsTo(World, { foreignKey: 'worldId' });
+MatchGroup.hasMany(MatchGroupMember, { as: 'members', foreignKey: 'groupId' });
+MatchGroupMember.belongsTo(User, { foreignKey: 'userId' });
+MatchRating.belongsTo(User, { foreignKey: 'userId' });
+
 module.exports = {
   sequelize, Seal, SealEvent, SealOffer, User, World, Player, Bot, Village, BuildOrder, RecruitOrder, ResearchOrder, Command, SupportStack, Report, ReportFolder, LastAttack, VillageNote, Transport, MarketOffer,
   Tribe, TribeInvite, TribeRelation, TribeEvent, Conversation, ConversationParticipant, ConversationMessage,
@@ -986,4 +1070,5 @@ module.exports = {
   TribeOperation, TribeOperationTarget, TribeOperationClaim,
   ManagerTemplate, ManagerVillage, TradeRoute,
   Entitlement, AdartonTransaction, BuildReward,
+  MatchRating, MatchGroup, MatchGroupMember, MatchQueue, Match, MatchPlayer,
 };

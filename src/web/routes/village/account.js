@@ -47,7 +47,16 @@ router.get('/account', ah(async (req, res) => {
     player.sitterId ? Player.findByPk(player.sitterId) : null,
     SitterService.sittingFor(player.id),
   ]);
-  const accountTabs = ACCOUNT_TABS.filter((t) => !(req.asSitter && t.owner));
+  // Onglets des fonctions absentes du monde retirés (quêtes, sommeil, vacances) ; en matchup, on abandonne la partie
+  // (barre de partie) au lieu de quitter le monde.
+  const cfg = req.ctx.cfg;
+  const off = new Set([
+    ...(cfg.tutorial.active ? [] : ['quests']), ...(cfg.sleep.active ? [] : ['sleep']), ...(cfg.sitter.allow ? [] : ['sitter']),
+    ...(res.locals.inMatch ? ['leave'] : []),
+  ]);
+  const accountTabs = ACCOUNT_TABS.filter((t) => !(req.asSitter && t.owner) && !off.has(t.id))
+    // Titre de section sans onglet en dessous : retiré aussi.
+    .filter((t, i, list) => t.id || (list[i + 1] && list[i + 1].id));
   const tab = accountTabs.some((t) => t.id && t.id === req.query.tab) ? req.query.tab : 'theme';
   // Filtre des thèmes et designs : tous, possédés ou à débloquer.
   const own = ['owned', 'locked'].includes(req.query.own) ? req.query.own : 'all';

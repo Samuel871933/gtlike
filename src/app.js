@@ -122,6 +122,7 @@ function createApp() {
 
   app.use(require('./web/routes/auth'));
   app.use(require('./web/routes/worlds'));
+  app.use(require('./web/routes/matchup'));
   app.use(require('./web/routes/forum'));
   app.use(require('./web/routes/shop'));
   app.use(require('./web/routes/legal'));

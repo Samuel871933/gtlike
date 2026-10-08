@@ -58,9 +58,17 @@ function ownerOnly(req, res, next) {
   next();
 }
 
+/** Adresse de retour après connexion : seulement une page de notre site (pas de redirection ouverte). */
+function safeNext(value) {
+  const next = String(value || '');
+  return next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : null;
+}
+
+/** Page réservée aux comptes connectés : sinon la connexion, puis retour à la page demandée (GET) ou précédente. */
 function requireAuth(req, res, next) {
-  if (!req.user) return res.redirect('/login');
-  next();
+  if (req.user) return next();
+  const target = req.method === 'GET' ? req.originalUrl : back(req, null);
+  res.redirect(target ? `/login?${new URLSearchParams({ next: target })}` : '/login');
 }
 
 // Routes JSON (carte, alertes d'attaques) servies sans le contexte complet (voir loadVillage).
@@ -169,6 +177,9 @@ const loadVillage = ah(async (req, res, next) => {
   req.ctx = await VillageService.peek(owned, now)
     || await VillageService.withVillage(owned.id, async (ctx) => ctx, { now });
   res.locals.ctx = req.ctx;
+  // Partie du matchup : barre de la partie (équipes, score, temps restant) en haut des pages.
+  res.locals.inMatch = req.ctx.world.access === 'match';
+  if (req.method === 'GET' && res.locals.inMatch) res.locals.matchBar = await require('../services/MatchService').forWorld(req.ctx.world);
   const playerId = owned.playerId;
   const [myVillages, player, rights] = await Promise.all([
     Village.findAll({ where: { playerId }, attributes: ['id', 'name', 'x', 'y'], order: [['name', 'ASC'], ['id', 'ASC']] }),
@@ -219,6 +230,7 @@ const loadVillage = ah(async (req, res, next) => {
 const BASE_LOCALS = () => ({
   ctx: null, page: null, unreadReports: 0, unreadByFilter: {}, incomingAttacks: 0, myVillages: [], navVillages: [], villageGroups: [], headerGroups: [], activeGroup: null, villageNav: null, groupHref: () => '', tribeInvites: 0, unreadMessages: 0, rewardsPending: 0, questHints: null, currentPath: '', player: null,
   playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, gameShadows: true, quickbarPos: 'top', asSitter: false, happyPopup: null,
+  inMatch: false, matchBar: null,
 });
 
 function errorHandler(err, req, res, _next) {
@@ -246,4 +258,4 @@ function errorHandler(err, req, res, _next) {
   res.status(500).render('error', { message: 'Erreur interne du serveur.' });
 }
 
-module.exports = { ah, back, flash, loadUser, requireAuth, loadVillage, ownerOnly, errorHandler, BASE_LOCALS };
+module.exports = { ah, back, flash, loadUser, requireAuth, safeNext, loadVillage, ownerOnly, errorHandler, BASE_LOCALS };

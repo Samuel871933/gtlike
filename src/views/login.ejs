@@ -1,11 +1,14 @@
 <%- include('partials/header', { title: 'Connexion', hero: true, lobbyPage: 'login' }) %>
-<%- include('partials/landing-hero-start', { cta: { href: '/register', label: 'Jouer gratuitement' }, lobbyPage: 'login' }) %>
+<%# next : page où revenir après la connexion (le monde qu'on voulait rejoindre), transmise aussi à l'inscription. %>
+<% const registerHref = next ? `/register?${new URLSearchParams({ next })}` : '/register'; %>
+<%- include('partials/landing-hero-start', { cta: { href: registerHref, label: 'Jouer gratuitement' }, lobbyPage: 'login' }) %>
 <div class="<%= ui.lobbyCard %>">
   <h2 class="<%= ui.lobbyCardHead %>">Connexion</h2>
   <div class="<%= ui.authBody %>">
     <% if (typeof notice !== 'undefined' && notice) { %><div class="<%= ui.alertSuccess %>"><%= notice %></div><% } %>
+    <% if (next && !error) { %><div class="<%= ui.alertSuccess %>">Connecte-toi pour continuer, ou crée un compte si tu n’en as pas encore.</div><% } %>
     <% if (error) { %><div class="<%= ui.alertError %>"><%= error %></div><% } %>
-    <form method="post" action="/login" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <form method="post" action="/login" class="flex flex-col gap-2.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% if (next) { %><input type="hidden" name="next" value="<%= next %>"><% } %>
       <label class="<%= ui.label %>">Pseudo ou e-mail
         <input name="login" value="<%= form.login || '' %>" required autofocus class="<%= ui.input %> h-9 w-full">
       </label>
@@ -17,7 +20,7 @@
     <a href="/password/forgot" class="<%= ui.link %> self-start text-[13px]">Mot de passe oublié ?</a>
     <div class="mt-auto flex flex-col gap-1.5 border-t border-dashed border-bronze-700 pt-2.5">
       <span class="text-xs text-parchment-500">Nouveau dans le jeu ?</span>
-      <a href="/register" class="<%= btn('dark', 'sm', 'w-full') %>">Créer un compte</a>
+      <a href="<%= registerHref %>" class="<%= btn('dark', 'sm', 'w-full') %>">Créer un compte</a>
     </div>
   </div>
 </div>

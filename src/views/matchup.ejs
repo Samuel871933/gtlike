@@ -1,0 +1,158 @@
+<%- include('partials/header', { title: 'Matchup', hero: true, lobbyPage: 'matchup' }) %>
+<%
+  // Matchup : parties classées courtes (voir game/matchup.js et services/MatchService.js). Publique : sans compte, les
+  // règles ; connecté, ses ligues, son groupe, la recherche d'une partie et ses dernières parties. Le classement a sa
+  // page (matchup-ranking.ejs).
+  const group = status && status.group;
+  const isLeader = group && group.leaderUserId === user.id;
+  const groupSize = group ? group.members.length : 1;
+  // Pastille d'une ligue (losange à sa couleur) et libellé ; en placement, losange vide.
+  const leagueBadge = (rank, cls = 'size-3') => rank.league
+    ? `<span class="${cls} shrink-0 rotate-45 border border-black" style="background:${rank.league.color}"></span>`
+    : `<span class="${cls} shrink-0 rotate-45 border border-bronze-600 bg-night"></span>`;
+  const resultLabel = { win: 'Victoire', loss: 'Défaite', draw: 'Égalité' };
+  const reasonLabel = { conquest: 'conquête', forfeit: 'abandon', time: 'aux points' };
+  // État relu par matchup.js : la page se recharge quand il change (recherche lancée par le chef, groupe modifié).
+  const pollState = status ? `${status.queue ? status.queue.format : ''}|${group ? group.members.map((m) => m.id).join(',') : ''}` : '';
+%>
+<%- include('partials/landing-hero-start', user ? { cta: null } : { cta: { href: '/register?next=%2Fmatchup', label: 'Jouer gratuitement' }, login: true }) %>
+<%- include('partials/lobby-tabs', { active: 'matchup' }) %>
+
+<section class="<%= ui.lobbyCard %>"<% if (user) { %> data-matchup-poll="<%= pollState %>"<% } %>>
+  <div class="flex items-center justify-between gap-2 border-b-2 border-bronze-500 bg-head px-3 py-1.5">
+    <h2 class="m-0 font-display text-[17px] font-semibold tracking-[0.02em]">Matchup classé</h2>
+    <a href="/matchup/classement" class="<%= btn('dark', 'sm') %>"><%- icon('ranking', 'size-3.5', 2.2) %>Classement</a>
+  </div>
+  <div class="flex flex-col gap-2.5 px-3 py-2.5">
+    <%# Ligue et elo de chaque classement : le duel (1v1) à part, les parties en équipe ensemble. %>
+    <%# Un clic sur une ligue ouvre le classement correspondant. %>
+    <div class="<%= ui.kicker %>"><%= user ? 'Tes ligues' : 'Ligues' %></div>
+    <div class="grid grid-cols-2 gap-2">
+      <% for (const [ladder, name] of Object.entries(mu.LADDERS)) { const r = ratings[ladder]; %>
+        <a href="/matchup/classement?ladder=<%= ladder %>" class="group flex min-w-0 flex-col gap-0.5 border border-bronze-800 bg-night px-2.5 py-1.5 text-parchment-100 no-underline transition hover:border-gold-400 hover:bg-thead">
+          <span class="text-xs text-parchment-500"><%= name %> · <%= ladder === 'duel' ? '1v1' : '2v2 à 5v5' %></span>
+          <span class="flex items-center gap-2 font-display text-[15px] font-semibold"><%- leagueBadge(r.rank) %><%= user ? r.rank.label : 'Non classé' %></span>
+          <span class="text-xs text-parchment-500 tabular-nums"><%= user ? `${num(r.elo)} elo · ${r.wins} V · ${r.losses} D${r.draws ? ` · ${r.draws} N` : ''}` : `Départ à ${mu.START_ELO} elo` %></span>
+        </a>
+      <% } %>
+    </div>
+
+    <% if (!user) { %>
+      <p class="m-0 text-sm text-parchment-300">Affronte d’autres joueurs en 1v1 jusqu’en 5v5 sur des mondes très rapides : une partie dure une vingtaine de minutes. Chaque partie fait monter ou descendre ton elo et ta ligue.</p>
+      <div class="flex flex-wrap gap-2">
+        <a href="/login?next=%2Fmatchup" class="<%= btn('gold', 'md', 'flex-1') %>">Se connecter pour jouer</a>
+        <a href="/register?next=%2Fmatchup" class="<%= btn('dark', 'md', 'flex-1') %>">Créer un compte</a>
+      </div>
+
+    <% } else if (status.match) { %>
+      <%# Partie en cours : on y retourne. %>
+      <div class="flex flex-col gap-2 border-2 border-gold-400 bg-night px-3 py-2.5">
+        <span class="font-display text-base font-semibold text-gold-200">Partie <%= status.match.format %> en cours · <%= status.match.team === 1 ? 'équipe bleue' : 'équipe rouge' %></span>
+        <span class="text-sm text-parchment-300">Fin dans <b class="font-semibold text-parchment-100 tabular-nums" data-countdown="<%= new Date(status.match.endsAt).getTime() %>"><%= duration((new Date(status.match.endsAt) - now) / 1000) %></b></span>
+        <a href="<%= status.match.url %>" class="<%= btn('gold', 'md', 'w-full') %>">Reprendre la partie</a>
+      </div>
+
+    <% } else if (status.queue) { %>
+      <%# Recherche en cours : matchup.js relit l'état et entre dans la partie dès qu'elle est trouvée. %>
+      <div class="flex flex-col gap-2 border-2 border-gold-400 bg-night px-3 py-2.5" role="status">
+        <span class="flex items-center gap-2 font-display text-base font-semibold text-gold-200">
+          <span class="size-2.5 animate-pulse rotate-45 border border-black bg-gold-400"></span>Recherche d’une partie <%= status.queue.format %>…
+        </span>
+        <span class="text-sm text-parchment-300">Depuis <b class="font-semibold text-parchment-100 tabular-nums" data-elapsed-since="<%= new Date(status.queue.queuedAt).getTime() %>">0:00</b> · <%= num(searching[status.queue.format]) %> joueur<%= searching[status.queue.format] > 1 ? 's' : '' %> en recherche dans ce format</span>
+        <span class="text-xs text-parchment-500">Garde cette page ouverte : la partie se lance dès que deux équipes de niveau proche sont réunies (l’écart d’elo accepté s’élargit avec l’attente).</span>
+        <form method="post" action="/matchup/cancel"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="<%= btn('dark', 'sm', 'w-full') %>">Annuler la recherche</button>
+        </form>
+      </div>
+
+    <% } else { %>
+      <%# Choix du format : un groupe joue dans un format d'au moins sa taille ; seul son chef lance la recherche. %>
+      <div class="<%= ui.kicker %>">Lancer une partie<%= group ? ` · groupe de ${groupSize}` : '' %></div>
+      <div class="grid grid-cols-5 gap-1.5">
+        <% for (const [format, size] of Object.entries(mu.FORMATS)) { const disabled = size < groupSize || (group && !isLeader); %>
+          <form method="post" action="/matchup/queue" class="contents"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="format" value="<%= format %>">
+            <button class="group flex flex-col items-center gap-0.5 border border-bronze-800 border-t-[3px] border-t-action bg-night px-1 py-1.5 text-parchment-100 shadow-[2px_2px_0_#000] transition enabled:cursor-pointer enabled:hover:-translate-y-px enabled:hover:border-gold-400 enabled:hover:bg-thead disabled:opacity-40" <%= disabled ? 'disabled' : '' %>>
+              <span class="font-display text-base leading-tight font-semibold group-enabled:group-hover:text-gold-200"><%= format %></span>
+              <span class="text-[10px] text-parchment-500 tabular-nums"><%= searching[format] ? `${num(searching[format])} en file` : mu.LADDERS[mu.ladderOf(format)] %></span>
+            </button>
+          </form>
+        <% } %>
+      </div>
+      <% if (group && !isLeader) { %><p class="m-0 text-xs text-parchment-500">Le chef du groupe lance la recherche ; cette page s’actualise d’elle-même.</p><% } %>
+    <% } %>
+
+    <% if (user && !status.match) { %>
+      <%# Groupe d'amis : on entre ensemble dans la file (même équipe). %>
+      <div class="<%= ui.kicker %> mt-1">Jouer entre amis</div>
+      <% if (group) { %>
+        <div class="flex flex-col gap-1.5 border border-bronze-800 bg-night px-2.5 py-2">
+          <div class="flex items-center justify-between gap-2 text-[13px]">
+            <span class="text-parchment-500">Code du groupe à partager</span>
+            <span class="font-semibold tracking-[0.12em] text-gold-200 tabular-nums select-all"><%= group.code %></span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <% for (const m of group.members) { %>
+              <span class="inline-flex items-center gap-1 border border-bronze-700 px-1.5 py-0.5 text-[13px] <%= m.id === user.id ? 'text-parchment-100' : 'text-parchment-300' %>"><% if (m.id === group.leaderUserId) { %><%- icon('crown', 'size-3 text-gold-400', 2.2) %><% } %><%= m.username %></span>
+            <% } %>
+          </div>
+          <form method="post" action="/matchup/group/leave" class="self-end"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= ui.link %> cursor-pointer text-[13px]"><%= isLeader ? 'Dissoudre le groupe' : 'Quitter le groupe' %></button>
+          </form>
+        </div>
+      <% } else { %>
+        <p class="m-0 text-xs text-parchment-500">Pour jouer dans la même équipe que des amis : l’un crée un groupe et partage son code, les autres le rejoignent avec ce code, puis le chef lance la recherche.</p>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <form method="post" action="/matchup/group"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="<%= btn('dark', 'sm', 'w-full h-full') %>"><%- icon('plus', 'size-3.5', 2.4) %>Créer un groupe</button>
+          </form>
+          <form method="post" action="/matchup/group/join" class="flex min-w-0 items-center gap-1.5"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input name="code" required maxlength="8" autocomplete="off" placeholder="Code du groupe" aria-label="Code d’un groupe" class="<%= ui.input %> h-8 min-w-0 flex-1 tracking-[0.08em] placeholder:tracking-normal">
+            <button class="<%= btn('dark', 'sm') %>">Rejoindre</button>
+          </form>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+</section>
+
+<% if (history.length) { %>
+<%# Dernières parties du joueur (le classement complet a sa page : /matchup/classement). %>
+<section class="<%= ui.lobbyCard %>">
+  <h2 class="<%= ui.lobbyCardHead %>">Tes dernières parties</h2>
+  <ul class="m-0 flex list-none flex-col gap-1 px-3 py-2.5">
+    <% for (const h of history) { %>
+      <li class="flex items-center gap-2 border border-bronze-800 border-l-[3px] bg-night px-2.5 py-1 text-[13px] <%= h.result === 'win' ? 'border-l-olive-500' : h.result === 'loss' ? 'border-l-blood-600' : 'border-l-bronze-500' %>">
+        <span class="font-semibold"><%= resultLabel[h.result] %></span>
+        <span class="text-parchment-500"><%= h.format %> · <%= reasonLabel[h.reason] %><%= h.scores ? ` · ${num(h.scores[h.team - 1])} – ${num(h.scores[2 - h.team])}` : '' %></span>
+        <span class="ml-auto font-semibold tabular-nums <%= h.delta >= 0 ? 'text-olive-300' : 'text-blood-450' %>"><%= h.delta >= 0 ? '+' : '' %><%= h.delta %></span>
+      </li>
+    <% } %>
+  </ul>
+</section>
+<% } %>
+<%- include('partials/landing-hero-end') %>
+
+<%# Règles du matchup, en cartes parchemin (comme les chroniques des mondes). %>
+<section class="mx-auto w-full max-w-[1100px] px-3.5 py-5">
+  <div class="mb-3 flex items-center gap-3">
+    <span class="size-[9px] rotate-45 border border-black bg-gold-400"></span>
+    <h2 class="m-0 font-display text-lg font-semibold tracking-[0.02em]">Comment se joue une partie</h2>
+    <span class="h-0.5 flex-1 bg-linear-to-r from-bronze-500 to-transparent"></span>
+  </div>
+  <% const cfg = mu.worldConfig(); const rules = [
+       ['Formats', `Du 1v1 au 5v5, seul ou en groupe d’amis (même équipe). Le duel a son propre classement, les parties en équipe en partagent un.`],
+       ['Un monde par partie', `Monde ×${cfg.speed} créé pour la partie : villages déjà développés (académie construite), petite armée de départ et deux barbares par joueur, sans archers ni paladin. Rien d’autre à gagner que l’elo : ni quêtes, ni récompenses, ni succès, ni sceaux. Les deux équipes sont face à face.`],
+       ['Victoire', `Prends tous les villages de l’équipe adverse. Sinon, au bout de ${mu.MATCH_MINUTES} minutes, l’équipe qui a le plus de points (villages, bâtiments, adversaires vaincus) gagne.`],
+       ['Elo et ligues', `Départ à ${mu.START_ELO} elo, ${mu.PLACEMENT_GAMES} parties de placement. Gagner contre plus fort rapporte davantage. Ligues : ${mu.LEAGUES.map((l) => l.name).join(', ')}.`],
+     ]; %>
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+    <% for (const [title, text] of rules) { %>
+      <article class="flex flex-col gap-1 border-2 border-black bg-parchment-300 px-3 py-2 text-panel-hi shadow-[inset_0_0_0_2px_var(--color-bld-marble),4px_4px_0_#000]">
+        <span class="border-b-2 border-panel-hi pb-[5px] font-display text-[15px] leading-tight font-semibold"><%= title %></span>
+        <span class="text-[13px] leading-snug text-bld-soot"><%= text %></span>
+      </article>
+    <% } %>
+  </div>
+</section>
+<% if (user) { %><script src="<%= asset('/js/matchup.js') %>" defer></script><% } %>
+<%- include('partials/footer') %>

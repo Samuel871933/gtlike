@@ -4,7 +4,7 @@ const express = require('express');
 const AuthService = require('../../services/AuthService');
 const AccountService = require('../../services/AccountService');
 const GameError = require('../../services/GameError');
-const { ah, requireAuth } = require('../middleware');
+const { ah, requireAuth, safeNext } = require('../middleware');
 
 const router = express.Router();
 
@@ -19,25 +19,31 @@ function startSession(req, user) {
   });
 }
 
-router.get('/', (req, res) => req.user ? res.redirect('/worlds') : res.render('login', { form: {}, error: null, notice: null }));
+// L'accueil (liste des mondes et serveurs, routes/worlds.js) est public : la connexion n'est demandée qu'en rejoignant
+// un monde. `next` : page où revenir après la connexion ou l'inscription (voir requireAuth).
 
-router.get('/register', (req, res) => res.render('register', { form: {}, error: null }));
+router.get('/register', (req, res) => res.render('register', { form: {}, error: null, next: safeNext(req.query.next) }));
 
 router.post('/register', ah(async (req, res) => {
+  const next = safeNext(req.body.next);
   try {
     const user = await AuthService.register(req.body);
     await startSession(req, user);
-    res.redirect('/worlds');
+    res.redirect(next || '/worlds');
   } catch (err) {
     if (!(err instanceof GameError)) throw err;
-    res.status(400).render('register', { form: req.body, error: err.message });
+    res.status(400).render('register', { form: req.body, error: err.message, next });
   }
 }));
 
-router.get('/login', (req, res) => res.render('login', {
-  form: {}, error: null,
-  notice: req.query.deleted ? 'Votre compte a été supprimé.' : req.query.reset ? 'Mot de passe modifié : tu peux te connecter.' : null,
-}));
+router.get('/login', (req, res) => {
+  const next = safeNext(req.query.next);
+  if (req.user) return res.redirect(next || '/worlds');
+  res.render('login', {
+    form: {}, error: null, next,
+    notice: req.query.deleted ? 'Votre compte a été supprimé.' : req.query.reset ? 'Mot de passe modifié : tu peux te connecter.' : null,
+  });
+});
 
 // Mot de passe oublié : demande d'un lien, puis choix du nouveau mot de passe.
 router.get('/password/forgot', (req, res) => res.render('password-forgot', { form: {}, error: null, sent: false }));
@@ -70,13 +76,14 @@ router.post('/password/reset/:token', ah(async (req, res) => {
 }));
 
 router.post('/login', ah(async (req, res) => {
+  const next = safeNext(req.body.next);
   try {
     const user = await AuthService.login(req.body);
     await startSession(req, user);
-    res.redirect('/worlds');
+    res.redirect(next || '/worlds');
   } catch (err) {
     if (!(err instanceof GameError)) throw err;
-    res.status(401).render('login', { form: { login: req.body.login }, error: err.message, notice: null });
+    res.status(401).render('login', { form: { login: req.body.login }, error: err.message, notice: null, next });
   }
 }));
 
@@ -97,7 +104,7 @@ router.post('/account/delete', requireAuth, ah(async (req, res) => {
 }));
 
 router.post('/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/login'));
+  req.session.destroy(() => res.redirect('/'));
 });
 
 module.exports = router;

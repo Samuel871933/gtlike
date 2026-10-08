@@ -14,8 +14,10 @@ class WorldService {
 
   /** Mondes, avec le joueur du compte s'il y est inscrit et les comptes qu'il remplace. */
   static async listForUser(userId) {
-    const worlds = await World.findAll({ order: [['createdAt', 'DESC']] });
-    const players = await Player.findAll({ where: { userId } });
+    // Sans les mondes des parties du matchup (voir MatchService) : ils ne se rejoignent pas depuis les listes.
+    const worlds = await World.findAll({ where: World.NOT_MATCH, order: [['createdAt', 'DESC']] });
+    // Hors connexion (userId null) : aucun joueur, et surtout pas les bots (sans compte).
+    const players = userId ? await Player.findAll({ where: { userId } }) : [];
     const byWorld = new Map(players.map((p) => [p.worldId, p]));
     const sitting = players.length
       ? await Player.findAll({ where: { sitterId: players.map((p) => p.id), sitterAcceptedAt: { [Op.ne]: null } } })
@@ -156,10 +158,10 @@ class WorldService {
     });
   }
 
-  static async createVillage(world, { x, y, player, name, isFirst = false, buildings, now }, transaction) {
+  static async createVillage(world, { x, y, player, name, isFirst = false, buildings, units = {}, now }, transaction) {
     const cfg = world.getConfig();
     const state = new VillageState(
-      { buildings, units: {}, ...cfg.startResources, resourcesAt: now },
+      { buildings, units, ...cfg.startResources, resourcesAt: now },
       cfg,
     );
     return Village.create({

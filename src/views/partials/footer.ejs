@@ -18,10 +18,13 @@
     <a href="/forum" class="<%= ui.link %> font-normal">Forum</a>
     <a href="/help" class="<%= ui.link %> font-normal">Aide</a>
     <a href="/rules" class="<%= ui.link %> font-normal">Règles</a>
+    <%# Matchup : ni invitation au monde (fermé), ni classement du monde ; on revient au matchup. %>
+    <% if (!inMatch) { %>
     <a href="/village/<%= ctx.village.id %>/invite" class="<%= ui.link %> font-normal">Inviter des joueurs</a>
     <a href="/village/<%= ctx.village.id %>/ranking" class="<%= ui.link %> font-normal">Classement</a>
+    <% } %>
     <a href="/village/<%= ctx.village.id %>/account" class="<%= ui.link %> font-normal">Compte</a>
-    <a href="/worlds" class="<%= ui.link %> font-normal">Déconnexion</a>
+    <a href="<%= inMatch ? '/matchup' : '/worlds' %>" class="<%= ui.link %> font-normal"><%= inMatch ? 'Retour au matchup' : 'Déconnexion' %></a>
   </div>
   <% if (ctx.state?.nextAffordableAt) { %><span hidden data-reload-at="<%= ctx.state.nextAffordableAt.getTime() %>"></span><% } %>
   <div class="tabular-nums">Heure du serveur : <b class="text-parchment-100" data-clock="<%= now.getTime() %>"><%= now.toLocaleString('fr-FR') %></b></div>

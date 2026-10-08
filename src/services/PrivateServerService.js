@@ -57,7 +57,7 @@ class PrivateServerService {
    */
   static canAccess(world, { userId, isPlayer = false, code = null } = {}) {
     if (world.access !== 'code') return true;
-    return world.ownerUserId === userId || isPlayer || (Boolean(code) && normalizeCode(code) === world.joinCode);
+    return (userId != null && world.ownerUserId === userId) || isPlayer || (Boolean(code) && normalizeCode(code) === world.joinCode);
   }
 
   /** Serveurs ouverts en cours, les plus peuplés d'abord, avec leur nombre de joueurs. */

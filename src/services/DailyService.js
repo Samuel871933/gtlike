@@ -68,7 +68,7 @@ class DailyService {
   static async awardPending(now = new Date()) {
     const today = DailyService.dayKey(now);
     const since = DailyService.dayKey(new Date(now.getTime() - 7 * 86400000));
-    for (const world of await World.findAll({ attributes: ['id'] })) {
+    for (const world of await World.findAll({ where: World.NOT_MATCH, attributes: ['id'] })) {
       const days = await DailyStat.findAll({
         where: { worldId: world.id, day: { [Op.lt]: today, [Op.gte]: since } },
         attributes: ['day'], group: ['day'], raw: true,

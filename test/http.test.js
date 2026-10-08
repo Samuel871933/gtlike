@@ -82,6 +82,30 @@ test('CSRF : un formulaire sans jeton est refusé, avec le jeton il passe', asyn
   assert.equal(ok.location, '/worlds');
 });
 
+test('visiteur : mondes et serveurs visibles, connexion demandée en rejoignant un monde', async () => {
+  const http = client();
+  assert.match((await http('/')).html, /href="\/worlds\?w=w1"/);
+  assert.equal((await http('/worlds')).status, 200);
+  assert.equal((await http('/servers')).status, 200);
+  assert.match((await http('/worlds?w=w1')).html, /href="\/worlds\/w1\/join"/);
+
+  const join = await http('/worlds/w1/join');
+  assert.equal(join.status, 302);
+  assert.equal(join.location, `/login?${new URLSearchParams({ next: '/worlds/w1/join' })}`);
+  const login = await http(join.location);
+  assert.match(login.html, /name="next" value="\/worlds\/w1\/join"/);
+  assert.match(login.html, /href="\/register\?next=%2Fworlds%2Fw1%2Fjoin"/);
+
+  // Inscription depuis cette page : retour à l'entrée dans le monde ; une adresse externe est ignorée.
+  const reg = await http('/register?next=%2Fworlds%2Fw1%2Fjoin');
+  const ok = await http('/register', { method: 'POST', form: { username: 'Visiteur', email: 'v@example.com', password: 'motdepasse', next: '/worlds/w1/join', _csrf: tokenOf(reg.html) } });
+  assert.equal(ok.location, '/worlds/w1/join');
+  const other = client();
+  const reg2 = await other('/register');
+  const ext = await other('/register', { method: 'POST', form: { username: 'Visiteur2', email: 'v2@example.com', password: 'motdepasse', next: '//evil.example', _csrf: tokenOf(reg2.html) } });
+  assert.equal(ext.location, '/worlds');
+});
+
 test('parcours complet : inscription, entrée dans un monde, construction', async () => {
   const http = client();
   const reg = await http('/register');
@@ -106,7 +130,9 @@ test('parcours complet : inscription, entrée dans un monde, construction', asyn
   // Page Compte : menu latéral, un panneau par onglet (thème par défaut), onglet inconnu ramené au thème.
   const account = (await http(`${joined.location}/account`)).html;
   assert.match(account, /aria-current="page"><span[^>]*>Thème de jeu</);
-  assert.match(account, /\/account\?tab=sleep/);
+  // Onglets des fonctions du monde seulement : mode vacances, mais pas de mode sommeil (monde sans sommeil).
+  assert.match(account, /\/account\?tab=sitter/);
+  assert.doesNotMatch(account, /\/account\?tab=sleep/);
   assert.doesNotMatch(account, /id="design-villages"/);
   assert.match((await http(`${joined.location}/account?tab=design`)).html, /id="design-villages"/);
   // Filtre des thèmes : possédés (Adarma, gratuit) ou à débloquer.
@@ -871,4 +897,53 @@ test('formulaire de plus de 5 000 champs : page d’erreur lisible, sans plantag
   const res = await fetch(`${base}/login`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString() });
   assert.equal(res.status, 413);
   assert.match(await res.text(), /Formulaire trop volumineux/);
+});
+
+test('matchup : onglet public, recherche à deux, entrée dans la partie avec sa barre, abandon', async () => {
+  const visitor = client();
+  const page = await visitor('/matchup');
+  assert.equal(page.status, 200);
+  assert.match(page.html, /Se connecter pour jouer/);
+  assert.match(page.html, /href="\/matchup\/classement"/);
+  const ranking = await visitor('/matchup/classement?ladder=team');
+  assert.equal(ranking.status, 200);
+  assert.match(ranking.html, /Personne n’est encore classé/);
+  assert.match((await visitor('/')).html, /href="\/matchup"/);
+
+  const players = [];
+  for (const name of ['Duelliste1', 'Duelliste2']) {
+    const http = client();
+    const reg = await http('/register');
+    await http('/register', { method: 'POST', form: { username: name, email: `${name}@example.com`, password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+    const lobby = await http('/matchup');
+    const queued = await http('/matchup/queue', { method: 'POST', form: { format: '1v1', _csrf: tokenOf(lobby.html) } });
+    assert.equal(queued.location, '/matchup');
+    assert.match((await http('/matchup')).html, /Recherche d’une partie 1v1/);
+    players.push(http);
+  }
+
+  await require('../src/services/MatchService').tick(new Date());
+  const status = JSON.parse((await players[0]('/matchup/status')).html);
+  assert.ok(status.match);
+  const play = await players[0](status.match.url);
+  assert.match(play.location, /^\/village\/\d+$/);
+  const village = await players[0](play.location);
+  assert.match(village.html, /Matchup 1v1/);
+  assert.match(village.html, /action="\/matchup\/forfeit"/);
+  // Rien de ce qui n'existe pas en matchup : boutique, classement du monde, collecte, succès, quêtes, gestionnaire,
+  // diplomatie ; pages correspondantes introuvables.
+  for (const text of ['Adartons', '/ranking"', 'Collecte', 'Succès', '/rewards', '/manager', 'Diplomatie', 'Archer']) {
+    assert.ok(!village.html.includes(text), `pas de ${text}`);
+  }
+  assert.match(village.html, /Équipe \[(BLEU|ROUGE)\]/);
+  for (const page of ['/ranking', '/manager', '/farm', '/rewards', '/scavenge']) assert.equal((await players[0](play.location + page)).status, 404, page);
+  const team = await players[0](`${play.location}/tribe`);
+  assert.ok(!team.html.includes('Quitter la tribu') && !team.html.includes('tab=diplomacy'));
+  assert.ok(!(await players[0](`${play.location}/account`)).html.includes('Quitter ce monde'));
+
+  await players[0]('/matchup/forfeit', { method: 'POST', form: { _csrf: tokenOf(village.html) } });
+  const after = await players[0]('/matchup');
+  assert.match(after.html, /Défaite/);
+  assert.equal(JSON.parse((await players[1]('/matchup/status')).html).match, null);
+  assert.match((await players[1]('/matchup')).html, /Victoire/);
 });

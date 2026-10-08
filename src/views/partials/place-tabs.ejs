@@ -2,5 +2,6 @@
 <% const base = `/village/${ctx.village.id}/`;
    const pt = [['commands', 'Commandes', 'place'], ['troops', 'Troupes', 'place?tab=troops'], ['sim', 'Simulateur', 'place?tab=sim']];
    if (ctx.cfg.scavenging.active) pt.push(['scavenge', 'Collecte', 'scavenge']);
-   pt.push(['farm', 'Pillage', 'farm']); -%>
+   // Assistant de pillage (premium) : pas en matchup.
+   if (!inMatch) pt.push(['farm', 'Pillage', 'farm']); -%>
 <%- segTabs(pt.map(([id, name, href]) => [base + href, name, placeTab === id])) -%>

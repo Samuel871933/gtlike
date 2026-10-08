@@ -5,10 +5,15 @@
 
 const express = require('express');
 const { requireAuth, loadVillage } = require('../../middleware');
+const GameError = require('../../../services/GameError');
 
 const router = express.Router({ mergeParams: true });
 
 router.use(requireAuth, loadVillage);
+// Matchup : pages sans objet dans une partie classée (premium, classement du monde, pages publiques de tribu, quitter
+// le monde ou la tribu) : introuvables.
+const NOT_IN_MATCH = /^\/(manager|farm|ranking|invite$|account\/leave-world|tribes\/|tribe\/(leave|invite|members|relations|rights|create|description|avatar|announcement))/;
+router.use((req, res, next) => (res.locals.inMatch && NOT_IN_MATCH.test(req.path) ? next(new GameError('Indisponible pendant une partie du matchup.', 404)) : next()));
 for (const area of ['overview', 'buildings', 'place', 'incomings', 'market', 'tribe', 'social', 'account', 'reports', 'ranking', 'map', 'farm', 'seals', 'manager', 'rewards']) {
   router.use(require(`./${area}`));
 }

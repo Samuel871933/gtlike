@@ -34,6 +34,8 @@ const DEFAULTS = {
   // Tutoriel (comme les quêtes de Guerre Tribale) : une suite de quêtes guidées, récompensées en ressources ou en
   // troupes (voir game/tutorial.js).
   tutorial: { active: true },
+  // Succès (voir AchievementService) : paliers débloqués et rapports ; coupés sur les parties du matchup.
+  achievements: { active: true },
   startBuildings: { main: 1, farm: 1, storage: 1, place: 1 },
   startResources: { wood: 500, stone: 500, iron: 500 },
   // Placement. emptyVillages : villages barbares créés à chaque inscription, en % comme coord.empty_villages de
@@ -154,6 +156,7 @@ class WorldConfig {
       premium: { ...DEFAULTS.premium, ...(raw.premium || {}) },
       buildRewards: { ...DEFAULTS.buildRewards, ...(raw.buildRewards || {}) },
       tutorial: { ...DEFAULTS.tutorial, ...(raw.tutorial || {}) },
+      achievements: { ...DEFAULTS.achievements, ...(raw.achievements || {}) },
       knightItems: { ...DEFAULTS.knightItems, ...(raw.knightItems || {}) },
       startBuildings: raw.startBuildings || DEFAULTS.startBuildings,
     };

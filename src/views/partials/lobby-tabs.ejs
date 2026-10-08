@@ -1,0 +1,21 @@
+<%#
+  Onglets de l'accueil, en tête de la colonne de droite : les mondes (officiels et serveurs privés, parties longues) ou
+  le matchup (parties classées courtes). Locals : active = 'worlds' | 'matchup'.
+%>
+<%
+  const tabs = [
+    [user ? '/worlds' : '/', 'Mondes', 'Officiels et serveurs privés', 'map', active === 'worlds'],
+    ['/matchup', 'Matchup', 'Parties classées de 20 min', 'sword', active === 'matchup'],
+  ];
+%>
+<nav class="grid grid-cols-2 border-2 border-black bg-night shadow-[inset_0_0_0_1px_var(--color-bronze-700),5px_5px_0_#000]" aria-label="Modes de jeu">
+  <% for (const [href, label, sub, ic, on] of tabs) { %>
+    <a href="<%= href %>" class="flex min-w-0 items-center gap-2 px-3 py-2 no-underline transition <%= on ? 'bg-head text-parchment-100 shadow-[inset_0_-3px_0_var(--color-gold-400)]' : 'text-gold-400 hover:bg-thead hover:text-parchment-100' %>"<%- on ? ' aria-current="page"' : '' %>>
+      <%- icon(ic, 'size-4', 2.2) %>
+      <span class="flex min-w-0 flex-col">
+        <span class="font-display text-[15px] leading-tight font-semibold"><%= label %></span>
+        <span class="truncate text-[11px] <%= on ? 'text-parchment-300' : 'text-parchment-500' %>"><%= sub %></span>
+      </span>
+    </a>
+  <% } %>
+</nav>

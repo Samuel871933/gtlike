@@ -4,7 +4,7 @@
   // et filtrables, avec les actions groupées (étiqueter, renommer, ignorer) sur les cases cochées.
   // qs(patch) : adresse de l'aperçu avec ces filtres changés (voir routes/village/incomings.js).
   const vid = ctx.village.id;
-  const overviewTabs = overviewMenu(vid, 'incomings');
+  const overviewTabs = overviewMenu(vid, 'incomings', { manager: !inMatch });
   // Onglets Tous / Attaques / Soutiens (mêmes classes que segTabs) ; les nombres [data-count] sont tenus à jour par
   // game.js (arrivées, actions, relecture régulière).
   const countSpan = (key, n) => `<span class="tabular-nums" data-count="${key}">${n}</span>`;

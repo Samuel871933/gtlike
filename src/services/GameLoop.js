@@ -26,10 +26,11 @@ class GameLoop {
     this.slowRunning = false;
     this.managerRunning = false;
     this.botsRunning = false;
+    this.matchRunning = false;
   }
 
   start() {
-    this.timer = setInterval(() => { this.tick(); this.botsTick(); this.managerTick(); this.slowTick(); }, this.intervalMs);
+    this.timer = setInterval(() => { this.tick(); this.botsTick(); this.matchTick(); this.managerTick(); this.slowTick(); }, this.intervalMs);
     this.timer.unref();
   }
 
@@ -70,6 +71,19 @@ class GameLoop {
       console.error('[GameLoop]', err);
     } finally {
       this.botsRunning = false;
+    }
+  }
+
+  /** Matchup : formation des parties depuis la file, puis fin des parties en cours (conquête, abandon, temps). */
+  async matchTick() {
+    if (this.matchRunning) return;
+    this.matchRunning = true;
+    try {
+      await require('./MatchService').tick(new Date());
+    } catch (err) {
+      console.error('[GameLoop]', err);
+    } finally {
+      this.matchRunning = false;
     }
   }
 
@@ -127,7 +141,7 @@ class GameLoop {
   /** Succès qui dépendent du temps ou des autres joueurs (rangs, jours dans la tribu). */
   static async evaluateAchievements() {
     const AchievementService = require('./AchievementService');
-    for (const world of await World.findAll()) await AchievementService.evaluateWorld(world);
+    for (const world of await World.findAll({ where: World.LIVE })) await AchievementService.evaluateWorld(world);
   }
 
   /** Complète les bots des mondes qui en demandent (config.bots.count). */
@@ -138,7 +152,7 @@ class GameLoop {
 
   /** Fait grandir les villages barbares de tous les mondes (la croissance est calculée au rafraîchissement). */
   static async growBarbarians(now = new Date()) {
-    for (const world of await World.findAll()) await VillageService.growBarbarians(world, now);
+    for (const world of await World.findAll({ where: World.LIVE })) await VillageService.growBarbarians(world, now);
   }
 }
 

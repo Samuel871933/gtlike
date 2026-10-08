@@ -1,10 +1,15 @@
 <%# Mondes, mondes officiels (parties en cours, autres mondes, fiche du monde choisi) (inclus par worlds.ejs, avec ses helpers). %>
 <section class="<%= ui.lobbyCard %>" id="mondes">
   <div class="border-b-2 border-bronze-500 bg-head px-3 py-2">
-    <div class="font-display text-[17px] font-semibold tracking-[0.02em]">Salve, <%= user.username %></div>
-    <form method="post" action="/logout" class="text-xs text-parchment-300"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      Pas <%= user.username %> ? <button class="<%= ui.link %> cursor-pointer">Se déconnecter</button>
-    </form>
+    <% if (user) { %>
+      <div class="font-display text-[17px] font-semibold tracking-[0.02em]">Salve, <%= user.username %></div>
+      <form method="post" action="/logout" class="text-xs text-parchment-300"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        Pas <%= user.username %> ? <button class="<%= ui.link %> cursor-pointer">Se déconnecter</button>
+      </form>
+    <% } else { %>
+      <div class="font-display text-[17px] font-semibold tracking-[0.02em]">Salve, voyageur</div>
+      <div class="text-xs text-parchment-300">Choisis ton monde : on te demandera de <a href="/login" class="<%= ui.link %>">te connecter</a> ou de <a href="/register" class="<%= ui.link %>">créer un compte</a> pour le rejoindre.</div>
+    <% } %>
   </div>
   <div class="flex flex-1 flex-col gap-2 px-3 py-2.5">
     <% if (selected) { const { world, player } = selected; const cfg = world.getConfig(); const modules = modulesOf(cfg); %>
@@ -33,7 +38,7 @@
       </dl>
       <a href="/worlds/<%= world.slug %>/info" class="<%= btn('dark', 'sm', 'w-full') %>"><%- icon('search', 'size-3.5', 2.2) %>Voir tous les paramètres du monde</a>
       <%# Code d'accès d'un serveur sur code : montré à son créateur et à ses joueurs, pour qu'ils le partagent. %>
-      <% if (world.access === 'code' && (world.ownerUserId === user.id || player)) { %>
+      <% if (world.access === 'code' && ((user && world.ownerUserId === user.id) || player)) { %>
         <div class="flex items-center justify-between gap-2 border border-dashed border-gold-400 bg-night px-2.5 py-1.5 text-[13px]">
           <span class="text-parchment-500">Code d’accès à partager</span>
           <span class="font-semibold tracking-[0.12em] text-gold-200 tabular-nums select-all"><%= world.joinCode %></span>
@@ -48,8 +53,9 @@
         <p class="text-parchment-500">Inscriptions fermées.</p>
       <% } %>
     <% } else { %>
+      <%# Parties en cours (comptes connectés) : un clic sur la tuile fait entrer dans le monde. %>
+      <% if (user) { %>
       <div class="<%= ui.kicker %>">Mondes officiels · partie<%= current.length > 1 ? 's' : '' %> en cours</div>
-      <%# Parties en cours : un clic sur la tuile fait entrer dans le monde. %>
       <% if (current.length) { %>
         <div class="<%= tileGrid %>">
           <% for (const w of current) { const c = w.campaign || {};
@@ -63,6 +69,7 @@
       <% } else { %>
         <p class="text-sm text-parchment-500">Aucune partie en cours : rejoins un monde officiel ci-dessous.</p>
       <% } %>
+      <% } %>
 
       <% if (sittings.length) { %>
         <div class="<%= ui.kicker %> mt-1">Vous remplacez</div>
@@ -73,19 +80,21 @@
         <% } %>
       <% } %>
 
-      <div class="<%= ui.kicker %> mt-1"><%= current.length ? 'Autres mondes officiels' : 'Rejoindre un monde officiel' %></div>
+      <div class="flex items-baseline justify-between gap-2<%= user ? ' mt-1' : '' %>">
+        <span class="<%= ui.kicker %>"><%= current.length ? 'Autres mondes officiels' : 'Mondes officiels' %></span>
+        <a href="/servers?type=official" class="<%= ui.link %> text-[13px]">» Tous les mondes officiels</a>
+      </div>
       <%# Mondes ouverts, puis terminés : un clic ouvre la fiche du monde. %>
       <% if (available.length || ended.length) { %>
         <div class="<%= tileGrid %>">
           <% for (const { world } of available) { %>
-            <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: isNew(world) ? smallTag('border border-action-line bg-action font-semibold uppercase text-on-accent', 'Nouveau') : '', primary: esc(subtitle(world)) }) %>
+            <%- worldTile(world, `/worlds?w=${world.slug}`, { primary: esc(subtitle(world)) }) %>
           <% } %>
           <% for (const { world } of ended) { %>
             <%- worldTile(world, `/worlds?w=${world.slug}`, { tag: smallTag(ui.tagMuted, 'Terminé'), primary: esc(subtitle(world)), edge: 'border-t-rel-barb' }) %>
           <% } %>
         </div>
       <% } else { %><p class="text-sm text-parchment-500">Aucun autre monde officiel ouvert.</p><% } %>
-      <a href="/servers?type=official" class="<%= ui.link %> self-end text-[13px]">» Tous les mondes officiels</a>
     <% } %>
   </div>
 </section>

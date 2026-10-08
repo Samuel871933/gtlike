@@ -55,11 +55,13 @@
           </table>
         </div>
       <% } %>
+      <% if (!inMatch) { %>
       <form method="post" action="<%= t %>/leave" class="flex flex-wrap items-center gap-3 border-t border-bronze-900 px-3 py-3" data-confirm="Quitter la tribu ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <button class="<%= btn('danger', 'sm') %>"><%- icon('logout', 'size-3.5', 2.2) %>Quitter la tribu</button>
         <% if (isDuke && dukes === 1 && members.length > 1) { %><span class="text-xs text-parchment-600">Nommez d'abord un autre duc.</span><% } %>
         <% if (members.length === 1) { %><span class="text-xs text-parchment-600">Vous êtes seul : la tribu sera dissoute.</span><% } %>
       </form>
+      <% } %>
     </section>
 
     <section class="<%= ui.panel %>">

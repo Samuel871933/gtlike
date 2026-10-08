@@ -3,7 +3,7 @@
   // Aperçus des villages de Guerre Tribale : un onglet par vue, une ligne par village. Le nom d'un village mène à son
   // aperçu ; les pastilles, chiffres et marchands mènent au bâtiment concerné de ce village.
   const vid = ctx.village.id;
-  const tabs = overviewMenu(vid, mode);
+  const tabs = overviewMenu(vid, mode, { manager: !inMatch });
   const units = registry.unitsFor(ctx.cfg);
   const buildings = registry.buildingsFor(ctx.cfg);
   const at = (r, path = '') => `/village/${r.village.id}${path}`;

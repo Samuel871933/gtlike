@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: 'Mondes', hero: true, lobbyPage: 'worlds' }) %>
+<%- include('partials/header', { title: 'Mondes', hero: true, lobbyPage: user ? 'worlds' : 'home' }) %>
 <%
   const directionNames = DIRECTION_NAMES;
   const victoryNames = VICTORY_NAMES;
@@ -9,7 +9,7 @@
   const available = official.filter((w) => !w.world.endedAt && !playing(w) && w.world.isOpen);
   const ended = official.filter((w) => w.world.endedAt);
   // Tes serveurs privés : ceux où tu joues et ceux que tu as créés.
-  const myServers = worlds.filter((w) => w.world.isPrivate() && (playing(w) || w.world.ownerUserId === user.id));
+  const myServers = worlds.filter((w) => w.world.isPrivate() && (playing(w) || (user && w.world.ownerUserId === user.id)));
   // Serveurs publics les plus peuplés : tous les serveurs ouverts, les tiens compris.
   const publicServers = popularServers;
   const accessName = (world) => (world.access === 'code' ? 'Sur code' : 'Ouvert');
@@ -21,12 +21,15 @@
   // Ancienneté d'un monde, affichée sur chaque tuile et dans la fiche.
   const age = (world) => worldAge(world, now);
   // Tuile d'un monde, commune aux parties en cours, aux mondes officiels et aux serveurs privés : compacte (nom, puis
-  // pastille et une ligne `primary`), le détail dans l'infobulle « i » au survol ou au focus (`details`, puis modules, vitesse et
-  // ancienneté). Toute la tuile est cliquable (partie en cours : on entre ; autre monde : sa fiche). HTML déjà échappé.
+  // pastille et une ligne `primary`), le détail dans l'infobulle « i » au survol ou au focus (`details`, nombre de joueurs, puis modules,
+  // vitesse et ancienneté). Monde de moins de 7 jours : étiquette « Nouveau » à cheval sur le filet du haut.
+  // Toute la tuile est cliquable (partie en cours : on entre ; autre monde : sa fiche). HTML déjà échappé.
   const worldTile = (world, href, { tag = '', primary = '', details = [], edge = 'border-t-action' } = {}) => {
     const cfg = world.getConfig(); const a = age(world); const dom = cfg.victory.dominance;
+    const players = playerCounts.get(world.id) || 0;
     const rows = [
       ...details,
+      `${num(players)} joueur${players > 1 ? 's' : ''}`,
       esc(subtitle(world)) + ` · unités ×${cfg.unitSpeed}`,
       `Carte ${cfg.mapSize} × ${cfg.mapSize} · protection ${cfg.newbieDays} j`,
       cfg.night.active ? `Bonus de nuit ${cfg.night.startHour} h-${cfg.night.endHour} h (×${cfg.night.defFactor})` : 'Pas de bonus de nuit',
@@ -37,6 +40,7 @@
     ];
     return `
     <a href="${href}" class="group relative flex min-w-0 flex-col gap-0.5 border border-bronze-800 border-t-[3px] ${edge} bg-night px-2 py-1 text-parchment-100 no-underline shadow-[2px_2px_0_#000] transition hover:z-50 hover:-translate-y-px hover:border-gold-400 hover:bg-thead hover:shadow-[3px_4px_0_#000] focus-within:z-50">
+      ${isNew(world) && !world.endedAt ? '<span class="absolute -top-[9px] right-7 border border-action-line bg-action px-1 text-[10px] leading-[14px] font-semibold text-on-accent shadow-[1px_1px_0_#000]">Nouveau</span>' : ''}
       <span class="flex min-w-0 items-center gap-1.5">
         <span class="min-w-0 flex-1 truncate font-display text-[15px] leading-tight font-semibold group-hover:text-gold-200">${esc(world.name)}</span>
         <span class="group/info relative flex shrink-0" tabindex="0" aria-label="Détails de ${esc(world.name)}">
@@ -53,7 +57,9 @@
   const tileGrid = 'grid grid-cols-2 gap-1.5 sm:grid-cols-3';
   const smallTag = (cls, label) => `<span class="${cls} shrink-0 px-1 py-0 text-[10px]">${label}</span>`;
 %>
-<%- include('partials/landing-hero-start', { cta: null }) %>
+<%# Hors connexion : mêmes mondes et serveurs, le compte n'est demandé qu'en rejoignant un monde. %>
+<%- include('partials/landing-hero-start', user ? { cta: null } : { cta: { href: '/register', label: 'Jouer gratuitement' }, login: true, lobbyPage: 'home' }) %>
+<%- include('partials/lobby-tabs', { active: 'worlds' }) %>
 <%# 1. Mondes officiels : tes parties en cours puis les autres mondes (ou la fiche du monde choisi). %>
 <%- include('partials/worlds/official', { directionNames, victoryNames, playing, official, current, available, ended, myServers, publicServers, accessName, sittings, modulesOf, subtitle, isNew, age, worldTile, tileGrid, smallTag }) %>
 

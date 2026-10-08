@@ -378,12 +378,14 @@ function buildingStat(id, level, world) {
 
 /**
  * Menu « Aperçu » commun à ses pages (aperçus des villages, Arrivant) : mêmes onglets partout. `active` : mode des
- * aperçus des villages (combined, prod, units, buildings, groups) ou 'incomings'.
+ * aperçus des villages (combined, prod, units, buildings, groups) ou 'incomings'. `manager` : false sans le
+ * gestionnaire de compte (parties du matchup).
  */
-function overviewMenu(vid, active) {
+function overviewMenu(vid, active, { manager = true } = {}) {
   const modes = [['combined', 'Combiné'], ['prod', 'Production'], ['units', 'Troupes'], ['buildings', 'Bâtiments'], ['groups', 'Groupes']]
     .map(([m, label]) => [`/village/${vid}/villages?mode=${m}`, label, active === m]);
-  return segMenu(modes.concat([[`/village/${vid}/incomings`, 'Arrivant', active === 'incomings'], [`/village/${vid}/manager`, 'Gestionnaire', false]]), { label: 'Aperçu' });
+  const tail = [[`/village/${vid}/incomings`, 'Arrivant', active === 'incomings'], ...(manager ? [[`/village/${vid}/manager`, 'Gestionnaire', false]] : [])];
+  return segMenu(modes.concat(tail), { label: 'Aperçu' });
 }
 
 /** Chemin (relatif au village) de la page d'un bâtiment. */

@@ -32,9 +32,9 @@ class SealService {
     return Boolean(cfg && cfg.features && cfg.features.seals);
   }
 
-  /** Peut-on gagner des sceaux sur ce monde (module actif, monde officiel) ? */
+  /** Peut-on gagner des sceaux sur ce monde (module actif, monde officiel ; jamais en partie du matchup) ? */
   static canEarn(world) {
-    return Boolean(world) && !world.isPrivate() && SealService.enabled(world.getConfig());
+    return Boolean(world) && !world.isPrivate() && !world.isMatch() && SealService.enabled(world.getConfig());
   }
 
   // ---------------------------------------------------------------- Inventaire

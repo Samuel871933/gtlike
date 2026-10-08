@@ -25,13 +25,23 @@ router.get('/tribe', ah(async (req, res) => {
   if (req.query.tab === 'forum') return res.redirect(`${base(req)}/tribe/forum/${(await TribeForumService.firstSection(player.id)).id}`);
   // Droits et Invitations : réservés aux barons / à ceux qui peuvent inviter (sinon l'aperçu).
   const allowed = { rights: 'baron', invites: 'invite' };
-  const asked = ['overview', 'properties', 'members', 'rights', 'invites', 'diplomacy', 'operations'].includes(req.query.tab) ? req.query.tab : 'overview';
+  // Matchup : l'équipe est figée (ni propriétés, ni droits, ni invitations, ni diplomatie).
+  const tabs = res.locals.inMatch ? ['overview', 'members', 'operations'] : ['overview', 'properties', 'members', 'rights', 'invites', 'diplomacy', 'operations'];
+  const asked = tabs.includes(req.query.tab) ? req.query.tab : 'overview';
   const tab = allowed[asked] && !TribeService.can(player, allowed[asked]) ? 'overview' : asked;
   // Aperçu : fil des événements de la tribu, filtré (?cat=) et paginé (?page=), comme sur GT.
   const feed = tab === 'overview' ? await require('../../../services/TribeEventService').list(player.tribeId, { category: req.query.cat, page: req.query.page }) : null;
   const operations = tab === 'operations' ? await OperationService.list(player.id) : null;
   await renderTribe(res, player, tab, null, 200, { feed, operations });
 }));
+
+/** Catégories du fil de la tribu ; sans Diplomatie en matchup (l'équipe n'a pas de diplomatie). */
+function tribeCategories(res) {
+  const { CATEGORIES } = require('../../../services/TribeEventService');
+  if (!res.locals.inMatch) return CATEGORIES;
+  const { diplomacy, ...rest } = CATEGORIES;
+  return rest;
+}
 
 /** Page de la tribu (en-tête et onglets), avec au besoin une vue du forum de tribu. */
 async function renderTribe(res, player, tab, forum, status = 200, extra = {}) {
@@ -43,7 +53,7 @@ async function renderTribe(res, player, tab, forum, status = 200, extra = {}) {
   // Pastille « Réglages du forum » : demandes de partage de forum en attente de réponse.
   // Lien « Réglages du forum » : modérateurs de la tribu, même sur un forum partagé reçu (qu'ils ne modèrent pas).
   if (forum && can('forumMod')) Object.assign(forum, { settings: true, pendingShares: await TribeForumService.pendingShares(player.tribeId) });
-  res.status(status).render('tribe', { page: 'tribe', tab, player, can, canEdit: (m) => TribeService.canEdit(player, m), forum, forumUnread, operationCount, feed: null, operations: null, operation: null, TribeCategories: require('../../../services/TribeEventService').CATEGORIES, ...data, ...extra });
+  res.status(status).render('tribe', { page: 'tribe', tab, player, can, canEdit: (m) => TribeService.canEdit(player, m), forum, forumUnread, operationCount, feed: null, operations: null, operation: null, TribeCategories: tribeCategories(res), ...data, ...extra });
 }
 
 // ------------------------------------------------------------ Forum de la tribu

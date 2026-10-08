@@ -18,7 +18,9 @@
     if (r.type === 'world') return { medal: ui.medallionGold, icon: 'crown', dot: plain('bg-rel-special') };
     return { medal: ui.medallion, icon: r.data && r.data.visit ? 'moon' : 'eye', dot: plain('bg-parchment-600') };
   };
-  const tabs = [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']];
+  // Sans Collecte ni Succès sur les mondes qui ne les ont pas.
+  const tabs = [['all', 'Tous'], ['attack', 'Attaques'], ['defense', 'Défenses'], ['support', 'Soutiens'], ['trade', 'Commerce'], ['scavenge', 'Collecte'], ['award', 'Succès']]
+    .filter(([f]) => (f !== 'scavenge' || ctx.cfg.scavenging.active) && (f !== 'award' || ctx.cfg.achievements.active));
   // Boîte de réception ou dossier d'archives (?folder=), en gardant le filtre de type.
   const link = (f, p, fid = all ? 'all' : folder && folder.id) => `/village/${vid}/reports?filter=${f}${fid ? `&folder=${fid}` : ''}${p > 1 ? `&page=${p}` : ''}`;
   // Vue « Tout » : nom du dossier des rapports archivés.
@@ -54,10 +56,11 @@
       ...(folders.length ? [{ href: link(filter, 1, 'all'), label: 'Tout', active: all }] : []),
       { href: link(filter, 1, null), label: 'Nouveaux rapports', active: !folder && !all },
       ...folders.map((f) => ({ href: link(filter, 1, f.folder.id), label: f.folder.name, active: Boolean(folder) && folder.id === f.folder.id, count: f.total })),
-      {
+      // Matchup : pas d'archives (premium).
+      ...(inMatch ? [] : [{
         href: `/village/${vid}/reports/folders`, icon: icon(premium ? 'edit' : 'reports', 'size-3.5', 2),
         label: premium ? (folders.length ? 'Gérer les dossiers' : 'Créer un dossier') : 'Archives (premium)',
-      },
+      }]),
     ], { label: 'Rapports', cls: 'border-b border-bronze-800 md:border-r md:border-b-0' }) %>
     <div class="flex min-w-0 flex-col">
 
@@ -81,6 +84,7 @@
               </select>
               <button name="action" value="move" class="<%= btn('dark', 'sm') %>">Déplacer</button>
             </span>
+          <% } else if (inMatch) { %>
           <% } else if (!premium) { %>
             <a href="<%= shopPremium %>" class="<%= ui.link %> text-sm">Archiver des rapports (premium)</a>
           <% } else { %>
@@ -121,7 +125,7 @@
     <% } else if (folder) { %>
       <p class="<%= ui.panelNote %>">Rapports archivés : hors de la limite de la boîte de réception, supprimés <%= archiveMonths %> mois après leur date (réglable dans les <a href="/village/<%= vid %>/reports/folders" class="<%= ui.link %>">dossiers</a>).</p>
     <% } else { %>
-      <p class="<%= ui.panelNote %>">Les <%= keepLimit %> rapports les plus récents de la boîte sont conservés (100 + 10 par village) ; les plus anciens sont supprimés automatiquement. Les rapports archivés dans un dossier (premium) n’entrent pas dans cette limite.</p>
+      <p class="<%= ui.panelNote %>">Les <%= keepLimit %> rapports les plus récents de la boîte sont conservés (100 + 10 par village) ; les plus anciens sont supprimés automatiquement.<% if (!inMatch) { %> Les rapports archivés dans un dossier (premium) n’entrent pas dans cette limite.<% } %></p>
     <% } %>
     </div>
     </div>
