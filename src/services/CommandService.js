@@ -34,6 +34,10 @@ function hasUnits(units) {
   return Object.values(units).some((n) => n > 0);
 }
 
+// Ordres partis d'un village, et ordres qui y arrivent (attaques et soutiens) : aperçu du village.
+const outWhere = (villageId) => ({ originVillageId: villageId });
+const inWhere = (villageId) => ({ targetVillageId: villageId, type: { [Op.in]: ['attack', 'support'] } });
+
 function villageLabel(v) {
   return `${v.name} (${v.x}|${v.y})`;
 }
@@ -254,7 +258,7 @@ class CommandService {
         units: cmd.units, startsAt: at, arrivesAt: arrivalAt(at.getTime() + (at - new Date(cmd.startsAt)), await CommandService.worldConfig(cmd, t)),
       }, { transaction: t });
     }
-    const ctx = await VillageService.refresh(target.id, t, at);
+    const ctx = await VillageService.refresh(target.id, t, at, { bare: true });
     ctx.state.units = addUnits(ctx.state.units, { knight: 1 });
     ctx.village.set(ctx.state.toData());
     await ctx.village.save({ transaction: t });
@@ -338,7 +342,7 @@ class CommandService {
 
   /** Configuration du monde d'un ordre (précision des arrivées des retours qu'il crée). */
   static async worldConfig(cmd, t) {
-    return (await World.findByPk(cmd.worldId, { transaction: t })).getConfig();
+    return (await World.cached(cmd.worldId)).getConfig();
   }
 
   /** Traite toutes les arrivées échues (troupes et marchands), voir EventService. */
@@ -370,7 +374,7 @@ class CommandService {
     }
     const sleeper = targetOwner.playerId ? await Player.findByPk(targetOwner.playerId, { transaction: t }) : null;
     if (sleeper && sleeper.isAsleep(at)) return CommandService.resolveVisit(cmd, sleeper, t);
-    const ctx = await VillageService.refresh(cmd.targetVillageId, t, at);
+    const ctx = await VillageService.refresh(cmd.targetVillageId, t, at, { bare: true });
     const { state, cfg, village: target } = ctx;
     const origin = await Village.findByPk(cmd.originVillageId, { include: [Player], transaction: t });
     const defenderPlayer = target.playerId ? await Player.findByPk(target.playerId, { transaction: t }) : null;
@@ -544,7 +548,7 @@ class CommandService {
     const pop = (units) => Object.entries(units).reduce((n, [id, c]) => n + registry.unit(id).pop * c, 0);
     const defenderLosses = stackReports.reduce((acc, s) => addUnits(acc, s.losses), { ...homeLosses });
     const lootSum = looted.wood + looted.stone + looted.iron;
-    await AchievementService.addStats(origin.playerId, {
+    const attackerStats = await AchievementService.addStats(origin.playerId, {
       lootTotal: lootSum,
       plunders: lootSum > 0 ? 1 : 0,
       conquests: conquered ? 1 : 0,
@@ -554,15 +558,11 @@ class CommandService {
       wallLevelsDestroyed: result.wallBefore - result.wallAfter,
       battlesWon: result.hasBattle && result.attackerWins && pop(cmd.units) >= 20 ? 1 : 0,
       attacked: previousOwnerId && previousOwnerId !== origin.playerId ? previousOwnerId : null,
+      // Noblage : chance ou malchance sur la loyauté (une seule écriture des compteurs de l'attaquant).
+      ...(loyalty ? { luckyNoble: conquered && loyalty.exact === 0 ? 1 : 0, unluckyNoble: !conquered && loyalty.exact === 1 ? 1 : 0 } : {}),
     }, t);
     // Sceaux : un sceau de niveau 2 à chaque palier d'unités ennemies vaincues.
-    await require('./SealService').onKills(origin.playerId, { t, now: at });
-    if (loyalty) {
-      await AchievementService.addStats(origin.playerId, {
-        luckyNoble: conquered && loyalty.exact === 0 ? 1 : 0,
-        unluckyNoble: !conquered && loyalty.exact === 1 ? 1 : 0,
-      }, t);
-    }
+    if (attackerStats) await require('./SealService').onKills(attackerStats, { t, now: at });
     // Succès quotidiens : les unités attaquantes tuées se partagent entre le village et ses soutiens
     // au prorata de la population présente, comme les points de défense.
     await DailyService.add(cmd.worldId, origin.playerId, {
@@ -581,12 +581,12 @@ class CommandService {
       }
     }
     if (defenderPlayer && defenderPlayer.id !== origin.playerId) {
-      await AchievementService.addStats(defenderPlayer.id, {
+      const defenderStats = await AchievementService.addStats(defenderPlayer.id, {
         unitsKilled: count(result.attackerLosses),
         noblesKilled: result.attackerLosses.snob || 0,
         spyDefenses: !result.hasBattle && result.spies.sent > 0 && result.spies.lost === result.spies.sent ? 1 : 0,
       }, t);
-      await require('./SealService').onKills(defenderPlayer.id, { t, now: at });
+      if (defenderStats) await require('./SealService').onKills(defenderStats, { t, now: at });
     }
     const supporterIds = [];
     for (const s of stackReports) {
@@ -643,7 +643,8 @@ class CommandService {
     // Succès de rang (classements) : calculés par la boucle de jeu, pas dans la transaction du combat.
     await AchievementService.evaluateMany([origin.playerId, defenderPlayer?.id, ...supporterIds], { now: at, t, ranks: false });
     for (const s of stackReports) {
-      const owner = await Village.findByPk(s.stack.originVillageId, { attributes: ['playerId'], transaction: t });
+      // Village d'origine du soutien : déjà lu avec le soutien.
+      const owner = s.stack.origin;
       if (!owner?.playerId || owner.playerId === defenderPlayer?.id) continue;
       await Report.create({
         playerId: owner.playerId, type: 'support', happenedAt: at,
@@ -772,7 +773,7 @@ class CommandService {
 
   /** Retour : troupes rentrées, butin ajouté dans la limite de l'entrepôt. */
   static async resolveReturn(cmd, t) {
-    const ctx = await VillageService.refresh(cmd.originVillageId, t, new Date(cmd.arrivesAt));
+    const ctx = await VillageService.refresh(cmd.originVillageId, t, new Date(cmd.arrivesAt), { bare: true });
     const { state, village } = ctx;
     state.units = addUnits(state.units, cmd.units);
     if (cmd.loot) {
@@ -791,16 +792,33 @@ class CommandService {
       { association: 'target', include: [Player] },
     ];
     const [outgoing, incoming, stacksHere, stacksAway] = await Promise.all([
-      Command.findAll({ where: { originVillageId: villageId }, include: withVillages, order: [['arrivesAt', 'ASC']] }),
-      Command.findAll({
-        where: { targetVillageId: villageId, type: { [Op.in]: ['attack', 'support'] } },
-        include: withVillages,
-        order: [['arrivesAt', 'ASC']],
-      }),
+      Command.findAll({ where: outWhere(villageId), include: withVillages, order: [['arrivesAt', 'ASC'], ['id', 'ASC']] }),
+      Command.findAll({ where: inWhere(villageId), include: withVillages, order: [['arrivesAt', 'ASC'], ['id', 'ASC']] }),
       SupportStack.findAll({ where: { villageId }, include: [{ association: 'origin', include: [Player] }] }),
       SupportStack.findAll({ where: { originVillageId: villageId }, include: [{ association: 'village', include: [Player] }] }),
     ]);
     return { outgoing, incoming, stacksHere, stacksAway };
+  }
+
+  /**
+   * Aperçu du village : les `limit` premiers ordres de chaque sens (les premiers de « Tous » en font partie) et les
+   * nombres d'ordres, sans charger tous ceux d'un gros village de pillage. Troupes en soutien ici : unités seules.
+   */
+  static async overviewHead(villageId, limit = 9) {
+    const withVillages = [
+      { association: 'origin', include: [Player] },
+      { association: 'target', include: [Player] },
+    ];
+    const order = [['arrivesAt', 'ASC'], ['id', 'ASC']];
+    const [outgoing, incoming, outCount, inCount, attackIn, stacksHere] = await Promise.all([
+      Command.findAll({ where: outWhere(villageId), include: withVillages, order, limit }),
+      Command.findAll({ where: inWhere(villageId), include: withVillages, order, limit }),
+      Command.count({ where: outWhere(villageId) }),
+      Command.count({ where: inWhere(villageId) }),
+      Command.findOne({ where: { ...inWhere(villageId), type: 'attack' }, attributes: ['id'], raw: true }),
+      SupportStack.findAll({ where: { villageId }, attributes: ['units'] }),
+    ]);
+    return { outgoing, incoming, stacksHere, counts: { out: outCount, in: inCount, attackIn: Boolean(attackIn) } };
   }
 
   /** `villageIds` : villages du joueur s'ils sont déjà lus (en-tête des pages). */

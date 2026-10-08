@@ -9,7 +9,7 @@
 <nav class="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-bronze-800 px-3 py-2 <%= typeof cls === 'string' ? cls : '' %>" aria-label="Groupe de villages">
   <span class="text-[13px] text-parchment-500">Groupe</span>
   <% if (villageGroups.length > 12) { %>
-    <select class="<%= ui.inputSm %> max-w-72" aria-label="Groupe de villages" onchange="location.href = this.value">
+    <select class="<%= ui.inputSm %> max-w-72" aria-label="Groupe de villages" data-nav-select>
       <% for (const [id, label, n] of groupItems) { %><option value="<%= groupHref(id) %>"<%= activeId === id ? ' selected' : '' %>><%= label %> (<%= n %>)</option><% } %>
     </select>
   <% } else { %>

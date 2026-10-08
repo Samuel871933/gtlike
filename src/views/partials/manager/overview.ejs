@@ -1,9 +1,9 @@
-<%# Gestionnaire de compte, onglet Aperçu (inclus par manager.ejs avec ses helpers h) : état des trois gestionnaires
-    par village, modèles de construction, avertissements et recommandations. %>
+<%# Gestionnaire de compte, onglet Aperçu (inclus par manager.ejs avec ses helpers h) : état des gestionnaires
+    par village, modèles de construction et de forge, avertissements et recommandations. %>
 <%
   const { m, csrf, dot } = h;
-  const MANAGERS = [['build', 'Construction', 'buildings'], ['troops', 'Troupes', 'units'], ['market', 'Marché', 'market']];
-  const stateOf = (row, which) => (which === 'build' ? row.build : which === 'troops' ? row.troopsState : row.market);
+  const MANAGERS = [['build', 'Construction', 'buildings'], ['research', 'Forge', 'forge'], ['troops', 'Troupes', 'units'], ['market', 'Marché', 'market']];
+  const stateOf = (row, which) => ({ build: row.build, research: row.research, troops: row.troopsState }[which] || row.market);
   // Usage des modèles sur tous les villages (pas seulement la page affichée).
   const used = templates.build.map((tpl) => ({ tpl, ...(usage.build.get(tpl.key) || { villages: 0, paused: 0, built: 0 }) }));
   // Chargement progressif dans la page (comme l'aperçu Arrivant), pages de « villages par page » en dessous.
@@ -40,7 +40,7 @@
               </td>
             </tr>
           <% } %>
-          <%- lazyMore(lv, { colspan: 5, label: 'villages' }) %>
+          <%- lazyMore(lv, { colspan: MANAGERS.length + 2, label: 'villages' }) %>
         </tbody>
       </table>
     </div>
@@ -56,7 +56,7 @@
         <ul class="flex flex-col">
           <% for (const w of warnings) { %>
             <li class="flex flex-wrap items-baseline gap-x-2 border-b border-bronze-900 px-3 py-1.5 text-sm last:border-b-0">
-              <span class="<%= w.kind === 'premium' || w.kind === 'build' ? 'text-blood-450' : 'text-gold-400' %>"><%- icon(w.kind === 'farm' ? 'farm' : w.kind === 'storage' ? 'storage' : 'alert', 'size-3.5', 2.2) %></span>
+              <span class="<%= ['premium', 'build', 'research'].includes(w.kind) ? 'text-blood-450' : 'text-gold-400' %>"><%- icon(w.kind === 'farm' ? 'farm' : w.kind === 'storage' ? 'storage' : 'alert', 'size-3.5', 2.2) %></span>
               <%- villageLink(h.vid, w.village, { k: false, truncate: true }) %>
               <span class="text-parchment-300"><%= w.text %></span>
             </li>
@@ -76,6 +76,22 @@
               <td class="text-right tabular-nums"><%= u.villages %></td>
               <td class="text-right tabular-nums"><%= u.paused %></td>
               <td class="text-right tabular-nums"><%= num(u.built) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="<%= ui.panel %>">
+      <%- panelHead('Modèles de forge', `<a href="${m}?tab=research" class="${ui.link} font-sans text-xs">Gérer les modèles</a>`) %>
+      <table class="<%= ui.table %> text-sm">
+        <thead><tr><th>Modèle</th><th class="text-right">Recherches</th><th class="text-right">Villages</th></tr></thead>
+        <tbody>
+          <% for (const tpl of templates.research) { %>
+            <tr>
+              <td><a href="<%= m %>?tab=research&id=<%= encodeURIComponent(tpl.key) %>" class="<%= ui.linkPlain %>"><%= tpl.name %></a><% if (tpl.system) { %> <span class="text-xs text-parchment-500">système</span><% } %></td>
+              <td class="text-right tabular-nums"><%= tpl.units.length %></td>
+              <td class="text-right tabular-nums"><%= usage.research.get(tpl.key) || 0 %></td>
             </tr>
           <% } %>
         </tbody>

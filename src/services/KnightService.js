@@ -13,7 +13,7 @@ const DAY = 86400000;
  */
 class KnightService {
   static async config(player, t) {
-    return (await World.findByPk(player.worldId, { transaction: t })).getConfig();
+    return (await World.cached(player.worldId)).getConfig();
   }
 
   static enabled(cfg) {

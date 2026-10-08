@@ -5,18 +5,19 @@
 const express = require('express');
 const VillageService = require('../../../services/VillageService');
 const CommandService = require('../../../services/CommandService');
-const { Knight, ScavengeRun, Transport, Village, VillageGroupMember, MapMarker, Player } = require('../../../models');
+const { Knight, ScavengeRun, Transport, Village, VillageGroupMember, MapMarker } = require('../../../models');
 const PaginationService = require('../../../services/PaginationService');
 const VillageGroupService = require('../../../services/VillageGroupService');
 const villageActivities = require('../../villageActivities');
 const registry = require('../../../game/registry');
 const { ah, back, flash } = require('../../middleware');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
 router.get('/', ah(async (req, res) => {
-  const movements = await CommandService.overview(req.ctx.village.id);
+  const allMoves = req.query.tous === '1';
+  const movements = allMoves ? await CommandService.overview(req.ctx.village.id) : await CommandService.overviewHead(req.ctx.village.id);
   const supportUnits = movements.stacksHere.reduce((acc, s) => CommandService.addUnits(acc, s.units), {});
   // Options de construction, pour l'encart du bâtiment sélectionné sur le plan.
   const buildOptions = Object.fromEntries(registry.buildingsFor(req.ctx.cfg).map((type) => [type.id, VillageService.buildOption(req.ctx, type)]));
@@ -32,7 +33,7 @@ router.get('/', ah(async (req, res) => {
     activities: villageActivities(req.ctx, { knights, scavenges, transports }),
     view: req.query.vue === 'liste' ? 'list' : 'city',
     moveTab: ['all', 'in', 'out'].includes(req.query.mv) ? req.query.mv : null,
-    allMoves: req.query.tous === '1',
+    allMoves,
     villageGroupIds: memberships.map((m) => m.groupId),
   });
 }));
@@ -46,9 +47,9 @@ router.get('/villages', ah(async (req, res) => {
   // Pages de villages (100 par défaut, réglable, comme l'aperçu Arrivant) : seuls ceux de la page sont calculés, puis
   // affichés au fil du défilement (lazyLists). Onglet Groupes : tous les villages, quel que soit le groupe actif.
   const list = mode === 'groups' || !activeGroup ? myVillages : navVillages;
-  const player = await Player.findByPk(me(req), { attributes: ['id', 'villagesPerPage'] });
-  const pagination = PaginationService.paginate(list.length, req.query.page, PaginationService.perPage(player, 'villages'));
-  const ids = list.slice(pagination.offset, pagination.offset + pagination.perPage).map((v) => v.id);
+  const player = currentPlayer(res);
+  const { rows: shown, pagination } = PaginationService.slice(list, req.query.page, PaginationService.perPage(player, 'villages'));
+  const ids = shown.map((v) => v.id);
   const pageHref = (n) => `${base(req)}/villages?mode=${mode}&page=${n}`;
   if (mode === 'groups') {
     const [villages, membership, marks] = await Promise.all([

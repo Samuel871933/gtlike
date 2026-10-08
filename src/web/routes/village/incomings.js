@@ -6,11 +6,10 @@
 const express = require('express');
 const IncomingService = require('../../../services/IncomingService');
 const incomingLabel = require('../../../game/incomingLabel');
-const { Player } = require('../../../models');
 const PaginationService = require('../../../services/PaginationService');
 const { ah, back, flash } = require('../../middleware');
 const GameError = require('../../../services/GameError');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
@@ -54,7 +53,7 @@ router.get('/incomings', ah(async (req, res) => {
   const [{ rows: all, counts, totals }, player] = await Promise.all([
     // Groupe actif (menu des groupes) : ordres vers ses villages seulement.
     IncomingService.list(me(req), { ...filters, villages: res.locals.activeGroup ? res.locals.navVillages.map((v) => v.id) : null }, req.ctx.cfg),
-    Player.findByPk(me(req), { attributes: ['incomingLabelFormat', 'incomingsPerPage'] }),
+    currentPlayer(res),
   ]);
   // Compteurs seuls (game.js les relit régulièrement et après chaque action) : onglets, liste, ignorés et totaux.
   if (req.query.format === 'counts') {
@@ -64,8 +63,7 @@ router.get('/incomings', ah(async (req, res) => {
     });
   }
   // Pages de l'aperçu (100 ordres par défaut, réglable) : les totaux et repères portent sur tous les ordres.
-  const pagination = PaginationService.paginate(all.length, req.query.page, PaginationService.perPage(player, 'incomings'));
-  const rows = all.slice(pagination.offset, pagination.offset + pagination.perPage);
+  const { rows, pagination } = PaginationService.slice(all, req.query.page, PaginationService.perPage(player, 'incomings'));
   res.render('incomings', {
     page: 'incomings', rows, total: all.length, pagination, counts, totals, filters, qs: filterHref(req.ctx.village.id, filters),
     // Tous les ordres de la page, y compris ceux que le chargement progressif n'a pas encore affichés.

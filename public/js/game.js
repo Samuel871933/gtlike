@@ -1,5 +1,29 @@
 'use strict';
 
+// Outils communs aux scripts du jeu (ce fichier, map.js) : nombres, durées, heures, texte réécrit, échappement HTML.
+window.Adarma = (() => {
+  // Un formateur pour tous les nombres : toLocaleString en recrée un à chaque appel, et la page en affiche chaque seconde.
+  const NUMBER = new Intl.NumberFormat('fr-FR');
+  const DATE_TIME = new Intl.DateTimeFormat('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    num: (n) => NUMBER.format(n),
+    dateTime: (d) => DATE_TIME.format(d),
+    pad,
+    // Durée en secondes : « 1:05:09 ».
+    duration: (s) => `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`,
+    // Heure à la milliseconde, comme sur Guerre Tribale : « 11:25:21:926 ».
+    clockMs: (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}:${String(d.getMilliseconds()).padStart(3, '0')}`,
+    // Texte réécrit en continu : le nœud texte existant est modifié au lieu d'être remplacé. Remplacer un nœud est une
+    // insertion, qui fait recalculer les styles de toute la page (règles :has(:checked)… des utilitaires has-*).
+    setText: (el, text) => {
+      const node = el.firstChild;
+      if (node && node === el.lastChild && node.nodeType === 3) { if (node.data !== text) node.data = text; } else if (el.textContent !== text) el.textContent = text;
+    },
+    esc: (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
+  };
+})();
+
 // Affichage en direct : ressources qui montent, comptes à rebours, horloge serveur.
 (function () {
   const offset = (() => {
@@ -8,23 +32,16 @@
   })();
   const serverNow = () => Date.now() + offset;
   const isOverview = Boolean(document.querySelector('[data-overview-page]'));
-  const pad = (n) => String(n).padStart(2, '0');
-  const fmt = (s) => `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+  const { pad, num, setText, clockMs } = window.Adarma;
+  const fmt = window.Adarma.duration;
   // Barre des ressources sur écran étroit : nombres abrégés (8,4k, 400k), même règle que numShort (src/web/helpers.js).
   const narrow = window.matchMedia('(max-width: 767px)');
   const short = (n) => {
-    const cut = (x, unit) => `${(x < 10 ? Math.floor(x * 10) / 10 : Math.floor(x)).toLocaleString('fr-FR')}${unit}`;
+    const cut = (x, unit) => `${num(x < 10 ? Math.floor(x * 10) / 10 : Math.floor(x))}${unit}`;
     return n < 1000 ? String(n) : n < 1e6 ? cut(n / 1000, 'k') : cut(n / 1e6, 'M');
   };
   let reloading = false;
   let refreshingOverview = false;
-  // Texte réécrit en continu (ressources, horloge, comptes à rebours) : le nœud texte existant est modifié au lieu
-  // d'être remplacé. Remplacer un nœud est une insertion, qui fait recalculer les styles de toute la page (règles
-  // :has(:checked)… des utilitaires has-*), une fois par seconde et par compteur.
-  const setText = (el, text) => {
-    const node = el.firstChild;
-    if (node && node === el.lastChild && node.nodeType === 3) { if (node.data !== text) node.data = text; } else if (el.textContent !== text) el.textContent = text;
-  };
   let nextOverviewRefresh = 0;
 
   // Une échéance met à jour les panneaux concernés sans recréer le décor et ses images.
@@ -90,7 +107,13 @@
     entries.forEach((e) => { if (e.isIntersecting) onScreen.add(e.target); else onScreen.delete(e.target); });
   }, { rootMargin: '200px 0px' }) : null;
 
+  // Échu dès le chargement (le serveur n'a pas encore traité l'échéance) : rechargement 5 s plus tard au plus tôt, pas
+  // en boucle toutes les demi-secondes.
+  const loadedAt = serverNow();
+
   function tick() {
+    // Onglet caché : rien à afficher ni à recharger ; le tour suivant au retour rattrape tout.
+    if (document.hidden) return;
     const now = serverNow();
     const countdowns = document.querySelectorAll('[data-countdown]');
     const many = watch && countdowns.length > 50;
@@ -100,7 +123,7 @@
       const start = Number(el.dataset.res);
       const cap = Number(el.dataset.cap);
       const value = start >= cap ? start : Math.min(cap, start + (Number(el.dataset.rate) * (now - Number(el.dataset.at))) / 3600000);
-      setText(el, 'resShort' in el.dataset && narrow.matches ? short(Math.floor(value)) : Math.floor(value).toLocaleString('fr-FR'));
+      setText(el, 'resShort' in el.dataset && narrow.matches ? short(Math.floor(value)) : num(Math.floor(value)));
       el.classList.toggle('text-blood-450', value >= cap);
       const bar = el.parentElement.querySelector('[data-res-bar]');
       if (bar) bar.style.width = `${Math.min(100, Math.round((value / cap) * 100))}%`;
@@ -132,6 +155,7 @@
         return;
       }
       if (left <= 0) {
+        if (Number(el.dataset.countdown) <= loadedAt && now - loadedAt < 5000) return;
         if (isOverview) refreshOverview();
         else if (!reloading) {
           reloading = true;
@@ -152,7 +176,7 @@
     });
 
     document.querySelectorAll('[data-clock]').forEach((el) => {
-      setText(el, new Date(now).toLocaleString('fr-FR'));
+      setText(el, window.Adarma.dateTime(new Date(now)));
     });
   }
 
@@ -180,7 +204,7 @@
     const total = Math.floor(cap * loot);
     const third = Math.floor(total / 3);
     const resources = { wood: total - 2 * third, stone: third, iron: third };
-    for (const [id, amount] of Object.entries(resources)) preview.querySelector(`[data-scavenge-resource="${id}"]`).textContent = amount.toLocaleString('fr-FR');
+    for (const [id, amount] of Object.entries(resources)) preview.querySelector(`[data-scavenge-resource="${id}"]`).textContent = num(amount);
     const seconds = Math.round((Math.pow(cap * cap * 100 * loot * loot, 0.45) + 1800) * Math.pow(Number(preview.dataset.speed), -0.55));
     preview.querySelector('[data-scavenge-duration]').textContent = cap ? fmt(seconds) : '—';
   }
@@ -272,7 +296,7 @@
     }
     form.querySelectorAll('[data-total]').forEach((el) => {
       const k = el.dataset.total;
-      el.lastElementChild.textContent = k === 'time' ? fmt(Math.round(total.time)) : Math.floor(total[k]).toLocaleString('fr-FR');
+      el.lastElementChild.textContent = k === 'time' ? fmt(Math.round(total.time)) : num(Math.floor(total[k]));
       if (k === 'time') return;
       const short = total[k] > have[k];
       el.classList.toggle('text-blood-450', short);
@@ -288,15 +312,18 @@
   // sur le serveur à la précision des arrivées du monde (data-arrival-step, en ms ; voir game/movement.arrivalAt).
   const roundArrival = (ms, step) => new Date(Math.ceil(ms / Math.max(1, Number(step) || 1)) * Math.max(1, Number(step) || 1));
   function arrivalText(date, now) {
-    const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}:${String(date.getMilliseconds()).padStart(3, '0')}`;
+    const time = clockMs(date);
     const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
     const diff = Math.round((day(date) - day(now)) / 86400000);
     if (diff === 0) return `aujourd'hui à ${time}`;
     if (diff === 1) return `demain à ${time}`;
     return `le ${pad(date.getDate())}/${pad(date.getMonth() + 1)} à ${time}`;
   }
+  // Rythme des unités de chaque formulaire, lu une fois : l'aperçu est recalculé à chaque image.
+  const paces = new WeakMap();
   function travelPreview(form) {
-    const pace = JSON.parse(form.dataset.travel);
+    if (!paces.has(form)) paces.set(form, JSON.parse(form.dataset.travel));
+    const pace = paces.get(form);
     let minutes = 0;
     for (const [id, m] of Object.entries(pace)) {
       const input = form.querySelector(`input[name="${id}"]`);
@@ -308,8 +335,9 @@
     const seconds = Math.round(dist * minutes * 60);
     const ok = minutes && x !== '' && y !== '' && seconds > 0;
     const now = new Date(serverNow());
-    form.querySelector('[data-travel-arrival]').textContent = ok ? arrivalText(roundArrival(now.getTime() + seconds * 1000, form.dataset.arrivalStep), now) : '—';
-    form.querySelector('[data-travel-duration]').textContent = ok ? `(${fmt(seconds)})` : '';
+    // setText : le texte n'est réécrit que s'il change (une réécriture fait recalculer les styles de la page).
+    setText(form.querySelector('[data-travel-arrival]'), ok ? arrivalText(roundArrival(now.getTime() + seconds * 1000, form.dataset.arrivalStep), now) : '—');
+    setText(form.querySelector('[data-travel-duration]'), ok ? `(${fmt(seconds)})` : '');
   }
   document.addEventListener('input', (e) => {
     const form = e.target.closest('form[data-travel]');
@@ -354,46 +382,50 @@
   tipBox.className = 'pointer-events-none fixed z-50 max-w-[calc(100vw-16px)] border-2 border-black bg-panel-top p-2 shadow-[inset_0_0_0_1px_var(--color-bronze-500),4px_4px_0_#000]';
   tipBox.hidden = true;
   document.body.append(tipBox);
+  // Bulle de `el` remplie par `fill`, placée sous l'élément (au-dessus s'il manque de place). Rien n'est refait tant que
+  // la bulle affichée est déjà la sienne : `pointerover` se répète à chaque élément enfant traversé, et mesurer la
+  // bulle force le calcul de la mise en page.
+  let tipFor = null;
+  function openTip(el, fill) {
+    if (tipFor === el && !tipBox.hidden) return;
+    tipFor = el;
+    fill();
+    tipBox.hidden = false;
+    const r = el.getBoundingClientRect();
+    const left = Math.min(r.left, window.innerWidth - tipBox.offsetWidth - 8);
+    const below = r.bottom + 6 + tipBox.offsetHeight <= window.innerHeight;
+    tipBox.style.left = `${Math.max(8, left)}px`;
+    tipBox.style.top = `${below ? r.bottom + 6 : r.top - tipBox.offsetHeight - 6}px`;
+  }
+  // Bulle fermée quand le pointeur quitte l'élément `selector` qui l'a ouverte (pas en passant sur ses enfants).
+  const closeTipOn = (selector) => document.addEventListener('pointerout', (e) => {
+    const el = e.target.closest(selector);
+    if (el && !el.contains(e.relatedTarget)) tipBox.hidden = true;
+  });
   // Bulle courte et immédiate (data-hint="texte", une ligne par \n) : places des opérations… L'infobulle native du
   // navigateur arrive trop tard et ne s'affiche pas toujours sur les petits éléments.
   document.addEventListener('pointerover', (e) => {
     const el = e.target.closest('[data-hint]');
     if (!el || e.pointerType === 'touch') return;
-    tipBox.replaceChildren(...el.dataset.hint.split('\n').map((line, i) => {
+    openTip(el, () => tipBox.replaceChildren(...el.dataset.hint.split('\n').map((line, i) => {
       const row = document.createElement('div');
       row.className = i ? 'text-[12px] text-parchment-300 tabular-nums' : 'text-[13px] font-semibold text-parchment-100';
       row.textContent = line;
       return row;
-    }));
-    tipBox.hidden = false;
-    const r = el.getBoundingClientRect();
-    const left = Math.min(r.left, window.innerWidth - tipBox.offsetWidth - 8);
-    const below = r.bottom + 6 + tipBox.offsetHeight <= window.innerHeight;
-    tipBox.style.left = `${Math.max(8, left)}px`;
-    tipBox.style.top = `${below ? r.bottom + 6 : r.top - tipBox.offsetHeight - 6}px`;
+    })));
   });
-  document.addEventListener('pointerout', (e) => {
-    const el = e.target.closest('[data-hint]');
-    if (el && !el.contains(e.relatedTarget)) tipBox.hidden = true;
-  });
+  closeTipOn('[data-hint]');
   document.addEventListener('pointerover', (e) => {
     const el = e.target.closest('[data-tip]');
     const src = el && e.pointerType !== 'touch' && document.getElementById(el.dataset.tip);
     if (!src) return;
-    // L'infobulle du navigateur ferait doublon avec la bulle.
-    el.querySelectorAll('[title]').forEach((t) => t.removeAttribute('title'));
-    tipBox.innerHTML = (src.querySelector('[data-order-detail]') || src).outerHTML;
-    tipBox.hidden = false;
-    const r = el.getBoundingClientRect();
-    const left = Math.min(r.left, window.innerWidth - tipBox.offsetWidth - 8);
-    const below = r.bottom + 6 + tipBox.offsetHeight <= window.innerHeight;
-    tipBox.style.left = `${Math.max(8, left)}px`;
-    tipBox.style.top = `${below ? r.bottom + 6 : r.top - tipBox.offsetHeight - 6}px`;
+    openTip(el, () => {
+      // L'infobulle du navigateur ferait doublon avec la bulle.
+      el.querySelectorAll('[title]').forEach((t) => t.removeAttribute('title'));
+      tipBox.innerHTML = (src.querySelector('[data-order-detail]') || src).outerHTML;
+    });
   });
-  document.addEventListener('pointerout', (e) => {
-    const el = e.target.closest('[data-tip]');
-    if (el && !el.contains(e.relatedTarget)) tipBox.hidden = true;
-  });
+  closeTipOn('[data-tip]');
 
   // Opérations de tribu : l'écart entre les attaques d'un village n'a de sens qu'à partir de 2 attaques (en
   // modification groupée, nombre vide = inchangé : l'écart reste proposé) ; en mode « troupes différentes par
@@ -439,7 +471,7 @@
   // Gestionnaire de compte : total des troupes saisies (population, ressources) sous les champs d'unités, et aperçu d'un
   // lot par bâtiment (même découpe que managerTemplates.splitBatch : coût au plus la taille des lots, à proportion de
   // ce qui manque, dizaine supérieure, une dizaine de l'unité qui manque le plus si tout s'arrondit à zéro).
-  const fr = (n) => n.toLocaleString('fr-FR');
+  const fr = window.Adarma.num;
   function troopForm(form) {
     const box = form.querySelector('[data-troop-total]');
     if (!box) return;
@@ -746,9 +778,34 @@
     if (close) closeToast(close.closest('[data-toast]'));
   });
 
-  // Cases qui envoient leur formulaire dès qu'on les coche (forum : exclure les forums en sourdine).
+  // Liste des villages de l'en-tête (au-delà de 100 villages) : construite à la première ouverture du menu, d'après la
+  // ligne modèle du serveur (partials/header.ejs), depuis le JSON [id, nom, x, y] de la liste.
+  document.addEventListener('toggle', (e) => {
+    const list = e.target.open && e.target.querySelector && e.target.querySelector('ul[data-nav-villages]');
+    if (!list) return;
+    const villages = JSON.parse(list.dataset.navVillages);
+    const model = list.querySelector('template[data-nav-line]').content.firstElementChild;
+    const [on, off, current] = [list.dataset.navOn, list.dataset.navOff, Number(list.dataset.navCurrent)];
+    list.removeAttribute('data-nav-villages');
+    list.append(...villages.map(([id, name, x, y]) => {
+      const li = model.cloneNode(true);
+      const a = li.firstElementChild;
+      a.href = `/village/${id}`;
+      a.className = a.className.replace(off, id === current ? on : off);
+      li.querySelector('[data-nav-name]').textContent = name;
+      li.querySelector('[data-nav-coords]').textContent = `${x}|${y}`;
+      return li;
+    }));
+  }, true);
+
+  // Champs qui envoient leur formulaire dès qu'on les change (forum : exclure les forums en sourdine ; listes de filtres).
+  // data-autosubmit="request" : envoi comme par le bouton, en passant par les écouteurs « submit » de la page.
+  // Listes de navigation (select[data-nav-select]) : chaque option porte l'adresse où aller.
   document.addEventListener('change', (e) => {
-    if (e.target.matches('[data-autosubmit]')) e.target.form.submit();
+    const el = e.target;
+    if (el.matches('[data-autosubmit="request"]')) el.form.requestSubmit();
+    else if (el.matches('[data-autosubmit]')) el.form.submit();
+    else if (el.matches('select[data-nav-select]')) window.location.href = el.value;
   });
 
   // Réglages tribu : chaque en-tête commande seulement les cases de sa colonne.
@@ -858,7 +915,7 @@
   const error = box.querySelector('[data-multi-error]');
   const addButton = box.querySelector('[data-multi-add]');
   const submit = form.querySelector('[data-multi-submit]');
-  const fmt = (n) => Math.floor(n).toLocaleString('fr-FR');
+  const fmt = (n) => window.Adarma.num(Math.floor(n));
   const extras = () => [...rows.querySelectorAll('tr[data-extra]')];
 
   function renumber() {
@@ -968,32 +1025,52 @@
     badge.hidden = !n;
     document.title = (n ? `(${n}) ` : '') + document.title.replace(/^\(\d+\) /, '');
   }
+  // Dernière lecture, partagée entre les onglets du monde : un seul onglet interroge le serveur toutes les 20 s, les
+  // autres reçoivent ses compteurs (événement storage) ; un onglet caché n'interroge pas, il relit en revenant.
+  const SHARED = `adarma.alerts.${badge.dataset.world}`;
+  const PERIOD = 20000;
+  const shared = () => { try { return JSON.parse(store.get(SHARED) || 'null'); } catch { return null; } };
+  function apply({ attacks, lastId, reports, messages }) {
+    show(attacks);
+    // Rapports et messages non lus : pastilles du menu, et nombres du menu déroulant Rapports.
+    const setCount = (key, n, hideZero) => document.querySelectorAll(`[data-live-count="${key}"]`).forEach((el) => {
+      el.textContent = n ? String(n) : '';
+      if (hideZero) el.hidden = !n;
+    });
+    if (reports) {
+      setCount('reports', reports.all, true);
+      for (const [f, n] of Object.entries(reports)) setCount(`reports:${f}`, n, false);
+    }
+    if (messages != null) setCount('messages', messages, true);
+    // Première lecture sur cet appareil : rien à signaler, on retient seulement le dernier identifiant.
+    const stored = store.get(LAST);
+    if (stored === null || lastId > Number(stored)) {
+      store.set(LAST, String(lastId));
+      if (stored !== null && store.get(SOUND) === '1') beep();
+    }
+  }
   async function poll() {
+    if (document.hidden) return;
+    const last = shared();
+    if (last && Date.now() - last.at < PERIOD - 2000) return;
     try {
       const res = await fetch(badge.dataset.incomingAlerts, { cache: 'no-store', credentials: 'same-origin', headers: { accept: 'application/json' } });
       if (!res.ok) return;
-      const { attacks, lastId, reports, messages } = await res.json();
-      show(attacks);
-      // Rapports et messages non lus : pastilles du menu, et nombres du menu déroulant Rapports.
-      const setCount = (key, n, hideZero) => document.querySelectorAll(`[data-live-count="${key}"]`).forEach((el) => {
-        el.textContent = n ? String(n) : '';
-        if (hideZero) el.hidden = !n;
-      });
-      if (reports) {
-        setCount('reports', reports.all, true);
-        for (const [f, n] of Object.entries(reports)) setCount(`reports:${f}`, n, false);
-      }
-      if (messages != null) setCount('messages', messages, true);
-      // Première lecture sur cet appareil : rien à signaler, on retient seulement le dernier identifiant.
-      const stored = store.get(LAST);
-      if (stored === null || lastId > Number(stored)) {
-        store.set(LAST, String(lastId));
-        if (stored !== null && store.get(SOUND) === '1') beep();
-      }
+      const data = await res.json();
+      store.set(SHARED, JSON.stringify({ at: Date.now(), data }));
+      apply(data);
     } catch { /* hors ligne : on réessaie au prochain tour */ }
   }
+  window.addEventListener('storage', (e) => {
+    if (e.key !== SHARED || !e.newValue || document.hidden) return;
+    try { apply(JSON.parse(e.newValue).data); } catch { /* valeur illisible */ }
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  // Au chargement, l'en-tête vient d'être rendu avec ces compteurs : lecture seulement si aucune n'est récente (ou
+  // pour retenir le dernier identifiant sur un nouvel appareil).
+  if (store.get(LAST) === null) store.set(SHARED, '');
   poll();
-  setInterval(poll, 20000);
+  setInterval(poll, PERIOD);
 })();
 
 // Longues listes (voir web/lazyLists.js) : le paquet suivant d'une liste [data-lazy-list] est demandé à l'approche de sa
@@ -1100,6 +1177,7 @@
     }
   });
   async function resync() {
+    if (document.hidden) return;
     try {
       const url = new URL(window.location.href);
       url.searchParams.set('format', 'counts');
@@ -1169,7 +1247,7 @@
     const refresh = () => {
       farmUnits.forEach((el) => {
         const n = left[el.dataset.farmUnit];
-        el.textContent = n.toLocaleString('fr-FR');
+        el.textContent = window.Adarma.num(n);
         el.classList.toggle('is-amount', n > 0);
         el.classList.toggle('is-zero', !n);
       });

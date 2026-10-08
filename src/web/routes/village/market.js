@@ -42,8 +42,8 @@ router.get('/market', ah(async (req, res) => {
       filter: ['all', 'possible', 'tribe'].includes(req.query.filter) ? req.query.filter : 'all',
     };
     const all = await TradeService.listOffers(req.ctx, filters);
-    const pg = PaginationService.paginate(all.length, req.query.page, PaginationService.perPage(res.locals.player, 'market'));
-    Object.assign(locals, { filters, offers: all.slice(pg.offset, pg.offset + pg.perPage), total: all.length, pagination: pg });
+    const { rows: offers, pagination } = PaginationService.slice(all, req.query.page, PaginationService.perPage(res.locals.player, 'market'));
+    Object.assign(locals, { filters, offers, total: all.length, pagination });
   }
   if (tab === 'create') {
     // Préremplissage : la ressource qu'on a le plus contre celle qu'on a le moins (ou l'offre d'un rapport à recréer).

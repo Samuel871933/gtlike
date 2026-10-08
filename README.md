@@ -315,15 +315,25 @@ lancier et porte-épée sans recherche ; la hache demande la forge 2. Durée div
 
 ## Montée en charge
 
-- Un processus Node sert environ 120 pages par seconde (un cœur, ~8 ms de calcul par page). Au-delà, lancer plusieurs processus derrière le
-  même port, par exemple `pm2 start src/server.js -i 4` : seul le processus `NODE_APP_INSTANCE=0` applique les
-  migrations (en dev), crée les mondes et fait tourner la boucle de jeu ; les autres ne servent que des pages.
-  Chaque processus ouvre jusqu'à `DB_POOL_MAX` connexions (30) : rester sous `max_connections` de MySQL.
+- Déploiement conseillé dès quelques centaines de joueurs connectés : **la boucle de jeu dans son propre processus**
+  (`HTTP=0 node src/server.js`) et **plusieurs processus web** derrière le même port
+  (`GAME_LOOP=0`, par exemple `pm2 start src/server.js -i 4` avec `NODE_APP_INSTANCE` ≥ 1, ou un proxy vers plusieurs
+  ports). Le processus `NODE_APP_INSTANCE=0` (ou sans cette variable) applique les migrations (en dev) et crée les
+  mondes. Dans un seul processus, la boucle partage le fil et les connexions des pages : sous forte charge elle prend du
+  retard sur les arrivées. Chaque processus ouvre jusqu'à `DB_POOL_MAX` connexions (30) : rester sous
+  `max_connections` de MySQL.
+- Mesures (`scripts/loadtest.js`, 2 000 joueurs peuplés, 300 joueurs connectés qui ouvrent une page par seconde,
+  3 000 attaques en 60 s, une seule machine avec MariaDB) : un processus seul plafonne vers 60 à 90 pages/s (le fil
+  Node est saturé) ; boucle à part + 4 processus web : toute la charge servie (≈ 260 pages/s), médiane 35 à 125 ms
+  selon la page, 99 % sous 1,5 s. La résolution des combats d'un monde reste séquentielle (ordre chronologique) :
+  ≈ 50 combats par seconde et par monde, les mondes en parallèle.
 - Boucle de jeu (toutes les 10 min) : succès évalués monde par monde en une passe (rangs et continents calculés une
   fois, `AchievementService.evaluateWorld`), barbares lus d'un coup et réécrits par lots seulement s'ils montent un
   bâtiment (`VillageService.growBarbarians`). Après un combat ou un échange, les succès de rang ne sont pas recalculés.
-- Arrivées (`EventService.processDue`) : un seul traitement à la fois par processus ; les pages qui arrivent pendant
-  ce temps l'attendent au lieu de se disputer les verrous des mêmes ordres.
+- Arrivées (`EventService.processDue`) : monde par monde, dans l'ordre chronologique de chaque monde, les mondes en
+  parallèle. Une file par monde (FIFO dans le processus, verrou nommé `GET_LOCK` entre processus), par tranches de 50.
+  Une page ne traite des arrivées que si l'une concerne les villages du joueur et que personne ne traite déjà ce monde :
+  en surcharge, elle s'affiche avec l'état connu au lieu d'attendre derrière l'arriéré, que la boucle résorbe.
 - Classements : liste complète recalculée au plus une fois par minute ; exports `/worlds/:slug/map/*.txt` au plus
   toutes les 5 minutes, avec `Cache-Control` (`src/web/memo.js`, mémoire du processus).
 - Aperçu des villages et statut des marchands : lectures groupées pour tous les villages du joueur ; seuls les villages
@@ -448,6 +458,10 @@ mais **sans minimum de villages** et inclus dans le premium ([src/services/Accou
   dans [src/game/managerTemplates.js](src/game/managerTemplates.js), modèles du joueur dans `ManagerTemplates`) appliqués
   aux villages (`ManagerVillages`), pause et reprise. Seules les places de file au prix normal sont utilisées ; entrepôt,
   ferme et bâtiments requis manquants passent d'abord ; démolition en option. Pas de limite de 50 ordres comme sur GT.
+- **Gestionnaire de forge** : modèles de recherche (« Toutes les recherches », système, valable sur tous les mondes ;
+  modèles du joueur, une case par unité du monde, enregistrée aussitôt). Une recherche à la fois, dans l'ordre de la
+  forge : celles dont les bâtiments requis manquent attendent, les suivantes passent. Passe après la prochaine
+  construction (ses ressources mises de côté) et avant les troupes (qui laissent celles de la recherche attendue).
 - **Gestionnaire de troupes** : troupes voulues au total (modèles système : nukes, défenses fixe et mobile, éclaireurs, variantes à archers selon le monde ; modèles du joueur ; ou saisie), tampons de population et de ressources ; les
   unités en manque avancent ensemble ; la prochaine construction du gestionnaire de villages garde ses ressources.
 - **Gestionnaire de marché** : routes commerciales hebdomadaires (`TradeRoutes`) et réserve (équilibrage toutes les 8 h

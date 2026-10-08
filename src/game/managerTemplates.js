@@ -123,6 +123,16 @@ function troopsFor(cfg) {
   return TROOPS.filter((t) => Object.keys(t.units).every((id) => ids.has(id)));
 }
 
+// Gestionnaire de forge : modèle système qui recherche toutes les unités du monde (dans l'ordre de la forge), quel
+// que soit le monde ; les modèles du joueur choisissent leurs unités.
+const RESEARCH = [
+  { key: 'sys:research', name: 'Toutes les recherches', description: 'Recherche toutes les unités du monde, dans l’ordre de la forge, dès que les bâtiments requis et les ressources le permettent.', all: true },
+].map((t) => Object.freeze({ ...t, system: true }));
+const RESEARCH_BY_KEY = new Map(RESEARCH.map((t) => [t.key, t]));
+
+/** Modèle de forge système d'une clé ('sys:research'), ou nul. */
+const researchSystem = (key) => RESEARCH_BY_KEY.get(key) || null;
+
 const BY_KEY = new Map(SYSTEM.map((t) => [t.key, t]));
 
 /** Modèle système d'une clé ('sys:resources'), ou nul. */
@@ -203,6 +213,6 @@ function batchPreview(units, budget, types) {
 }
 
 module.exports = {
-  SYSTEM, TROOPS, BATCH_COST, BATCH_COST_MIN, BATCH_COST_MAX, system, troopSystem, troopsFor, targets, withLevels, stats, troopStats,
+  SYSTEM, TROOPS, RESEARCH, BATCH_COST, BATCH_COST_MIN, BATCH_COST_MAX, system, troopSystem, researchSystem, troopsFor, targets, withLevels, stats, troopStats,
   batchCostOf, splitBatch, batchPreview,
 };

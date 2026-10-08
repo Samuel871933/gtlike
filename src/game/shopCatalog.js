@@ -30,7 +30,7 @@ const SCOPES = {
 // le gestionnaire de compte (AccountManagerService, sans minimum de villages à la différence de GT), comme sur Guerre Tribale.
 const PREMIUM = {
   key: 'premium', kind: 'premium', name: 'Premium',
-  description: 'File de construction plus longue : 3 emplacements de plus dans chaque village, puis jusqu’à 20 constructions en payant 25 % de plus à chacune. Archives de rapports : des dossiers hors de la limite de la boîte, gardés jusqu’à 2 ans. Image de profil. Assistant de pillage : tous tes villages barbares attaqués, filtrés, et l’attaque en un clic. Gestionnaire de compte, dès le premier village : constructions selon tes modèles, recrutement des troupes voulues, routes commerciales, réserve qui équilibre tes ressources et alertes d’attaque par e-mail.',
+  description: 'File de construction plus longue : 3 emplacements de plus dans chaque village, puis jusqu’à 20 constructions en payant 25 % de plus à chacune. Archives de rapports : des dossiers hors de la limite de la boîte, gardés jusqu’à 2 ans. Image de profil. Assistant de pillage : tous tes villages barbares attaqués, filtrés, et l’attaque en un clic. Gestionnaire de compte, dès le premier village : constructions selon tes modèles, recherches à la forge, recrutement des troupes voulues, routes commerciales, réserve qui équilibre tes ressources et alertes d’attaque par e-mail.',
   offers: [
     { id: 'world-3', scope: 'world', days: 3, price: 30 },
     { id: 'world-7', scope: 'world', days: 7, price: 60 },

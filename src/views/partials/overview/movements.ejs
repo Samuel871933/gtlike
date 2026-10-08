@@ -1,7 +1,7 @@
 <%# Aperçu du village, mouvements de troupes (inclus par overview.ejs, avec ses constantes). %>
 <%# Mouvements de troupes %>
 <section class="<%= ui.panel %>" data-overview-live="movements">
-  <%- panelHead('Mouvements de troupes', segTabs([[qs({ mv: 'all' }), `Tous (${outgoing.length + incoming.length})`, tab === 'all'], [qs({ mv: 'in' }), `Entrants (${incoming.length})`, tab === 'in'], [qs({ mv: 'out' }), `Sortants (${outgoing.length})`, tab === 'out']])) %>
+  <%- panelHead('Mouvements de troupes', segTabs([[qs({ mv: 'all' }), `Tous (${counts.out + counts.in})`, tab === 'all'], [qs({ mv: 'in' }), `Entrants (${counts.in})`, tab === 'in'], [qs({ mv: 'out' }), `Sortants (${counts.out})`, tab === 'out']])) %>
   <div class="overflow-x-auto">
     <div class="min-w-[600px]">
       <div class="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_150px_110px_36px] border-b-2 border-black bg-thead text-[11px] font-semibold tracking-[0.02em] text-gold-400">
@@ -47,8 +47,8 @@
     </div>
   </div>
   <div class="flex flex-wrap items-center justify-between gap-3 px-2.5 py-2">
-    <% if (moves.length > shown.length) { %>
-      <a href="<%= qs({ mv: tab, tous: '1' }) %>" class="<%= ui.link %> text-[13px]">» Afficher les <%= moves.length - shown.length %> autres ordres</a>
+    <% if (moveCount > shown.length) { %>
+      <a href="<%= qs({ mv: tab, tous: '1' }) %>" class="<%= ui.link %> text-[13px]">» Afficher les <%= moveCount - shown.length %> autres ordres</a>
     <% } else { %><span></span><% } %>
     <% if (ctx.state.level('place') > 0) { %>
       <a href="/village/<%= vid %>/place" class="<%= ui.link %> text-[13px]">» Point de ralliement</a>

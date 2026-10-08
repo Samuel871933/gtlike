@@ -40,7 +40,7 @@
             <button class="<%= btn('dark', 'sm') %>" <%= h.disabled %>><%- icon('edit', 'size-3.5', 2.2) %>Renommer</button>
           </form>
           <form method="post" action="<%= m %>/templates/<%= edit.id %>/steps" class="flex items-center gap-2"><%- csrf %><input type="hidden" name="op" value="demolish">
-            <label class="<%= ui.checkLabel %> text-sm"><input type="checkbox" name="on" value="1" class="<%= ui.checkbox %>" <%= edit.demolish ? 'checked' : '' %> onchange="this.form.requestSubmit()" <%= h.disabled %>>Démolir les bâtiments plus hauts que le modèle</label>
+            <label class="<%= ui.checkLabel %> text-sm"><input type="checkbox" name="on" value="1" class="<%= ui.checkbox %>" <%= edit.demolish ? 'checked' : '' %> data-autosubmit="request" <%= h.disabled %>>Démolir les bâtiments plus hauts que le modèle</label>
             <noscript><button class="<%= btn('dark', 'sm') %>">Enregistrer</button></noscript>
           </form>
         </div>
@@ -169,7 +169,7 @@
               <td class="text-right tabular-nums max-sm:hidden"><%= n %></td>
               <td>
                 <% if (!tpl.system) { %>
-                  <form method="post" action="<%= m %>/templates/<%= tpl.id %>/delete" class="flex" onsubmit="return confirm('Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de modèle.')"><%- csrf %>
+                  <form method="post" action="<%= m %>/templates/<%= tpl.id %>/delete" class="flex" data-confirm="Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de modèle."><%- csrf %>
                     <button class="cursor-pointer text-blood-450 hover:text-blood-300 disabled:opacity-40" title="Supprimer le modèle" aria-label="Supprimer « <%= tpl.name %> »" <%= h.disabled %>><%- icon('trash', 'size-3.5', 2.2) %></button>
                   </form>
                 <% } %>

@@ -8,6 +8,7 @@
   Les classes sont écrites en entier ici pour que Tailwind les détecte (@source "../web").
 */
 
+const NUMBER_FR = new Intl.NumberFormat('fr-FR');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Relief commun : trait d'encre, filet intérieur, ombre portée.
@@ -218,7 +219,7 @@ function progressBar(value, goal, { from = 0, label = null, cls = 'min-w-44' } =
   const span = goal - from;
   const width = span > 0 ? Math.max(0, Math.min(100, (100 * (value - from)) / span)) : 0;
   const done = goal > 0 && value >= goal;
-  const text = label !== null ? label : `${Math.floor(value).toLocaleString('fr-FR')} / ${Math.floor(goal).toLocaleString('fr-FR')}`;
+  const text = label !== null ? label : `${NUMBER_FR.format(Math.floor(value))} / ${NUMBER_FR.format(Math.floor(goal))}`;
   return `<span class="relative flex h-6 items-center justify-center overflow-hidden border border-black bg-night shadow-[inset_0_1px_2px_#0006] ${cls}">`
     + `<span class="absolute inset-y-0 left-0 ${done ? 'bg-olive-500' : 'bg-blood-700'}" style="width: ${width.toFixed(1)}%"></span>`
     + `<span class="relative text-[13px] font-semibold text-parchment-100 tabular-nums">${text}</span></span>`;

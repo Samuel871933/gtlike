@@ -1,7 +1,7 @@
 'use strict';
 
-const { Op, fn, col } = require('sequelize');
-const { World, Player, Village, PlayerAchievement, Report } = require('../models');
+const { Op, fn, col, UniqueConstraintError } = require('sequelize');
+const { sequelize, World, Player, Village, PlayerAchievement, Report } = require('../models');
 const registry = require('../game/registry');
 const DEFINITIONS = require('../game/data/achievements');
 
@@ -18,10 +18,14 @@ class AchievementService {
    * Ajoute des compteurs aux statistiques du joueur. `attacked` : identifiant d'un joueur attaqué
    * (compté une seule fois) ; les autres clés sont additionnées.
    */
+  /**
+   * Ajoute aux compteurs des succès (JSON stats) ; renvoie le joueur, lu sous verrou dans une transaction : deux combats
+   * simultanés ne perdent pas l'un l'autre leurs compteurs, et l'appelant peut le réutiliser (SealService.onKills).
+   */
   static async addStats(playerId, deltas, t) {
-    if (!playerId) return;
-    const player = await Player.findByPk(playerId, { transaction: t });
-    if (!player) return;
+    if (!playerId) return null;
+    const player = await Player.findByPk(playerId, { transaction: t, ...(t ? { lock: t.LOCK.UPDATE } : {}) });
+    if (!player) return null;
     const stats = { ...player.stats };
     for (const [key, value] of Object.entries(deltas)) {
       if (!value) continue;
@@ -32,6 +36,7 @@ class AchievementService {
       }
     }
     await player.update({ stats }, { transaction: t });
+    return player;
   }
 
   static async rankOf(player, t) {
@@ -148,7 +153,7 @@ class AchievementService {
   static async evaluate(playerId, { now = new Date(), t, ranks = null } = {}) {
     const player = await Player.findByPk(playerId, { transaction: t });
     if (!player) return [];
-    const cfg = (await World.findByPk(player.worldId, { transaction: t })).getConfig();
+    const cfg = (await World.cached(player.worldId)).getConfig();
     const existing = await PlayerAchievement.findAll({ where: { playerId }, transaction: t });
     return AchievementService.unlock(player, cfg, existing, { now, t, ranks });
   }
@@ -173,7 +178,13 @@ class AchievementService {
     for (const a of rows) existing.get(a.playerId)?.push(a);
     const unlocked = [];
     for (const player of players) {
-      unlocked.push(...await AchievementService.unlock(player, cfg, existing.get(player.id), { now, ranks }));
+      // Un joueur par transaction : un combat peut débloquer le même succès pendant ce passage (lecture du début
+      // périmée). Ce joueur est alors repris au passage suivant, sans arrêter celui des autres.
+      try {
+        unlocked.push(...await sequelize.transaction((t) => AchievementService.unlock(player, cfg, existing.get(player.id), { now, ranks, t })));
+      } catch (err) {
+        if (!(err instanceof UniqueConstraintError)) throw err;
+      }
     }
     return unlocked;
   }
@@ -209,8 +220,22 @@ class AchievementService {
     return unlocked;
   }
 
-  static async evaluateMany(playerIds, options) {
-    for (const id of new Set(playerIds.filter(Boolean))) await AchievementService.evaluate(id, options);
+  /** Plusieurs joueurs d'un coup (participants d'un combat) : joueurs et succès lus ensemble, monde une fois. */
+  static async evaluateMany(playerIds, { now = new Date(), t, ranks = null } = {}) {
+    const ids = [...new Set(playerIds.filter(Boolean))];
+    if (!ids.length) return;
+    const [players, rows] = await Promise.all([
+      Player.findAll({ where: { id: { [Op.in]: ids } }, transaction: t }),
+      PlayerAchievement.findAll({ where: { playerId: { [Op.in]: ids } }, transaction: t }),
+    ]);
+    const byId = new Map(players.map((p) => [p.id, p]));
+    const cfgs = new Map();
+    for (const id of ids) {
+      const player = byId.get(id);
+      if (!player) continue;
+      if (!cfgs.has(player.worldId)) cfgs.set(player.worldId, (await World.cached(player.worldId)).getConfig());
+      await AchievementService.unlock(player, cfgs.get(player.worldId), rows.filter((a) => a.playerId === id), { now, t, ranks });
+    }
   }
 
   /** Classement des succès : bois 1, bronze 2, argent 3, or 4 points par succès ; 4 par succès quotidien. */
@@ -225,11 +250,12 @@ class AchievementService {
     const { DailyAward } = require('../models');
     const daily = await DailyAward.findAll({ where: { worldId }, attributes: ['playerId'], raw: true });
     const byPlayer = new Map(rows.map((r) => [r.Player.id, { player: r.Player, score: Number(r.score), count: Number(r.count) }]));
+    // Gagnants quotidiens sans succès : lus d'un coup.
+    const missing = [...new Set(daily.map((d) => d.playerId).filter((id) => !byPlayer.has(id)))];
+    const others = missing.length ? await Player.findAll({ where: { id: { [Op.in]: missing } }, attributes: ['id', 'name', 'userId', 'isBot', 'avatar'], raw: true }) : [];
+    const otherById = new Map(others.map((p) => [p.id, p]));
     for (const { playerId } of daily) {
-      if (!byPlayer.has(playerId)) {
-        const p = await Player.findByPk(playerId, { attributes: ['id', 'name', 'userId', 'isBot', 'avatar'], raw: true });
-        byPlayer.set(playerId, { player: p, score: 0, count: 0 });
-      }
+      if (!byPlayer.has(playerId)) byPlayer.set(playerId, { player: otherById.get(playerId) || null, score: 0, count: 0 });
       const row = byPlayer.get(playerId);
       row.score += 4; // les succès quotidiens valent toujours un cadre or
       row.count += 1;

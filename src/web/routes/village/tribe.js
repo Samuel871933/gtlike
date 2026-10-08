@@ -3,21 +3,20 @@
 // Tribu et forum de la tribu (pages d'un village, montées par ./index.js).
 
 const express = require('express');
-const { Player } = require('../../../models');
 const TribeService = require('../../../services/TribeService');
 const TribeForumService = require('../../../services/TribeForumService');
 const OperationService = require('../../../services/OperationService');
 const registry = require('../../../game/registry');
 const GameError = require('../../../services/GameError');
 const { ah, back, flash, ownerOnly } = require('../../middleware');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
 // ------------------------------------------------------------ Tribu
 
 router.get('/tribe', ah(async (req, res) => {
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   if (!player.tribeId) {
     const invites = await TribeService.invitesFor(player.id);
     return res.render('tribe-none', { page: 'tribe', player, invites });
@@ -69,7 +68,7 @@ async function sectionView(req, extra = {}) {
 router.get('/tribe/forum/settings', ah(async (req, res) => {
   const data = await TribeForumService.overview(me(req));
   if (!data.manager) throw new GameError('Réservé aux chefs de la tribu.', 403);
-  await renderTribe(res, await Player.findByPk(me(req)), 'forum', { view: 'settings', ...data });
+  await renderTribe(res, currentPlayer(res), 'forum', { view: 'settings', ...data });
 }));
 
 router.get('/tribe/forum/:sectionId', ah(async (req, res) => {

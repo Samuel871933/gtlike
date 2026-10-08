@@ -31,29 +31,35 @@ class Rights {
 /** Droits en cours à `now` (commencés, pas encore finis). */
 const activeAt = (now) => ({ startsAt: { [Op.lte]: now }, [Op.or]: [{ endsAt: null }, { endsAt: { [Op.gt]: now } }] });
 
+/** Droits offerts par la faction du joueur : le design de village de sa faction. */
+function factionKeysOf(faction) {
+  const design = factionDesign(faction);
+  return design ? [`design:${design}`] : [];
+}
+
 class ShopService {
   /**
    * Droits d'un compte : ceux du compte, et sur le monde `worldId` ceux de son joueur et ceux offerts à tout le serveur.
    * Sans compte (bots), seulement ceux du serveur.
    */
-  static async rightsFor(userId, worldId = null, { now = new Date(), t } = {}) {
+  static async rightsFor(userId, worldId = null, { now = new Date(), t, faction } = {}) {
     const scopes = [];
     if (userId) scopes.push({ scope: 'account', userId });
     if (userId && worldId) scopes.push({ scope: 'world', userId, worldId });
     if (worldId) scopes.push({ scope: 'server', worldId });
     if (!scopes.length) return new Rights();
-    const [rows, faction] = await Promise.all([
+    const [rows, offered] = await Promise.all([
       Entitlement.findAll({ where: { ...activeAt(now), [Op.and]: [{ [Op.or]: scopes }] }, attributes: ['itemKey'], transaction: t }),
-      userId && worldId ? ShopService.factionKeys(userId, worldId, t) : [],
+      // `faction` : celle du joueur si l'appelant l'a déjà lue (null : aucune), sinon lue ici.
+      userId && worldId ? (faction !== undefined ? factionKeysOf(faction) : ShopService.factionKeys(userId, worldId, t)) : [],
     ]);
-    return new Rights([...rows.map((r) => r.itemKey), ...faction]);
+    return new Rights([...rows.map((r) => r.itemKey), ...offered]);
   }
 
   /** Monde à factions : le design de village de sa faction est offert au joueur sur ce monde. */
   static async factionKeys(userId, worldId, t) {
     const player = await Player.findOne({ where: { userId, worldId }, attributes: ['faction'], transaction: t });
-    const design = factionDesign(player && player.faction);
-    return design ? [`design:${design}`] : [];
+    return factionKeysOf(player && player.faction);
   }
 
   /** Droits de plusieurs comptes sur un même monde (carte : design des villages de chaque propriétaire). */

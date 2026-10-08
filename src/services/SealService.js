@@ -98,7 +98,7 @@ class SealService {
     if (!t) return sequelize.transaction((tx) => SealService.grant(playerOrId, level, source, detail, { t: tx, rng, now }));
     const player = typeof playerOrId === 'object' ? playerOrId : await Player.findByPk(playerOrId, { transaction: t });
     if (!player || !player.userId || player.isBot) return null;
-    const world = await World.findByPk(player.worldId, { transaction: t });
+    const world = await World.cached(player.worldId);
     if (!SealService.canEarn(world)) return null;
     const type = seals.TYPES[Math.floor(rng() * seals.TYPES.length)].id;
     await SealService.add(player.userId, type, level, 1, t);
@@ -130,10 +130,11 @@ class SealService {
    * Unités ennemies vaincues (stats.unitsKilled, en attaque et en défense) : un sceau de niveau 2 à chaque palier franchi.
    * Le palier atteint est gardé dans stats.sealKillSteps.
    */
-  static async onKills(playerId, { t, rng, now } = {}) {
-    const player = await Player.findByPk(playerId, { transaction: t, lock: t && t.LOCK.UPDATE });
+  static async onKills(playerOrId, { t, rng, now } = {}) {
+    // Joueur déjà lu sous verrou dans cette transaction (AchievementService.addStats), sinon lu ici.
+    const player = typeof playerOrId === 'object' ? playerOrId : await Player.findByPk(playerOrId, { transaction: t, lock: t && t.LOCK.UPDATE });
     if (!player || !player.userId || player.isBot) return 0;
-    const world = await World.findByPk(player.worldId, { transaction: t });
+    const world = await World.cached(player.worldId);
     if (!SealService.canEarn(world)) return 0;
     const stats = player.stats || {};
     const killed = stats.unitsKilled || 0;

@@ -171,7 +171,7 @@
       <% if (filtered) { %><a href="<%= href({ k: '', ct: '', cj: '', type: '', q: '', page: '' }) %>#cibles" class="<%= ui.link %> text-[13px]">Effacer les filtres</a><% } %>
       <span class="flex-1"></span>
       <%# Participant : ses attaques revendiquées (vue « joueur »). %>
-      <select class="<%= ui.input %> h-7 max-w-48 text-sm" aria-label="Attaques d'un participant" onchange="location.href = this.value">
+      <select class="<%= ui.input %> h-7 max-w-48 text-sm" aria-label="Attaques d'un participant" data-nav-select>
         <%# « Participant… » : retour à toutes les cibles. %>
         <option value="<%= href({ vue: f.view === 'player' ? 'all' : f.view, j: '', page: '' }) %>#cibles">Participant…</option>
         <% for (const e of operation.participants) { %><option value="<%= href({ vue: 'player', j: e.player.id, page: '' }) %>#cibles" <%= f.view === 'player' && f.j === e.player.id ? 'selected' : '' %>><%= e.player.name %> (<%= e.attacks %>)</option><% } %>

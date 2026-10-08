@@ -78,6 +78,10 @@ test('conservation comme sur Guerre Tribale : 100 rapports + 10 par village, les
   assert.deepEqual(kept.sort((a, b) => a - b), newest.sort((a, b) => a - b), 'les plus récents restent');
   assert.equal(await Report.count({ where: { playerId: alice.id } }) <= ReportService.keepLimit(1), true);
   assert.equal(await ReportService.pruneAll(), 0, 'rien de plus au passage suivant');
+  // Passage suivant (incrémental) : les nouveaux rapports du joueur sont vus, les plus anciens repartent.
+  await Report.bulkCreate(Array.from({ length: 20 }, (_, i) => ({ playerId: bob.id, type: 'attack', title: `n${i}`, data: {}, happenedAt: new Date(Date.UTC(2026, 8, 1, 0, i)) })));
+  assert.equal(await ReportService.pruneAll(), 20);
+  assert.equal(await Report.count({ where: { playerId: bob.id, folderId: null } }), limit);
 });
 
 test('archives (premium) : dossiers hors de la limite, supprimés après la durée choisie', async () => {

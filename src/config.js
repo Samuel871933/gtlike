@@ -27,6 +27,9 @@ module.exports = {
   // applique les migrations et crée les mondes. GAME_LOOP=0 la coupe aussi dans un processus seul.
   primaryInstance: !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0',
   gameLoop: process.env.GAME_LOOP !== '0',
+  // HTTP=0 : processus sans pages, pour la seule boucle de jeu (à côté de processus web lancés avec GAME_LOOP=0). Sous
+  // forte charge, la boucle a ainsi son propre fil et ses propres connexions au lieu de faire la queue derrière les pages.
+  http: process.env.HTTP !== '0',
   // Tests : happy hour des Adartons forcée en permanence (HAPPY_HOUR_FORCE=1), jamais en production.
   happyHourForce: process.env.NODE_ENV !== 'production' && process.env.HAPPY_HOUR_FORCE === '1',
   // E-mails (services/Mailer.js) : envoi SMTP dès que SMTP_HOST est renseigné, sinon écrits dans les logs.

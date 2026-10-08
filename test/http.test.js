@@ -691,6 +691,30 @@ test('carte : un secteur rechargé après une arrivée montre le retour sur le v
   assert.equal(await Command.count({ where: { id: cmd.id } }), 0, 'attaque résolue');
 });
 
+test('aperçu du village : 9 premiers mouvements, nombres d’ordres de chaque onglet et lien vers les autres', async () => {
+  const { Village, Command } = require('../src/models');
+  const http = client();
+  const reg = await http('/register');
+  await http('/register', { method: 'POST', form: { username: 'Mouvant', email: 'mv@example.com', password: 'motdepasse', _csrf: tokenOf(reg.html) } });
+  const worlds = await http('/worlds');
+  const joined = await http('/worlds/w1/join', { method: 'POST', form: { direction: 'random', _csrf: tokenOf(worlds.html) } });
+  const home = await Village.findByPk(Number(joined.location.match(/\/village\/(\d+)/)[1]));
+  const barb = await Village.findOne({ where: { worldId: home.worldId, playerId: null } });
+  const soon = (min) => new Date(Date.now() + min * 60000);
+  for (let i = 0; i < 12; i++) {
+    await Command.create({ worldId: home.worldId, type: 'attack', originVillageId: home.id, targetVillageId: barb.id, units: { axe: 1 }, startsAt: new Date(), arrivesAt: soon(10 + i) });
+  }
+  await Command.create({ worldId: home.worldId, type: 'attack', originVillageId: barb.id, targetVillageId: home.id, units: { axe: 1 }, startsAt: new Date(), arrivesAt: soon(60) });
+  // Une attaque arrive : onglet Entrants par défaut ; les nombres comptent tous les ordres.
+  const page = (await http(joined.location)).html;
+  assert.match(page, /Tous \(13\)/);
+  assert.match(page, /Entrants \(1\)/);
+  assert.match(page, /Sortants \(12\)/);
+  const all = (await http(`${joined.location}?mv=all`)).html;
+  assert.match(all, /Afficher les 4 autres ordres/);
+  assert.doesNotMatch((await http(`${joined.location}?mv=all&tous=1`)).html, /autres ordres/);
+});
+
 test('carte : plusieurs secteurs en une requête, hors carte ignorés', async () => {
   const { Village } = require('../src/models');
   const mapView = require('../src/web/mapView');

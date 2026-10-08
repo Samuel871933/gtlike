@@ -6,8 +6,8 @@
   const m = `/village/${vid}/manager`;
   // Onglets : ceux qu'on peut mettre en favori (helpers.js, FAVORITE_PAGES), le premier étant la page par défaut.
   const TABS = favoritePage('manager', ctx.cfg).tabs;
-  // Villages : ses deux sous-onglets (Construction, Troupes) gardent l'onglet actif et son étoile de favori.
-  const mainTab = tab === 'units' ? 'buildings' : tab;
+  // Villages : ses sous-onglets (Construction, Troupes, Forge) gardent l'onglet actif et son étoile de favori.
+  const mainTab = tab === 'units' || tab === 'forge' ? 'buildings' : tab;
   const tabs = segMenu(TABS.map((t) => [`/village/${vid}/${t.path}`, t.name, mainTab === t.key]), { label: 'Gestionnaire de compte' });
   const starKey = favKey('manager', mainTab, ctx.cfg);
   const starTab = starKey.includes(':') ? starKey.split(':')[1] : null;
@@ -34,7 +34,7 @@
             <h1 class="m-0 font-display text-2xl font-bold tracking-[0.02em] text-parchment-100 [text-shadow:2px_2px_0_var(--color-title-shadow),4px_4px_0_var(--color-title-shadow-2)] sm:text-[28px]">Gestionnaire de compte</h1>
             <%- favStar(vid, 'manager', favoriteBuildings(player, ctx).includes(starKey), csrfToken, 'size-8', starTab) %>
           </div>
-          <p class="text-sm text-parchment-500">Construit, recrute, envoie et équilibre tes ressources à ta place, même quand tu n’es pas connecté.</p>
+          <p class="text-sm text-parchment-500">Construit, recherche, recrute, envoie et équilibre tes ressources à ta place, même quand tu n’es pas connecté.</p>
         </div>
       </div>
       <div class="flex shrink-0 flex-wrap gap-1.5">
@@ -53,13 +53,13 @@
   <section class="<%= ui.panel %>">
     <%- panelHead('Gestionnaire', tabs) %>
     <%# Onglets à liste de villages : filtrés par le groupe actif. %>
-    <% if (['overview', 'buildings', 'units', 'market'].includes(tab)) { %><%- include('partials/group-filter', { cls: tab === 'overview' || !premium ? '' : 'border-b-0' }) %><% } %>
+    <% if (['overview', 'buildings', 'units', 'forge', 'market'].includes(tab)) { %><%- include('partials/group-filter', { cls: tab === 'overview' || !premium ? '' : 'border-b-0' }) %><% } %>
     <% if (tab === 'overview' || !premium) { %>
     <div class="<%= ui.panelBody %>">
       <% if (tab === 'overview') { %>
         <p class="text-parchment-400">
           Le gestionnaire s’occupe de tes villages à ta place, même quand tu n’es pas connecté : il construit selon tes
-          modèles, recrute les troupes que tu veux, envoie tes ressources par routes commerciales et équilibre tes
+          modèles, lance les recherches de la forge, recrute les troupes que tu veux, envoie tes ressources par routes commerciales et équilibre tes
           entrepôts. Il peut aussi te prévenir par e-mail des attaques. Il passe toutes les quelques minutes ; il ne
           contourne aucune règle (ressources, ferme, bâtiments requis) et n’utilise que les places de la file au prix normal.
         </p>
@@ -67,14 +67,15 @@
       <% if (!premium) { %>
         <%- include('partials/premium-banner', {
           href: shopPremium, highlight: true, cls: tab === 'overview' ? '-mx-3 -mb-3' : '-m-3',
-          title: 'Le gestionnaire de compte est inclus dans le premium.', detail: 'Constructions, recrutements, routes commerciales, réserve et alertes par e-mail, quel que soit ton nombre de villages · dès 30 Adartons',
+          title: 'Le gestionnaire de compte est inclus dans le premium.', detail: 'Constructions, recherches, recrutements, routes commerciales, réserve et alertes par e-mail, quel que soit ton nombre de villages · dès 30 Adartons',
         }) %>
       <% } %>
     </div>
     <% } %>
   </section>
 
-  <%# Construction et Troupes : même vue, pour l'un ou l'autre gestionnaire. %>
-  <%- include(`partials/manager/${tab === 'units' ? 'buildings' : tab}`, { h, which: tab === 'units' ? 'troops' : 'build' }) %>
+  <%# Construction, Troupes et Forge : même vue, pour l'un ou l'autre gestionnaire. %>
+  <% const which = { units: 'troops', forge: 'research' }[tab] || 'build'; %>
+  <%- include(`partials/manager/${mainTab === 'buildings' ? 'buildings' : tab}`, { h, which }) %>
 </div>
 <%- include('partials/footer') %>

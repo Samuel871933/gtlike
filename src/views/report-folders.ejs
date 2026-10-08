@@ -39,7 +39,7 @@
               <input name="name" value="<%= folder.name %>" maxlength="32" required class="<%= ui.inputSm %> w-40" aria-label="Nom du dossier">
               <button class="<%= btn('dark', 'sm') %>">Renommer</button>
             </form>
-            <form method="post" action="/village/<%= vid %>/reports/folders/<%= folder.id %>/delete" onsubmit="return confirm('Supprimer ce dossier ? Ses rapports reviendront dans la boîte de réception.')"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <form method="post" action="/village/<%= vid %>/reports/folders/<%= folder.id %>/delete" data-confirm="Supprimer ce dossier ? Ses rapports reviendront dans la boîte de réception."><input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button class="<%= btn('danger', 'sm') %>"><%- icon('trash', 'size-3.5', 2) %>Supprimer</button>
             </form>
           </li>

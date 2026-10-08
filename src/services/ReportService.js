@@ -29,6 +29,10 @@ function parseIds(input) {
   return [...new Set(list.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
 }
 
+// Nettoyage des boîtes (boucle de jeu) : dernier identifiant de rapport vu, et dernier passage complet.
+const FULL_PRUNE_MS = 6 * 3600000;
+const pruneState = { fromId: 0, fullAt: 0 };
+
 class ReportService {
   /** Page de la boîte de rapports ; `perPage` : réglage du joueur (PaginationService). */
   /**
@@ -128,9 +132,23 @@ class ReportService {
     return (await ReportService.pruneInboxes()) + (await ReportService.pruneArchives(now));
   }
 
-  static async pruneInboxes() {
+  /**
+   * Boîtes au-delà de leur limite. Passage incrémental : seuls les joueurs qui ont reçu un rapport depuis le passage
+   * précédent (identifiants plus grands que le dernier vu) ; passage complet au démarrage puis toutes les 6 heures
+   * (limite abaissée sans nouveau rapport : village perdu).
+   */
+  static async pruneInboxes({ now = Date.now() } = {}) {
+    const full = !pruneState.fromId || now - pruneState.fullAt >= FULL_PRUNE_MS;
+    const maxId = (await Report.max('id')) || 0;
+    let only = null;
+    if (!full) {
+      only = (await Report.findAll({ where: { id: { [Op.gt]: pruneState.fromId } }, attributes: ['playerId'], group: ['playerId'], raw: true })).map((r) => r.playerId);
+    }
+    pruneState.fromId = maxId;
+    if (full) pruneState.fullAt = now;
+    if (only && !only.length) return 0;
     const counts = await Report.findAll({
-      where: { folderId: null },
+      where: { folderId: null, ...(only ? { playerId: { [Op.in]: only } } : {}) },
       attributes: ['playerId', [fn('COUNT', col('id')), 'n']],
       group: ['playerId'],
       having: Report.sequelize.where(fn('COUNT', col('id')), { [Op.gt]: KEEP_BASE }),

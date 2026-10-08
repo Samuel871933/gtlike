@@ -14,7 +14,8 @@
     "test": "node --test test/*.test.js",
     "migrate": "node scripts/migrate.js",
     "db:import-sqlite": "node scripts/sqlite-to-mysql.js",
-    "snapshot": "node scripts/snapshot.js"
+    "snapshot": "node scripts/snapshot.js",
+    "loadtest": "node scripts/loadtest.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

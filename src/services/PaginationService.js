@@ -27,6 +27,12 @@ class PaginationService {
     return { page: current, pages, perPage, offset: (current - 1) * perPage, total };
   }
 
+  /** Page d'une liste déjà en mémoire : ses lignes et la pagination (voir paginate). */
+  static slice(list, page, perPage) {
+    const pagination = PaginationService.paginate(list.length, page, perPage);
+    return { rows: list.slice(pagination.offset, pagination.offset + pagination.perPage), pagination };
+  }
+
   /** Lignes par page choisies par le joueur pour une liste (bornées), sinon la valeur par défaut. */
   static perPage(player, list) {
     const def = LISTS[list];

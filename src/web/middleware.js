@@ -3,16 +3,17 @@
 const GameError = require('../services/GameError');
 const VillageService = require('../services/VillageService');
 const CommandService = require('../services/CommandService');
+const EventService = require('../services/EventService');
 const MessageService = require('../services/MessageService');
 const ReportService = require('../services/ReportService');
 const TribeForumService = require('../services/TribeForumService');
 const { gameStyleFor } = require('./gameStyles');
+const { memo } = require('./memo');
 const { villageDesignFor } = require('./villageDesigns');
 const ShopService = require('../services/ShopService');
 const VillageGroupService = require('../services/VillageGroupService');
 const { gameLayoutFor, shadowsFor } = require('./gameLayouts');
-const { Op } = require('sequelize');
-const { User, Village, VillageGroupMember, TribeInvite, Player, Tribe, World } = require('../models');
+const { User, Village, VillageGroupMember, TribeInvite, Player, Tribe } = require('../models');
 
 /** Enveloppe un handler async pour transmettre les erreurs à Express 4. */
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -85,37 +86,88 @@ function groupHref(req) {
   };
 }
 
+/**
+ * Joueurs du monde qui ont plus de points (rang de l'en-tête : 1 + ce nombre). Points de tout le monde triés, gardés 30 s
+ * et partagés par toutes les pages : un COUNT par page parcourait jusqu'à tous les joueurs d'un grand monde.
+ */
+async function betterThan(player) {
+  const points = await memo(`pointsDesc:${player.worldId}`, 30000, async () => (
+    await Player.findAll({ where: { worldId: player.worldId }, attributes: ['points'], order: [['points', 'DESC']], raw: true })
+  ).map((p) => p.points));
+  // Premier indice dont les points ne dépassent pas ceux du joueur : autant de joueurs devant lui.
+  let lo = 0;
+  let hi = points.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid] > player.points) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
+/** Compteurs de l'en-tête d'une page du jeu. */
+async function headerCounters(res, player, myVillages) {
+  const playerId = player.id;
+  const [unreadByFilter, tribeInvites, unreadMessages, incomingAttacks, betterPlayers, tribeForumUnread] = await Promise.all([
+    ReportService.unreadByFilter(playerId),
+    TribeInvite.count({ where: { playerId } }),
+    MessageService.unreadCount(playerId),
+    CommandService.incomingAttackCount(playerId, myVillages.map((v) => v.id)),
+    betterThan(player),
+    // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.
+    TribeForumService.unreadCount(player),
+  ]);
+  Object.assign(res.locals, {
+    unreadByFilter, unreadReports: unreadByFilter.all, incomingAttacks, playerRank: 1 + betterPlayers, tribeInvites, tribeForumUnread, unreadMessages,
+  });
+}
+
+/** `load` lancé au premier res.render de la réponse (page, ou morceau de page renvoyé en JSON), qui l'attend. */
+function deferUntilRender(res, load) {
+  const render = res.render.bind(res);
+  let loading = null;
+  res.render = (...args) => {
+    loading = loading || load().catch((err) => console.error(err));
+    loading.then(() => render(...args));
+  };
+}
+
 /** Vérifie la propriété du village, le rafraîchit et expose le contexte aux vues. */
 const loadVillage = ah(async (req, res, next) => {
   // Même instant pour les arrivées résolues et l'état du village : une arrivée ne peut pas tomber entre les deux.
-  // Les arrivées d'abord : le village lu ensuite en tient compte (conquête, pillage).
+  // Les arrivées d'abord : le village lu ensuite en tient compte (conquête, pillage). Seulement si l'une concerne les
+  // villages du joueur : sinon la page n'attend pas le traitement global (boucle de jeu, autres joueurs), qui passe
+  // par un verrou commun à tout le processus. Après traitement, l'accès est revérifié (village conquis entre-temps).
   const now = new Date();
-  await CommandService.processDue(now);
-  const { village: owned, asSitter } = await VillageService.assertAccess(Number(req.params.villageId), req.user.id);
+  const villageId = Number(req.params.villageId);
+  let access = await VillageService.assertAccess(villageId, req.user.id);
+  if (await EventService.dueFor(access.village.playerId, now)) {
+    // Une tranche au plus, et seulement si personne ne traite déjà ce monde : en surcharge, la page s'affiche avec l'état
+    // connu (quelques secondes de retard) plutôt que d'attendre derrière l'arriéré, que ce traitement en cours résorbe.
+    await CommandService.processDue(now, { worldId: access.village.worldId, max: EventService.CHUNK, ifIdle: true });
+    access = await VillageService.assertAccess(villageId, req.user.id);
+  }
+  const { village: owned, asSitter } = access;
   req.asSitter = asSitter;
   res.locals.asSitter = asSitter;
   // Données de la carte (JSON lu en continu pendant les déplacements) : ni état du village (transaction avec
   // verrou), ni en-tête de page. Le village et la configuration du monde suffisent.
   if (req.method === 'GET' && MAP_DATA.test(req.path)) {
-    const world = await World.findByPk(owned.worldId);
+    const world = await VillageService.cachedWorld(owned.worldId);
     req.ctx = { village: owned, cfg: world.getConfig() };
     return next();
   }
-  // Affichage d'une page : sans échéance passée dans le village, rien à enregistrer, donc ni transaction ni verrou.
-  req.ctx = (req.method === 'GET' && await VillageService.peek(owned, now))
+  // Sans échéance passée dans le village, rien à enregistrer, donc ni transaction ni verrou. Vaut aussi pour les
+  // actions : chacune reprend le village sous verrou dans son service (withVillage), req.ctx ne sert qu'à lire.
+  req.ctx = await VillageService.peek(owned, now)
     || await VillageService.withVillage(owned.id, async (ctx) => ctx, { now });
   res.locals.ctx = req.ctx;
   const playerId = owned.playerId;
-  // Compteurs de l'en-tête : lectures indépendantes, lancées ensemble.
-  const [unreadByFilter, myVillages, player, rights, tribeInvites, unreadMessages] = await Promise.all([
-    ReportService.unreadByFilter(playerId),
+  const [myVillages, player, rights] = await Promise.all([
     Village.findAll({ where: { playerId }, attributes: ['id', 'name', 'x', 'y'], order: [['name', 'ASC'], ['id', 'ASC']] }),
     Player.findByPk(playerId, { include: [{ model: Tribe, attributes: ['id', 'tag'] }] }),
     // Thème et design : le choix du compte, s'il le possède sur ce monde (boutique : compte, monde ou serveur entier).
     // Le titulaire a déjà ses droits dans le contexte du village ; un remplaçant garde les siens.
     !asSitter && req.ctx.ownerRights ? req.ctx.ownerRights : ShopService.rightsFor(req.user.id, owned.worldId),
-    TribeInvite.count({ where: { playerId } }),
-    MessageService.unreadCount(playerId),
   ]);
   // Groupe de villages actif (contexte, comme sur GT) : choisi par ?group= sur une page (menu des groupes des aperçus,
   // de l'en-tête), il ne fait parcourir que ses villages aux flèches et à la liste de l'en-tête.
@@ -131,24 +183,20 @@ const loadVillage = ah(async (req, res, next) => {
   const currentGroupIds = new Set(villageGroupRows.map((r) => r.groupId));
   const headerGroups = groups.groups.filter((g) => currentGroupIds.has(g.id) || (groups.active && g.id === groups.active.id));
   const navVillages = groups.ids ? myVillages.filter((v) => groups.ids.includes(v.id)) : myVillages;
-  const [incomingAttacks, betterPlayers, tribeForumUnread] = await Promise.all([
-    CommandService.incomingAttackCount(playerId, myVillages.map((v) => v.id)),
-    Player.count({ where: { worldId: player.worldId, points: { [Op.gt]: player.points } } }),
-    // Pastille de l'onglet Tribu : invitations reçues, ou sujets non lus du forum de la tribu.
-    TribeForumService.unreadCount(player),
-  ]);
   // Dernière page vue par le titulaire (à la minute près) : notifications d'attaque « seulement si je ne suis pas connecté ».
   if (!asSitter && (!player.lastSeenAt || now - player.lastSeenAt >= 60000)) {
     await Player.update({ lastSeenAt: now }, { where: { id: playerId }, silent: true });
   }
   Object.assign(res.locals, {
-    unreadByFilter, unreadReports: unreadByFilter.all, myVillages, incomingAttacks,
-    villageGroups: groups.groups, headerGroups, activeGroup: groups.active, navVillages, villageNav: villageNav(navVillages, owned.id), groupHref: groupHref(req), player, shopRights: rights,
+    myVillages, villageGroups: groups.groups, headerGroups, activeGroup: groups.active, navVillages, villageNav: villageNav(navVillages, owned.id), groupHref: groupHref(req), player, shopRights: rights,
     gameStyle: gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights, asSitter ? null : player.faction), gameLayout: gameLayoutFor(req.user),
     gameShadows: shadowsFor(req.user),
     quickbarPos: require('./quickbarPositions').quickbarPositionFor(req.user),
-    playerRank: 1 + betterPlayers, tribeInvites, tribeForumUnread, unreadMessages,
   });
+  // Compteurs de l'en-tête (rapports, messages, attaques, rang, forum, invitations) : lus d'avance pour une page,
+  // sinon (action, réponse JSON) seulement si la réponse rend une vue — une redirection ne les affiche pas.
+  if (req.method === 'GET' && req.get('accept') !== 'application/json') await headerCounters(res, player, myVillages);
+  else deferUntilRender(res, () => headerCounters(res, player, myVillages));
   // Happy hour des Adartons : popup en jeu tant que ce créneau n'a pas été vu par le compte (la popup le signale
   // elle-même en s'ouvrant, POST happy-hour/seen : une requête de fond ne la consomme pas).
   const happy = require('../game/shopCatalog').happyHour(now);
@@ -161,7 +209,7 @@ const loadVillage = ah(async (req, res, next) => {
  */
 /** Valeurs par défaut des vues (en-tête hors partie), posées pour chaque requête et par la page d'erreur. */
 const BASE_LOCALS = () => ({
-  ctx: null, page: null, unreadReports: 0, incomingAttacks: 0, myVillages: [], navVillages: [], villageGroups: [], headerGroups: [], activeGroup: null, villageNav: null, groupHref: () => '', tribeInvites: 0, unreadMessages: 0, player: null,
+  ctx: null, page: null, unreadReports: 0, unreadByFilter: {}, incomingAttacks: 0, myVillages: [], navVillages: [], villageGroups: [], headerGroups: [], activeGroup: null, villageNav: null, groupHref: () => '', tribeInvites: 0, unreadMessages: 0, player: null,
   playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, gameShadows: true, quickbarPos: 'top', asSitter: false, happyPopup: null,
 });
 

@@ -73,7 +73,7 @@
   <% } else { %>
   <%# Tableau paginé %>
   <section class="<%= ui.panel %> min-w-0">
-    <%- panelHead(titles[type], type === 'continent' && c && c.list.length ? `<form method="get" class="flex items-center gap-2 text-sm"><input type="hidden" name="type" value="continent"><input type="hidden" name="of" value="${c.of}"><select name="k" class="${ui.inputSm}" onchange="this.form.submit()" aria-label="Continent">${c.list.map((k) => `<option value="${k}"${k === c.k ? ' selected' : ''}>${k}</option>`).join('')}</select><noscript><button class="${btn('dark', 'sm')}">Afficher</button></noscript></form>` : `<span class="text-[13px] text-parchment-300 tabular-nums">${num(total)} au classement</span>`) %>
+    <%- panelHead(titles[type], type === 'continent' && c && c.list.length ? `<form method="get" class="flex items-center gap-2 text-sm"><input type="hidden" name="type" value="continent"><input type="hidden" name="of" value="${c.of}"><select name="k" class="${ui.inputSm}" data-autosubmit aria-label="Continent">${c.list.map((k) => `<option value="${k}"${k === c.k ? ' selected' : ''}>${k}</option>`).join('')}</select><noscript><button class="${btn('dark', 'sm')}">Afficher</button></noscript></form>` : `<span class="text-[13px] text-parchment-300 tabular-nums">${num(total)} au classement</span>`) %>
     <% if (type === 'kills') { %>
       <div class="border-b border-bronze-800 px-3 py-2"><%- segMenu(kills.map(([id, name]) => [url({ type: 'kills', kind: id, ...(killsTribes ? { of: 'tribes' } : {}) }), name, kind === id]), { label: 'Adversaires vaincus' }) %></div>
     <% } %>

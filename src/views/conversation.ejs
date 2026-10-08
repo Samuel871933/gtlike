@@ -17,6 +17,9 @@
         </p>
       </div>
 
+      <% if (conversation.olderCount) { %>
+        <p class="text-sm"><a href="?tout=1" class="<%= ui.link %>">» Afficher les <%= conversation.olderCount %> message<%= conversation.olderCount > 1 ? 's' : '' %> plus ancien<%= conversation.olderCount > 1 ? 's' : '' %></a></p>
+      <% } %>
       <ul class="flex flex-col gap-3">
         <% for (const m of conversation.messages) { const mine = m.playerId === myId; %>
           <li class="flex <%= mine ? 'justify-end' : '' %>">

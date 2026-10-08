@@ -87,6 +87,13 @@ test('messagerie : conversation à plusieurs, non-lus, réponses, départ', asyn
   assert.equal((await MessageService.inbox(p.Alice.id, { search: 'ATTAQUE' })).total, 1, 'recherche dans le texte');
   assert.equal((await MessageService.inbox(p.Alice.id, { search: 'plan' })).total, 1, "recherche dans l'objet");
   assert.equal((await MessageService.inbox(p.Alice.id, { search: 'rien' })).total, 0);
+  // Les derniers messages seulement, du plus ancien au plus récent, et le nombre des plus anciens.
+  const last = await MessageService.read(p.Alice.id, conv.id, { limit: 1 });
+  assert.deepEqual(last.messages.map((m) => m.body), ['Oui !']);
+  assert.equal(last.olderCount, 1);
+  const whole = await MessageService.read(p.Alice.id, conv.id, { limit: null });
+  assert.deepEqual(whole.messages.map((m) => m.body), ['On attaque ce soir ?', 'Oui !']);
+  assert.equal(whole.olderCount, 0);
 
   await assert.rejects(MessageService.read(p.Carol.id, 999), /introuvable/);
   for (const name of ['Alice', 'Bob', 'Carol']) await MessageService.leave(p[name].id, conv.id);

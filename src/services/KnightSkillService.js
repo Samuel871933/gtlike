@@ -90,6 +90,13 @@ class KnightSkillService {
     return knight && knight.alive ? skills.bonuses([knight], 'village') : null;
   }
 
+  /** Bonus de village de plusieurs villages, en une lecture : Map id → bonus (les villages sans bonus en sont absents). */
+  static async villageBonusesOf(villages, cfg, t) {
+    if (!KnightSkillService.enabled(cfg)) return new Map();
+    const knights = await KnightSkillService.ofVillages(villages.filter((v) => v.units?.knight > 0).map((v) => v.id), t);
+    return new Map([...knights].map(([id, knight]) => [id, skills.bonuses([knight], 'village')]));
+  }
+
   /**
    * Lance une formation : le paladin doit être vivant et chez lui ; il quitte le village
    * (pas de combat ni de bonus) et revient avec l'expérience du programme.

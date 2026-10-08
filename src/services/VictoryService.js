@@ -33,27 +33,37 @@ class VictoryService {
 
   /** Villages de joueurs par tribu, par faction ou par joueur (`scope`) : { id, name, villages, points }. */
   static async holdings(worldId, { scope = 'tribe', where = {}, t } = {}) {
-    const villages = await Village.findAll({
+    // Comptés par la base (un monde peut avoir des dizaines de milliers de villages), noms lus pour les camps trouvés.
+    const key = scope === 'tribe' ? 'tribeId' : scope === 'faction' ? 'faction' : 'id';
+    const groups = await Village.findAll({
       where: { worldId, playerId: { [Op.ne]: null }, ...where },
-      attributes: ['points'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'faction', 'isBot'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
+      attributes: [[sequelize.fn('COUNT', sequelize.col('Village.id')), 'villages'], [sequelize.fn('SUM', sequelize.col('Village.points')), 'points']],
+      include: [{ model: Player, attributes: [key], required: true }],
+      group: [`Player.${key}`],
+      raw: true,
       transaction: t,
     });
-    const rows = new Map();
-    for (const v of villages) {
-      const owner = scope === 'tribe' ? v.Player.Tribe
-        : scope === 'faction' ? (v.Player.faction ? { id: v.Player.faction, name: factionName(v.Player.faction), faction: v.Player.faction } : null)
-          : v.Player;
-      if (!owner) continue;
-      const row = rows.get(owner.id) || {
-        id: owner.id, name: owner.tag ? `[${owner.tag}] ${owner.name}` : owner.name, tag: owner.tag || null, label: owner.name,
-        faction: owner.faction || null, villages: 0, points: 0,
-      };
-      row.villages += 1;
-      row.points += v.points;
-      rows.set(owner.id, row);
+    const counted = groups.map((g) => ({ id: g[`Player.${key}`], villages: Number(g.villages), points: Number(g.points) || 0 }));
+    const total = counted.reduce((n, g) => n + g.villages, 0);
+    const ids = counted.map((g) => g.id).filter((id) => id != null);
+    let owners = new Map();
+    if (scope === 'tribe' && ids.length) {
+      owners = new Map((await Tribe.findAll({ where: { id: { [Op.in]: ids } }, attributes: ['id', 'tag', 'name'], transaction: t })).map((x) => [x.id, x]));
+    } else if (scope === 'faction') {
+      owners = new Map(ids.map((id) => [id, { id, name: factionName(id), faction: id }]));
+    } else if (ids.length) {
+      owners = new Map((await Player.findAll({ where: { id: { [Op.in]: ids } }, attributes: ['id', 'name', 'faction'], transaction: t })).map((x) => [x.id, x]));
     }
-    return { rows: [...rows.values()].sort((a, b) => b.villages - a.villages || b.points - a.points), total: villages.length };
+    const rows = [];
+    for (const g of counted) {
+      const owner = owners.get(g.id);
+      if (!owner) continue;
+      rows.push({
+        id: owner.id, name: owner.tag ? `[${owner.tag}] ${owner.name}` : owner.name, tag: owner.tag || null, label: owner.name,
+        faction: owner.faction || null, villages: g.villages, points: g.points,
+      });
+    }
+    return { rows: rows.sort((a, b) => b.villages - a.villages || b.points - a.points), total };
   }
 
   /** État courant de la condition du monde, pour l'affichage et pour `check`. */

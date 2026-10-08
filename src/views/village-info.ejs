@@ -58,7 +58,7 @@
             <input type="hidden" name="x" value="<%= target.x %>"><input type="hidden" name="y" value="<%= target.y %>">
             <button class="flex cursor-pointer items-center gap-2.5 text-left font-semibold text-parchment-200 hover:text-parchment-50"><%- actionIcon('attack', 'text-blood-500') %>Envoyer des troupes</button>
             <% if (templates.length) { %>
-              <select name="tpl" class="<%= ui.inputSm %> ml-7.5" aria-label="Modèle d'armée" onchange="this.form.submit()">
+              <select name="tpl" class="<%= ui.inputSm %> ml-7.5" aria-label="Modèle d'armée" data-autosubmit>
                 <option value="">choisir un modèle…</option>
                 <% for (const t of templates) { %><option value="<%= t.id %>"><%= t.name %></option><% } %>
               </select>

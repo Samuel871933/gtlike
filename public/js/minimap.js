@@ -103,6 +103,9 @@
     }
   }
 
+  // Case dans la vue (ou à `margin` cases de son bord) : la liste peut contenir des villages hors de la vue.
+  const inView = (v, x, y, margin = 0) => x >= v.x0 - margin && y >= v.y0 - margin && x < v.x0 + v.width + margin && y < v.y0 + v.height + margin;
+
   // Calques « Influence de ta tribu » et « Zones ennemies » : cases voisines de ses villages (ou de sa tribu),
   // sinon d'un ennemi, comme sur la carte.
   function paintZones(g, c, v, cell, layers) {
@@ -110,7 +113,7 @@
     const own = new Set(); const enemy = new Set();
     for (const [x, y, kind] of v.villages) {
       const set = kind === 'current' || kind === 'own' || kind === 'tribe' ? own : kind === 'enemy' ? enemy : null;
-      if (!set) continue;
+      if (!set || !inView(v, x, y, 1)) continue;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) set.add(`${x + dx}|${y + dy}`);
     }
     const fill = (set, color, skip) => {
@@ -130,7 +133,7 @@
   function paintVillages(g, c, v, cell, ratio, layers) {
     const fine = perCell(cell, ratio);
     for (const [x, y, kind, mark, op] of v.villages) {
-      if (kind === 'barb' && layers.nobarb) continue;
+      if ((kind === 'barb' && layers.nobarb) || !inView(v, x, y)) continue;
       // Cible d'une opération de la tribu (calque « Opérations ») avant les marquages personnels.
       const color = kind.startsWith('#') ? kind : (layers.operations !== false && op) || (layers.markers && mark) || c[kind] || c.other;
       if (fine) {

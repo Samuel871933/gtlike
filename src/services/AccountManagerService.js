@@ -129,11 +129,15 @@ class AccountManagerService {
   }
 
   /** Condition « modèles du compte du joueur » (aucun pour un bot). */
-  static async ownWhere(playerId, t) {
-    return { userId: (await AccountManagerService.userOf(playerId, t)) || -1 };
+  /** `userId` : compte du joueur s'il est déjà connu (passage du gestionnaire), sinon lu. */
+  static async ownWhere(playerId, t, userId) {
+    return { userId: (userId !== undefined ? userId : await AccountManagerService.userOf(playerId, t)) || -1 };
   }
 
-  /** Modèles du joueur : construction et troupes, ceux du système (troupes : ceux possibles sur le monde `cfg`) puis les siens. */
+  /**
+   * Modèles du joueur : construction, troupes et forge, ceux du système (troupes : ceux possibles sur le monde `cfg`)
+   * puis les siens.
+   */
   static async templates(playerId, cfg = null) {
     const own = await ManagerTemplate.findAll({ where: await AccountManagerService.ownWhere(playerId), order: [['name', 'ASC'], ['id', 'ASC']] });
     const build = [
@@ -144,7 +148,65 @@ class AccountManagerService {
       ...(cfg ? managerTemplates.troopsFor(cfg) : managerTemplates.TROOPS),
       ...own.filter((t) => t.kind === 'troops').map((t) => AccountManagerService.troopView(t, cfg)),
     ];
-    return { build, troops };
+    const research = [
+      ...managerTemplates.RESEARCH.map((t) => AccountManagerService.researchView(t, cfg)),
+      ...own.filter((t) => t.kind === 'research').map((t) => AccountManagerService.researchView(t, cfg)),
+    ];
+    return { build, troops, research };
+  }
+
+  /** Unités qui se recherchent à la forge sur ce monde, dans l'ordre de la forge (vide sans recherche). */
+  static researchUnits(cfg) {
+    return cfg ? registry.unitsFor(cfg).filter((u) => u.needsResearch(cfg)) : [];
+  }
+
+  /**
+   * Modèle de forge (système, ou ligne ManagerTemplate du joueur) vu depuis le monde `cfg` : `units`, les unités à
+   * rechercher sur ce monde dans l'ordre de la forge ; `ignored`, celles du modèle absentes de ce monde (gardées pour
+   * les mondes qui les ont) ; `allUnits`, toutes celles du modèle.
+   */
+  static researchView(t, cfg = null) {
+    const here = AccountManagerService.researchUnits(cfg).map((u) => u.id);
+    if (t.system) return { key: t.key, id: null, name: t.name, system: true, description: t.description, units: here, ignored: [], allUnits: here };
+    const all = [].concat(t.data.units || []);
+    return {
+      key: `tpl:${t.id}`, id: t.id, name: t.name, system: false,
+      units: here.filter((id) => all.includes(id)), ignored: cfg ? all.filter((id) => !here.includes(id)) : [], allUnits: all,
+    };
+  }
+
+  /** Modèle de forge d'une clé ('sys:research' ou 'tpl:<id>' du joueur), vu depuis le monde `cfg`, ou nul. */
+  static async researchTemplate(playerId, key, cfg, t, userId) {
+    key = String(key || '');
+    const system = managerTemplates.researchSystem(key);
+    if (system) return AccountManagerService.researchView(system, cfg);
+    const id = Number(key.startsWith('tpl:') ? key.slice(4) : key);
+    const row = id ? await ManagerTemplate.findOne({ where: { id, kind: 'research', ...(await AccountManagerService.ownWhere(playerId, t, userId)) }, transaction: t }) : null;
+    return row ? AccountManagerService.researchView(row, cfg) : null;
+  }
+
+  /** Nouveau modèle de forge, vide ou copié d'un autre (`from` : clé d'un modèle ; le modèle système : ses unités du monde). */
+  static async createResearchTemplate(playerId, { name, from }, cfg) {
+    const label = clean(name);
+    if (!label) throw new GameError('Donne un nom au modèle.');
+    const source = from ? await AccountManagerService.researchTemplate(playerId, from, cfg) : null;
+    if (from && !source) throw new GameError('Modèle à copier introuvable.', 404);
+    return ManagerTemplate.create({
+      userId: await AccountManagerService.ownerUser(playerId), kind: 'research', name: label,
+      data: { units: source ? [...source.allUnits] : [] },
+    });
+  }
+
+  /** Coche ou décoche une unité d'un modèle de forge à soi (case enregistrée aussitôt). */
+  static async setResearchUnit(playerId, id, unitId, on, cfg) {
+    const row = await AccountManagerService.ownTemplate(playerId, id, 'research');
+    if (!AccountManagerService.researchUnits(cfg).some((u) => u.id === unitId)) throw new GameError('Recherche inconnue.');
+    const units = [].concat(row.data.units || []).filter((u) => u !== unitId);
+    if (checked(on)) units.push(unitId);
+    await row.update({ data: { ...row.data, units } });
+    // Les villages de ce modèle sont revus au prochain passage.
+    await ManagerVillage.update({ checkAt: null }, { where: { researchTemplate: `tpl:${row.id}` } });
+    return AccountManagerService.researchView(row, cfg);
   }
 
   static buildView(t) {
@@ -194,11 +256,11 @@ class AccountManagerService {
   }
 
   /** Modèle de construction d'une clé ('sys:…' ou 'tpl:<id>' du joueur), ou nul. */
-  static async buildTemplate(playerId, key, t) {
+  static async buildTemplate(playerId, key, t, userId) {
     if (!key) return null;
     if (key.startsWith('sys:')) return managerTemplates.system(key);
     const id = Number(key.slice(4));
-    const row = key.startsWith('tpl:') && id ? await ManagerTemplate.findOne({ where: { id, kind: 'build', ...(await AccountManagerService.ownWhere(playerId, t)) }, transaction: t }) : null;
+    const row = key.startsWith('tpl:') && id ? await ManagerTemplate.findOne({ where: { id, kind: 'build', ...(await AccountManagerService.ownWhere(playerId, t, userId)) }, transaction: t }) : null;
     return row ? AccountManagerService.buildView(row) : null;
   }
 
@@ -229,13 +291,14 @@ class AccountManagerService {
     return row;
   }
 
-  /** Supprime un modèle : les villages qui l'utilisaient n'ont plus de modèle (construction) ou plus de troupes visées. */
+  /** Supprime un modèle : les villages qui l'utilisaient n'ont plus de modèle (construction, forge) ou plus de troupes visées. */
   static async deleteTemplate(playerId, id) {
     const row = await ManagerTemplate.findOne({ where: { id: Number(id), ...(await AccountManagerService.ownWhere(playerId)) } });
     if (!row) throw new GameError('Modèle introuvable.', 404);
     await sequelize.transaction(async (t) => {
       // Le modèle est au compte : ses villages sur tous les mondes perdent le modèle.
       if (row.kind === 'build') await ManagerVillage.update({ buildTemplate: null, checkAt: null }, { where: { buildTemplate: `tpl:${row.id}` }, transaction: t });
+      else if (row.kind === 'research') await ManagerVillage.update({ researchTemplate: null, checkAt: null }, { where: { researchTemplate: `tpl:${row.id}` }, transaction: t });
       else await ManagerVillage.update({ troopTemplateId: null, checkAt: null }, { where: { troopTemplateId: row.id }, transaction: t });
       await row.destroy({ transaction: t });
     });
@@ -388,6 +451,23 @@ class AccountManagerService {
     });
   }
 
+  /** Action sur des villages du gestionnaire de forge : { action: 'use', template } (clé du modèle), 'remove', 'pause', 'resume'. */
+  static async applyResearch(playerId, villageIds, { action, template }, cfg) {
+    if (action === 'use' && !(await AccountManagerService.researchTemplate(playerId, template, cfg))) throw new GameError('Modèle introuvable.', 404);
+    const patch = {
+      use: { researchTemplate: template, researchPaused: false },
+      remove: { researchTemplate: null, researchPaused: false },
+      pause: { researchPaused: true },
+      resume: { researchPaused: false },
+    }[action];
+    if (!patch) throw new GameError('Action inconnue.');
+    return sequelize.transaction(async (t) => {
+      const rows = await AccountManagerService.rowsFor(playerId, villageIds, t);
+      for (const r of rows) await r.update({ ...patch, checkAt: null }, { transaction: t });
+      return rows.length;
+    });
+  }
+
   /** Rôle de villages dans la réserve du marché : both, send (donne seulement), receive (reçoit seulement), off. */
   static async applyReserveRole(playerId, villageIds, role) {
     if (!RESERVE_ROLES.includes(role)) throw new GameError('Rôle inconnu.');
@@ -398,12 +478,13 @@ class AccountManagerService {
     });
   }
 
-  /** Pastille de l'aperçu : met en pause ou relance un gestionnaire (build, troops) d'un village. */
+  /** Pastille de l'aperçu : met en pause ou relance un gestionnaire (build, troops, research) d'un village. */
   static async toggle(playerId, villageId, which) {
     const row = await ManagerVillage.findOne({ where: { villageId: Number(villageId), playerId } });
     if (!row) throw new GameError('Ce village n’est pas géré.', 404);
     if (which === 'build' && row.buildTemplate) await row.update({ buildPaused: !row.buildPaused, checkAt: null });
     else if (which === 'troops' && (row.troopTemplateId || row.troops)) await row.update({ troopsPaused: !row.troopsPaused, checkAt: null });
+    else if (which === 'research' && row.researchTemplate) await row.update({ researchPaused: !row.researchPaused, checkAt: null });
     else if (which === 'market') await row.update({ reserve: row.reserve === 'off' ? 'both' : 'off' });
     else throw new GameError('Rien à mettre en pause.');
     return row;
@@ -411,10 +492,10 @@ class AccountManagerService {
 
   /**
    * Villages du joueur pour les écrans du gestionnaire, une page à la fois (comptes à des centaines de villages) :
-   * ligne du gestionnaire (ou nulle), modèle de construction, troupes visées (vues depuis le monde `cfg`), routes au
-   * départ, et l'état de chacun des trois gestionnaires (active, paused, none).
+   * ligne du gestionnaire (ou nulle), modèle de construction, troupes visées (vues depuis le monde `cfg`), modèle de
+   * forge, routes au départ, et l'état de chacun des gestionnaires (active, paused, none).
    * Aussi, sur tous ses villages : l'usage des modèles (`usage`) et le nombre de villages gérés (`managed`).
-   * @returns {{ rows, pagination, usage: { build: Map, troops: Map }, managed: number }}
+   * @returns {{ rows, pagination, usage: { build: Map, troops: Map, research: Map }, managed: number }}
    */
   static async villages(playerId, { cfg = null, page = 1, perPage = null, only = null } = {}) {
     const PaginationService = require('./PaginationService');
@@ -423,7 +504,7 @@ class AccountManagerService {
     const inScope = only ? new Set(only) : null;
     const [total, all, own, player] = await Promise.all([
       Village.count({ where: scope }),
-      ManagerVillage.findAll({ where: { playerId }, attributes: ['villageId', 'buildTemplate', 'buildPaused', 'troopTemplateId', 'troops', 'troopsPaused', 'status'], raw: true }),
+      ManagerVillage.findAll({ where: { playerId }, attributes: ['villageId', 'buildTemplate', 'buildPaused', 'troopTemplateId', 'troops', 'troopsPaused', 'researchTemplate', 'researchPaused', 'status'], raw: true }),
       AccountManagerService.ownWhere(playerId).then((where) => ManagerTemplate.findAll({ where })),
       Player.findByPk(playerId, { attributes: ['id', 'managerSettings', 'managerPerPage'] }),
     ]);
@@ -440,7 +521,7 @@ class AccountManagerService {
     const byVillage = new Map(rows.map((r) => [r.villageId, r]));
     const tplName = (key) => {
       if (!key) return null;
-      const sys = managerTemplates.system(key);
+      const sys = managerTemplates.system(key) || managerTemplates.researchSystem(key);
       if (sys) return sys.name;
       const row = own.find((t) => `tpl:${t.id}` === key);
       return row ? row.name : null;
@@ -448,11 +529,12 @@ class AccountManagerService {
     const troopTpl = new Map(own.filter((t) => t.kind === 'troops').map((t) => [t.id, t]));
     const troopKey = (r) => (r.troopTemplateId ? `tpl:${r.troopTemplateId}` : r.troops && r.troops.system ? r.troops.system : null);
     // Usage des modèles sur tous les villages : villages, villages en pause, améliorations lancées.
-    const usage = { build: new Map(), troops: new Map() };
+    const usage = { build: new Map(), troops: new Map(), research: new Map() };
     let managed = 0;
     for (const r of all) {
       const troopsOn = Boolean(r.troopTemplateId || r.troops);
-      if ((r.buildTemplate || troopsOn) && (!inScope || inScope.has(r.villageId))) managed += 1;
+      if ((r.buildTemplate || troopsOn || r.researchTemplate) && (!inScope || inScope.has(r.villageId))) managed += 1;
+      if (r.researchTemplate) usage.research.set(r.researchTemplate, (usage.research.get(r.researchTemplate) || 0) + 1);
       if (r.buildTemplate) {
         const u = usage.build.get(r.buildTemplate) || { villages: 0, paused: 0, built: 0 };
         u.villages += 1;
@@ -481,6 +563,8 @@ class AccountManagerService {
         status: row && row.status ? row.status : {},
         build: state(Boolean(row && row.buildTemplate), row && row.buildPaused),
         troopsState: state(Boolean(troops), row && row.troopsPaused),
+        researchTemplate: row && row.researchTemplate ? { key: row.researchTemplate, name: tplName(row.researchTemplate) } : null,
+        research: state(Boolean(row && row.researchTemplate), row && row.researchPaused),
         market: routeCount || (reserveOn && role !== 'off') ? 'active' : reserveOn ? 'paused' : 'none',
       };
     });
@@ -568,29 +652,42 @@ class AccountManagerService {
   /** Passage du gestionnaire (boucle de jeu) : villages à revoir, routes à envoyer, réserves et notifications. */
   static async runDue(now = new Date()) {
     const rights = new Map(); // premium par joueur, le temps d'un passage
+    const users = new Map(); // compte de chaque joueur (modèles du joueur), le temps d'un passage
     const premium = async (playerId) => {
       if (!rights.has(playerId)) {
         const p = await Player.findByPk(playerId, { attributes: ['userId', 'worldId'] });
+        users.set(playerId, p ? p.userId : null);
         rights.set(playerId, Boolean(p && p.userId && await ShopService.hasPremium(p.userId, p.worldId, { now })));
       }
       return rights.get(playerId);
     };
-    const due = await ManagerVillage.findAll({
-      where: {
-        [Op.and]: [
-          { [Op.or]: [{ checkAt: null }, { checkAt: { [Op.lte]: now } }] },
-          { [Op.or]: [{ buildTemplate: { [Op.ne]: null }, buildPaused: false }, { troopTemplateId: { [Op.ne]: null }, troopsPaused: false }, { troops: { [Op.ne]: null }, troopsPaused: false }] },
-        ],
-      },
-      attributes: ['id', 'villageId', 'playerId'], order: [['checkAt', 'ASC']], limit: 500, raw: true,
-    });
-    for (const row of due) {
-      try {
-        if (await premium(row.playerId)) await AccountManagerService.runVillage(row.id, now);
-        else await ManagerVillage.update({ checkAt: new Date(now.getTime() + CHECK_MAX), status: { premium: false } }, { where: { id: row.id } });
-      } catch (err) {
-        console.error('[AccountManager] village', row.villageId, err);
+    // Par lots de 500 jusqu'à épuisement (chaque village traité repousse sa vérification, au moins CHECK_MIN plus
+    // tard) ; un village en erreur n'est pas repris dans le même passage.
+    const failed = new Set();
+    for (;;) {
+      const due = await ManagerVillage.findAll({
+        where: {
+          [Op.and]: [
+            { [Op.or]: [{ checkAt: null }, { checkAt: { [Op.lte]: now } }] },
+            { [Op.or]: [
+              { buildTemplate: { [Op.ne]: null }, buildPaused: false }, { troopTemplateId: { [Op.ne]: null }, troopsPaused: false },
+              { troops: { [Op.ne]: null }, troopsPaused: false }, { researchTemplate: { [Op.ne]: null }, researchPaused: false },
+            ] },
+            ...(failed.size ? [{ id: { [Op.notIn]: [...failed] } }] : []),
+          ],
+        },
+        attributes: ['id', 'villageId', 'playerId'], order: [['checkAt', 'ASC']], limit: 500, raw: true,
+      });
+      for (const row of due) {
+        try {
+          if (await premium(row.playerId)) await AccountManagerService.runVillage(row.id, now, { userId: users.get(row.playerId) });
+          else await ManagerVillage.update({ checkAt: new Date(now.getTime() + CHECK_MAX), status: { premium: false } }, { where: { id: row.id } });
+        } catch (err) {
+          failed.add(row.id);
+          console.error('[AccountManager] village', row.villageId, err);
+        }
       }
+      if (due.length < 500) break;
     }
     await AccountManagerService.runRoutes(now, premium);
     const players = await Player.findAll({ where: { managerSettings: { [Op.ne]: null } }, attributes: ['id', 'managerSettings'] });
@@ -611,7 +708,7 @@ class AccountManagerService {
    * Un village : constructions du modèle (places au prix normal seulement), puis recrutement des troupes visées.
    * Enregistre l'état (ce qui a été lancé, ce qui bloque) et la prochaine vérification.
    */
-  static async runVillage(rowId, now = new Date()) {
+  static async runVillage(rowId, now = new Date(), { userId } = {}) {
     const row = await ManagerVillage.findByPk(rowId);
     if (!row) return null;
     return VillageService.withVillage(row.villageId, async (ctx, t) => {
@@ -621,7 +718,7 @@ class AccountManagerService {
       const waits = [];
       let reserved = null;
       if (row.buildTemplate && !row.buildPaused) {
-        const tpl = await AccountManagerService.buildTemplate(row.playerId, row.buildTemplate, t);
+        const tpl = await AccountManagerService.buildTemplate(row.playerId, row.buildTemplate, t, userId);
         if (!tpl) {
           await row.update({ buildTemplate: null }, { transaction: t });
         } else {
@@ -632,8 +729,20 @@ class AccountManagerService {
           reserved = build.reserved;
         }
       }
+      // Forge : après la construction (ses ressources mises de côté), avant les troupes (qui laissent celles de la recherche).
+      if (row.researchTemplate && !row.researchPaused) {
+        const tpl = await AccountManagerService.researchTemplate(row.playerId, row.researchTemplate, ctx.cfg, t, userId);
+        if (!tpl) {
+          await row.update({ researchTemplate: null }, { transaction: t });
+        } else {
+          const res = await AccountManagerService.runResearch(ctx, tpl, reserved, t);
+          status.research = { started: res.started, reason: res.reason, done: res.done };
+          if (res.wait) waits.push(res.wait);
+          if (res.reserved) reserved = Object.fromEntries(RESOURCES.map((r) => [r, ((reserved && reserved[r]) || 0) + res.reserved[r]]));
+        }
+      }
       if ((row.troopTemplateId || row.troops) && !row.troopsPaused) {
-        const tplRow = row.troopTemplateId ? await ManagerTemplate.findOne({ where: { id: row.troopTemplateId, kind: 'troops', ...(await AccountManagerService.ownWhere(row.playerId, t)) }, transaction: t }) : null;
+        const tplRow = row.troopTemplateId ? await ManagerTemplate.findOne({ where: { id: row.troopTemplateId, kind: 'troops', ...(await AccountManagerService.ownWhere(row.playerId, t, userId)) }, transaction: t }) : null;
         const system = row.troops && row.troops.system ? managerTemplates.troopSystem(row.troops.system) : null;
         const troops = tplRow ? AccountManagerService.troopView(tplRow, ctx.cfg) : system || row.troops;
         if (troops) {
@@ -714,6 +823,49 @@ class AccountManagerService {
       await VillageService.queueBuild(ctx, option, t);
       out.queued.push(`${option.type.name} ${option.level}`);
     }
+    return out;
+  }
+
+  /**
+   * Gestionnaire de forge : lance la première recherche du modèle possible, dans l'ordre de la forge (une à la fois,
+   * comme à la forge) ; celles dont les bâtiments requis manquent attendent, les suivantes passent. Les ressources
+   * mises de côté pour la prochaine construction (`reserved`) n'y passent pas.
+   * @returns {{ started: string|null, reason: string|null, done: boolean, wait: Date|null, reserved: object|null }}
+   *   `reserved` : coût de la recherche attendue faute de ressources, que le gestionnaire de troupes laisse de côté.
+   */
+  static async runResearch(ctx, tpl, reserved, t) {
+    const out = { started: null, reason: null, done: false, wait: null, reserved: null };
+    const todo = VillageService.researchOptions(ctx).filter((o) => tpl.units.includes(o.type.id) && !o.done);
+    if (!todo.length) {
+      out.done = true;
+      return out;
+    }
+    const running = ctx.researchOrders[0];
+    if (running) {
+      out.reason = `Recherche en cours : ${registry.unit(running.unit).name}`;
+      out.wait = running.endsAt;
+      return out;
+    }
+    if (ctx.state.level('smith') < 1) {
+      out.reason = 'Il faut une forge';
+      return out;
+    }
+    const ready = todo.find((o) => !o.missing.length);
+    if (!ready) {
+      out.reason = `Bâtiments requis : ${todo.map((o) => `${o.type.name} (${o.blocker})`).join(' · ')}`;
+      return out;
+    }
+    const left = Object.fromEntries(RESOURCES.map((r) => [r, ctx.state.resources[r] - ((reserved && reserved[r]) || 0)]));
+    if (RESOURCES.some((r) => left[r] < ready.cost[r])) {
+      out.reason = `${ready.type.name} : ressources insuffisantes`;
+      out.reserved = { ...ready.cost };
+      const need = Object.fromEntries(RESOURCES.map((r) => [r, ready.cost[r] + ((reserved && reserved[r]) || 0)]));
+      out.wait = ctx.state.affordableAt(need, ctx.now);
+      return out;
+    }
+    await VillageService.queueResearch(ctx, ready, t);
+    out.started = ready.type.name;
+    out.wait = new Date(ctx.now.getTime() + ready.duration * 1000);
     return out;
   }
 
@@ -995,6 +1147,7 @@ class AccountManagerService {
     const { notify, notifyState } = AccountManagerService.settings(player);
     const attacks = await AccountManagerService.incomingAttacks(playerId, now);
     const state = { pending: 0, lastCount: 0, lastId: 0, ...notifyState };
+    const unchanged = JSON.stringify(state);
     const pendingFromId = state.pendingFromId ?? state.lastId;
     const fresh = attacks.filter((c) => c.id > state.lastId);
     state.pending += fresh.length;
@@ -1015,6 +1168,8 @@ class AccountManagerService {
       state.pendingFromId = state.lastId;
     }
     state.lastCount = attacks.length;
+    // Vérifié chaque minute pour chaque joueur concerné : écrit seulement quand l'état change.
+    if (JSON.stringify(state) === unchanged) return message;
     const settings = (await Player.findByPk(playerId, { attributes: ['id', 'managerSettings'] })).managerSettings || {};
     await Player.update({ managerSettings: { ...settings, notifyState: state } }, { where: { id: playerId } });
     return message;
@@ -1121,6 +1276,11 @@ class AccountManagerService {
       const s = m.status || {};
       if (s.premium === false) out.push({ village: m.village, kind: 'premium', text: 'Gestionnaire arrêté : le premium n’est plus actif.' });
       else if (m.build === 'active' && s.build && s.build.reason && !/ressources insuffisantes|File de construction pleine/.test(s.build.reason)) out.push({ village: m.village, kind: 'build', text: s.build.reason });
+      // Forge bloquée (pas de forge, bâtiments requis) : comme un modèle de construction bloqué ; pas pour une attente
+      // normale (recherche en cours, ressources).
+      if (s.premium !== false && m.research === 'active' && s.research && s.research.reason && !/ressources insuffisantes|^Recherche en cours/.test(s.research.reason)) {
+        out.push({ village: m.village, kind: 'research', text: `Forge : ${s.research.reason}` });
+      }
     }
     return out;
   }

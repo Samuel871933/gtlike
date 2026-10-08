@@ -1,11 +1,11 @@
-<%# Gestionnaire de compte, onglet Villages et ses sous-onglets Construction et Troupes (inclus par manager.ejs avec ses helpers h et `which` :
-    build | troops) : le seul endroit où l'on assigne les modèles, comme les gestionnaires de villages et de troupes
-    de Guerre Tribale. Une ligne par village (modèle, état, dernier passage, boutons du village) ; en bas, le modèle à
+<%# Gestionnaire de compte, onglet Villages et ses sous-onglets Construction, Troupes et Forge (inclus par manager.ejs avec ses helpers h
+    et `which` : build | troops | research) : le seul endroit où l'on assigne les modèles, comme les gestionnaires de
+    villages et de troupes de Guerre Tribale. Une ligne par village (modèle, état, dernier passage, boutons du village) ; en bas, le modèle à
     appliquer et l'action groupée. Un seul formulaire : le bouton pressé porte l'action (`op`, POST /manager/apply). %>
 <%
   const { m } = h;
   const troops = which === 'troops';
-  const label = troops ? 'Troupes' : 'Construction';
+  const research = which === 'research';
   const BULK = [['pause', 'Mettre en pause'], ['resume', 'Reprendre'], ['remove', 'Retirer le modèle']];
   const STATE = { active: ['Actif', 'text-olive-300'], paused: ['En pause', 'text-gold-400'] };
   const stateCell = (state) => (STATE[state] ? `<span class="font-semibold ${STATE[state][1]}">${STATE[state][0]}</span>` : '<span class="text-parchment-600">—</span>');
@@ -31,13 +31,17 @@
   const cols = troops ? 7 : 6;
 %>
 <section class="<%= ui.panel %>">
-  <%# Onglet Villages : sous-onglets Construction et Troupes, et le lien vers les modèles du gestionnaire affiché. %>
-  <%- panelHead('Villages', `<span class="flex flex-wrap items-center gap-3"><a href="${m}?tab=${troops ? 'troops' : 'templates'}" class="${ui.link} font-sans text-xs">${troops ? 'Modèles de troupes' : 'Modèles de construction'}</a>${segTabs([[`${m}?tab=buildings`, 'Construction', !troops], [`${m}?tab=units`, 'Troupes', troops]])}</span>`) %>
+  <%# Onglet Villages : sous-onglets Construction, Troupes et Forge, et le lien vers les modèles du gestionnaire affiché. %>
+  <% const models = troops ? ['troops', 'Modèles de troupes'] : research ? ['research', 'Modèles de forge'] : ['templates', 'Modèles de construction']; %>
+  <%- panelHead('Villages', `<span class="flex flex-wrap items-center gap-3"><a href="${m}?tab=${models[0]}" class="${ui.link} font-sans text-xs">${models[1]}</a>${segTabs([[`${m}?tab=buildings`, 'Construction', which === 'build'], [`${m}?tab=units`, 'Troupes', troops], [`${m}?tab=forge`, 'Forge', research]])}</span>`) %>
   <form method="post" action="<%= m %>/apply"><%- h.csrf %>
     <p class="<%= ui.panelNote %>">
       <% if (troops) { %>
         Le gestionnaire recrute ce qui manque pour atteindre les troupes du modèle, par petits lots (le coût de 50 lanciers
         par défaut, réglable dans le modèle), après la prochaine construction.
+      <% } else if (research) { %>
+        Le gestionnaire lance à la forge, une à la fois, les recherches du modèle dans l’ordre de la forge, dès que les
+        bâtiments requis et les ressources le permettent, après la prochaine construction et avant les troupes.
       <% } else { %>
         Le gestionnaire met en file, dans l’ordre du modèle, ce que le village peut se payer, au prix normal.
       <% } %>
@@ -66,6 +70,14 @@
                 <% const recruited = [st && st.recruited && Object.keys(st.recruited).length ? `recruté : ${list(st.recruited)}` : '', st && st.dismissed ? `renvoyé : ${list(st.dismissed)}` : ''].filter(Boolean).join(' · '); %>
                 <td class="max-w-0"><%- info(row.troopsState, st, 'troupes au complet', recruited) %></td>
                 <td><%- rowActions(v, row.troopsState) %></td>
+              <% } else if (research) { const sr = row.status.research; %>
+                <td>
+                  <% if (row.researchTemplate) { %><a href="<%= m %>?tab=research&id=<%= encodeURIComponent(row.researchTemplate.key) %>" class="<%= ui.linkPlain %>"><%= row.researchTemplate.name %></a>
+                  <% } else { %><span class="text-parchment-600">aucun modèle</span><% } %>
+                </td>
+                <td><%- stateCell(row.research) %></td>
+                <td class="max-w-0"><%- info(row.research, sr, 'tout est recherché', sr && sr.started ? `lancé : ${sr.started}` : '') %></td>
+                <td><%- rowActions(v, row.research) %></td>
               <% } else { const sb = row.status.build; %>
                 <td>
                   <% if (row.buildTemplate) { %><a href="<%= m %>?tab=templates&id=<%= encodeURIComponent(row.buildTemplate.key) %>" class="<%= ui.linkPlain %>"><%= row.buildTemplate.name %></a>
@@ -83,9 +95,13 @@
     </div>
     <%# Barre d'actions : le modèle à appliquer, une action groupée, et les villages visés. %>
     <div class="flex flex-wrap items-end gap-x-5 gap-y-2.5 border-t border-bronze-800 px-3 py-2.5">
-      <label class="<%= ui.label %>"><%= troops ? 'Modèle de troupes' : 'Modèle de construction' %>
+      <label class="<%= ui.label %>"><%= troops ? 'Modèle de troupes' : research ? 'Modèle de forge' : 'Modèle de construction' %>
         <span class="flex items-center gap-2">
-          <% if (troops) { %>
+          <% if (research) { %>
+            <select name="researchTemplate" class="<%= ui.inputSm %> max-w-56">
+              <% for (const tpl of templates.research) { %><option value="<%= tpl.key %>"><%= tpl.name %><%= tpl.system ? ' (système)' : '' %></option><% } %>
+            </select>
+          <% } else if (troops) { %>
             <select name="troopTemplate" class="<%= ui.inputSm %> max-w-64">
               <% for (const tpl of templates.troops) { %><option value="<%= tpl.key %>"><%= tpl.name %><%= tpl.system ? ' (système)' : '' %> · <%= num(troopStats(tpl.units).pop) %> hab.</option><% } %>
             </select>

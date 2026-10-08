@@ -43,10 +43,23 @@ class BotService {
   }
 
   /** Nom libre sur ce monde (et qu'aucun compte ne porte, pour éviter les homonymes s'il rejoint le monde). */
-  static async freeName(worldId, rng = Math.random) {
+  static async freeName(worldId, rng = Math.random, taken = null) {
+    // `taken` : noms déjà pris, lus une fois par l'appelant qui crée plusieurs bots (complété par le nom choisi).
+    if (!taken) taken = await BotService.takenNames(worldId);
+    const name = BotService.pickName(taken, rng);
+    taken.add(name);
+    return name;
+  }
+
+  /** Noms des joueurs du monde et comptes qui portent un nom de bot. */
+  static async takenNames(worldId) {
     const players = await Player.findAll({ where: { worldId }, attributes: ['name'], raw: true });
     const users = await User.findAll({ where: { username: NAMES }, attributes: ['username'], raw: true });
-    const taken = new Set([...players.map((p) => p.name), ...users.map((u) => u.username)]);
+    return new Set([...players.map((p) => p.name), ...users.map((u) => u.username)]);
+  }
+
+  /** Nom de la liste encore libre, sinon un nom numéroté. */
+  static pickName(taken, rng) {
     const free = NAMES.filter((n) => !taken.has(n));
     if (free.length) return free[Math.floor(rng() * free.length)];
     for (let i = 2; ; i += 1) {
@@ -61,8 +74,9 @@ class BotService {
     if (world.endedAt || !cfg.bots.count) return [];
     const missing = cfg.bots.count - (await Bot.count({ where: { worldId: world.id } }));
     const created = [];
+    const taken = missing > 0 ? await BotService.takenNames(world.id) : null;
     for (let i = 0; i < missing; i += 1) {
-      const name = await BotService.freeName(world.id, rng);
+      const name = await BotService.freeName(world.id, rng, taken);
       const { player } = await WorldService.joinBot(world, { name, now, rng });
       created.push(await Bot.create({ worldId: world.id, playerId: player.id, nextActionAt: now }));
     }

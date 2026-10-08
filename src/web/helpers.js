@@ -278,8 +278,8 @@ const FAVORITE_PAGES = [
   },
   {
     key: 'manager', name: 'Gestionnaire de compte', path: 'manager', available: () => true,
-    // Villages : sous-onglets Construction (buildings) et Troupes (units, voir manager.ejs).
-    tabs: [['overview', 'Aperçu'], ['buildings', 'Villages'], ['templates', 'Modèles de construction'], ['troops', 'Modèles de troupes'], ['market', 'Marché'], ['notify', 'Notifications']]
+    // Villages : sous-onglets Construction (buildings), Troupes (units) et Forge (forge, voir manager.ejs).
+    tabs: [['overview', 'Aperçu'], ['buildings', 'Villages'], ['templates', 'Modèles de construction'], ['troops', 'Modèles de troupes'], ['research', 'Modèles de forge'], ['market', 'Marché'], ['notify', 'Notifications']]
       .map(([key, name], i) => ({ key, name, path: i ? `manager?tab=${key}` : 'manager' })),
   },
 ];
@@ -549,14 +549,17 @@ function tribeLink(vid, tr, { name = false, tagCls = ui.tagMuted, cls = ui.linkP
     : `<span class="inline-flex min-w-0 items-center gap-2 align-middle whitespace-nowrap">${inner}</span>`;
 }
 
+// Un seul formateur pour toutes les pages : toLocaleString en recrée un à chaque nombre affiché (des centaines par page).
+const NUMBER_FR = new Intl.NumberFormat('fr-FR');
+
 function num(n) {
-  return Math.floor(n).toLocaleString('fr-FR');
+  return NUMBER_FR.format(Math.floor(n));
 }
 
 /** Nombre abrégé pour les barres étroites (mobile) : 950, 8,4k, 400k, 1,2M ; arrondi vers le bas, comme num. Même règle que short() dans public/js/game.js. */
 function numShort(n) {
   const v = Math.floor(n);
-  const cut = (x, unit) => `${(x < 10 ? Math.floor(x * 10) / 10 : Math.floor(x)).toLocaleString('fr-FR')}${unit}`;
+  const cut = (x, unit) => `${NUMBER_FR.format(x < 10 ? Math.floor(x * 10) / 10 : Math.floor(x))}${unit}`;
   if (v < 1000) return String(v);
   if (v < 1e6) return cut(v / 1000, 'k');
   return cut(v / 1e6, 'M');

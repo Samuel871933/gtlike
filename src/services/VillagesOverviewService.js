@@ -38,7 +38,8 @@ class VillagesOverviewService {
 
     const fresh = new Map();
     for (const id of await VillageService.dueVillageIds(now, ids)) {
-      fresh.set(id, await VillageService.withVillage(id, async (ctx) => ctx, { now }));
+      // Rafraîchissement « nu » : les troupes absentes sont calculées plus bas pour tous les villages.
+      fresh.set(id, await VillageService.withVillage(id, async (ctx) => ctx, { now, bare: true }));
     }
     villages = await Village.findAll({ where: { id: { [Op.in]: ids }, playerId } });
     const cfg = (await World.findByPk(villages[0].worldId)).getConfig();
@@ -70,6 +71,9 @@ class VillagesOverviewService {
     // Un paladin en formation reste à la charge de la ferme de son village (VillageService.awayUnits).
     for (const k of training) addAway(k.homeVillageId, { knight: 1 });
     const busyOf = new Map(moving.map((m) => [m.originVillageId, Number(m.n) || 0]));
+    const attacksOf = new Map();
+    for (const c of attacks) attacksOf.set(c.targetVillageId, (attacksOf.get(c.targetVillageId) || 0) + 1);
+    const bonusOf = await KnightSkillService.villageBonusesOf(villages.filter((v) => !fresh.has(v.id)), cfg);
     for (const o of offers) busyOf.set(o.villageId, (busyOf.get(o.villageId) || 0) + o.count * o.merchantsPerOffer);
 
     const byId = new Map(villages.map((v) => [v.id, v]));
@@ -81,7 +85,7 @@ class VillagesOverviewService {
       if (!ctx) {
         const buildOrders = buildsOf.get(id) || [];
         const recruitOrders = recruitsOf.get(id) || [];
-        const villageBonus = await KnightSkillService.villageBonuses(village, cfg);
+        const villageBonus = bonusOf.get(id) || null;
         const state = new VillageState({ ...village.get({ plain: true }), villageBonus }, cfg);
         // Rien n'est échu : ces appels ne font qu'avancer la production jusqu'à maintenant (voir VillageService.refresh).
         state.applyBuildOrders(buildOrders, now);
@@ -90,6 +94,7 @@ class VillagesOverviewService {
         state.applyResearchOrders(researchOf.get(id) || [], now);
         ctx = { village, state, buildOrders, recruitOrders, researchOrders: researchOf.get(id) || [], awayUnits: awayOf.get(id) || {} };
       }
+      if (!ctx.awayUnits) ctx = { ...ctx, awayUnits: awayOf.get(id) || {} };
       const { state } = ctx;
       const popUsed = state.popUsed(ctx.buildOrders, ctx.recruitOrders, ctx.awayUnits);
       const total = formulas.merchantCount(state.level('market'));
@@ -108,7 +113,7 @@ class VillagesOverviewService {
         recruiting: (b) => ctx.recruitOrders.filter((o) => o.building === b),
         researchOrders: ctx.researchOrders,
         merchants: { total, busy, free: Math.max(0, total - busy) },
-        incomingAttacks: attacks.filter((c) => c.targetVillageId === id).length,
+        incomingAttacks: attacksOf.get(id) || 0,
       });
     }
     return out;

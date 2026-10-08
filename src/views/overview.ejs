@@ -6,7 +6,10 @@
   const { outgoing, incoming } = movements;
   const verbs = { attack: 'Attaque', support: 'Soutien', return: 'Retour', relocate: 'Déménagement' };
   // Onglets Tous / Entrants / Sortants ; par défaut Entrants si une attaque arrive, sinon Tous.
-  const tab = moveTab || (incoming.some((c) => c.type === 'attack') ? 'in' : 'all');
+  // Nombres d'ordres : comptés par le serveur quand seuls les premiers sont lus (voir CommandService.overviewHead).
+  const counts = movements.counts || { in: incoming.length, out: outgoing.length, attackIn: incoming.some((c) => c.type === 'attack') };
+  const tab = moveTab || (counts.attackIn ? 'in' : 'all');
+  const moveCount = tab === 'all' ? counts.in + counts.out : counts[tab];
   const tagged = [...incoming.map((c) => ({ c, dir: 'in' })), ...outgoing.map((c) => ({ c, dir: 'out' }))];
   const moves = (tab === 'all' ? tagged.sort((a, b) => new Date(a.c.arrivesAt) - new Date(b.c.arrivesAt)) : tagged.filter((m) => m.dir === tab));
   // Seconde ligne d'un ordre : unités (ou attaquant, pour une attaque entrante) et butin rapporté.
@@ -52,25 +55,27 @@
     ['Hors du village', byOrder(ctx.awayUnits)],
   ].filter(([label, list]) => !label || list.length);
   const nextUnitAt = Math.min(...ctx.recruitOrders.filter((o) => o.done < o.count).map((o) => new Date(o.nextAt).getTime()));
+  // Constantes communes aux encadrés de la page (partials/overview/*).
+  const parts = { prod, cap, vid, outgoing, incoming, counts, moveCount, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt };
 %>
 <div class="flex flex-wrap items-start gap-3.5" data-overview-page>
   <div class="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5">
-    <%- include('partials/overview/title', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
-    <%- include('partials/overview/city', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/title', parts) %>
+    <%- include('partials/overview/city', parts) %>
 
-    <%- include('partials/overview/movements', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/movements', parts) %>
   </div>
 
   <aside class="flex max-w-full flex-[1_1_280px] flex-col gap-3">
-    <%- include('partials/overview/production', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/production', parts) %>
 
-    <%- include('partials/overview/buildings', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/buildings', parts) %>
 
-    <%- include('partials/overview/recruits', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/recruits', parts) %>
 
-    <%- include('partials/overview/troops', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/troops', parts) %>
 
-    <%- include('partials/overview/knight-item', { prod, cap, vid, outgoing, incoming, verbs, tab, tagged, moves, unitsLine, lootLine, subOf, shown, qs, units, unitCount, recruitHref, fills, soonest, hm, item, idx, prev, next, loyalty, meta, arrow, roleOf, byOrder, troopGroups, nextUnitAt }) %>
+    <%- include('partials/overview/knight-item', parts) %>
 
     <%- include('partials/overview/groups', { vid }) %>
   </aside>

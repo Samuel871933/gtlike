@@ -8,5 +8,7 @@ const RESOURCE_IDS = ['wood', 'stone', 'iron'];
 const base = (req) => `/village/${req.ctx.village.id}`;
 /** Joueur propriétaire du village courant (le titulaire, même quand un remplaçant joue). */
 const me = (req) => req.ctx.village.playerId;
+/** Ce joueur, lu en entier (avec sa tribu) par loadVillage pour chaque page et action : inutile de le relire. */
+const currentPlayer = (res) => res.locals.player;
 
-module.exports = { RESOURCE_IDS, base, me };
+module.exports = { RESOURCE_IDS, base, me, currentPlayer };

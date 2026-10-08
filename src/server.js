@@ -26,8 +26,14 @@ async function main() {
     await seedWorlds();
   }
 
-  if (config.primaryInstance && config.gameLoop) new GameLoop(config.gameLoopIntervalMs).start();
-  app.listen(config.port, () => console.log(`Serveur démarré sur http://localhost:${config.port}`));
+  if (config.primaryInstance && config.gameLoop) {
+    const loop = new GameLoop(config.gameLoopIntervalMs);
+    loop.start();
+    // Sans serveur web, rien d'autre ne garde le processus en vie (le minuteur de la boucle ne le retient pas).
+    if (!config.http) setInterval(() => {}, 1 << 30);
+    console.log('Boucle de jeu démarrée.');
+  }
+  if (config.http) app.listen(config.port, () => console.log(`Serveur démarré sur http://localhost:${config.port}`));
 }
 
 main().catch((err) => {

@@ -37,18 +37,13 @@
   const rulerY = frame.querySelector('[data-map-ruler-y]');
   const tip = frame.querySelector('[data-map-tip]');
   const menu = frame.querySelector('[data-map-menu]');
-  const pad2 = (n) => String(n).padStart(2, '0');
-  const fmt = (s) => `${Math.floor(s / 3600)}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`;
+  // Outils communs (public/js/game.js, chargé avant) : durées, heures, nombres, échappement, texte réécrit en continu
+  // (zoom, infobulle, titre : nœud texte modifié, pas remplacé, voir chunkEl).
+  const { pad: pad2, esc, setText, num } = window.Adarma;
+  const fmt = window.Adarma.duration;
   // Heure d'arrivée d'un ordre, à la milliseconde comme sur Guerre Tribale : « 01/10 11:25:21:926 ».
-  const arrivalAt = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}:${String(d.getMilliseconds()).padStart(3, '0')}`;
-  const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const arrivalAt = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${window.Adarma.clockMs(d)}`;
   const continent = (x, y) => `K${Math.floor(y / 100)}${Math.floor(x / 100)}`;
-  // Texte mis à jour en continu (zoom, infobulle, titre) : nœud texte modifié, pas remplacé (une insertion fait
-  // recalculer les styles de toute la page, voir chunkEl).
-  const setText = (el, text) => {
-    const node = el.firstChild;
-    if (node && node === el.lastChild && node.nodeType === 3) { if (node.data !== text) node.data = text; } else if (el.textContent !== text) el.textContent = text;
-  };
 
   // État : centre de la vue (décimal pendant un glisser), case mise en évidence.
   let cx = Number(frame.dataset.cx);
@@ -123,7 +118,24 @@
   // ------------------------------------------------------------------ Décor déterministe, partagé avec le serveur
   // (src/game/terrain.js, servi en /js/terrain.js) : le serveur n'y place pas de village sur l'eau, les lacs,
   // les montagnes ni au cœur des forêts.
-  const { rnd, forestAt, waterAt, terrain } = window.GTTerrain;
+  // Décor d'une case calculé une seule fois : chaque bloc le relit pour ses cases, leurs voisines (rives, lisières)
+  // et la bordure des blocs voisins. Clé décalée : les cases juste hors du monde (rives du bord) ont la leur.
+  const { rnd } = window.GTTerrain;
+  const groundCache = new Map();
+  const groundAt = (x, y) => {
+    const k = (y + 16) * 16384 + x + 16;
+    let g = groundCache.get(k);
+    if (!g) {
+      if (groundCache.size >= 250000) groundCache.clear();
+      g = [window.GTTerrain.terrain(x, y), window.GTTerrain.forestAt(x, y)];
+      groundCache.set(k, g);
+    }
+    return g;
+  };
+  const terrain = (x, y) => groundAt(x, y)[0];
+  const forestAt = (x, y) => groundAt(x, y)[1];
+  // terrain() ne renvoie 'water' que sur l'eau (waterAt), qu'il teste en premier.
+  const waterAt = (x, y) => terrain(x, y) === 'water';
 
   // ------------------------------------------------------------------ Rendu
   // Comme sur Guerre Tribale : chaque bloc de la carte est une image (<canvas>), pas des centaines d'éléments par
@@ -277,6 +289,25 @@
     const out = { canvas: c, x, y, w: c.width / res, h: c.height / res };
     sprites.set(k, out);
     return out;
+  }
+
+  // Décor pré-rendu à sa plus grande taille et à la résolution courante (vidé avec les sprites de village) : un bloc en
+  // dessine des dizaines, réduits depuis cette petite image plutôt que depuis l'image d'origine à chaque fois.
+  function decorSprite(kind, flip, s) {
+    const k = `d:${kind}${flip}`;
+    if (sprites.has(k)) return sprites.get(k);
+    const img = s.src && image(s.src);
+    if (!img) return null;
+    const max = (DECOR_SCALE[kind] || DECOR_SCALE.default)[1];
+    const [, , iw, ih] = contain(img, 0, 0, s.w * max, s.h * max);
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil(iw * res));
+    c.height = Math.max(1, Math.ceil(ih * res));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    // Proportions de l'image d'origine, pour l'ajuster (contain) comme elle.
+    c.img = img;
+    sprites.set(k, c);
+    return c;
   }
 
   // Décors d'une case (hors eau et villages) : biome, puis petits arbres et cailloux qui lient le paysage.
@@ -510,13 +541,13 @@
         if (ground === 'water') { if (inside(x, y)) drawWater(g, x, y, X(x), Y(y), pattern); continue; }
         for (const d of decorations(x, y, ground, forestAt(x, y))) {
           const s = decorSpec(d.kind, d.flip);
-          const img = s.src && image(s.src);
-          if (!img) continue;
+          const sp = decorSprite(d.kind, d.flip, s);
+          if (!sp) continue;
           // Comme .map-decor > span : boîte agrandie de `scale` autour d'un point aux trois quarts de sa hauteur.
           const bw = s.w * d.scale; const bh = s.h * d.scale;
           const left = X(x) + tw / 2 + d.dx - bw / 2;
           const top = Y(y) + th / 2 + d.dy + s.oy + s.h * (0.25 - 0.75 * d.scale);
-          g.drawImage(img, ...contain(img, left, top, bw, bh));
+          g.drawImage(sp, ...contain(sp.img, left, top, bw, bh));
         }
       }
     }
@@ -1052,7 +1083,7 @@
   function showZoom(z = zoom) {
     if (!zoomLabel) return;
     zoomLabel.hidden = Math.abs(z - 1) < 0.01;
-    setText(zoomLabel, `×${(Math.round(z * 10) / 10).toLocaleString('fr-FR')}`);
+    setText(zoomLabel, `×${num(Math.round(z * 10) / 10)}`);
   }
   layer.style.transformOrigin = '0 0';
   // Zoom posé à `z`, le point du monde sous (px, py) (px dans la fenêtre) restant sous la souris : la case `cx` est
@@ -1270,27 +1301,44 @@
   });
   viewport.addEventListener('pointerleave', () => { hideHover(); hideTip(); });
   setInterval(() => {
-    if (!tip || tip.classList.contains('hidden')) return;
+    if (document.hidden || !tip || tip.classList.contains('hidden')) return;
     tip.querySelectorAll('[data-order-arrival]').forEach((el) => {
       setText(el, fmt(Math.max(0, Math.ceil((Number(el.dataset.orderArrival) - Date.now()) / 1000))));
     });
   }, 1000);
 
-  // Ordres arrivés : à 0, la case et l'infobulle ouverte se mettent à jour (ordres en route seulement), et les
-  // secteurs affichés sont rechargés aussitôt : le serveur résout les arrivées échues à chaque requête d'un village
-  // (middleware loadVillage), d'où le retour des troupes, la gommette et l'infobulle de la dernière attaque. Second
-  // rechargement 6 s plus tard, au cas où l'horloge du navigateur serait en avance sur celle du serveur.
+  // Ordres arrivés : à 0, la case et l'infobulle ouverte se mettent à jour (ordres en route seulement), et le
+  // secteur de chaque case touchée est rechargé aussitôt : le serveur résout les arrivées échues à chaque requête d'un
+  // village (middleware loadVillage), d'où le retour des troupes, la gommette et l'infobulle de la dernière attaque.
+  // Un ordre (retour compris) est rangé sur la case de sa cible : seuls ces secteurs changent, pas toute la vue.
+  // Second rechargement 6 s plus tard, au cas où l'horloge du navigateur serait en avance sur celle du serveur.
   const RELOAD_AFTER_MS = 6000;
-  function reloadVisible() {
-    if (!zone) return;
-    const [x0, y0, x1, y1] = [zone.a0 * CHUNK, zone.b0 * CHUNK, (zone.a1 + 1) * CHUNK - 1, (zone.b1 + 1) * CHUNK - 1];
-    for (let sy = Math.floor(y0 / SECTOR); sy <= Math.floor(y1 / SECTOR); sy++) {
-      for (let sx = Math.floor(x0 / SECTOR); sx <= Math.floor(x1 / SECTOR); sx++) loaded.delete(key(sx, sy));
+  function arrivedSectors() {
+    const now = Date.now();
+    const out = new Set();
+    for (const c of cells.values()) {
+      const orders = [...((c.orders && c.orders.own) || []), ...((c.orders && c.orders.tribe) || [])];
+      if (orders.some((o) => new Date(o.arrivesAt).getTime() <= now)) out.add(key(Math.floor(c.x / SECTOR), Math.floor(c.y / SECTOR)));
     }
-    // Pastilles des ordres arrivés retirées tout de suite ; les secteurs rechargés redessinent ensuite leurs blocs.
-    for (const k of chunks.keys()) dirty.add(k);
+    return out;
+  }
+  // Secteurs redemandés : ceux de la zone dessinée tout de suite (leurs blocs perdent aussitôt les pastilles des
+  // ordres arrivés), les autres à leur prochain passage dans la vue.
+  function reloadSectors(list) {
+    for (const k of list) {
+      loaded.delete(k);
+      if (!zone) continue;
+      const [sx, sy] = k.split('|').map(Number);
+      const x0 = sx * SECTOR; const y0 = sy * SECTOR;
+      for (let b = Math.floor((y0 - 1) / CHUNK); b <= Math.floor((y0 + SECTOR) / CHUNK); b++) {
+        for (let a = Math.floor((x0 - 1) / CHUNK); a <= Math.floor((x0 + SECTOR) / CHUNK); a++) {
+          if (chunks.has(key(a, b))) dirty.add(key(a, b));
+        }
+      }
+    }
+    if (!zone) return;
     schedule();
-    ensure(x0, y0, x1, y1);
+    ensure(zone.a0 * CHUNK, zone.b0 * CHUNK, (zone.a1 + 1) * CHUNK - 1, (zone.b1 + 1) * CHUNK - 1);
   }
   // Villages d'une case rechargés tout de suite (ordre envoyé depuis la carte) : son secteur est redemandé, ses
   // blocs se redessinent à l'arrivée avec la pastille de l'ordre, et l'infobulle avec sa liste d'ordres.
@@ -1304,14 +1352,17 @@
     if (c && !hiddenBarb(c)) showTip(pointTile(...tipAt)); else hideTip();
   }
   setInterval(() => {
+    // Onglet caché : arrivées et rechargements attendent son retour (le tour suivant les rattrape).
+    if (document.hidden) return;
     // Attaque arrivée : sa flèche disparaît.
     if (boot.attacks.length !== liveAttacks().length) { boot.attacks = liveAttacks(); arrows(baseX, baseY); }
     if (Date.now() < nextArrival) return;
     nextArrival = Infinity;
     for (const c of cells.values()) noteArrivals(c);
-    reloadVisible();
+    const arrived = arrivedSectors();
+    reloadSectors(arrived);
     refreshTip();
-    setTimeout(() => { reloadVisible(); }, RELOAD_AFTER_MS);
+    setTimeout(() => { reloadSectors(arrived); }, RELOAD_AFTER_MS);
   }, 1000);
 
   // Case sélectionnée (« Aller à », résultat de recherche, village cliqué) : un seul cadre, posé sur la case.
@@ -1559,8 +1610,11 @@
       .then((list) => {
         if (!list) return;
         const inside = ([x, y]) => x >= x0 && y >= y0 && x < x0 + side && y < y0 + side;
-        miniVillages = [...miniVillages.filter((v) => !inside(v)), ...list];
         if (move) { miniX0 = x0; miniY0 = y0; }
+        // Points gardés autour de la vue (un côté de plus de chaque part) : la liste ne grossit pas au fil des
+        // glissements, sur un grand monde elle finirait par contenir tous ses villages, parcourus à chaque dessin.
+        const kept = ([x, y]) => x >= miniX0 - side && y >= miniY0 - side && x < miniX0 + 2 * side && y < miniY0 + 2 * side;
+        miniVillages = [...miniVillages.filter((v) => !inside(v) && kept(v)), ...list];
         drawMini();
       })
       .catch(() => {});
@@ -1684,7 +1738,7 @@
         if (!data) return;
         world = data;
         world.view = worldView();
-        const stat = (k, v) => { const n = modal.querySelector(`[data-world-stat="${k}"]`); if (n) n.textContent = v.toLocaleString('fr-FR'); };
+        const stat = (k, v) => { const n = modal.querySelector(`[data-world-stat="${k}"]`); if (n) n.textContent = num(v); };
         stat('all', data.villages.length);
         stat('barb', data.villages.filter((v) => v[2] === 'barb').length);
         stat('own', data.villages.filter((v) => v[2] === 'own' || v[2] === 'current').length);

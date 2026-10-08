@@ -313,6 +313,14 @@ class TribeService {
     return TribeInvite.findAll({ where: { playerId }, include: [Tribe] });
   }
 
+  /** Points de chaque tribu d'un monde (somme des points de ses membres) : Map tribeId → points. */
+  static async pointsByTribe(worldId) {
+    const rows = await Player.findAll({
+      where: { worldId, tribeId: { [Op.ne]: null } }, attributes: ['tribeId', [fn('SUM', col('points')), 'points']], group: ['tribeId'], raw: true,
+    });
+    return new Map(rows.map((r) => [r.tribeId, Number(r.points)]));
+  }
+
   /** Classement des tribus par points totaux des membres. */
   static async ranking(worldId, limit = 100) {
     const rows = await Player.findAll({

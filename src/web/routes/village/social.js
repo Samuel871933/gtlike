@@ -18,7 +18,7 @@ const GameError = require('../../../services/GameError');
 const registry = require('../../../game/registry');
 const combat = require('../../../game/combat');
 const { ah, back, flash, ownerOnly } = require('../../middleware');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
@@ -31,7 +31,7 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const daily = await DailyService.countsFor(profile.player.id);
   const isMe = profile.player.id === me(req);
   // Invitation possible depuis le profil : on dirige une tribu et le joueur n'en fait pas partie.
-  const viewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId', 'tribeRole', 'tribeRights', 'faction'] });
+  const viewer = currentPlayer(res);
   const canInvite = !isMe && TribeService.can(viewer, 'invite') && profile.player.tribeId !== viewer.tribeId
     // Monde à factions : une tribu n'accueille que sa faction (celle de ses membres).
     && profile.player.faction === viewer.faction;
@@ -49,7 +49,7 @@ router.get('/players/:playerId', ah(async (req, res) => {
   const OperationService = require('../../../services/OperationService');
   const opTargets = await OperationService.mapTargets(viewer);
   const villageOps = new Map(ids.filter((id) => opTargets.has(id)).map((id) => [id, OperationService.summary(opTargets.get(id))]));
-  const orderViewer = await Player.findByPk(me(req), { attributes: ['id', 'tribeId', 'showTribeOrders'] });
+  const orderViewer = currentPlayer(res);
   const villageOrders = await require('../../../services/MapOrderService').visible(orderViewer, ids);
   res.render('player', { ...rest, subject, profileStyle, villageOps, villageOrders, ownerPremium: ownerRights.premium, page: isMe ? 'profile' : null, achievements, daily, TIER_NAMES: AchievementService.TIER_NAMES, isMe, canInvite });
 }));
@@ -68,12 +68,12 @@ router.post('/profile/text', ownerOnly, ah(async (req, res) => {
 router.post('/profile/avatar', ownerOnly, ah(async (req, res) => {
   if (!req.ctx.premium) throw new GameError('L’image de profil est réservée au premium.');
   if (!req.file) throw new GameError('Choisissez une image.');
-  await ImageService.replaceAvatar(await Player.findByPk(me(req)), 'player', req.file.buffer);
+  await ImageService.replaceAvatar(currentPlayer(res), 'player', req.file.buffer);
   flash(req, 'success', 'Image du profil enregistrée.');
   res.redirect(`${base(req)}/players/${me(req)}`);
 }));
 router.post('/profile/avatar/delete', ownerOnly, ah(async (req, res) => {
-  await ImageService.replaceAvatar(await Player.findByPk(me(req)), 'player', null);
+  await ImageService.replaceAvatar(currentPlayer(res), 'player', null);
   flash(req, 'success', 'Image du profil supprimée.');
   res.redirect(`${base(req)}/players/${me(req)}`);
 }));
@@ -110,53 +110,51 @@ router.get('/villages/:villageId', ah(async (req, res) => {
   });
   if (!target) throw new GameError('Village introuvable.', 404);
   const playerId = req.ctx.village.playerId;
-  const me = await Player.findByPk(playerId, { attributes: ['id', 'tribeId', 'points'] });
-  const relations = await TribeService.relationsOf(me.tribeId);
+  // Joueur complet déjà lu par loadVillage (tribu, points, réglages des notes, droits de tribu).
+  const me = currentPlayer(res);
   const tribeId = target.Player && target.Player.tribeId;
-  const relation = !target.playerId ? 'barb' : target.playerId === playerId ? 'own' : (tribeId && relations.get(tribeId)) || 'other';
   // Durées de trajet de toutes les unités du monde depuis le village courant.
   const dist = Math.hypot(target.x - req.ctx.village.x, target.y - req.ctx.village.y);
   const travel = registry.unitsFor(req.ctx.cfg).map((u) => ({ id: u.id, seconds: Math.round(dist * u.minutesPerField(req.ctx.cfg) * 60) }));
-  const favorite = (await FavoriteService.list(playerId)).some((f) => f.villageId === target.id);
   const morale = req.ctx.cfg.moral && target.Player && target.playerId !== playerId
     ? (require('../../../game/runes').moraleApplies(req.ctx.cfg, target) ? combat.morale(me.points, target.Player.points, true) : 1) : null;
-
-  // Tes ordres vers ce village (attaques, soutiens) et les retours qui en reviennent, depuis n'importe lequel de tes villages.
-  const myIds = res.locals.myVillages.map((v) => v.id);
-  const commands = await Command.findAll({
-    where: { targetVillageId: target.id, originVillageId: myIds },
-    include: [{ association: 'origin', attributes: ['id', 'name', 'x', 'y'] }],
-    order: [['arrivesAt', 'ASC']],
-  });
-
-  // Tes rapports sur ce village (combats, soutiens, commerce), les plus récents d'abord.
+  // Rapports sur ce village (combats, soutiens, commerce) : parmi les 500 derniers, ceux qui le concernent.
   const concerns = (d) => [d.defender && d.defender.villageId, d.attacker && d.attacker.villageId, d.seller && d.seller.villageId,
     d.buyer && d.buyer.villageId, d.sender && d.sender.villageId, d.recipient && d.recipient.villageId].includes(target.id);
-  const recent = await Report.findAll({
-    where: { playerId, type: ['attack', 'defense', 'support', 'trade'] }, order: [['happenedAt', 'DESC'], ['id', 'DESC']], limit: 500,
-  });
-  const reports = recent.filter((r) => concerns(r.data || {})).slice(0, 25);
-
   // Mini-carte de 61 × 61 cases centrée sur le village (même rendu que la carte), le village encadré.
-  const vc = await mapView.viewContext(req.ctx.village, req.ctx.cfg);
   const half = 30;
-  const mini = { x0: target.x - half, y0: target.y - half, width: 2 * half + 1, height: 2 * half + 1 };
-  mini.villages = await mapView.mini(vc, mini.x0, mini.y0, mini.width);
-  mini.frame = { x: target.x - 1, y: target.y - 1, size: 3 };
-
-  const note = await VillageNote.findOne({ where: { playerId, villageId: target.id } });
-  // Notes de la tribu sur ce village (si tu affiches les notes partagées par ta tribu).
-  const viewer = await Player.findByPk(playerId, { attributes: ['id', 'tribeId', 'showTribeNotes'] });
-  const tribeNotes = ((await require('../../../services/VillageNoteService').visible(viewer, [target.id])).get(target.id) || []).filter((n) => !n.mine);
-  // Ordres entrants renommés ou annotés par un membre de la tribu sur son village (mêmes réglages que les notes).
-  const sharedIncomings = await require('../../../services/IncomingService').sharedFor(viewer, target);
-  // Opérations de la tribu qui ciblent ce village (résumé, revendication).
-  const operations = await require('../../../services/OperationService').forVillage(playerId, target.id);
+  const mini = { x0: target.x - half, y0: target.y - half, width: 2 * half + 1, height: 2 * half + 1, frame: { x: target.x - 1, y: target.y - 1, size: 3 } };
+  // Lectures indépendantes, lancées ensemble.
+  const [relations, favorites, commands, recent, miniVillages, note, tribeNotesOf, sharedIncomings, operations, templates] = await Promise.all([
+    TribeService.relationsOf(me.tribeId),
+    FavoriteService.list(playerId),
+    // Tes ordres vers ce village (attaques, soutiens) et les retours qui en reviennent, depuis n'importe lequel de tes villages.
+    Command.findAll({
+      where: { targetVillageId: target.id, originVillageId: res.locals.myVillages.map((v) => v.id) },
+      include: [{ association: 'origin', attributes: ['id', 'name', 'x', 'y'] }],
+      order: [['arrivesAt', 'ASC']],
+    }),
+    Report.findAll({ where: { playerId, type: ['attack', 'defense', 'support', 'trade'] }, order: [['happenedAt', 'DESC'], ['id', 'DESC']], limit: 500 }),
+    mapView.viewContext(req.ctx.village, req.ctx.cfg).then((vc) => mapView.mini(vc, mini.x0, mini.y0, mini.width)),
+    VillageNote.findOne({ where: { playerId, villageId: target.id } }),
+    // Notes de la tribu sur ce village (si tu affiches les notes partagées par ta tribu).
+    require('../../../services/VillageNoteService').visible(me, [target.id]),
+    // Ordres entrants renommés ou annotés par un membre de la tribu sur son village (mêmes réglages que les notes).
+    require('../../../services/IncomingService').sharedFor(me, target),
+    // Opérations de la tribu qui ciblent ce village (résumé, revendication).
+    require('../../../services/OperationService').forVillage(playerId, target.id),
+    ArmyTemplateService.list(playerId),
+  ]);
+  const relation = !target.playerId ? 'barb' : target.playerId === playerId ? 'own' : (tribeId && relations.get(tribeId)) || 'other';
+  const favorite = favorites.some((f) => f.villageId === target.id);
+  const reports = recent.filter((r) => concerns(r.data || {})).slice(0, 25);
+  mini.villages = miniVillages;
+  const tribeNotes = (tribeNotesOf.get(target.id) || []).filter((n) => !n.mine);
   // Organisateur (droit Opérations) : peut aussi libérer les attaques des autres membres.
-  const opOrganizer = operations.length > 0 && TribeService.can(await Player.findByPk(playerId, { attributes: ['id', 'tribeId', 'tribeRole', 'tribeRights'] }), 'operations');
+  const opOrganizer = operations.length > 0 && TribeService.can(me, 'operations');
   res.render('village-info', {
     page: null, target, relation, dist, travel, favorite, morale, commands, reports, mini, sharedIncomings, operations, opOrganizer,
-    note: note ? note.text : '', tribeNotes, showTribeNotes: viewer.showTribeNotes, templates: await ArmyTemplateService.list(playerId),
+    note: note ? note.text : '', tribeNotes, showTribeNotes: me.showTribeNotes, templates,
   });
 }));
 
@@ -179,7 +177,7 @@ router.post('/villages/:villageId/note', ah(async (req, res) => {
 
 // Messagerie, organisée comme sur GT : boîte de réception, courriers circulaires envoyés, écrire un message.
 router.get('/messages', ah(async (req, res) => {
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   const perPage = PaginationService.perPage(player, 'messages');
   const inbox = await MessageService.inbox(player.id, { page: req.query.page, perPage, search: req.query.q });
   res.render('messages', { page: 'messages', tab: 'inbox', inbox, perPage });
@@ -191,7 +189,7 @@ router.get('/messages/circular', ah(async (req, res) => {
 
 /** Formulaire d'écriture ; `form` garde la saisie quand l'envoi est refusé. */
 async function renderNewMessage(req, res, form, status = 200) {
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   res.status(status).render('message-new', {
     page: 'messages', tab: 'new', form, max: MessageService.MAX_RECIPIENTS, groups: MessageService.groupsFor(player),
   });
@@ -221,7 +219,8 @@ router.post('/messages/delete', ah(async (req, res) => {
 
 
 router.get('/messages/:conversationId', ah(async (req, res) => {
-  const conversation = await MessageService.read(me(req), req.params.conversationId);
+  const all = req.query.tout === '1';
+  const conversation = await MessageService.read(me(req), req.params.conversationId, all ? { limit: null } : {});
   res.locals.unreadMessages = await MessageService.unreadCount(me(req));
   res.render('conversation', { page: 'messages', conversation, MessageGroups: MessageService.GROUPS });
 }));

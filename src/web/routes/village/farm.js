@@ -3,14 +3,13 @@
 // Assistant de pillage (premium) et envoi rapide d'un modèle favori (pages d'un village, montées par ./index.js).
 
 const express = require('express');
-const { Player } = require('../../../models');
 const ArmyTemplateService = require('../../../services/ArmyTemplateService');
 const FarmService = require('../../../services/FarmService');
 const GameError = require('../../../services/GameError');
 const registry = require('../../../game/registry');
 const combat = require('../../../game/combat');
 const { ah, back, flash } = require('../../middleware');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 const { hit } = require('../../rateLimit');
 
 const router = express.Router({ mergeParams: true });
@@ -18,7 +17,7 @@ const wantsJson = (req) => req.get('accept') === 'application/json';
 
 router.get('/farm', ah(async (req, res) => {
   const { village, cfg } = req.ctx;
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   const settings = FarmService.settings(player);
   const [templates, favorites] = await Promise.all([ArmyTemplateService.list(player.id), ArmyTemplateService.favorites(player.id)]);
   // Sans premium : la page présente l'assistant, sans la liste.

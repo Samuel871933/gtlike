@@ -43,8 +43,10 @@ class DailyService {
   /** Attribue les succès d'une journée terminée (sans effet si déjà fait). */
   static async awardDay(worldId, day, t) {
     const awarded = [];
+    // Catégories déjà attribuées ce jour-là : lues d'un coup (la boucle repasse sur les 7 derniers jours).
+    const done = new Set((await DailyAward.findAll({ where: { worldId, day }, attributes: ['key'], raw: true, transaction: t })).map((a) => a.key));
     for (const def of DAILY) {
-      if (await DailyAward.findOne({ where: { worldId, day, key: def.key }, transaction: t })) continue;
+      if (done.has(def.key)) continue;
       const [first, second] = await DailyStat.findAll({
         where: { worldId, day, [def.field]: { [Op.gt]: 0 } }, order: [[def.field, 'DESC']], limit: 2, transaction: t,
       });

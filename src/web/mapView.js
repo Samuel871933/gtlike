@@ -4,12 +4,12 @@
 // au fil des déplacements comme sur Guerre Tribale, et points colorés de la mini-carte.
 // Le décor (herbe, forêts, collines, lacs) ne transite pas : il est calculé par le navigateur.
 
-const { Op, fn, col } = require('sequelize');
-const { Op: SqlOp } = require('sequelize');
+const { Op } = require('sequelize');
 const { Player, Village, Tribe, User, LastAttack, Command } = require('../models');
 const VillageNoteService = require('../services/VillageNoteService');
 const MapOrderService = require('../services/MapOrderService');
-const { whenShort } = require('./helpers');
+const { whenShort, num } = require('./helpers');
+const { memo } = require('./memo');
 const { villageDesignFor, DEFAULT_VILLAGE_DESIGN } = require('./villageDesigns');
 const TribeService = require('../services/TribeService');
 const MarkerService = require('../services/MarkerService');
@@ -23,7 +23,6 @@ const SECTOR = 20;
 
 // Six silhouettes de village selon les points.
 const villageLevel = (pts) => (pts < 300 ? 1 : pts < 1000 ? 2 : pts < 3000 ? 3 : pts < 6000 ? 4 : pts < 9000 ? 5 : 6);
-const num = (n) => Math.floor(n).toLocaleString('fr-FR');
 
 /** Contexte de lecture de la carte pour le village courant : relations, marquages, favoris, morale. */
 async function viewContext(village, cfg) {
@@ -49,7 +48,7 @@ async function attackedVillages(playerId) {
   const own = await Village.findAll({ where: { playerId }, attributes: ['id'], raw: true });
   if (!own.length) return new Map();
   const rows = await Command.findAll({
-    where: { type: 'attack', targetVillageId: { [SqlOp.in]: own.map((v) => v.id) } },
+    where: { type: 'attack', targetVillageId: { [Op.in]: own.map((v) => v.id) } },
     attributes: ['targetVillageId', [Command.sequelize.fn('COUNT', Command.sequelize.col('id')), 'n']],
     group: ['targetVillageId'], raw: true,
   });
@@ -156,12 +155,10 @@ async function sectors(vc, list) {
   const villages = all.filter((v) => wanted.has(sectorOf(v)));
   const rights = await ShopService.rightsByUser(villages.map((v) => v.Player && v.Player.userId), vc.village.worldId);
   // Points des tribus présentes (infobulle) : somme des points de leurs membres.
-  const tribeIds = [...new Set(villages.map((v) => v.Player && v.Player.tribeId).filter(Boolean))];
-  const tribePoints = new Map();
-  if (tribeIds.length) {
-    const sums = await Player.findAll({ where: { tribeId: tribeIds }, attributes: ['tribeId', [fn('SUM', col('points')), 'total']], group: ['tribeId'], raw: true });
-    for (const r of sums) tribePoints.set(r.tribeId, Number(r.total));
-  }
+  // Lus une fois pour tout le monde et gardés 30 s : chaque déplacement de la carte de chaque joueur en a besoin.
+  const tribePoints = villages.some((v) => v.Player && v.Player.tribeId)
+    ? await memo(`tribePoints:${vc.village.worldId}`, 30000, () => TribeService.pointsByTribe(vc.village.worldId))
+    : new Map();
   const attacks = villages.length
     ? await LastAttack.findAll({ where: { playerId: vc.player.id, villageId: villages.map((v) => v.id) }, attributes: ['villageId', 'result', 'haul', 'happenedAt', 'reportId'] })
     : [];

@@ -285,7 +285,7 @@
     <% if (withSeal.length && !sitter) { %>
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-bronze-900 px-3.5 py-2">
         <span class="text-sm text-parchment-400"><%= withSeal.length %> village<%= withSeal.length > 1 ? 's portent' : ' porte' %> un sceau. Les sceaux posés depuis moins de <%= ctx.cfg.seals.lockHours %> h restent en place.</span>
-        <form method="post" action="<%= url('/remove-all') %>" onsubmit="return confirm('Retirer les sceaux de tous tes villages ?')"><%- csrf %><button class="<%= btn('dark', 'sm') %>">Retirer les sceaux de tous mes villages</button></form>
+        <form method="post" action="<%= url('/remove-all') %>" data-confirm="Retirer les sceaux de tous tes villages ?"><%- csrf %><button class="<%= btn('dark', 'sm') %>">Retirer les sceaux de tous mes villages</button></form>
       </div>
     <% } %>
     <table class="<%= ui.table %>">

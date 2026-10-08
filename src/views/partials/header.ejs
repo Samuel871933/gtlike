@@ -177,11 +177,14 @@
                   <% } %>
                 </div>
               <% } %>
-              <ul class="max-h-80 overflow-y-auto">
-                <% for (const mv of navVillages) { %>
-                  <li><a href="/village/<%= mv.id %>" data-village-link class="flex items-center justify-between gap-3 border-b border-bronze-800 px-2.5 py-1.5 text-sm font-semibold no-underline <%= mv.id === ctx.village.id ? 'bg-head-dark text-parchment-100' : 'text-parchment-300 hover:bg-head-dark hover:text-parchment-100' %>">
-                    <span class="flex items-center gap-1.5 truncate"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><%= mv.name %></span><span class="shrink-0 text-xs text-gold-400 tabular-nums"><%= mv.x %>|<%= mv.y %></span>
-                  </a></li>
+              <%# Au-delà de 100 villages, la liste part en JSON compact ([id, nom, x, y]) et game.js la construit à la première
+                  ouverture du menu, d'après la ligne modèle : sinon chaque page porterait des centaines de Ko de lignes. %>
+              <% const navOn = 'bg-head-dark text-parchment-100'; const navOff = 'text-parchment-300 hover:bg-head-dark hover:text-parchment-100'; %>
+              <% const navLine = (mv) => `<li><a href="/village/${mv.id}" data-village-link class="flex items-center justify-between gap-3 border-b border-bronze-800 px-2.5 py-1.5 text-sm font-semibold no-underline ${mv.id === ctx.village.id ? navOn : navOff}"><span class="flex items-center gap-1.5 truncate"><span class="size-[5px] shrink-0 rotate-45 bg-bronze-500"></span><span data-nav-name>${esc(mv.name)}</span></span><span class="shrink-0 text-xs text-gold-400 tabular-nums" data-nav-coords>${mv.x}|${mv.y}</span></a></li>`; %>
+              <% const lazyNav = navVillages.length > 100; %>
+              <ul class="max-h-80 overflow-y-auto"<% if (lazyNav) { %> data-nav-villages="<%= JSON.stringify(navVillages.map((v) => [v.id, v.name, v.x, v.y])) %>" data-nav-current="<%= ctx.village.id %>" data-nav-on="<%= navOn %>" data-nav-off="<%= navOff %>"<% } %>>
+                <% if (lazyNav) { %><template data-nav-line><%- navLine({ id: 0, name: '', x: 0, y: 0 }) %></template><% } else { %>
+                  <% for (const mv of navVillages) { %><%- navLine(mv) %><% } %>
                 <% } %>
                 <% if (!navVillages.length) { %><li class="px-2.5 py-2 text-[13px] text-parchment-500">Aucun village dans ce groupe.</li><% } %>
               </ul>

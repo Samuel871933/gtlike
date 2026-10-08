@@ -25,6 +25,20 @@ function avatarUpload(req, res, next) {
   });
 }
 
+  // Titres et descriptions des pages publiques (référencement).
+const PUBLIC_PAGES = {
+    '/': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },
+    '/login': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },
+    '/register': { title: 'Inscription gratuite au jeu de stratégie', description: 'Crée ton compte Adarma gratuitement. Construis ton village, gère tes ressources, rejoins une tribu et pars à la conquête de mondes persistants.', canonical: '/register' },
+    '/rules': { title: 'Règles du jeu de stratégie', description: 'Consulte les règles d’Adarma : comptes, alliances, automatisation et respect des autres joueurs dans ce jeu de stratégie sur navigateur.', canonical: '/rules' },
+    '/help': { title: 'Guide du jeu de stratégie et de gestion', description: 'Apprends à développer ton village, gérer les ressources, recruter des troupes, conquérir des territoires et jouer en tribu sur Adarma.', canonical: '/help' },
+    '/mentions-legales': { title: 'Mentions légales', description: 'Éditeur, directeur de la publication et hébergeur du jeu de stratégie Adarma.', canonical: '/mentions-legales' },
+    '/cgu': { title: 'Conditions générales d’utilisation', description: 'Les conditions d’utilisation du jeu Adarma : compte, règles, sanctions et suppression du compte.', canonical: '/cgu' },
+    '/cgv': { title: 'Conditions générales de vente', description: 'Les conditions de vente de la boutique Adarma : packs d’Adartons, articles cosmétiques et premium.', canonical: '/cgv' },
+    '/confidentialite': { title: 'Politique de confidentialité', description: 'Les données personnelles traitées par Adarma, leurs durées de conservation et vos droits.', canonical: '/confidentialite' },
+    '/cookies': { title: 'Cookies et stockage local', description: 'Les cookies et données de navigateur utilisés par Adarma, tous strictement nécessaires.', canonical: '/cookies' },
+  };
+
 function createApp() {
   const app = express();
   const sessionStore = new SequelizeStore({ db: sequelize, tableName: 'Sessions' });
@@ -95,19 +109,7 @@ function createApp() {
 
   app.use((req, res, next) => {
     Object.assign(res.locals, helpers, BASE_LOCALS(), { now: new Date() });
-    const publicPages = {
-      '/': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },
-      '/login': { title: 'Jeu de stratégie et de gestion en ligne', description: 'Adarma est un jeu de stratégie et de gestion gratuit sur navigateur. Développe ton village, produis des ressources, forme ton armée et conquiers des territoires avec ta tribu.', canonical: '/' },
-      '/register': { title: 'Inscription gratuite au jeu de stratégie', description: 'Crée ton compte Adarma gratuitement. Construis ton village, gère tes ressources, rejoins une tribu et pars à la conquête de mondes persistants.', canonical: '/register' },
-      '/rules': { title: 'Règles du jeu de stratégie', description: 'Consulte les règles d’Adarma : comptes, alliances, automatisation et respect des autres joueurs dans ce jeu de stratégie sur navigateur.', canonical: '/rules' },
-      '/help': { title: 'Guide du jeu de stratégie et de gestion', description: 'Apprends à développer ton village, gérer les ressources, recruter des troupes, conquérir des territoires et jouer en tribu sur Adarma.', canonical: '/help' },
-      '/mentions-legales': { title: 'Mentions légales', description: 'Éditeur, directeur de la publication et hébergeur du jeu de stratégie Adarma.', canonical: '/mentions-legales' },
-      '/cgu': { title: 'Conditions générales d’utilisation', description: 'Les conditions d’utilisation du jeu Adarma : compte, règles, sanctions et suppression du compte.', canonical: '/cgu' },
-      '/cgv': { title: 'Conditions générales de vente', description: 'Les conditions de vente de la boutique Adarma : packs d’Adartons, articles cosmétiques et premium.', canonical: '/cgv' },
-      '/confidentialite': { title: 'Politique de confidentialité', description: 'Les données personnelles traitées par Adarma, leurs durées de conservation et vos droits.', canonical: '/confidentialite' },
-      '/cookies': { title: 'Cookies et stockage local', description: 'Les cookies et données de navigateur utilisés par Adarma, tous strictement nécessaires.', canonical: '/cookies' },
-    };
-    res.locals.seo = req.method === 'GET' && res.locals.ctx === null ? publicPages[req.path] || null : null;
+    res.locals.seo = req.method === 'GET' && res.locals.ctx === null ? PUBLIC_PAGES[req.path] || null : null;
     res.locals.siteUrl = config.siteUrl;
     next();
   });

@@ -1,7 +1,8 @@
 'use strict';
 
-// Gestionnaire de compte (premium) : aperçu, gestionnaire de villages (modèles de construction), de troupes, de
-// marché (routes commerciales, réserve) et notifications d'attaque (pages d'un village, montées par ./index.js).
+// Gestionnaire de compte (premium) : aperçu, gestionnaire de villages (modèles de construction), de troupes, de forge
+// (recherches), de marché (routes commerciales, réserve) et notifications d'attaque (pages d'un village, montées par
+// ./index.js).
 
 const express = require('express');
 const { Player } = require('../../../models');
@@ -14,7 +15,8 @@ const { base, me } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
-const TABS = ['overview', 'buildings', 'templates', 'units', 'troops', 'market', 'notify'];
+// Villages : sous-onglets buildings (construction), units (troupes) et forge ; modèles : templates, troops, research.
+const TABS = ['overview', 'buildings', 'templates', 'units', 'troops', 'forge', 'research', 'market', 'notify'];
 const url = (req, query = '') => `${base(req)}/manager${query ? `?${query}` : ''}`;
 const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
 // Villages du groupe actif (voir loadVillage), nul sans groupe.
@@ -58,11 +60,15 @@ router.get('/manager', ah(async (req, res) => {
     data.editTroops = await AccountManagerService.troopTemplate(playerId, req.query.id, req.ctx.cfg);
     if (!data.editTroops) throw new GameError('Modèle introuvable.', 404);
   }
+  if (tab === 'research' && req.query.id) {
+    data.editResearch = await AccountManagerService.researchTemplate(playerId, req.query.id, req.ctx.cfg);
+    if (!data.editResearch) throw new GameError('Modèle introuvable.', 404);
+  }
   if (tab === 'market') data.routes = await AccountManagerService.routes(playerId);
   res.render('manager', {
     page: 'manager', tab, premium: Boolean(req.ctx.premium), settings: AccountManagerService.settings(player), villages, templates,
     pagination, usage, managed, pageHref: (n) => url(req, `tab=${tab}&page=${n}`),
-    managedUnits: AccountManagerService.managedUnits(req.ctx.cfg), buildings: registry.buildingsFor(req.ctx.cfg),
+    managedUnits: AccountManagerService.managedUnits(req.ctx.cfg), researchUnits: AccountManagerService.researchUnits(req.ctx.cfg), buildings: registry.buildingsFor(req.ctx.cfg),
     withLevels: managerTemplates.withLevels, targetsOf: managerTemplates.targets, buildStats: managerTemplates.stats,
     batchPreview: (units, budget) => managerTemplates.batchPreview(units, budget, AccountManagerService.managedUnits(req.ctx.cfg)),
     BATCH_COST_MIN: managerTemplates.BATCH_COST_MIN, BATCH_COST_MAX: managerTemplates.BATCH_COST_MAX, troopStats: managerTemplates.troopStats,
@@ -99,7 +105,7 @@ router.post('/manager/templates/:id/rename', ah(async (req, res) => {
 router.post('/manager/templates/:id/delete', ah(async (req, res) => {
   const tpl = await AccountManagerService.deleteTemplate(me(req), req.params.id);
   flash(req, 'success', `Modèle « ${tpl.name} » supprimé.`);
-  res.redirect(url(req, tpl.kind === 'troops' ? 'tab=troops' : 'tab=templates'));
+  res.redirect(url(req, { troops: 'tab=troops', research: 'tab=research' }[tpl.kind] || 'tab=templates'));
 }));
 
 // Liste de construction d'un modèle : ajout d'étapes, ordre, suppression, démolition (enregistré à chaque action).
@@ -111,11 +117,14 @@ router.post('/manager/templates/:id/steps', ah(async (req, res) => {
 
 /**
  * Onglet Villages, un seul formulaire : `op` est le bouton pressé.
- *   'build:use' / 'troops:use' : appliquer le modèle choisi (buildTemplate, troopTemplate) aux villages cochés ;
- *   'bulk' : l'action de la liste « bulk » (build|troops|all : pause|resume|remove) sur les villages cochés ;
- *   'village:<id>:<build|troops>:<pause|resume|remove>' : bouton de la colonne Actions d'un village.
+ *   'build:use' / 'troops:use' / 'research:use' : appliquer le modèle choisi (buildTemplate, troopTemplate,
+ *     researchTemplate) aux villages cochés ;
+ *   'bulk' : l'action de la liste « bulk » (build|troops|research|all : pause|resume|remove) sur les villages cochés ;
+ *   'village:<id>:<build|troops|research>:<pause|resume|remove>' : bouton de la colonne Actions d'un village.
  */
-const WHICH = ['build', 'troops', 'all'];
+const WHICH = ['build', 'troops', 'research', 'all'];
+// Onglet de retour après une action de chaque gestionnaire.
+const WHICH_TAB = { build: 'buildings', troops: 'units', research: 'forge', all: 'buildings' };
 const ACTIONS = ['use', 'pause', 'resume', 'remove'];
 router.post('/manager/apply', ah(async (req, res) => {
   const op = String(req.body.op || '');
@@ -128,11 +137,13 @@ router.post('/manager/apply', ah(async (req, res) => {
   const [which, action] = parts;
   if (!WHICH.includes(which) || !ACTIONS.includes(action) || (which === 'all' && action === 'use')) throw new GameError('Action inconnue.');
   let n = 0;
-  if (which !== 'troops') n = await AccountManagerService.applyBuild(me(req), ids, { action, template: req.body.buildTemplate });
-  if (which !== 'build') n = await AccountManagerService.applyTroops(me(req), ids, { action, template: req.body.troopTemplate }, req.ctx.cfg);
+  const all = which === 'all';
+  if (all || which === 'build') n = await AccountManagerService.applyBuild(me(req), ids, { action, template: req.body.buildTemplate });
+  if (all || which === 'troops') n = await AccountManagerService.applyTroops(me(req), ids, { action, template: req.body.troopTemplate }, req.ctx.cfg);
+  if (all || which === 'research') n = await AccountManagerService.applyResearch(me(req), ids, { action, template: req.body.researchTemplate }, req.ctx.cfg);
   flash(req, 'success', `${plural(n, 'village')} mis à jour.`);
   // Retour à l'onglet du gestionnaire concerné.
-  res.redirect(url(req, which === 'troops' ? 'tab=units' : 'tab=buildings'));
+  res.redirect(url(req, `tab=${WHICH_TAB[which]}`));
 }));
 
 router.post('/manager/troops', ah(async (req, res) => {
@@ -149,6 +160,18 @@ router.post('/manager/troop-templates', ah(async (req, res) => {
     : await AccountManagerService.createTroopTemplate(me(req), { name: req.body.name, from: req.body.from || null }, req.ctx.cfg);
   flash(req, 'success', req.body.id ? `Modèle « ${tpl.name} » enregistré.` : `Modèle « ${tpl.name} » créé.`);
   res.redirect(url(req, `tab=troops&id=tpl:${tpl.id}`));
+}));
+
+// Modèles de forge : création (vide ou copiée d'un modèle), puis une case par unité, enregistrée aussitôt.
+router.post('/manager/research-templates', ah(async (req, res) => {
+  const tpl = await AccountManagerService.createResearchTemplate(me(req), { name: req.body.name, from: req.body.from || null }, req.ctx.cfg);
+  flash(req, 'success', `Modèle « ${tpl.name} » créé.`);
+  res.redirect(url(req, `tab=research&id=tpl:${tpl.id}`));
+}));
+
+router.post('/manager/research-templates/:id/units', ah(async (req, res) => {
+  await AccountManagerService.setResearchUnit(me(req), req.params.id, String(req.body.unit || ''), req.body.on, req.ctx.cfg);
+  res.redirect(`${url(req, `tab=research&id=tpl:${Number(req.params.id)}`)}#recherches`);
 }));
 
 // Gestionnaire de marché : routes commerciales (au départ du village courant) et réserve.

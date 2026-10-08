@@ -18,19 +18,29 @@ const GameError = require('./GameError');
  */
 
 class VillageService {
+  /** Monde (configuration comprise) depuis le cache de quelques secondes (voir World.cached). */
+  static async cachedWorld(worldId) {
+    return World.cached(worldId);
+  }
+
   /** Charge un village dans une transaction, applique tout ce qui s'est terminé et sauvegarde. */
-  static async withVillage(villageId, fn, { now = new Date() } = {}) {
+  static async withVillage(villageId, fn, { now = new Date(), bare = false } = {}) {
     return sequelize.transaction(async (t) => {
-      const ctx = await VillageService.refresh(villageId, t, now);
+      const ctx = await VillageService.refresh(villageId, t, now, { bare });
       return fn(ctx, t);
     });
   }
 
-  /** @returns {Promise<VillageContext>} */
-  static async refresh(villageId, t, now = new Date()) {
+  /**
+   * `bare` : seulement appliquer et enregistrer ce qui s'est terminé (boucle de jeu), sans la fin du contexte
+   * (troupes absentes, droits de boutique, file, église), que personne ne lira.
+   * @returns {Promise<VillageContext>}
+   */
+  static async refresh(villageId, t, now = new Date(), { bare = false } = {}) {
     const village = await Village.findByPk(villageId, { transaction: t, lock: t.LOCK.UPDATE });
     if (!village) throw new GameError('Village introuvable.', 404);
-    const world = await World.findByPk(village.worldId, { transaction: t });
+    // Configuration du monde : depuis le cache (elle n'est pas verrouillée, chaque combat la relisait plusieurs fois).
+    const world = await World.cached(village.worldId);
     const cfg = world.getConfig();
 
     let buildOrders = await BuildOrder.findAll({ where: { villageId }, order: [['endsAt', 'ASC']], transaction: t });
@@ -88,6 +98,7 @@ class VillageService {
       await VillageService.updatePlayerStats(village.playerId, t);
     }
 
+    if (bare) return { village, world, cfg, state, buildOrders, recruitOrders, researchOrders, now };
     const awayUnits = await VillageService.awayUnits(villageId, t);
     return VillageService.complete({ village, world, cfg, state, buildOrders, recruitOrders, researchOrders, awayUnits, now }, t);
   }
@@ -97,7 +108,7 @@ class VillageService {
    * première église, ferme. `ownerUserId` : compte du propriétaire s'il est déjà connu.
    * @returns {Promise<VillageContext>}
    */
-  static async complete(ctx, t, { ownerUserId } = {}) {
+  static async complete(ctx, t, { ownerUserId, ownerFaction } = {}) {
     const { village, cfg, state, now } = ctx;
     // Premium du propriétaire (boutique) : file de construction plus longue.
     ctx.buildQueueSlots = cfg.buildQueueSlots;
@@ -106,7 +117,7 @@ class VillageService {
         ? ownerUserId
         : (await Player.findByPk(village.playerId, { attributes: ['userId'], transaction: t }))?.userId;
       // Droits de boutique du propriétaire, gardés pour l'en-tête des pages (thème, design).
-      ctx.ownerRights = userId ? await require('./ShopService').rightsFor(userId, village.worldId, { now, t }) : null;
+      ctx.ownerRights = userId ? await require('./ShopService').rightsFor(userId, village.worldId, { now, t, faction: ownerFaction }) : null;
       if (ctx.ownerRights && ctx.ownerRights.premium) ctx.buildQueueSlots += cfg.premium.buildQueueBonus;
       ctx.premium = Boolean(ctx.ownerRights && ctx.ownerRights.premium);
     }
@@ -132,7 +143,7 @@ class VillageService {
     const { ScavengeRun, Knight } = require('../models');
     const villageId = village.id;
     const [world, buildOrders, recruitOrders, researchOrders, runs, training] = await Promise.all([
-      World.findByPk(village.worldId),
+      VillageService.cachedWorld(village.worldId),
       BuildOrder.findAll({ where: { villageId }, order: [['endsAt', 'ASC']] }),
       RecruitOrder.findAll({ where: { villageId }, order: [['startsAt', 'ASC']] }),
       ResearchOrder.findAll({ where: { villageId }, order: [['endsAt', 'ASC']] }),
@@ -156,6 +167,7 @@ class VillageService {
     const awayUnits = await VillageService.awayUnits(villageId, undefined, { runs, training: training.length });
     return VillageService.complete({ village, world, cfg, state, buildOrders, recruitOrders, researchOrders, awayUnits, now }, undefined, {
       ownerUserId: village.Player ? village.Player.userId : undefined,
+      ownerFaction: village.Player && 'faction' in village.Player.dataValues ? village.Player.faction : undefined,
     });
   }
 
@@ -200,7 +212,7 @@ class VillageService {
    */
   static async assertAccess(villageId, userId) {
     const village = await Village.findByPk(villageId, {
-      include: [{ model: Player, attributes: ['id', 'userId', 'sitterId', 'sitterAcceptedAt'], include: [{ association: 'sitter', attributes: ['userId'] }] }],
+      include: [{ model: Player, attributes: ['id', 'userId', 'faction', 'sitterId', 'sitterAcceptedAt'], include: [{ association: 'sitter', attributes: ['userId'] }] }],
     });
     const owner = village?.Player;
     if (owner && owner.userId === userId) return { village, asSitter: false };
@@ -596,12 +608,19 @@ class VillageService {
       const option = VillageService.researchOptions(ctx).find((o) => o.type.id === type.id);
       if (option.done) throw new GameError('Déjà recherché.');
       if (option.blocker) throw new GameError(option.blocker);
-      ctx.state.pay(type.research);
-      await ctx.village.update(ctx.state.resources, { transaction: t });
-      return ResearchOrder.create({
-        villageId: ctx.village.id, unit: type.id, startsAt: ctx.now, endsAt: new Date(ctx.now.getTime() + option.duration * 1000),
-      }, { transaction: t });
+      return VillageService.queueResearch(ctx, option, t);
     }, { now });
+  }
+
+  /** Recherche dans un contexte de village déjà chargé et vérifié (forge, gestionnaire de compte) : paie et lance. */
+  static async queueResearch(ctx, option, t) {
+    ctx.state.pay(option.type.research);
+    await ctx.village.update(ctx.state.resources, { transaction: t });
+    const order = await ResearchOrder.create({
+      villageId: ctx.village.id, unit: option.type.id, startsAt: ctx.now, endsAt: new Date(ctx.now.getTime() + option.duration * 1000),
+    }, { transaction: t });
+    ctx.researchOrders.push(order);
+    return order;
   }
 
   static async cancelResearch(villageId, orderId, { now } = {}) {
@@ -634,8 +653,16 @@ class VillageService {
       const grownAt = barbarian.grow(state, from, now, cfg);
       return state.points() > before ? { state, grownAt } : null;
     };
+    // Les bâtiments valent des points entiers : moins d'un point de croissance accumulé ne fait rien gagner. Ces
+    // villages-là sont écartés par la requête (la plupart, à chaque passage).
+    const perMs = (cfg.barbarian.growthPerDay * cfg.speed) / 86400000;
+    if (!(perMs > 0)) return 0;
+    const ripe = new Date(now.getTime() - 1 / perMs);
     const candidates = await Village.findAll({
-      where: { worldId: world.id, playerId: null, points: { [Op.lt]: cfg.barbarian.maxPoints } },
+      where: {
+        worldId: world.id, playerId: null, points: { [Op.lt]: cfg.barbarian.maxPoints },
+        [Op.or]: [{ grownAt: { [Op.lte]: ripe } }, { grownAt: null, createdAt: { [Op.lte]: ripe } }],
+      },
     });
     const ids = candidates.filter(grows).map((v) => v.id);
     let written = 0;

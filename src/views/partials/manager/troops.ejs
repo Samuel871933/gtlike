@@ -42,7 +42,7 @@
             <label class="<%= ui.label %>">Nom<input name="name" maxlength="32" required value="<%= edit.name %>" class="<%= ui.inputSm %>"></label>
             <button class="<%= btn('dark', 'sm') %>" <%= h.disabled %>><%- icon('edit', 'size-3.5', 2.2) %>Renommer</button>
           </form>
-          <form method="post" action="<%= m %>/templates/<%= edit.id %>/delete" onsubmit="return confirm('Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de troupes visées.')"><%- csrf %>
+          <form method="post" action="<%= m %>/templates/<%= edit.id %>/delete" data-confirm="Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de troupes visées."><%- csrf %>
             <button class="<%= btn('danger', 'sm') %>" <%= h.disabled %>><%- icon('trash', 'size-3', 2.4) %>Supprimer</button>
           </form>
         </div>
@@ -125,7 +125,7 @@
               <td class="text-right tabular-nums max-sm:hidden"><%= n %></td>
               <td>
                 <% if (!tpl.system) { %>
-                  <form method="post" action="<%= m %>/templates/<%= tpl.id %>/delete" class="flex" onsubmit="return confirm('Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de troupes visées.')"><%- csrf %>
+                  <form method="post" action="<%= m %>/templates/<%= tpl.id %>/delete" class="flex" data-confirm="Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de troupes visées."><%- csrf %>
                     <button class="cursor-pointer text-blood-450 hover:text-blood-300 disabled:opacity-40" title="Supprimer le modèle" aria-label="Supprimer « <%= tpl.name %> »" <%= h.disabled %>><%- icon('trash', 'size-3.5', 2.2) %></button>
                   </form>
                 <% } %>

@@ -76,8 +76,8 @@ class FarmService {
       ? (a, b) => at(b) - at(a) || a.distance - b.distance
       : (a, b) => a.distance - b.distance || at(b) - at(a));
 
-    const pagination = PaginationService.paginate(rows.length, page, PaginationService.perPage(player, 'farm'));
-    rows = rows.slice(pagination.offset, pagination.offset + pagination.perPage);
+    let pagination;
+    ({ rows, pagination } = PaginationService.slice(rows, page, PaginationService.perPage(player, 'farm')));
     // Rapports de la page : ressources espionnées et niveau du mur connus à la dernière attaque.
     const ids = rows.map((r) => r.last.reportId).filter(Boolean);
     const reports = ids.length ? await Report.findAll({ where: { id: ids, playerId: player.id }, attributes: ['id', 'data'] }) : [];

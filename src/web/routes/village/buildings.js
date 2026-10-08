@@ -5,7 +5,7 @@
 const express = require('express');
 const VillageService = require('../../../services/VillageService');
 const CommandService = require('../../../services/CommandService');
-const { sequelize, Player, Village } = require('../../../models');
+const { sequelize, Village } = require('../../../models');
 const NobleService = require('../../../services/NobleService');
 const KnightService = require('../../../services/KnightService');
 const KnightSkillService = require('../../../services/KnightSkillService');
@@ -16,7 +16,7 @@ const GameError = require('../../../services/GameError');
 const registry = require('../../../game/registry');
 const { favoriteBuildings, favKey, favoritePage } = require('../../helpers');
 const { ah, back, flash } = require('../../middleware');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
@@ -91,7 +91,7 @@ router.post('/buildings/:buildingId/favorite', ah(async (req, res) => {
   if ((!type || !type.isAvailableIn(req.ctx.cfg)) && !favoritePage(id, req.ctx.cfg)) throw new GameError('Bâtiment inconnu.', 404);
   // Favori d'un onglet (« Pillage » du point de ralliement…) : clé « bâtiment:onglet ».
   const key = favKey(id, req.body.tab, req.ctx.cfg);
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   const current = favoriteBuildings(player, req.ctx);
   const on = !current.includes(key);
   await player.update({ favoriteBuildings: on ? [...current, key] : current.filter((b) => b !== key) });
@@ -173,7 +173,7 @@ router.get('/recruit/:building', ah(async (req, res) => {
     const { count } = await NobleService.playerUnitCount(me(req), 'knight');
     for (const o of locals.available) o.max = Math.min(o.max, Math.max(0, 1 - count));
     locals.knightCount = count;
-    const player = await Player.findByPk(me(req));
+    const player = currentPlayer(res);
     const found = await KnightService.sync(player);
     if (found.length) res.locals.flash = { type: 'success', message: `Votre paladin a trouvé : ${found.map((i) => i.name).join(', ')} !` };
     locals.knight = { player, items: registry.itemsFor(req.ctx.cfg), enabled: KnightService.enabled(req.ctx.cfg) };

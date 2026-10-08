@@ -14,7 +14,7 @@ const HOUR = 3600000;
 /** Réglages du compte sur un monde : mode sommeil (et remplaçant, voir SitterService). */
 class AccountService {
   static async world(player, t) {
-    return (await World.findByPk(player.worldId, { transaction: t })).getConfig();
+    return (await World.cached(player.worldId)).getConfig();
   }
 
   /**

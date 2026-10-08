@@ -231,6 +231,8 @@ class TradeService {
     const offers = await MarketOffer.findAll({
       where,
       include: [{ association: 'village', include: [Player], where: { playerId: { [Op.ne]: ctx.village.playerId } } }],
+      // Les 500 plus proches : sans tri, un grand monde pourrait laisser de côté les offres voisines.
+      order: [[sequelize.literal(`(("village"."x" - ${Number(ctx.village.x)}) * ("village"."x" - ${Number(ctx.village.x)}) + ("village"."y" - ${Number(ctx.village.y)}) * ("village"."y" - ${Number(ctx.village.y)}))`), 'ASC'], ['id', 'ASC']],
       limit: 500,
     });
     const { free } = await TradeService.merchants(ctx);
@@ -312,7 +314,7 @@ class TradeService {
   /** Livraison : les ressources au-delà de l'entrepôt sont perdues ; les marchands repartent. */
   static async deliver(tr, t) {
     const at = new Date(tr.arrivesAt);
-    const ctx = await VillageService.refresh(tr.targetVillageId, t, at);
+    const ctx = await VillageService.refresh(tr.targetVillageId, t, at, { bare: true });
     const cap = ctx.state.storageCapacity();
     for (const r of RESOURCES) {
       const cur = ctx.state.resources[r];

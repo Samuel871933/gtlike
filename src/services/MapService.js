@@ -14,39 +14,6 @@ class MapService {
     });
   }
 
-  /** Villages dans un carré de `size` cases centré sur (cx, cy). */
-  static async area(worldId, cx, cy, size = 15, { tribePoints = false } = {}) {
-    const half = Math.floor(size / 2);
-    const x0 = cx - half;
-    const y0 = cy - half;
-    const villages = await Village.findAll({
-      where: {
-        worldId,
-        x: { [Op.between]: [x0, x0 + size - 1] },
-        y: { [Op.between]: [y0, y0 + size - 1] },
-      },
-      attributes: ['id', 'name', 'x', 'y', 'points', 'playerId', 'special'],
-      include: [{ model: Player, attributes: ['id', 'name', 'tribeId', 'points', 'villageCount', 'isBot'], include: [{ model: Tribe, attributes: ['id', 'tag', 'name'] }] }],
-    });
-    // Points des tribus visibles (infobulle de la carte) : somme des points de leurs membres.
-    const pointsByTribe = new Map();
-    const tribeIds = [...new Set(villages.map((v) => v.Player && v.Player.tribeId).filter(Boolean))];
-    if (tribePoints && tribeIds.length) {
-      const sums = await Player.findAll({
-        where: { tribeId: tribeIds }, attributes: ['tribeId', [sequelize.fn('SUM', sequelize.col('points')), 'total']], group: ['tribeId'], raw: true,
-      });
-      for (const r of sums) pointsByTribe.set(r.tribeId, Number(r.total));
-    }
-    const byCoord = new Map(villages.map((v) => [`${v.x}|${v.y}`, v]));
-    const rows = [];
-    for (let y = y0; y < y0 + size; y++) {
-      const row = [];
-      for (let x = x0; x < x0 + size; x++) row.push({ x, y, village: byCoord.get(`${x}|${y}`) || null });
-      rows.push(row);
-    }
-    return { x0, y0, size, rows, tribePoints: pointsByTribe };
-  }
-
   static async ranking(worldId, limit = 100) {
     return Player.findAll({
       where: { worldId }, include: [{ model: Tribe, attributes: ['id', 'tag', 'avatar'] }], order: [['points', 'DESC'], ['id', 'ASC']], limit,
@@ -155,21 +122,30 @@ class MapService {
     }
     if (type === 'tribe') {
       const rows = await Tribe.findAll({ where: { worldId, [Op.or]: [like('Tribe.name'), like('Tribe.tag')] }, order: [['name', 'ASC']], limit: 12 });
-      const out = [];
-      for (const t of rows) {
-        const members = await Player.findAll({ where: { tribeId: t.id }, attributes: ['id', 'points'] });
-        const best = members.length ? await Village.findOne({ where: { playerId: { [Op.in]: members.map((m) => m.id) } }, order: [['points', 'DESC']] }) : null;
-        const pts = members.reduce((n, m) => n + m.points, 0);
-        out.push({ label: `[${t.tag}] ${t.name}`, sub: `${members.length} membre(s) · ${pts} pts`, x: best ? best.x : null, y: best ? best.y : null, tribeId: t.id });
-      }
-      return out;
+      // Membres et meilleur village de chaque tribu trouvée : lus pour toutes d'un coup.
+      const members = rows.length ? await Player.findAll({ where: { tribeId: rows.map((t) => t.id) }, attributes: ['id', 'tribeId', 'points'], raw: true }) : [];
+      const best = await MapService.bestVillages(members.map((m) => m.id));
+      return rows.map((t) => {
+        const own = members.filter((m) => m.tribeId === t.id);
+        const top = own.map((m) => best.get(m.id)).filter(Boolean).sort((a, b) => b.points - a.points || a.id - b.id)[0];
+        const pts = own.reduce((n, m) => n + m.points, 0);
+        return { label: `[${t.tag}] ${t.name}`, sub: `${own.length} membre(s) · ${pts} pts`, x: top ? top.x : null, y: top ? top.y : null, tribeId: t.id };
+      });
     }
     const rows = await Player.findAll({ where: { worldId, [Op.and]: [like('Player.name')] }, order: [['points', 'DESC']], limit: 12 });
-    const out = [];
-    for (const p of rows) {
-      const v = await Village.findOne({ where: { playerId: p.id }, order: [['points', 'DESC']] });
-      out.push({ label: p.name, sub: `${p.points} pts · ${p.villageCount || 0} village(s)`, x: v ? v.x : null, y: v ? v.y : null, playerId: p.id });
-    }
+    const best = await MapService.bestVillages(rows.map((p) => p.id));
+    return rows.map((p) => {
+      const v = best.get(p.id);
+      return { label: p.name, sub: `${p.points} pts · ${p.villageCount || 0} village(s)`, x: v ? v.x : null, y: v ? v.y : null, playerId: p.id };
+    });
+  }
+
+  /** Village le plus peuplé (en points) de chaque joueur : Map playerId → { id, x, y, points }. */
+  static async bestVillages(playerIds) {
+    const out = new Map();
+    if (!playerIds.length) return out;
+    const rows = await Village.findAll({ where: { playerId: { [Op.in]: playerIds } }, attributes: ['id', 'playerId', 'x', 'y', 'points'], order: [['points', 'DESC'], ['id', 'ASC']], raw: true });
+    for (const v of rows) if (!out.has(v.playerId)) out.set(v.playerId, v);
     return out;
   }
 

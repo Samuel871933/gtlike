@@ -4,7 +4,6 @@
 
 const express = require('express');
 const CommandService = require('../../../services/CommandService');
-const { Player } = require('../../../models');
 const MapService = require('../../../services/MapService');
 const ArmyTemplateService = require('../../../services/ArmyTemplateService');
 const MarkerService = require('../../../services/MarkerService');
@@ -12,7 +11,7 @@ const mapView = require('../../mapView');
 const GameError = require('../../../services/GameError');
 const registry = require('../../../game/registry');
 const { ah, flash } = require('../../middleware');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 
@@ -159,7 +158,7 @@ router.get('/map/mini', ah(async (req, res) => {
 // Tailles de la carte et de la mini-carte, position de la mini-carte : appliquées en direct par map.js, puis
 // mémorisées ici.
 router.post('/map/settings', ah(async (req, res) => {
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   const saved = player.mapSettings || {};
   const prefs = mapPrefs(saved);
   if (STEPS.includes(Number(req.body.step))) prefs.step = Number(req.body.step);
@@ -183,7 +182,7 @@ router.get('/map/world', ah(async (req, res) => {
 router.post('/map/layers', ah(async (req, res) => {
   const layer = String(req.body.layer || '');
   if (!Object.prototype.hasOwnProperty.call(MAP_LAYERS, layer)) throw new GameError('Calque inconnu.', 404);
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   const saved = player.mapSettings || {};
   await player.update({ mapSettings: { ...saved, layers: { ...(saved.layers || {}), [layer]: req.body.on === '1' } } });
   res.json({ ok: true });
@@ -198,7 +197,7 @@ router.post('/map/markers', ah(async (req, res) => {
     type: req.body.type, targetId: req.body.targetId, target: req.body.target, color, icon: req.body.icon,
   });
   // Le nouveau marquage doit se voir : le calque Marquages est réactivé s'il était masqué.
-  const player = await Player.findByPk(me(req));
+  const player = currentPlayer(res);
   const saved = player.mapSettings || {};
   if (saved.layers && saved.layers.markers === false) {
     await player.update({ mapSettings: { ...saved, layers: { ...saved.layers, markers: true } } });

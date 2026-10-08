@@ -233,8 +233,17 @@ class TribeForumService {
   static async unreadCount(playerOrId) {
     const player = typeof playerOrId === 'object' ? playerOrId : await Player.findByPk(playerOrId, { attributes: ['id', 'tribeId', 'tribeRole', 'tribeRights'] });
     if (!player || !player.tribeId) return 0;
-    const threads = await visibleThreads(player, await mutedIds(player.id));
-    return (await unreadIds(player.id, threads)).size;
+    // Pastille de chaque page du jeu : sous-forums et sourdines lus ensemble, puis seulement l'id et la date des sujets.
+    const [sections, muted] = await Promise.all([visibleSections(player), mutedIds(player.id)]);
+    const ids = sections.map((x) => x.id).filter((id) => !muted.has(id));
+    if (!ids.length) return 0;
+    const threads = await TribeForumThread.findAll({ where: { sectionId: { [Op.in]: ids } }, attributes: ['id', 'lastPostAt'], raw: true });
+    if (!threads.length) return 0;
+    const reads = await TribeForumRead.findAll({
+      where: { playerId: player.id, threadId: { [Op.in]: threads.map((t) => t.id) } }, attributes: ['threadId', 'readAt'], raw: true,
+    });
+    const at = new Map(reads.map((r) => [r.threadId, new Date(r.readAt).getTime()]));
+    return threads.filter((t) => !at.has(t.id) || at.get(t.id) < new Date(t.lastPostAt).getTime()).length;
   }
 
   /** Encadré « Nouveaux messages du forum » : sujets non lus, 5 par page, hors sourdine si demandé. */

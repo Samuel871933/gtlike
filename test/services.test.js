@@ -121,3 +121,19 @@ test('la ferme bloque le recrutement', async () => {
   const now = at(200000);
   await assert.rejects(VillageService.recruit(village.id, 'barracks', { spear: 10000 }, { now }), /(Ressources|ferme)/);
 });
+
+test('croissance des barbares : un village sans un point de croissance accumulé n’est pas lu, les autres grandissent', async () => {
+  const { World } = require('../src/models');
+  const world = await World.findOne({ where: { slug: 'w1' } });
+  const cfg = world.getConfig();
+  const barb = await Village.findOne({ where: { playerId: null } });
+  const perMs = (cfg.barbarian.growthPerDay * cfg.speed) / 86400000;
+  const before = barb.points;
+  // Moins d'un point de croissance depuis la dernière : rien ne change.
+  await barb.update({ grownAt: T0 });
+  assert.equal(await VillageService.growBarbarians(world, new Date(T0.getTime() + 0.5 / perMs)), 0);
+  assert.equal((await barb.reload()).points, before);
+  // Une journée plus tard : il grandit.
+  assert.equal(await VillageService.growBarbarians(world, new Date(T0.getTime() + 86400000)), 1);
+  assert.ok((await barb.reload()).points > before);
+});

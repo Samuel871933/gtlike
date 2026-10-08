@@ -97,6 +97,23 @@ World.addHook('beforeBulkUpdate', (options) => {
   if (WORLD_LOCKED.some((k) => k in (options.attributes || {}))) options.individualHooks = true;
 });
 
+// Mondes lus sans verrou (configuration, état affiché) : gardés 5 s par processus, en lecture seule. Toute écriture
+// d'un monde dans ce processus vide le cache ; d'un processus à l'autre, le retard est borné par la durée.
+const WORLD_TTL_MS = 5000;
+const worldCache = new Map();
+World.addHook('afterSave', () => worldCache.clear());
+World.addHook('afterBulkUpdate', () => worldCache.clear());
+World.addHook('afterDestroy', () => worldCache.clear());
+/** Monde depuis le cache de quelques secondes (pages, combats : la configuration est relue à chaque étape). */
+World.cached = async function cached(id) {
+  const hit = worldCache.get(id);
+  if (hit && hit.expires > Date.now()) return hit.world;
+  const world = await World.findByPk(id);
+  if (worldCache.size >= 1000) worldCache.clear();
+  worldCache.set(id, { world, expires: Date.now() + WORLD_TTL_MS });
+  return world;
+};
+
 World.prototype.getConfig = function getConfig() {
   if (!this._worldConfig) this._worldConfig = new WorldConfig(this.config);
   return this._worldConfig;
@@ -351,7 +368,7 @@ const Village = sequelize.define(
     sealLevel: { type: DataTypes.INTEGER, allowNull: true },
     sealAt: { type: DataTypes.DATE, allowNull: true },
   },
-  { indexes: [{ unique: true, fields: ['worldId', 'x', 'y'] }, { fields: ['playerId'] }] },
+  { indexes: [{ unique: true, fields: ['worldId', 'x', 'y'] }, { fields: ['playerId'] }, { name: 'villages_world_id_player_id_points', fields: ['worldId', 'playerId', 'points'] }] },
 );
 
 /** Un niveau de bâtiment en file d'attente. Le coût payé est gardé pour le remboursement. */
@@ -431,7 +448,7 @@ const Command = sequelize.define(
     incomingNote: { type: DataTypes.TEXT, allowNull: true },
     incomingIgnored: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
-  { indexes: [{ fields: ['arrivesAt'] }, { fields: ['originVillageId'] }, { fields: ['targetVillageId'] }] },
+  { indexes: [{ fields: ['arrivesAt'] }, { fields: ['originVillageId'] }, { fields: ['targetVillageId'] }, { name: 'commands_world_id_arrives_at', fields: ['worldId', 'arrivesAt'] }] },
 );
 
 /** Troupes en soutien stationnées dans un autre village. */
@@ -456,7 +473,7 @@ const Transport = sequelize.define(
     // Envoi du gestionnaire de compte : route (route commerciale) ou reserve ; nul pour un envoi à la main.
     source: { type: DataTypes.STRING(8), allowNull: true },
   },
-  { indexes: [{ fields: ['arrivesAt'] }, { fields: ['originVillageId'] }, { fields: ['targetVillageId'] }] },
+  { indexes: [{ fields: ['arrivesAt'] }, { fields: ['originVillageId'] }, { fields: ['targetVillageId'] }, { name: 'transports_world_id_arrives_at', fields: ['worldId', 'arrivesAt'] }] },
 );
 
 /**
@@ -514,6 +531,7 @@ const Report = sequelize.define(
     indexes: [
       { fields: ['playerId', 'happenedAt'] }, { fields: ['playerId', 'isRead', 'type'] },
       { name: 'reports_player_id_folder_id_happened_at', fields: ['playerId', 'folderId', 'happenedAt'] },
+      { name: 'reports_folder_id_happened_at', fields: ['folderId', 'happenedAt'] },
     ],
   },
 );
@@ -829,8 +847,9 @@ TribeOperationClaim.belongsTo(Player, { foreignKey: 'playerId' });
 /**
  * Modèle du gestionnaire de compte (premium, voir AccountManagerService), propre au compte (`userId`) et utilisable sur
  * tous ses mondes : `kind` 'build' (data : { steps: [{ building,
- * level }], demolish }, la liste de construction et ses niveaux visés) ou 'troops' (data : { units, popBuffer,
- * resBuffer }, les troupes voulues au total et les tampons). Les modèles système sont dans game/managerTemplates.js.
+ * level }], demolish }, la liste de construction et ses niveaux visés), 'troops' (data : { units, popBuffer,
+ * resBuffer }, les troupes voulues au total et les tampons) ou 'research' (data : { units: [ids] }, les unités à
+ * rechercher à la forge). Les modèles système sont dans game/managerTemplates.js.
  */
 const ManagerTemplate = sequelize.define(
   'ManagerTemplate',
@@ -857,11 +876,14 @@ const ManagerVillage = sequelize.define(
     troopTemplateId: { type: DataTypes.INTEGER, allowNull: true },
     troops: { type: DataTypes.JSON, allowNull: true },
     troopsPaused: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    // Gestionnaire de forge : modèle de recherche ('sys:…' ou 'tpl:<id>') et sa pause.
+    researchTemplate: { type: DataTypes.STRING(16), allowNull: true },
+    researchPaused: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     reserve: { type: DataTypes.STRING(8), allowNull: false, defaultValue: 'both' },
     checkAt: { type: DataTypes.DATE, allowNull: true },
     status: { type: DataTypes.JSON, allowNull: true },
   },
-  { indexes: [{ unique: true, fields: ['villageId'] }, { fields: ['playerId'] }] },
+  { indexes: [{ unique: true, fields: ['villageId'] }, { fields: ['playerId'] }, { name: 'manager_villages_check_at', fields: ['checkAt'] }] },
 );
 Village.hasOne(ManagerVillage, { foreignKey: { name: 'villageId', allowNull: false }, onDelete: 'CASCADE' });
 ManagerVillage.belongsTo(Village, { foreignKey: 'villageId' });

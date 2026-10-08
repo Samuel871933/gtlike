@@ -152,8 +152,12 @@ class IncomingService {
    * qui augmente à chaque nouvelle attaque même si une autre vient d'arriver.
    */
   static async alertState(playerId) {
-    const cmds = await IncomingService.find(playerId, { types: TYPES.attacks });
-    return { attacks: cmds.length, lastId: cmds.reduce((m, c) => Math.max(m, c.id), 0) };
+    // Relu toutes les 20 s par chaque joueur connecté : deux agrégats, sans charger les ordres ni leurs villages.
+    const villages = await Village.findAll({ where: { playerId }, attributes: ['id'], raw: true });
+    if (!villages.length) return { attacks: 0, lastId: 0 };
+    const where = { targetVillageId: { [Op.in]: villages.map((v) => v.id) }, type: { [Op.in]: TYPES.attacks } };
+    const [attacks, lastId] = await Promise.all([Command.count({ where }), Command.max('id', { where })]);
+    return { attacks, lastId: lastId || 0 };
   }
 
   /**

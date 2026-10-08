@@ -6,7 +6,7 @@ process.env.DB_DIALECT = 'sqlite';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  sequelize, World, Village, Player, BuildOrder, RecruitOrder, Transport, Command, Entitlement, ManagerVillage, TradeRoute,
+  sequelize, World, Village, Player, BuildOrder, RecruitOrder, ResearchOrder, Transport, Command, Entitlement, ManagerVillage, TradeRoute,
 } = require('../src/models');
 const createApp = require('../src/app');
 const AuthService = require('../src/services/AuthService');
@@ -536,6 +536,113 @@ test('pagination des villages du gestionnaire, usage des modèles sur tous, comp
   assert.equal(typeof report.routes, 'number');
   assert.ok('reserve' in report && Array.isArray(report.recent));
   for (const v of extra) await v.destroy();
+});
+
+test('gestionnaire de forge : toutes les recherches dans l’ordre de la forge, une à la fois, bâtiments requis et ressources', async () => {
+  const c = await cfg();
+  await premium(alice.userId);
+  const units = AccountManagerService.researchUnits(c);
+  // Modèle système : toutes les unités du monde qui se recherchent, dans l'ordre de la forge.
+  const system = (await AccountManagerService.templates(alice.id, c)).research.find((t) => t.system);
+  assert.deepEqual(system.units, units.map((u) => u.id));
+  // Seule la forge travaille dans ce village.
+  await ManagerVillage.update({ buildTemplate: null, troopTemplateId: null, troops: null }, { where: { villageId: home.id } });
+  await ResearchOrder.destroy({ where: { villageId: home.id } });
+  const buildings = { main: 10, farm: 10, storage: 20, barracks: 5, smith: 2 };
+  const full = { wood: 50000, stone: 50000, iron: 50000 };
+  await setVillage(home.id, { buildings, research: {}, units: {}, ...full });
+  await AccountManagerService.applyResearch(alice.id, [home.id], { action: 'use', template: 'sys:research' }, c);
+  const run = async () => {
+    await ManagerVillage.update({ checkAt: null }, { where: { villageId: home.id } });
+    await AccountManagerService.runDue(new Date());
+    return ManagerVillage.findOne({ where: { villageId: home.id } });
+  };
+
+  // Première recherche possible avec ces bâtiments, dans l'ordre de la forge ; une seule à la fois.
+  const ready = units.find((u) => !u.missingRequirements(buildings, c).length);
+  let row = await run();
+  const orders = await ResearchOrder.findAll({ where: { villageId: home.id } });
+  assert.deepEqual(orders.map((o) => o.unit), [ready.id]);
+  assert.equal(row.status.research.started, ready.name);
+  row = await run();
+  assert.equal(await ResearchOrder.count({ where: { villageId: home.id } }), 1);
+  assert.match(row.status.research.reason, /^Recherche en cours/);
+
+  // Modèle à soi : une unité dont les bâtiments requis manquent attend (pas de recherche lancée à sa place).
+  await ResearchOrder.destroy({ where: { villageId: home.id } });
+  const blocked = units.find((u) => u.missingRequirements(buildings, c).length);
+  const mine = await AccountManagerService.createResearchTemplate(alice.id, { name: 'Une seule' }, c);
+  assert.deepEqual((await AccountManagerService.setResearchUnit(alice.id, mine.id, blocked.id, '1', c)).units, [blocked.id]);
+  await AccountManagerService.applyResearch(alice.id, [home.id], { action: 'use', template: `tpl:${mine.id}` }, c);
+  row = await run();
+  assert.equal(await ResearchOrder.count({ where: { villageId: home.id } }), 0);
+  assert.match(row.status.research.reason, /^Bâtiments requis/);
+  // Avertissement de l'aperçu, comme un modèle de construction bloqué.
+  const { rows: managed } = await AccountManagerService.villages(alice.id, { cfg: c });
+  assert.ok((await AccountManagerService.warnings(alice.id, managed)).some((w) => w.kind === 'research' && /^Forge : Bâtiments requis/.test(w.text)));
+
+  // Ressources insuffisantes : rien n'est lancé, la prochaine vérification attend la production.
+  await AccountManagerService.setResearchUnit(alice.id, mine.id, blocked.id, '', c);
+  await AccountManagerService.setResearchUnit(alice.id, mine.id, ready.id, '1', c);
+  await setVillage(home.id, { ...plain });
+  row = await run();
+  assert.equal(await ResearchOrder.count({ where: { villageId: home.id } }), 0);
+  assert.equal(row.status.research.reason, `${ready.name} : ressources insuffisantes`);
+
+  // Tout est recherché : modèle terminé.
+  await setVillage(home.id, { research: { [ready.id]: true }, ...full });
+  row = await run();
+  assert.equal(row.status.research.done, true);
+
+  // Pause, puis suppression du modèle : le village n'a plus de modèle de forge.
+  await AccountManagerService.toggle(alice.id, home.id, 'research');
+  assert.equal((await ManagerVillage.findOne({ where: { villageId: home.id } })).researchPaused, true);
+  await AccountManagerService.deleteTemplate(alice.id, mine.id);
+  assert.equal((await ManagerVillage.findOne({ where: { villageId: home.id } })).researchTemplate, null);
+});
+
+test('gestionnaire de forge : pages des modèles et de l’onglet Villages · Forge', async () => {
+  let cookie = '';
+  const http = async (path, { method = 'GET', form } = {}) => {
+    const res = await fetch(base + path, {
+      method, redirect: 'manual',
+      headers: { cookie, ...(form ? { 'content-type': 'application/x-www-form-urlencoded' } : {}) },
+      body: form ? new URLSearchParams(form).toString() : undefined,
+    });
+    const set = res.headers.get('set-cookie');
+    if (set) cookie = set.split(';')[0];
+    return { status: res.status, location: res.headers.get('location'), text: await res.text() };
+  };
+  const token = (html) => html.match(/name="_csrf" value="([^"]+)"/)[1];
+  const login = await http('/login');
+  await http('/login', { method: 'POST', form: { login: 'Alice', password: 'motdepasse', _csrf: token(login.text) } });
+  const v = `/village/${home.id}`;
+  const c = await cfg();
+
+  const list = await http(`${v}/manager?tab=research`);
+  assert.equal(list.status, 200);
+  assert.match(list.text, /Toutes les recherches/);
+  // Création copiée du modèle système, puis une case décochée (enregistrée aussitôt).
+  const made = await http(`${v}/manager/research-templates`, { method: 'POST', form: { _csrf: token(list.text), name: 'Ma forge', from: 'sys:research' } });
+  const mine = (await AccountManagerService.templates(alice.id, c)).research.find((t) => t.name === 'Ma forge');
+  assert.equal(made.location, `${v}/manager?tab=research&id=tpl:${mine.id}`);
+  const page = await http(made.location);
+  assert.match(page.text, /id="recherches"/);
+  const first = AccountManagerService.researchUnits(c)[0].id;
+  await http(`${v}/manager/research-templates/${mine.id}/units`, { method: 'POST', form: { _csrf: token(page.text), unit: first } });
+  const after = await AccountManagerService.researchTemplate(alice.id, mine.key, c);
+  assert.ok(!after.units.includes(first));
+  // Onglet Villages · Forge : modèles de forge à appliquer, assignation par le formulaire commun.
+  const forge = await http(`${v}/manager?tab=forge`);
+  assert.match(forge.text, /name="researchTemplate"/);
+  assert.doesNotMatch(forge.text, /name="troopTemplate"/);
+  const done = await http(`${v}/manager/apply`, { method: 'POST', form: [['_csrf', token(forge.text)], ['op', 'research:use'], ['researchTemplate', mine.key], ['ids', String(home.id)]] });
+  assert.match(done.location, /tab=forge/);
+  assert.equal((await ManagerVillage.findOne({ where: { villageId: home.id } })).researchTemplate, mine.key);
+  // Aperçu : colonne Forge et modèles de forge.
+  const overview = await http(`${v}/manager`);
+  assert.match(overview.text, /Modèles de forge/);
+  assert.match(overview.text, /Forge : actif/);
 });
 
 test('conquête : le village quitte le gestionnaire et ses routes s’arrêtent', async () => {

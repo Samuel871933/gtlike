@@ -112,16 +112,20 @@ class MessageService {
     const q = String(search || '').trim().toLowerCase().slice(0, 100);
     if (q) {
       const like = `%${q}%`;
-      const inBody = await ConversationMessage.findAll({
-        attributes: ['conversationId'],
-        where: sequelize.where(sequelize.fn('lower', sequelize.col('body')), { [Op.like]: like }),
-        raw: true,
-      });
-      const bySubject = await Conversation.findAll({
-        attributes: ['id'],
-        where: sequelize.where(sequelize.fn('lower', sequelize.col('subject')), { [Op.like]: like }),
-        raw: true,
-      });
+      // Recherche limitée aux conversations du joueur : sinon elle parcourt tous les messages du serveur.
+      const mine = (await ConversationParticipant.findAll({ where: { playerId }, attributes: ['conversationId'], raw: true })).map((r) => r.conversationId);
+      const [inBody, bySubject] = mine.length ? await Promise.all([
+        ConversationMessage.findAll({
+          attributes: ['conversationId'],
+          where: { conversationId: { [Op.in]: mine }, [Op.and]: [sequelize.where(sequelize.fn('lower', sequelize.col('body')), { [Op.like]: like })] },
+          raw: true,
+        }),
+        Conversation.findAll({
+          attributes: ['id'],
+          where: { id: { [Op.in]: mine }, [Op.and]: [sequelize.where(sequelize.fn('lower', sequelize.col('subject')), { [Op.like]: like })] },
+          raw: true,
+        }),
+      ]) : [[], []];
       where.conversationId = { [Op.in]: [...new Set([...inBody.map((r) => r.conversationId), ...bySubject.map((r) => r.id)])] };
     }
     const total = await ConversationParticipant.count({ where });
@@ -179,15 +183,22 @@ class MessageService {
   }
 
   /** Lecture d'une conversation : la marque comme lue. */
-  static async read(playerId, conversationId, { now = new Date() } = {}) {
+  /**
+   * Conversation ouverte : ses participants et ses `limit` derniers messages (tous si `limit` est nul), du plus ancien
+   * au plus récent ; `conversation.olderCount` : messages plus anciens non chargés (circulaires de tribu, longs fils).
+   */
+  static async read(playerId, conversationId, { now = new Date(), limit = MessageService.READ_LIMIT } = {}) {
     const me = await MessageService.participant(playerId, conversationId);
-    const conversation = await Conversation.findByPk(me.conversationId, {
-      include: [
-        { association: 'participants', include: [Player] },
-        { association: 'messages', include: [{ association: 'author' }] },
-      ],
-      order: [[{ model: ConversationMessage, as: 'messages' }, 'createdAt', 'ASC'], [{ model: ConversationMessage, as: 'messages' }, 'id', 'ASC']],
-    });
+    const where = { conversationId: me.conversationId };
+    const [conversation, latest, total] = await Promise.all([
+      Conversation.findByPk(me.conversationId, { include: [{ association: 'participants', include: [Player] }] }),
+      ConversationMessage.findAll({
+        where, include: [{ association: 'author' }], order: [['createdAt', 'DESC'], ['id', 'DESC']], ...(limit ? { limit } : {}),
+      }),
+      limit ? ConversationMessage.count({ where }) : null,
+    ]);
+    conversation.messages = latest.reverse();
+    conversation.olderCount = limit ? Math.max(0, total - latest.length) : 0;
     await me.update({ lastReadAt: now });
     return conversation;
   }
@@ -226,5 +237,8 @@ class MessageService {
 
 MessageService.MAX_RECIPIENTS = MAX_RECIPIENTS;
 MessageService.GROUPS = GROUPS;
+
+// Messages affichés à l'ouverture d'une conversation (les plus récents) ; les autres sur demande.
+MessageService.READ_LIMIT = 100;
 
 module.exports = MessageService;

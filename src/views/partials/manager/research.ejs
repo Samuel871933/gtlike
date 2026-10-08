@@ -1,0 +1,123 @@
+<%# Gestionnaire de compte, onglet Modèles de forge (inclus par manager.ejs avec ses helpers h), sur le modèle des
+    modèles de troupes : liste des modèles (système et les siens), création (vide ou copiée), et la page du modèle ouvert
+    (`editResearch`) avec ses recherches, une case par unité enregistrée aussitôt. Ils s'assignent dans l'onglet
+    Villages, sous-onglet Forge. %>
+<%
+  const { m, csrf } = h;
+  const edit = typeof editResearch !== 'undefined' ? editResearch : null;
+  const used = (tpl) => usage.research.get(tpl.key) || 0;
+  // Unités d'un modèle, dans l'ordre de la forge.
+  const unitsLine = (ids) => (ids.length
+    ? ids.map((id) => `<span class="inline-flex items-center" title="${esc(unitName(id))}">${unitIcon(id, 'size-5 min-h-5 min-w-5')}</span>`).join('')
+    : '<span class="text-parchment-600">aucune recherche</span>');
+  // Unités du modèle absentes de ce monde : gardées dans le modèle du compte, ignorées ici.
+  const ignoredNote = (tpl) => (tpl.ignored && tpl.ignored.length ? `<span class="text-xs text-parchment-500" title="Gardées pour les mondes qui les ont">${tpl.ignored.map((id) => esc(unitName(id))).join(', ')} : absent${tpl.ignored.length > 1 ? 's' : ''} de ce monde</span>` : '');
+  // Coût et bâtiments requis d'une recherche.
+  const costLine = (u) => RESOURCES.map((r) => `<span class="inline-flex items-center gap-1" title="${r.label}">${resourceIcon(r.id, 'size-4')}${num(u.research[r.id])}</span>`).join('');
+  const needs = (u) => u.missingRequirements({}, ctx.cfg).map((n) => `${esc(buildingName(n.building))} ${n.level}`).join(' · ');
+  const listCls = 'whitespace-nowrap [&_td]:h-[44px] [&_td]:py-1 [&_td_img]:min-h-0 [&_td_img]:min-w-0';
+%>
+<% if (!researchUnits.length) { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Modèles de forge') %>
+    <p class="<%= ui.empty %>">Sur ce monde, les unités n’ont pas à être recherchées à la forge : le gestionnaire de forge n’a rien à faire.</p>
+  </section>
+<% } else if (edit) { const own = !edit.system; const n = used(edit); %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead(`Modèle « ${edit.name} »`, `<a href="${m}?tab=research" class="${ui.link} font-sans text-xs">Tous les modèles</a>`) %>
+    <div class="<%= ui.panelBody %>">
+      <% if (edit.system) { %>
+        <p class="text-parchment-400"><%= edit.description %> Les modèles système ne se modifient pas : copie-le pour l’adapter.</p>
+        <form method="post" action="<%= m %>/research-templates" class="flex flex-wrap items-end gap-2"><%- csrf %><input type="hidden" name="from" value="<%= edit.key %>">
+          <label class="<%= ui.label %>">Nom de la copie<input name="name" maxlength="32" required value="<%= `${edit.name} (copie)`.slice(0, 32) %>" class="<%= ui.inputSm %>"></label>
+          <button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('plus', 'size-3.5', 2.2) %>Copier</button>
+        </form>
+      <% } else { %>
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <form method="post" action="<%= m %>/templates/<%= edit.id %>/rename" class="flex flex-wrap items-end gap-2"><%- csrf %>
+            <label class="<%= ui.label %>">Nom<input name="name" maxlength="32" required value="<%= edit.name %>" class="<%= ui.inputSm %>"></label>
+            <button class="<%= btn('dark', 'sm') %>" <%= h.disabled %>><%- icon('edit', 'size-3.5', 2.2) %>Renommer</button>
+          </form>
+          <form method="post" action="<%= m %>/templates/<%= edit.id %>/delete" data-confirm="Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de modèle de forge."><%- csrf %>
+            <button class="<%= btn('danger', 'sm') %>" <%= h.disabled %>><%- icon('trash', 'size-3', 2.4) %>Supprimer</button>
+          </form>
+        </div>
+      <% } %>
+      <p class="text-[13px] text-parchment-500">Utilisé par <%= n %> village<%= n > 1 ? 's' : '' %> · à assigner dans l’onglet <a href="<%= m %>?tab=forge" class="<%= ui.link %>">Villages · Forge</a>.</p>
+    </div>
+  </section>
+
+  <section class="<%= ui.panel %>" id="recherches">
+    <%- panelHead('Recherches', `<span class="${ui.headCount}">${edit.units.length} / ${researchUnits.length}</span>`) %>
+    <p class="<%= ui.panelNote %>">
+      Dans l’ordre de la forge, une à la fois : une recherche dont les bâtiments requis manquent attend, les suivantes
+      passent.<%= own ? ' Chaque case est enregistrée aussitôt.' : '' %> <%- ignoredNote(edit) %>
+    </p>
+    <div class="relative overflow-x-auto">
+      <table class="<%= ui.table %> <%= listCls %>">
+        <thead><tr><th class="w-8"><span class="sr-only">Rechercher</span></th><th>Unité</th><th>Coût</th><th class="max-sm:hidden">Bâtiments requis</th></tr></thead>
+        <tbody>
+          <% for (const u of researchUnits) { const on = edit.units.includes(u.id); %>
+            <tr>
+              <td>
+                <% if (own) { %>
+                  <form method="post" action="<%= m %>/research-templates/<%= edit.id %>/units" class="flex"><%- csrf %><input type="hidden" name="unit" value="<%= u.id %>">
+                    <input type="checkbox" name="on" value="1" class="<%= ui.checkbox %>" data-autosubmit aria-label="Rechercher : <%= u.name %>" <%= on ? 'checked' : '' %> <%= h.disabled %>>
+                  </form>
+                <% } else { %>
+                  <input type="checkbox" class="<%= ui.checkbox %>" checked disabled aria-label="<%= u.name %> : recherché par ce modèle">
+                <% } %>
+              </td>
+              <td><span class="inline-flex items-center gap-2 <%= on ? 'text-parchment-100' : 'text-parchment-500' %>"><%- unitIcon(u.id, 'size-6') %><%= u.name %></span></td>
+              <td><span class="inline-flex items-center gap-2.5 text-sm text-parchment-300 tabular-nums"><%- costLine(u) %></span></td>
+              <td class="text-sm text-parchment-400 max-sm:hidden"><%= needs(u) || '—' %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+<% } else { %>
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Créer un modèle') %>
+    <form method="post" action="<%= m %>/research-templates" class="flex flex-wrap items-end gap-3 p-3"><%- csrf %>
+      <label class="<%= ui.label %>">Nom<input name="name" maxlength="32" required class="<%= ui.inputSm %>"></label>
+      <label class="<%= ui.label %>">À partir de
+        <select name="from" class="<%= ui.inputSm %>">
+          <option value="">Modèle vide</option>
+          <% for (const tpl of templates.research) { %><option value="<%= tpl.key %>"><%= tpl.name %><%= tpl.system ? ' (système)' : '' %></option><% } %>
+        </select>
+      </label>
+      <button class="<%= btn('gold', 'sm') %>" <%= h.disabled %>><%- icon('plus', 'size-3.5', 2.2) %>Créer</button>
+    </form>
+  </section>
+
+  <section class="<%= ui.panel %>">
+    <%- panelHead('Modèles de forge', `<span class="${ui.headCount}">${templates.research.length}</span>`) %>
+    <p class="<%= ui.panelNote %>">Les recherches lancées à la forge dans chaque village du modèle, dans l’ordre de la forge.</p>
+    <div class="relative overflow-x-auto">
+      <table class="<%= ui.table %> <%= listCls %>">
+        <thead><tr><th>Modèle</th><th>Recherches</th><th class="text-right max-sm:hidden">Villages</th><th class="w-8"><span class="sr-only">Supprimer</span></th></tr></thead>
+        <tbody>
+          <% for (const tpl of templates.research) { %>
+            <tr>
+              <td<%- tpl.system ? ` title="${esc(tpl.description)}"` : '' %>>
+                <a href="<%= m %>?tab=research&id=<%= encodeURIComponent(tpl.key) %>" class="<%= ui.link %> font-semibold"><%= tpl.name %></a><% if (tpl.system) { %> <span class="text-xs text-parchment-500">système</span><% } %>
+              </td>
+              <td><span class="inline-flex items-center gap-x-1.5 align-middle"><%- unitsLine(tpl.units) %><%- ignoredNote(tpl) %></span></td>
+              <td class="text-right tabular-nums max-sm:hidden"><%= used(tpl) %></td>
+              <td>
+                <% if (!tpl.system) { %>
+                  <form method="post" action="<%= m %>/templates/<%= tpl.id %>/delete" class="flex" data-confirm="Supprimer ce modèle ? Les villages qui l’utilisent n’auront plus de modèle de forge."><%- csrf %>
+                    <button class="cursor-pointer text-blood-450 hover:text-blood-300 disabled:opacity-40" title="Supprimer le modèle" aria-label="Supprimer « <%= tpl.name %> »" <%= h.disabled %>><%- icon('trash', 'size-3.5', 2.2) %></button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>

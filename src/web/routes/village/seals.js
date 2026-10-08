@@ -10,7 +10,7 @@ const SealService = require('../../../services/SealService');
 const GameError = require('../../../services/GameError');
 const seals = require('../../../game/seals');
 const { ah, flash, ownerOnly } = require('../../middleware');
-const { base, me } = require('./shared');
+const { base, me, currentPlayer } = require('./shared');
 
 const router = express.Router({ mergeParams: true });
 const TABS = ['overview', 'trade', 'history', 'villages', 'help'];
@@ -26,7 +26,7 @@ const back = (req, tab) => `${base(req)}/seals${tab && tab !== 'overview' ? `?ta
 router.get('/seals', ah(async (req, res) => {
   const { village, world, cfg } = req.ctx;
   const tab = TABS.includes(req.query.tab) ? req.query.tab : 'overview';
-  let player = await Player.findByPk(me(req));
+  let player = currentPlayer(res);
   const canEarn = SealService.canEarn(world);
   // Paliers d'unités vaincues déjà franchis (unités tuées avant les sceaux, ou depuis le dernier combat) : rattrapés ici.
   if (canEarn && !req.asSitter && (player.stats?.unitsKilled || 0) >= SealService.killsNeeded(player.stats?.sealKillSteps || 0)) {
@@ -70,7 +70,7 @@ router.post('/seals/remove-all', ah(async (req, res) => {
 }));
 
 router.post('/seals/merge', ah(async (req, res) => {
-  const player = await Player.findByPk(me(req), { attributes: ['userId'] });
+  const player = currentPlayer(res);
   const made = await SealService.merge(player.userId, { type: req.body.type, level: req.body.level });
   flash(req, 'success', `Fusion réussie : sceau ${seals.label(made).toLowerCase()} obtenu.`);
   res.redirect(back(req));
