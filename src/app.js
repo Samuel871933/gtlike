@@ -85,7 +85,7 @@ function createApp() {
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, sameSite: 'lax', secure: config.isProduction, maxAge: 30 * 86400000 },
+    cookie: { httpOnly: true, sameSite: 'lax', secure: config.sessionCookieSecure, maxAge: 30 * 86400000 },
   }));
 
   // Une ancienne image de joueur reste en place à l'expiration du premium, pour que son propriétaire puisse

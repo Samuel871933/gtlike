@@ -18,6 +18,11 @@ module.exports = {
   sqliteStorage: process.env.SQLITE_STORAGE || 'data/game.sqlite',
   sessionSecret: process.env.SESSION_SECRET || 'dev-secret-a-changer',
   isProduction: process.env.NODE_ENV === 'production',
+  // Cookie de session réservé au HTTPS : oui en production, non ailleurs. SESSION_COOKIE_SECURE=false le coupe (serveur
+  // de test servi en http), SESSION_COOKIE_SECURE=true le force.
+  sessionCookieSecure: process.env.SESSION_COOKIE_SECURE
+    ? process.env.SESSION_COOKIE_SECURE === 'true'
+    : process.env.NODE_ENV === 'production',
   // Origine publique utilisée pour les URL canoniques et les aperçus sociaux.
   siteUrl: process.env.SITE_URL ? new URL(process.env.SITE_URL).origin : null,
   // Images envoyées par les joueurs (profils), servies sous /uploads.
