@@ -62,13 +62,13 @@
               <td>
                 <% if (own) { %>
                   <form method="post" action="<%= m %>/research-templates/<%= edit.id %>/units" class="flex"><%- csrf %><input type="hidden" name="unit" value="<%= u.id %>">
-                    <input type="checkbox" name="on" value="1" class="<%= ui.checkbox %>" data-autosubmit aria-label="Rechercher : <%= u.name %>" <%= on ? 'checked' : '' %> <%= h.disabled %>>
+                    <input type="checkbox" name="on" value="1" class="<%= ui.checkbox %>" data-autosubmit aria-label="Rechercher : <%= nameOf(u) %>" <%= on ? 'checked' : '' %> <%= h.disabled %>>
                   </form>
                 <% } else { %>
-                  <input type="checkbox" class="<%= ui.checkbox %>" checked disabled aria-label="<%= u.name %> : recherché par ce modèle">
+                  <input type="checkbox" class="<%= ui.checkbox %>" checked disabled aria-label="<%= nameOf(u) %> : recherché par ce modèle">
                 <% } %>
               </td>
-              <td><span class="inline-flex items-center gap-2 <%= on ? 'text-parchment-100' : 'text-parchment-500' %>"><%- unitIcon(u.id, 'size-6') %><%= u.name %></span></td>
+              <td><span class="inline-flex items-center gap-2 <%= on ? 'text-parchment-100' : 'text-parchment-500' %>"><%- unitIcon(u.id, 'size-6') %><%= nameOf(u) %></span></td>
               <td><span class="inline-flex items-center gap-2.5 text-sm text-parchment-300 tabular-nums"><%- costLine(u) %></span></td>
               <td class="text-sm text-parchment-400 max-sm:hidden"><%= needs(u) || '—' %></td>
             </tr>

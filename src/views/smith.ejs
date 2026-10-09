@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: 'Forge' }) %>
+<%- include('partials/header', { title: buildingName('smith') }) %>
 <% const running = ctx.researchOrders[0]; %>
 <div class="flex flex-col gap-5">
   <%- include('partials/building-header', { buildingId: 'smith' , illustration: 'wide' }) %>
@@ -37,7 +37,7 @@
               <span class="flex items-center gap-3">
                 <span class="<%= o.done ? ui.medallionGold : ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
                 <span class="flex min-w-0 flex-col">
-                  <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
+                  <span class="font-semibold text-parchment-100"><%= nameOf(o.type) %></span>
                   <span class="text-[13px] text-parchment-500"><%= buildingName(o.type.building) %></span>
                 </span>
               </span>

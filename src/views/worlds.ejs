@@ -60,6 +60,8 @@
 <%# Hors connexion : mêmes mondes et serveurs, le compte n'est demandé qu'en rejoignant un monde. %>
 <%- include('partials/landing-hero-start', user ? { cta: null } : { cta: { href: '/register', label: 'Jouer gratuitement' }, login: true, lobbyPage: 'home' }) %>
 <%- include('partials/lobby-tabs', { active: 'worlds' }) %>
+<%# Sous-sélecteur des modes de jeu (src/modes) : tous les mondes, ou ceux d'un mode. %>
+<%- include('partials/worlds/mode-tabs') %>
 <%# 1. Mondes officiels : tes parties en cours puis les autres mondes (ou la fiche du monde choisi). %>
 <%- include('partials/worlds/official', { directionNames, victoryNames, playing, official, current, available, ended, myServers, publicServers, accessName, sittings, modulesOf, subtitle, isNew, age, worldTile, tileGrid, smallTag }) %>
 

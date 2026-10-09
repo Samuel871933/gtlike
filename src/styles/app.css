@@ -17,6 +17,9 @@
 @import "./game-styles/egypt.css";
 @import "./game-styles/adarma.css";
 @import "./game-styles/futur.css";
+/* Modes de jeu (src/modes) : habillage d'un monde, après les styles de jeu qu'il redéfinit. */
+@import "../modes/zeppelin/zeppelin.css";
+@source "../modes";
 
 /* Un fond de cire commun aux niveaux ; le sigle transparent reste indépendant. */
 .seal-art { position: relative; display: inline-block; flex-shrink: 0; vertical-align: middle; }

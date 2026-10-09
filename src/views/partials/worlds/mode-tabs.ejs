@@ -1,0 +1,14 @@
+<%#
+  Sous-sélecteur des modes de jeu, sous les onglets Mondes / Matchup : tous les mondes, ou seulement ceux d'un mode
+  (?mode=). Locals : modeFilter (id ou null), modeCounts (Map id → mondes en cours visibles).
+%>
+<% const total = [...modeCounts.values()].reduce((a, b) => a + b, 0);
+   const items = [[null, 'Tous les modes', total], ...Object.values(GAME_MODES).map((m) => [m.id, m.name, modeCounts.get(m.id) || 0])]; %>
+<nav class="mt-1.5 flex flex-wrap gap-1 border border-bronze-800 bg-night p-1" aria-label="Modes de jeu des mondes">
+  <% for (const [id, label, n] of items) { const on = (modeFilter || null) === id; %>
+    <a href="/worlds<%= id ? `?mode=${id}` : '' %>" title="<%= id ? GAME_MODES[id].description : 'Mondes de tous les modes' %>"
+       class="flex items-center gap-1.5 px-2.5 py-1 text-[13px] font-semibold no-underline transition <%= on ? 'bg-head text-parchment-100 shadow-[inset_0_-2px_0_var(--color-gold-400)]' : 'text-gold-400 hover:bg-thead hover:text-parchment-100' %>"<%- on ? ' aria-current="true"' : '' %>>
+      <%= label %><span class="text-[11px] font-normal tabular-nums <%= on ? 'text-parchment-300' : 'text-parchment-500' %>"><%= n %></span>
+    </a>
+  <% } %>
+</nav>

@@ -19,7 +19,7 @@
           </select></label>` : ''}
       </div>
       <div class="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2">
-        ${opUnits.map((u) => `<label class="flex items-center gap-1.5" title="${esc(u.name)}">${unitIcon(u.id, 'size-6 min-h-6 min-w-6')}<input type="number" name="${prefix}${u.id}" min="0" placeholder="0" class="${ui.inputSm} w-full min-w-0 tabular-nums" aria-label="${esc(u.name)}" data-unit-input data-unit="${u.id}"></label>`).join('')}
+        ${opUnits.map((u) => `<label class="flex items-center gap-1.5" title="${esc(nameOf(u))}">${unitIcon(u.id, 'size-6 min-h-6 min-w-6')}<input type="number" name="${prefix}${u.id}" min="0" placeholder="0" class="${ui.inputSm} w-full min-w-0 tabular-nums" aria-label="${esc(nameOf(u))}" data-unit-input data-unit="${u.id}"></label>`).join('')}
       </div>
     </div>`;
 %>

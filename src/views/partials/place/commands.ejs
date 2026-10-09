@@ -92,8 +92,8 @@
         <% for (const u of allUnits) { %>
           <label class="flex items-center gap-2 border border-bronze-800 bg-night px-2 py-1">
             <span class="text-gold-400"><%- unitIcon(u.id, 'size-3.5', 2) %></span>
-            <span class="min-w-0 flex-1 truncate text-sm"><%= u.name %></span>
-            <input type="number" name="<%= u.id %>" min="0" placeholder="0" class="<%= ui.inputSm %> w-16 text-right tabular-nums" aria-label="<%= u.name %>">
+            <span class="min-w-0 flex-1 truncate text-sm"><%= nameOf(u) %></span>
+            <input type="number" name="<%= u.id %>" min="0" placeholder="0" class="<%= ui.inputSm %> w-16 text-right tabular-nums" aria-label="<%= nameOf(u) %>">
           </label>
         <% } %>
       </div>

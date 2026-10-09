@@ -1094,3 +1094,6 @@ module.exports = {
   Entitlement, AdartonTransaction, BuildReward,
   MatchRating, MatchGroup, MatchGroupMember, MatchQueue, MatchProposal, Match, MatchPlayer,
 };
+
+// Tables des modes de jeu (extensions, src/modes) : définies par chaque mode, exportées avec les autres.
+Object.assign(module.exports, require('../modes/models')(sequelize, module.exports));

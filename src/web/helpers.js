@@ -622,6 +622,8 @@ module.exports = {
   PER_PAGE_LISTS: require('../services/PaginationService').LISTS,
   avatarSize: { w: ImageService.MAX_WIDTH, h: ImageService.MAX_HEIGHT },
   GAME_STYLES: require('./gameStyles').GAME_STYLES,
+  // Modes de jeu (src/modes/catalog.js) : sous-sélecteur des mondes, fiche d'un monde.
+  GAME_MODES: require('../modes/catalog').MODES,
   VILLAGE_DESIGNS: require('./villageDesigns').VILLAGE_DESIGNS,
   GAME_LAYOUTS: require('./gameLayouts').GAME_LAYOUTS,
   defaultShadows: require('./gameLayouts').defaultShadows,
@@ -675,6 +677,10 @@ module.exports = {
   botTag,
   tribeLink,
   continent,
+  // Nom et description d'un bâtiment ou d'une unité : remplacés par le mode de jeu du monde (src/modes), comme
+  // buildingName, unitName, registry, RESOURCES, resourceIcon, buildingImg et VILLAGE_PLAN.
+  nameOf: (type) => (type ? type.name : ''),
+  descOf: (type) => (type ? type.description : ''),
   buildingName: (id) => registry.building(id).name,
   unitName: (id) => registry.unit(id).name,
   unitPop: (id) => registry.unit(id).pop,

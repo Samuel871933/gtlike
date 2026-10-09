@@ -22,7 +22,7 @@
         <tbody>
           <% for (const u of unitRows) { const home = ctx.state.units[u.id] || 0; const away = ctx.awayUnits[u.id] || 0; %>
             <tr class="border-b border-bronze-700/30 last:border-b-0">
-              <th scope="row" class="px-2 py-1 text-left font-medium"><span class="inline-flex items-center gap-1.5"><%- unitIcon(u.id, 'size-7') %><%= u.name %></span></th>
+              <th scope="row" class="px-2 py-1 text-left font-medium"><span class="inline-flex items-center gap-1.5"><%- unitIcon(u.id, 'size-7') %><%= nameOf(u) %></span></th>
               <td class="px-2 py-1 text-right font-semibold tabular-nums"><%= num(home) %></td>
               <td class="px-2 py-1 text-right tabular-nums text-parchment-500"><%= num(away) %></td>
               <td class="px-2 py-1 text-right font-semibold text-gold-200 tabular-nums"><%= num(home + away) %></td>

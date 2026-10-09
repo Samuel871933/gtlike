@@ -19,4 +19,9 @@ for (const area of ['overview', 'buildings', 'place', 'incomings', 'market', 'tr
   router.use(require(`./${area}`));
 }
 
+// Pages propres à un mode de jeu (src/modes) : /village/:id/<mode>/…, seulement sur un monde de ce mode.
+for (const [id, modeRouter] of require('../../../modes').routers()) {
+  router.use(`/${id}`, (req, res, next) => (req.ctx.cfg.mode === id ? next() : next(new GameError('Page introuvable.', 404))), modeRouter);
+}
+
 module.exports = router;

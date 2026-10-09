@@ -9,7 +9,8 @@ const ReportService = require('../services/ReportService');
 const TribeForumService = require('../services/TribeForumService');
 const BuildRewardService = require('../services/BuildRewardService');
 const TutorialService = require('../services/TutorialService');
-const { gameStyleFor } = require('./gameStyles');
+const { gameStyleFor, GAME_STYLES } = require('./gameStyles');
+const modes = require('../modes');
 const { memo } = require('./memo');
 const { villageDesignFor } = require('./villageDesigns');
 const ShopService = require('../services/ShopService');
@@ -160,6 +161,9 @@ const loadVillage = ah(async (req, res, next) => {
     await CommandService.processDue(now, { worldId: access.village.worldId, max: EventService.CHUNK, ifIdle: true });
     access = await VillageService.assertAccess(villageId, req.user.id);
   }
+  // Mode de jeu (src/modes) : ses échéances propres avant la page (un vaisseau qui atterrit change de case).
+  const accessCfg = (await VillageService.cachedWorld(access.village.worldId)).getConfig();
+  if (await modes.beforeLoad(accessCfg, access.village, now)) access = await VillageService.assertAccess(villageId, req.user.id);
   const { village: owned, asSitter } = access;
   // Partie du matchup terminée (temps écoulé, conquête, abandon) : plus rien ne se joue, écran de fin de partie.
   const ownedWorld = await VillageService.cachedWorld(owned.worldId);
@@ -188,6 +192,8 @@ const loadVillage = ah(async (req, res, next) => {
   res.locals.ctx = req.ctx;
   // Partie du matchup : barre de la partie (équipes, score, temps restant) en haut des pages.
   res.locals.inMatch = req.ctx.world.access === 'match';
+  // Mode de jeu : son entrée du catalogue et les valeurs des vues qu'il remplace (noms, images, plan du village…).
+  Object.assign(res.locals, await modes.viewLocals(req.ctx));
   if (req.method === 'GET' && res.locals.inMatch) res.locals.matchBar = await require('../services/MatchService').forWorld(req.ctx.world);
   const playerId = owned.playerId;
   const [myVillages, player, rights] = await Promise.all([
@@ -217,7 +223,8 @@ const loadVillage = ah(async (req, res, next) => {
   }
   Object.assign(res.locals, {
     myVillages, villageGroups: groups.groups, headerGroups, activeGroup: groups.active, navVillages, villageNav: villageNav(navVillages, owned.id), groupHref: groupHref(req), player, shopRights: rights,
-    gameStyle: gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights, asSitter ? null : player.faction), gameLayout: gameLayoutFor(req.user),
+    // Un mode de jeu peut imposer son style (src/modes/catalog.js) ; sinon, le thème choisi par le joueur.
+    gameStyle: res.locals.mode.gameStyle ? GAME_STYLES[res.locals.mode.gameStyle] : gameStyleFor(req.user, rights), villageDesign: villageDesignFor(req.user, rights, asSitter ? null : player.faction), gameLayout: gameLayoutFor(req.user),
     gameShadows: shadowsFor(req.user),
     quickbarPos: require('./quickbarPositions').quickbarPositionFor(req.user),
   });
@@ -239,7 +246,7 @@ const loadVillage = ah(async (req, res, next) => {
 const BASE_LOCALS = () => ({
   ctx: null, page: null, unreadReports: 0, unreadByFilter: {}, incomingAttacks: 0, myVillages: [], navVillages: [], villageGroups: [], headerGroups: [], activeGroup: null, villageNav: null, groupHref: () => '', tribeInvites: 0, unreadMessages: 0, rewardsPending: 0, questHints: null, currentPath: '', player: null,
   playerRank: null, gameStyle: null, villageDesign: null, gameLayout: null, gameShadows: true, quickbarPos: 'top', asSitter: false, happyPopup: null,
-  inMatch: false, matchBar: null,
+  inMatch: false, matchBar: null, mode: require('../modes/catalog').MODES.classic, modeScripts: [], modePanels: [],
 });
 
 function errorHandler(err, req, res, _next) {

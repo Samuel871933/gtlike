@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: 'Point de ralliement' }) %>
+<%- include('partials/header', { title: buildingName('place') }) %>
 <%
   const vid = ctx.village.id;
   const typeName = { attack: 'Attaque', support: 'Soutien', return: 'Retour', relocate: 'Déménagement' };

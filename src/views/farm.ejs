@@ -107,7 +107,7 @@
             <th class="text-center">Mur</th>
             <th class="text-right">Distance</th>
             <th class="text-center">Envoyer</th>
-            <th class="w-10"><span class="sr-only">Point de ralliement</span></th>
+            <th class="w-10"><span class="sr-only"><%= buildingName('place') %></span></th>
           </tr>
         </thead>
         <tbody>
@@ -141,7 +141,7 @@
                   <% if (!favorites.length) { %><span class="text-parchment-600">—</span><% } %>
                 </span>
               </td>
-              <td><a href="/village/<%= vid %>/place?x=<%= v.x %>&y=<%= v.y %>" class="<%= ui.iconBtnSm %>" title="Point de ralliement vers ce village" aria-label="Point de ralliement vers ce village"><%- icon('attack', 'size-3.5', 2.2) %></a></td>
+              <td><a href="/village/<%= vid %>/place?x=<%= v.x %>&y=<%= v.y %>" class="<%= ui.iconBtnSm %>" title="<%= buildingName('place') %> vers ce village" aria-label="<%= buildingName('place') %> vers ce village"><%- icon('attack', 'size-3.5', 2.2) %></a></td>
             </tr>
           <% } %>
         </tbody>

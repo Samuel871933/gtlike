@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>Navigation aérienne — vérification</title><style>body{margin:0;background:#101c22;color:#ddd}iframe{width:100%;height:1800px;border:0}pre{padding:12px}</style><pre id="result">RUNNING</pre><iframe src="../../zeppelin.html"></iframe><script>
+document.querySelector('iframe').onload=async()=>{
+ const out=document.getElementById('result'),d=document.querySelector('iframe').contentDocument,$=id=>d.getElementById(id);
+ const check=(v,m)=>{if(!v)throw Error(m)},wait=ms=>new Promise(r=>setTimeout(r,ms));
+ try{
+ $('map-tab').click();await wait(500);const bg=d.querySelector('.city-background');check(bg.naturalWidth===1536,'fond chargé');
+ check(d.querySelectorAll('.district').length===6,'six points de port');check($('minimap').querySelectorAll('circle[role=button]').length===6,'six points mini-carte');
+ const ships=[...d.querySelectorAll('.other-airship')],before=ships.map(s=>s.style.cssText);
+ await wait(12500);check(ships.some((s,i)=>s.style.cssText!==before[i]),'trafic autonome');
+ check(ships.some(s=>s.getAttribute('aria-label').includes('en vol')),'capitaines en circulation');
+ d.querySelector('[data-district="violet"]').click();$('map-travel').click();
+ const route=$('route-live').getAttribute('d');check((route.match(/L/g)||[]).length>=3,'trajet via embranchements');
+ const angle=$('airship-sprite').dataset.angle;await wait(4000);check($('airship-sprite').dataset.angle!==angle,'orientation au virage');
+ await wait(14000);check($('map-view').dataset.current==='violet','arrivée académie');
+ check($('route-live').getAttribute('d')==='','trajet effacé après amarrage');
+ $('map-minus').click();$('map-plus').click();$('map-center').click();
+ out.textContent='PASS : fond, trafic autonome, couloirs, virage, arrivée et zoom';
+ d.querySelector('.view-tabs').scrollIntoView();
+ }catch(e){out.textContent='FAIL : '+e.message}
+};</script>

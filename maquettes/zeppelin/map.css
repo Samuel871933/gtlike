@@ -9,3 +9,28 @@
 @keyframes engine-pulse{to{opacity:.3;scale:.7}}@keyframes route-flow{to{stroke-dashoffset:-18}}@media(max-width:1050px){.map-layout{grid-template-columns:1fr}.sky-frame{position:relative;top:0}.map-side{display:grid;grid-template-columns:1fr 1fr;align-items:start}.map-side>.card{min-width:0}.sky-viewport{aspect-ratio:1.5}.map-nav-hint{display:none}}@media(max-width:560px){.map-side{grid-template-columns:1fr}.sky-viewport{aspect-ratio:1/1.05}.view-tab{padding:9px 13px;font-size:11px}.view-tab small{display:none}.economy-strip{flex-wrap:wrap;gap:7px 15px;font-size:10px}.economy-strip span:last-child{margin-left:0}.district-caption{font-size:6px;padding:2px 3px}.city-title{font-size:8px;letter-spacing:1px}.city-title small{font-size:5px}.district-port{font-size:5px}.airship,.other-airship{width:4%}.map-footer{font-size:8px}.map-legend{font-size:8px;gap:7px}.sky-corner{font-size:7px}.sky-controls button{padding:5px 7px}.map-feed{font-size:9px}}@media(prefers-reduced-motion:reduce){.route-live,.propelling:after{animation:none!important}.district img{transition:none}}
 .city-switcher{display:flex;gap:5px;padding:8px 12px;background:#172b33;border-bottom:1px solid #78623f;flex-wrap:wrap}.city-switcher button{flex:1;border:1px solid #726044;background:#233a41;color:#d5c093;padding:6px 8px;font:10px Georgia}.city-switcher button:hover{border-color:#d5c093;background:#3a5155}.city-switcher button:focus-visible{outline:1px solid #b5e6cf}.city-title{font-size:9px;padding:5px 8px}.district-service .map-help{margin-bottom:0}
 @media(max-width:560px){.district-caption{font-size:4.5px;padding:2px 3px}.district-port{font-size:3.4px}.city-title{font-size:5.5px;letter-spacing:.5px;translate:0 14px;padding:3px 5px}.city-title small{font-size:3.5px;letter-spacing:0}.airship:after,.player-flag{font-size:4px}}
+
+/* Carte illustrée continue : les sprites et les trajets restent indépendants du fond. */
+.sky-viewport{aspect-ratio:3/2;background:#11171e}
+.city-background{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:0}
+.city-connections{z-index:1;opacity:.18}
+.city-connections line{stroke:#a5c8cc;stroke-width:1;stroke-dasharray:2 8}
+.sky-island.district{width:3.3%;aspect-ratio:1;border:1px solid #c5a56d88;border-radius:50%;background:#14252e80;box-shadow:0 0 12px #0008;z-index:7}
+.district:hover,.district:focus-visible{background:#527b7880;border-color:#a9f7e5}
+.district.chosen{border-color:#ffe0a0;box-shadow:0 0 14px #f1c98166}
+.district.stationed{background:#477d6977}
+.district-caption{font-size:7px;bottom:-15px;max-width:145px}
+.district-port{display:none}
+.airship,.other-airship{width:4.5%;z-index:9;filter:drop-shadow(0 8px 4px #050a11aa)}
+.sky-route{z-index:8}
+.sky-route path{stroke-width:2}
+.minimap image{opacity:.65}
+.mooring-overlay{z-index:8}
+@media(max-width:560px){.sky-viewport{aspect-ratio:3/2}.district-caption{font-size:5px;padding:2px 3px}.airship,.other-airship{width:5%}.sky-island.district{width:4%}}
+.district-caption{opacity:0;transition:opacity .15s;pointer-events:none}
+.district.chosen .district-caption,.district.stationed .district-caption,.district:hover .district-caption,.district:focus-visible .district-caption{opacity:1}
+.airship,.other-airship{width:5.5%}
+@media(max-width:560px){.airship,.other-airship{width:6%}}
+.port-services{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px}
+.port-services button{border:1px solid #756244;background:#142129;color:#b2bfb5;padding:7px 9px;font:11px Georgia}
+.port-services button[aria-pressed=true]{color:#f3d59d;border-color:#d4ad67;background:#304348}

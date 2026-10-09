@@ -1,0 +1,23 @@
+<%# Mode Zeppelin : état du vaisseau au-dessus du pont (aperçu du village). Local : zeppelinShip (FlightService.status). %>
+<% const s = zeppelinShip; const f = s.flight; const vid = ctx.village.id; %>
+<div class="flex flex-wrap items-center justify-between gap-3 border-b border-bronze-800 bg-panel-top px-2.5 py-2 text-[13px]">
+  <div class="min-w-0">
+    <% if (s.flying) { %>
+      <div class="font-display text-base text-gold-200">En vol vers <%= f.toX %>|<%= f.toY %></div>
+      <div class="text-parchment-500">Parti de <%= f.fromX %>|<%= f.fromY %> · arrivée dans <span class="tabular-nums text-gold-400" data-countdown="<%= new Date(f.arrivesAt).getTime() %>"><%= duration((new Date(f.arrivesAt) - now) / 1000) %></span> · troupes et marchands attendent l’atterrissage</div>
+    <% } else { %>
+      <div class="font-display text-base text-gold-200">À quai en <%= ctx.village.x %>|<%= ctx.village.y %></div>
+      <div class="text-parchment-500"><%= s.readyAt ? `Machines au repos : prochain vol possible à ${s.readyAt.toLocaleTimeString('fr-FR')}` : `Prêt à décoller · ${ctx.cfg.zeppelin.minutesPerField} min par case à vitesse ×1${ctx.cfg.zeppelin.maxDistance ? `, ${ctx.cfg.zeppelin.maxDistance} cases au plus` : ''}` %></div>
+    <% } %>
+  </div>
+  <% if (!s.flying) { %>
+    <form method="post" action="/village/<%= vid %>/zeppelin/move" class="flex items-center gap-1.5">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input name="x" type="number" required class="<%= ui.inputSm %> w-16 text-center tabular-nums" placeholder="x" aria-label="Coordonnée x">
+      <span class="text-parchment-500">|</span>
+      <input name="y" type="number" required class="<%= ui.inputSm %> w-16 text-center tabular-nums" placeholder="y" aria-label="Coordonnée y">
+      <button class="<%= btn('gold', 'md') %>" <%= s.readyAt ? 'disabled' : '' %>>Mettre le cap</button>
+      <a href="/village/<%= vid %>/map" class="<%= btn('dark', 'md') %>">Carte</a>
+    </form>
+  <% } %>
+</div>

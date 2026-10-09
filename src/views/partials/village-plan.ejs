@@ -30,7 +30,7 @@
   const wall = plotOf('wall');
   const works = ctx.buildOrders.length;
   const head = ctx.buildOrders[0] || null;
-  const titleOf = (p) => `${p.b.name} · ${p.level ? `niveau ${p.level}` : 'non construit'}${p.last ? ` · niveau ${p.last.level} en file` : ''}`;
+  const titleOf = (p) => `${nameOf(p.b)} · ${p.level ? `niveau ${p.level}` : 'non construit'}${p.last ? ` · niveau ${p.last.level} en file` : ''}`;
   const activityMap = typeof activities === 'undefined' ? {} : activities;
   const timer = (p) => (activityMap[p.b.id] || []).map((a) =>
     `<span class="village-building-timer" title="${a.label}" aria-label="${a.label}"><span>${a.label}</span><span data-countdown="${a.end}">${duration((a.end - now) / 1000)}</span></span>`
@@ -52,7 +52,7 @@
         <%- buildingImg(p.b.id, p.level, `village-building-sprite pointer-events-none absolute inset-0 size-full${p.level ? '' : ' opacity-40!'}`) %>
         <span class="village-building-level absolute z-[2] border-2 border-black px-1 text-[10px] font-bold"><%= p.level %></span>
         <span class="village-building-activities"><%- timer(p) %></span>
-        <span class="village-building-name absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold tracking-[0.02em] transition group-hover:bg-head-dark"><%= p.b.name %></span>
+        <span class="village-building-name absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold tracking-[0.02em] transition group-hover:bg-head-dark"><%= nameOf(p.b) %></span>
       </a>
       <%- plotStar(p.b.id) %>
       </div>
@@ -62,7 +62,7 @@
       <div class="village-building-plot village-building-plot--wall absolute" style="<%= spotStyle(WALL_SPOT, 4 / 7) %>">
       <a href="<%= wall.href %>" data-plot="wall" class="group absolute inset-0 cursor-pointer no-underline" title="<%= titleOf(wall) %>">
         <span class="village-building-level absolute z-[2] border-2 border-black px-1 text-[10px] font-bold"><%= wall.level %></span>
-        <span class="village-building-name village-building-name--wall absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold"><%= wall.b.name %></span>
+        <span class="village-building-name village-building-name--wall absolute z-[2] truncate border-2 border-black px-1 py-px text-center text-[10px] font-bold"><%= nameOf(wall.b) %></span>
         <span class="village-building-activities"><%- timer(wall) %></span>
       </a>
       <%- plotStar(wall.b.id) %>
@@ -83,14 +83,14 @@
         <div class="text-[13px] text-parchment-500">Clique un bâtiment pour ouvrir sa page. Les ouvriers attendent tes ordres.</div>
       <% } %>
     </div>
-    <a href="/village/<%= vid %>/main" class="<%= btn('gold', 'md') %>"><%- icon('overview', 'size-3.5', 2.2) %>Quartier général</a>
+    <a href="/village/<%= vid %>/main" class="<%= btn('gold', 'md') %>"><%- icon('overview', 'size-3.5', 2.2) %><%= buildingName('main') %></a>
   </div>
   <% for (const p of [...plan, ...(wall ? [wall] : [])]) { const o = buildOptions[p.b.id]; if (!o) continue;
        const reason = o.blockers[0] || (o.lacksResources ? resourcesWhen(ctx.state, o.cost, now) : null); %>
     <div class="mt-2 hidden flex-wrap items-center justify-between gap-3 border border-bronze-800 border-l-4 border-l-bronze-500 bg-panel-top px-2.5 py-2" data-plot-info="<%= p.b.id %>">
       <div class="min-w-0 flex-[1_1_260px]">
-        <div class="font-display text-base font-semibold tracking-[0.02em]"><%= p.b.name %> <span class="font-sans text-sm text-gold-400">· <%= p.level ? `niveau ${p.level}` : 'non construit' %></span></div>
-        <div class="text-[13px] text-parchment-500"><%= p.b.description %></div>
+        <div class="font-display text-base font-semibold tracking-[0.02em]"><%= nameOf(p.b) %> <span class="font-sans text-sm text-gold-400">· <%= p.level ? `niveau ${p.level}` : 'non construit' %></span></div>
+        <div class="text-[13px] text-parchment-500"><%= descOf(p.b) %></div>
       </div>
       <div class="flex flex-wrap items-center gap-2.5 text-[13px] tabular-nums">
         <% if (o.maxed) { %>
@@ -129,7 +129,7 @@
     <a href="<%= p.href %>" class="flex min-w-0 flex-1 items-center gap-2.5 p-1.5 no-underline" title="<%= titleOf(p) %>">
       <%- buildingImg(p.b.id, p.level, 'h-12 w-16') %>
       <span class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate font-semibold <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= p.b.name %></span>
+        <span class="truncate font-semibold <%= p.level ? 'text-parchment-100' : 'text-parchment-500' %>"><%= nameOf(p.b) %></span>
         <span class="text-[13px] text-gold-400"><%= p.level ? `LV.${p.level}` : 'Non construit' %></span>
       </span>
       <span class="village-building-activities-list"><%- timer(p) %></span>

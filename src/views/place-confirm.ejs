@@ -41,12 +41,12 @@
       <table class="<%= ui.tableSm %> border border-bronze-800 [&_td]:px-1 [&_td]:text-center [&_th]:px-1">
         <thead><tr>
           <% for (const u of worldUnits) { const n = plan.units[u.id] || 0; %>
-            <th class="text-center" title="<%= u.name %>"><span class="flex justify-center <%= n ? 'text-gold-400' : 'opacity-40' %>"><%- unitIcon(u.id, 'size-4') %></span></th>
+            <th class="text-center" title="<%= nameOf(u) %>"><span class="flex justify-center <%= n ? 'text-gold-400' : 'opacity-40' %>"><%- unitIcon(u.id, 'size-4') %></span></th>
           <% } %>
         </tr></thead>
         <tbody><tr>
           <% for (const u of worldUnits) { const n = plan.units[u.id] || 0; %>
-            <td class="tabular-nums <%= n ? 'font-semibold text-parchment-100' : 'text-parchment-600' %>" title="<%= u.name %>"><%= num(n) %></td>
+            <td class="tabular-nums <%= n ? 'font-semibold text-parchment-100' : 'text-parchment-600' %>" title="<%= nameOf(u) %>"><%= num(n) %></td>
           <% } %>
         </tr></tbody>
       </table>
@@ -67,7 +67,7 @@
             <table class="<%= ui.tableSm %> w-auto! max-w-full border border-bronze-800 [&_td]:px-1 [&_td]:text-center [&_th]:px-1">
               <thead><tr>
                 <th class="text-left">Attaques</th>
-                <% for (const u of multiUnits) { %><th class="text-center" title="<%= u.name %>"><span class="flex justify-center"><%- unitIcon(u.id, 'size-4') %></span></th><% } %>
+                <% for (const u of multiUnits) { %><th class="text-center" title="<%= nameOf(u) %>"><span class="flex justify-center"><%- unitIcon(u.id, 'size-4') %></span></th><% } %>
               </tr></thead>
               <tbody data-multi-rows>
                 <tr>
@@ -90,7 +90,7 @@
         <template data-multi-row>
           <tr>
             <td class="text-left! whitespace-nowrap"><span class="flex items-center justify-between gap-2"><span class="font-semibold text-parchment-100" data-multi-label></span><button type="button" class="cursor-pointer text-blood-450 hover:text-parchment-100" data-multi-remove aria-label="Retirer cette attaque"><%- icon('close', 'size-3.5', 2.6) %></button></span></td>
-            <% for (const u of multiUnits) { %><td><input type="number" min="0" inputmode="numeric" data-unit="<%= u.id %>" class="<%= ui.inputSm %> w-full max-w-16 min-w-10 px-1.5! text-right tabular-nums" aria-label="<%= u.name %>"></td><% } %>
+            <% for (const u of multiUnits) { %><td><input type="number" min="0" inputmode="numeric" data-unit="<%= u.id %>" class="<%= ui.inputSm %> w-full max-w-16 min-w-10 px-1.5! text-right tabular-nums" aria-label="<%= nameOf(u) %>"></td><% } %>
           </tr>
         </template>
       </div>
@@ -100,7 +100,7 @@
       <label class="<%= ui.label %>">Cible des catapultes
         <select name="catapultTarget" class="<%= ui.inputSm %> w-full sm:w-64">
           <% for (const b of catapultTargets) { %>
-            <option value="<%= b.id %>" <%= b.id === plan.catapultTarget ? 'selected' : '' %>><%= b.name %></option>
+            <option value="<%= b.id %>" <%= b.id === plan.catapultTarget ? 'selected' : '' %>><%= nameOf(b) %></option>
           <% } %>
         </select>
       </label>

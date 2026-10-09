@@ -13,7 +13,7 @@
       </div>
     <% } %>
     <div class="border-t border-dashed border-bronze-800 pt-1 text-[11px] text-parchment-500">
-      Entrepôt : <%= num(cap) %> par ressource ·
+      <%= buildingName('storage') %> : <%= num(cap) %> par ressource ·
       <% if (soonest.h <= 0) { %>
         <span class="font-semibold text-blood-450">plein (<%= soonest.r.label.toLowerCase() %>)</span>
       <% } else if (Number.isFinite(soonest.h)) { %>

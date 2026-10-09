@@ -40,6 +40,10 @@
   const rulerY = frame.querySelector('[data-map-ruler-y]');
   const tip = frame.querySelector('[data-map-tip]');
   const menu = frame.querySelector('[data-map-menu]');
+  // Extensions de la carte (modes de jeu, src/modes) : window.AdarmaMap.on('render' | 'tile', fn). Un écouteur de
+  // 'tile' qui renvoie true prend en charge le clic sur une case sans village (le menu n'est pas fermé).
+  const mapListeners = { render: [], tile: [] };
+  const emitMap = (type, detail) => mapListeners[type].reduce((handled, fn) => fn(detail) === true || handled, false);
   // Outils communs (public/js/game.js, chargé avant) : durées, heures, nombres, échappement, texte réécrit en continu
   // (zoom, infobulle, titre : nœud texte modifié, pas remplacé, voir chunkEl).
   const { pad: pad2, esc, setText, num } = window.Adarma;
@@ -796,6 +800,7 @@
     frameOverlay();
     place();
     applySelection();
+    emitMap('render', { tw, th });
   }
 
   // Zones d'influence de ses églises (mondes avec église, calque « Zones de foi ») : hors de ces cercles, ses villages se
@@ -1052,7 +1057,7 @@
   viewport.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || e.target.closest('.map-controls')) return;
     cancelAnimationFrame(anim);
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, tile: villageAt(e) };
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, tile: villageAt(e), cell: cellAt(e) };
     viewport.setPointerCapture(e.pointerId);
   });
   viewport.addEventListener('pointermove', (e) => {
@@ -1071,7 +1076,10 @@
     drag = null;
     viewport.classList.remove('is-dragging');
     if (d.moved) { settle(); return; }
-    if (d.tile) { const el = pointTile(...d.tile); selectTile(el); openMenu(el); } else closeMenu();
+    if (d.tile) { const el = pointTile(...d.tile); selectTile(el); openMenu(el); return; }
+    closeMenu();
+    // Case sans village : proposée aux extensions de la carte (modes de jeu).
+    if (mapListeners.tile.length) { const el = pointTile(...d.cell); if (emitMap('tile', { x: d.cell[0], y: d.cell[1], el })) { hideTip(); selectTile(el); } }
   };
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
@@ -1824,6 +1832,13 @@
     });
     window.addEventListener('resize', () => { if (!modal.classList.contains('hidden')) drawWorld(); });
   }
+
+  window.AdarmaMap = {
+    frame, layer, menu, base, me: [meX, meY], csrf: frame.dataset.csrf,
+    tile: () => ({ tw, th }),
+    on: (type, fn) => { mapListeners[type].push(fn); },
+    moveTo, closeMenu, placeBeside, reloadAt,
+  };
 
   render();
   settle();

@@ -43,7 +43,7 @@
                     <span class="flex items-center gap-3">
                       <span class="<%= ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
                       <span class="flex min-w-0 flex-col gap-1">
-                        <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
+                        <span class="font-semibold text-parchment-100"><%= nameOf(o.type) %></span>
                         <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:hidden"><%- include('../cost', { cost: o.type.cost, pop: o.type.pop, have: ctx.state.resources }) %><span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span><span class="text-parchment-500 tabular-nums">Au village <span class="font-semibold text-parchment-200"><%= num(o.count) %></span> / <%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></span>
                       </span>
                     </span>
@@ -56,7 +56,7 @@
                   <td class="text-center whitespace-nowrap tabular-nums max-md:hidden" data-live="count-<%= o.type.id %>"><span class="font-semibold text-parchment-100"><%= num(o.count) %></span><span class="text-parchment-500">/<%= num(o.count + (ctx.awayUnits[o.type.id] || 0)) %></span></td>
                   <td class="text-right">
                     <span class="inline-flex items-center justify-end gap-2 whitespace-nowrap">
-                      <input type="number" name="<%= o.type.id %>" min="0" max="<%= o.max %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Recruter : <%= o.type.name %>">
+                      <input type="number" name="<%= o.type.id %>" min="0" max="<%= o.max %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Recruter : <%= nameOf(o.type) %>">
                       <%# data-cap : maximum du serveur (ressources, population, plafonds) ; data-max suit la saisie des autres lignes (game.js). %>
                       <button type="button" class="<%= maxBtn %> w-12 text-left" data-fill="<%= o.type.id %>" data-max="<%= o.max %>" data-cap="<%= o.max %>" data-recruit-max>(<%= o.max %>)</button>
                     </span>
@@ -95,7 +95,7 @@
               <td class="min-w-44">
                 <span class="flex items-center gap-3">
                   <span class="flex size-8 shrink-0 items-center justify-center border-2 border-bronze-700 bg-night text-parchment-600"><%- unitIcon(o.type.id, 'size-4') %></span>
-                  <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
+                  <span class="font-semibold text-parchment-300"><%= nameOf(o.type) %></span>
                 </span>
               </td>
               <td>

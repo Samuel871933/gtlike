@@ -6,5 +6,7 @@
       <span class="text-xs text-parchment-300 max-sm:hidden">Clique un bâtiment · ${ctx.buildOrders.length} chantier${ctx.buildOrders.length > 1 ? 's' : ''}</span>
       ${segTabs([[`/village/${vid}`, 'Plan', view !== 'list'], [`/village/${vid}?vue=liste`, 'Liste', view === 'list']])}
     </div>`) %>
+  <%# Encarts du mode de jeu (src/modes) au-dessus du plan : état du vaisseau en mode Zeppelin. %>
+  <% for (const panel of modePanels) { %><%- include(panel) %><% } %>
   <%- include('../village-plan', { view }) %>
 </section>

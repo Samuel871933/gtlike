@@ -1,9 +1,14 @@
 'use strict';
 
+const { MODES } = require('../modes/catalog');
+
 // Configuration d'un monde. Tout ce qui varie d'un serveur à l'autre passe par ici
 // (équivalent de interface.php?func=get_config).
 
 const DEFAULTS = {
+  // Mode de jeu (src/modes/catalog.js) : 'classic' ou une extension comme 'zeppelin'. Les réglages propres à un mode
+  // sont rangés sous sa clé (cfg.zeppelin…), avec les valeurs par défaut du catalogue des modes.
+  mode: 'classic',
   speed: 1,
   unitSpeed: 1,
   baseProduction: 30,
@@ -161,6 +166,8 @@ class WorldConfig {
       knightItems: { ...DEFAULTS.knightItems, ...(raw.knightItems || {}) },
       startBuildings: raw.startBuildings || DEFAULTS.startBuildings,
     };
+    // Réglages propres à chaque mode, fusionnés avec ceux du catalogue (src/modes/catalog.js).
+    for (const m of Object.values(MODES)) if (m.config) merged[m.id] = { ...m.config, ...(raw[m.id] || {}) };
     Object.assign(this, merged);
     Object.freeze(this);
   }

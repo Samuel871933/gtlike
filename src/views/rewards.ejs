@@ -6,8 +6,8 @@
   const r = ctx.cfg.buildRewards;
   const cap = ctx.state.storageCapacity();
   const unitsPop = (units) => Object.entries(units || {}).reduce((n, [id, k]) => n + unitPop(id) * k, 0);
-  const blocker = (rw) => (RESOURCES.some((res) => ctx.state.resources[res.id] + rw[res.id] > cap) ? 'Entrepôt trop plein'
-    : rw.units && ctx.popUsed() + unitsPop(rw.units) > ctx.state.farmCapacity() ? 'Ferme trop petite' : null);
+  const blocker = (rw) => (RESOURCES.some((res) => ctx.state.resources[res.id] + rw[res.id] > cap) ? `${buildingName('storage')} trop plein`
+    : rw.units && ctx.popUsed() + unitsPop(rw.units) > ctx.state.farmCapacity() ? `${buildingName('farm')} trop petite` : null);
   const villageName = (id) => (myVillages.find((v) => v.id === id) || {}).name;
   const questOf = (id) => tutorial && tutorial.list.find((q) => q.id === id);
   // « 10 lanciers », « 10 porteurs d'épée » : premier mot au pluriel, sauf les noms collectifs (cavalerie, milice).

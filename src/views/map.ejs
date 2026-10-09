@@ -91,7 +91,7 @@
             <%# Durée du trajet de chaque unité depuis le village courant (calculée par map.js avec la distance) : icône au-dessus, durée dessous. %>
             <%# Une seule rangée jusqu'à 10 unités, sinon deux rangées égales ; 50 px par colonne au moins pour « 0:00:00 ». %>
             <div class="grid gap-px bg-bronze-900 p-px" style="grid-template-columns: repeat(<%= paces.length <= 10 ? paces.length : Math.ceil(paces.length / 2) %>, minmax(50px, 1fr))" data-tip-travel>
-              <% for (const u of paces) { %><span class="flex flex-col items-center gap-1 bg-panel-top px-1.5 pt-1.5 pb-1 whitespace-nowrap" title="<%= u.name %>"><span class="text-gold-400"><%- unitIcon(u.id, 'size-4', 2) %></span><span class="text-[11px] text-parchment-200 tabular-nums" data-tip-pace="<%= u.minutes %>"></span></span><% } %>
+              <% for (const u of paces) { %><span class="flex flex-col items-center gap-1 bg-panel-top px-1.5 pt-1.5 pb-1 whitespace-nowrap" title="<%= nameOf(u) %>"><span class="text-gold-400"><%- unitIcon(u.id, 'size-4', 2) %></span><span class="text-[11px] text-parchment-200 tabular-nums" data-tip-pace="<%= u.minutes %>"></span></span><% } %>
             </div>
             <div class="hidden border-t border-bronze-700" data-tip-row="orders-own"><div class="bg-head px-2 py-1 font-semibold">Propres ordres (<span data-tip="orders-own-count"></span>)</div><div data-tip="orders-own"></div></div>
             <div class="hidden border-t border-bronze-700" data-tip-row="orders-tribe"><div class="bg-head px-2 py-1 font-semibold">Ordres de la tribu (<span data-tip="orders-tribe-count"></span>)</div><div data-tip="orders-tribe"></div></div>
@@ -157,12 +157,12 @@
             <fieldset class="flex flex-wrap items-center gap-1">
               <legend class="mb-1 text-[13px] text-parchment-400">Icône</legend>
               <% for (const u of [{ id: '', name: 'Aucune icône' }].concat(markerIcons)) { %>
-                <label class="cursor-pointer" title="<%= u.name %>">
+                <label class="cursor-pointer" title="<%= nameOf(u) %>">
                   <input type="radio" name="icon" value="<%= u.id %>" class="peer sr-only"<%= markIcon === u.id ? ' checked' : '' %>>
                   <span class="flex size-9 items-center justify-center border-2 border-black bg-night text-parchment-500 shadow-[inset_0_0_0_1px_var(--color-bronze-700)] transition peer-checked:bg-head-dark peer-checked:shadow-[inset_0_0_0_2px_var(--color-gold-400)] peer-focus-visible:outline-2 peer-focus-visible:outline-gold-200 hover:bg-row-hover">
                     <% if (u.id) { %><%- unitIcon(u.id, 'size-6 min-h-6 min-w-6') %><% } else { %><%- icon('close', 'size-3.5', 2.6) %><% } %>
                   </span>
-                  <span class="sr-only"><%= u.name %></span>
+                  <span class="sr-only"><%= nameOf(u) %></span>
                 </label>
               <% } %>
             </fieldset>
@@ -370,4 +370,6 @@
 <script src="<%= asset('/js/terrain.js') %>" defer></script>
 <script src="<%= asset('/js/minimap.js') %>" defer></script>
 <script src="<%= asset('/js/map.js') %>" defer></script>
+<%# Scripts du mode de jeu (src/modes), chargés après la carte : ils passent par window.AdarmaMap. %>
+<% for (const src of modeScripts) { %><script src="<%= asset(src) %>" defer></script><% } %>
 <%- include('partials/footer') %>

@@ -1,5 +1,7 @@
 'use strict';
 
+const { MODES, modeIdOf } = require('../modes/catalog');
+
 // Libellés d'un monde, communs à l'accueil (views/worlds.ejs) et à la liste des serveurs (views/servers.ejs) :
 // type et accès, modules, sous-titre, ancienneté.
 
@@ -18,7 +20,8 @@ const worldModules = (cfg) => [
 function worldSubtitle(world) {
   const cfg = world.getConfig();
   const m = worldModules(cfg);
-  return `Vitesse ×${cfg.speed} · ${m.length ? m.join(', ') : 'classique'}`;
+  const mode = modeIdOf(cfg);
+  return `${mode === 'classic' ? '' : `${MODES[mode].name} · `}Vitesse ×${cfg.speed} · ${m.length ? m.join(', ') : 'classique'}`;
 }
 
 /** Type d'un monde : officiel, ou serveur privé ouvert / sur code. */

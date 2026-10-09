@@ -13,13 +13,13 @@
               <td>
                 <span class="flex items-center gap-3">
                   <span class="<%= ui.medallion %> size-[38px] minimal:size-[28px]"><%- unitIcon(o.type.id, 'size-[19px]') %></span>
-                  <span class="font-semibold text-parchment-100"><%= o.type.name %></span>
+                  <span class="font-semibold text-parchment-100"><%= nameOf(o.type) %></span>
                 </span>
               </td>
               <td class="text-right font-semibold tabular-nums"><%= num(have) %></td>
               <td class="text-right">
                 <span class="inline-flex items-center justify-end gap-2 whitespace-nowrap">
-                  <input type="number" name="<%= o.type.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Renvoyer : <%= o.type.name %>">
+                  <input type="number" name="<%= o.type.id %>" min="0" max="<%= have %>" placeholder="0" class="<%= ui.inputSm %> w-24 text-right tabular-nums" aria-label="Renvoyer : <%= nameOf(o.type) %>">
                   <%# Comme au recrutement : un clic met toutes les unités présentes (game.js, data-fill). %>
                   <button type="button" class="<%= maxBtn %> min-w-12 text-left" data-fill="<%= o.type.id %>" data-max="<%= have %>" title="Toutes les unités au village">(<%= num(have) %>)</button>
                 </span>

@@ -68,5 +68,6 @@ document.getElementById('toggle').addEventListener('click',e=>{const empty=scene
 document.getElementById('upgrade').addEventListener('click',()=>{const m=modules.find(x=>x.id===selected);const c=costs(m);if(c.some((n,i)=>n>stock[i]))return;c.forEach((n,i)=>stock[i]-=n);m.level++;['alloy','water','ether'].forEach((id,i)=>document.getElementById(id).textContent=fmt(stock[i]));document.querySelector(`[data-id="${m.id}"] .tag b`).textContent=m.level;document.getElementById('journal').textContent=`Simulation : ${m.name} passe au niveau ${m.level}. Les ressources ont été déduites ; le visuel reste identique.`;select(m.id)});
 select(selected);
 </script>
+<script src="zeppelin/city-navigation.js"></script>
 <script src="zeppelin/map.js"></script>
 </html>

@@ -1,5 +1,7 @@
 'use strict';
 
+const modes = require('../modes');
+
 const { Op } = require('sequelize');
 const {
   sequelize, World, Player, Village, Command, SupportStack, Report, LastAttack, BuildOrder, RecruitOrder, ResearchOrder, Transport, MarketOffer, TribeRelation, ManagerVillage, TradeRoute, VillageGroupMember,
@@ -90,6 +92,8 @@ class CommandService {
     for (const [id, n] of Object.entries(units)) {
       if ((state.units[id] || 0) < n) throw new GameError(`Pas assez de ${registry.unit(id).name} dans le village.`);
     }
+    // Règles en plus du mode de jeu (src/modes), sans effet sur un monde classique.
+    await modes.guard('command', ctx, t);
 
     const target = await Village.findOne({
       where: { worldId: village.worldId, x: Number(x), y: Number(y) },

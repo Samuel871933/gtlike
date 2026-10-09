@@ -109,3 +109,19 @@ L’état est uniquement en mémoire. Recharger ou réinitialiser efface crédit
 `tests/economy.html` lance un scénario navigateur autonome : 4 villes, 12 quartiers, chargement des images séparées, autres capitaines, voyage, scellés et leur consommation, vente, achat, refus d’achat sans crédits, refus de quantité nulle, collecte +240, interception non protégée, réparation puis interception évitée par surveillance. Il se termine par PASS ou FAIL ; il nécessite environ une minute en temps réel. Ouvrir ce fichier dans un navigateur comme la maquette.
 
 Le scénario a été exécuté avec succès dans Chromium, ainsi que la vérification du rendu sur bureau et mobile.
+
+## Carte intégrée : ville continue et voies aériennes
+
+La carte utilise désormais `assets/map/ville-celeste.webp` (1536 × 1024, environ 652 Ko), illustration sombre d’une ville continue avec couloirs aériens et quais en hauteur. Les anciens fragments de ville restent disponibles sur disque. Les douze escales interactives sont positionnées sur le nouveau fond ; la mini-carte utilise la même image.
+
+`city-navigation.js` calcule les chemins les plus courts sur le réseau de voies défini dans `map.js`, puis interpole le déplacement à vitesse constante sur les segments. Le joueur et les quatre capitaines utilisent ce réseau, avec changement parmi les huit orientations existantes. Les autres capitaines réservent un poste, voyagent et attendent à quai avant de repartir. Leur circulation automatique est désactivée lorsque la réduction des animations est demandée. Les déplacements commandés par le joueur restent disponibles.
+
+Les marchés, collectes, réparations, scellés et interceptions demeurent des simulations locales. Les quais sont réservés mais les croisements en vol n’ont pas de simulation de collision.
+
+Vérifications navigateur : `tests/navigation.html` contrôle le chargement du fond, la circulation autonome, les trajets par embranchements, les orientations, l’amarrage et le zoom. `tests/economy.html` contrôle également le commerce et les services après les déplacements.
+
+Le fond épuré `assets/map/ville-celeste-epuree.webp` remplace le premier fond intégré : les voies sont composées uniquement de nuages opaques, et les architectures secondaires ont été réduites. Les trois escales industrielles partagent les abords du quai principal de la fonderie.
+
+Le fond actif est maintenant `assets/map/ville-celeste-equilibree.webp` : densité intermédiaire de quartiers autour des monuments, couloirs aériens exclusivement composés de nuages. Les quais et le réseau de navigation conservent leurs coordonnées.
+
+Les interactions sont regroupées en six ports visibles sur la carte et la mini-carte. Les services secondaires (marché, douanes, atelier) se sélectionnent dans le panneau du port et ne nécessitent plus de voyage entre les services du même port. Les postes d’amarrage sont partagés entre ces services.

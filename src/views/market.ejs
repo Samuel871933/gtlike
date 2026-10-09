@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: 'Marché' }) %>
+<%- include('partials/header', { title: buildingName('market') }) %>
 <%
   // Marché, agencé comme sur GT (sans le centre d'échange premium) : menu à gauche, en-tête des marchands et des
   // ressources arrivantes / sortantes, puis la page choisie.
@@ -29,7 +29,7 @@
   <%- include('partials/building-header', { buildingId: 'market' }) %>
 
   <div class="grid grid-cols-1 items-start gap-4 md:grid-cols-[210px_minmax(0,1fr)]">
-    <%- sideNav(menu.map(([id, label]) => ({ href: `${m}?tab=${id}`, label, active: id === tab })), { label: 'Marché', cls: ui.panel }) %>
+    <%- sideNav(menu.map(([id, label]) => ({ href: `${m}?tab=${id}`, label, active: id === tab })), { label: buildingName('market'), cls: ui.panel }) %>
 
     <div class="flex min-w-0 flex-col gap-4">
       <%# En-tête : marchands, quantité transportable, ressources arrivantes et sortantes. %>

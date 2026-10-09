@@ -1,5 +1,7 @@
 'use strict';
 
+const modes = require('../modes');
+
 const { Op } = require('sequelize');
 const { sequelize, Player, Village, Transport, MarketOffer, Report } = require('../models');
 const formulas = require('../game/formulas');
@@ -66,6 +68,8 @@ class TradeService {
   static async send(villageId, { x, y, resources }, { now, source = null } = {}) {
     return VillageService.withVillage(villageId, async (ctx, t) => {
       TradeService.assertMarket(ctx);
+      // Règles en plus du mode de jeu (src/modes), sans effet sur un monde classique.
+      await modes.guard('trade', ctx, t);
       const amount = total(resources);
       if (amount <= 0) throw new GameError('Aucune ressource à envoyer.');
       if (!ctx.state.canAfford(resources)) throw new GameError('Ressources insuffisantes.');

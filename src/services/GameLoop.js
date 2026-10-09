@@ -45,6 +45,8 @@ class GameLoop {
       const now = new Date();
       // Les mouvements d'abord : un combat se calcule sur l'état du village à l'arrivée.
       await CommandService.processDue(now);
+      // Échéances des modes de jeu (vols du mode Zeppelin…), sans effet sur les mondes classiques.
+      await require('../modes').tick(now);
       // Par lots : les arrivées échues entre-temps passent entre deux lots, un gros arriéré de recrues ne les fait
       // pas attendre. Rafraîchissement « nu » : rien du contexte complet n'est lu ici.
       const ids = await VillageService.dueVillageIds(now);

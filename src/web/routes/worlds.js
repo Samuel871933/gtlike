@@ -18,6 +18,7 @@ const { FACTIONS, isFaction } = require('../../game/factions');
 const { ah, flash, requireAuth } = require('../middleware');
 const { memo } = require('../memo');
 const { VICTORY_NAMES, worldModules } = require('../worldLabels');
+const { isMode, modeIdOf } = require('../../modes/catalog');
 
 const router = express.Router();
 
@@ -156,6 +157,12 @@ const worldsPage = ah(async (req, res) => {
     userId, isPlayer: Boolean(w.player), code: w.world.slug === req.query.w ? code : null,
   }));
   const selected = worlds.find((w) => w.world.slug === req.query.w) || null;
+  // Sous-sélecteur des modes de jeu (?mode=) : nombre de mondes par mode, puis la liste filtrée (la fiche d'un monde
+  // choisi reste accessible quel que soit le filtre).
+  const modeFilter = isMode(req.query.mode) ? req.query.mode : null;
+  const modeCounts = new Map();
+  for (const w of worlds) if (!w.world.endedAt) modeCounts.set(modeIdOf(w.world.getConfig()), (modeCounts.get(modeIdOf(w.world.getConfig())) || 0) + 1);
+  const inMode = (world) => !modeFilter || modeIdOf(world.getConfig()) === modeFilter;
   // Parties en cours : rang, premier village et prochaine attaque (encart « Campagne en cours »).
   for (const w of worlds) {
     if (!w.player || !w.player.villageCount || w.world.endedAt) continue;
@@ -167,11 +174,12 @@ const worldsPage = ah(async (req, res) => {
     ]);
     w.campaign = { rank: better + 1, village: villages[0] || null, nextAttackAt: nextAttack ? nextAttack.arrivesAt : null };
   }
-  const [popularServers, playerCounts] = await Promise.all([
-    PrivateServerService.popular(6),
+  const [popular, playerCounts] = await Promise.all([
+    PrivateServerService.popular(modeFilter ? 50 : 6),
     WorldService.playerCounts(worlds.map((w) => w.world.id)),
   ]);
-  res.render('worlds', { worlds, selected, code, popularServers, playerCounts, maxOwned: PrivateServerService.MAX_OWNED, directions: MapPlacer.DIRECTIONS, factions: FACTIONS });
+  const popularServers = popular.filter((p) => inMode(p.world)).slice(0, 6);
+  res.render('worlds', { worlds: worlds.filter((w) => inMode(w.world) || w === selected), selected, code, popularServers, playerCounts, modeFilter, modeCounts, maxOwned: PrivateServerService.MAX_OWNED, directions: MapPlacer.DIRECTIONS, factions: FACTIONS });
 });
 
 // L'accueil connecté est sur /worlds ; hors connexion, / est la page d'accueil publique (référencée).

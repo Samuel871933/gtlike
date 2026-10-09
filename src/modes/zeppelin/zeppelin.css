@@ -1,0 +1,208 @@
+/*
+  Mode Zeppelin (src/modes/zeppelin) : habillage complet des pages d'un monde Zeppelin. <html> porte
+  data-mode="zeppelin" et le style de jeu imposé par le mode (Romain, sombre) ; ces règles redéfinissent ses jetons
+  avec la palette de la maquette (pétrole, laiton, éther) et rhabillent le plan du village et la carte.
+  Importé par src/styles/app.css après les styles de jeu.
+*/
+
+@custom-variant zeppelin (&:where([data-mode="zeppelin"], [data-mode="zeppelin"] *));
+
+@layer theme {
+  [data-game-style][data-mode="zeppelin"] {
+    --font-sans: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+    --font-display: "Marcellus", Georgia, serif;
+    --game-image-village: url("/img/modes/zeppelin/ships/angle-1.webp");
+    --game-bg-texture: url("/img/modes/zeppelin/map/clouds.webp");
+    --game-bg-blend: normal;
+    --game-bg-veil: 78%;
+
+    /* Filets de laiton foncé à la place des traits d'encre. */
+    --color-black: #0b1216;
+
+    /* Fonds : nuit pétrole, panneaux gris-bleu. */
+    --color-night: #10181d;
+    --color-night-deep: #0a1013;
+    --color-halo: #1d2c31;
+    --color-panel-hi: #223236;
+    --color-panel-top: #18272c;
+    --color-panel-mid: #15222a;
+    --color-panel-lo: #121d23;
+    --color-panel-edge: #131f25;
+    --color-knob-hi: #26383c;
+    --color-knob-lo: #172429;
+    --color-knob-on-hi: #b38a50;
+    --color-knob-on-lo: #8a6a3c;
+    --color-knob-hover: #2b4045;
+    --color-well-hi: #1c2b30;
+    --color-well-lo: #0d161a;
+    --color-bar-hi: #1b2a2f;
+    --color-vbar-hi: rgb(27 42 47 / 0.92);
+    --color-vbar-lo: rgb(13 22 26 / 0.92);
+    --color-core-hi: #223237;
+    --color-core-lo: #0d161a;
+    --color-tile-hi: rgb(133 228 220 / 0.12);
+    --color-plate: rgb(10 17 21 / 0.76);
+    --color-plate-strong: rgb(10 17 21 / 0.88);
+    --color-grain: rgb(213 174 112 / 0.03);
+
+    /* Bandeaux : pétrole sombre. */
+    --color-head: #243238;
+    --color-head-dark: #1a262b;
+    --color-thead: #172328;
+    --color-row-hover: #1f2f34;
+    --color-row-alt: #131e23;
+
+    /* Action principale : laiton. */
+    --color-action: #a8814a;
+    --color-action-hi: #d6b279;
+    --color-action-line: #f1d297;
+    --color-action-deep: #523d23;
+    --color-on-accent: #20292b;
+
+    /* Filets : laiton, du plus clair au plus sombre. */
+    --color-bronze-200: #ead6ad;
+    --color-bronze-300: #d5bd8c;
+    --color-bronze-400: #b89a63;
+    --color-bronze-500: #ad8a54;
+    --color-bronze-600: #8e754d;
+    --color-bronze-700: #6d6046;
+    --color-bronze-800: #4f493b;
+    --color-bronze-900: #2e2c25;
+    --color-bronze-950: #786445;
+
+    /* Accents : or du laiton poli. */
+    --color-gold-50: #fff6e2;
+    --color-gold-100: #fbe7bd;
+    --color-gold-200: #f3d59d;
+    --color-gold-250: #ebc78b;
+    --color-gold-300: #e4c58f;
+    --color-gold-400: #d5ae70;
+    --color-gold-500: #c39a5c;
+    --color-gold-600: #a07c46;
+    --color-gold-700: #7c5f35;
+    --color-gold-ink: #1b1309;
+    --color-gold-shadow: #3a2a14;
+
+    /* Textes : ivoire chaud, puis gris-vert. */
+    --color-parchment-50: #fbf4e4;
+    --color-parchment-100: #eee3ca;
+    --color-parchment-200: #e1d4b6;
+    --color-parchment-300: #cbbd9f;
+    --color-parchment-350: #bdb298;
+    --color-parchment-400: #b2b7ac;
+    --color-parchment-500: #a5b2af;
+    --color-parchment-600: #879a95;
+    --color-parchment-700: #6b7d79;
+
+    /* Succès : éther cyan. */
+    --color-olive-300: #9ff9c1;
+    --color-olive-500: #79baa9;
+    --color-olive-700: #3f6b5f;
+    --color-pop: #85e4dc;
+
+    --color-glint: rgb(255 240 210 / 0.05);
+    --color-glint-strong: rgb(255 240 210 / 0.12);
+    --color-glow: rgb(133 228 220 / 0.35);
+    --color-glow-soft: rgb(133 228 220 / 0.14);
+    --color-glow-select: rgb(241 211 145 / 0.5);
+    --color-crest: #d5ae70;
+    --color-shield-edge: #0a1013;
+    --color-shield-mark: #1b2a30;
+    --color-blood-shadow: #0a1013;
+
+    --color-title-shadow: #000;
+    --color-title-shadow-2: transparent;
+
+    /* Mini-carte (public/js/minimap.js) : nuages, trouées et orages. */
+    --color-mini-bg: #4b4d5c;
+    --color-mini-grass-1: #4f5161;
+    --color-mini-grass-2: #575a6a;
+    --color-mini-grass-low: #464857;
+    --color-mini-grass-high: #5d6070;
+    --color-mini-forest: #3a3c4b;
+    --color-mini-forest-deep: #2f3140;
+    --color-mini-hill: #63667a;
+    --color-mini-water: #1d2c3e;
+  }
+}
+
+/* Ressources : glyphes de la maquette (helpers resourceIcon du mode, src/modes/zeppelin/view.js). */
+.zeppelin-resource {
+  font-family: Georgia, serif;
+  font-size: 1.15em;
+  line-height: 1;
+  border-radius: 50%;
+  color: #e9c98b;
+  background: radial-gradient(#3b4a45, #141f24);
+  box-shadow: inset 0 0 0 1px #8e754d;
+  text-shadow: 0 0 6px rgb(233 201 139 / .6);
+}
+.zeppelin-resource--stone { color: #8ff2e8; background: radial-gradient(#326d70, #14272b); text-shadow: 0 0 9px #64e5df; }
+.zeppelin-resource--iron { color: #d2b2fa; background: radial-gradient(#563c72, #201e30); text-shadow: 0 0 9px #a96ee4; }
+
+/* Plan du village : le pont du vaisseau. Les huit modules illustrés sont dessinés dans le décor ; les plots n'en
+   gardent que la zone cliquable et l'étiquette (nom, niveau, chantier). Les autres bâtiments sont des étiquettes. */
+[data-mode="zeppelin"] .village-scene-medieval {
+  background: #10181d url('/img/modes/zeppelin/deck.webp') center / cover no-repeat;
+}
+[data-mode="zeppelin"] .village-scene-medieval .village-building-sprite,
+[data-mode="zeppelin"] .village-scene-medieval .village-building-plot--decorative { display: none; }
+[data-mode="zeppelin"] .village-scene-medieval .village-building-plot > a:hover { background: radial-gradient(closest-side, rgb(133 228 220 / .22), transparent); }
+/* Étiquettes au pied du module (comme la maquette), niveau et favori juste au-dessus. */
+/* [data-building] : passe devant les ajustements du plan médiéval (caserne, écurie…). */
+[data-mode="zeppelin"] .village-scene-medieval .village-building-plot[data-building] .village-building-name { top: auto; bottom: 0; }
+[data-mode="zeppelin"] .village-scene-medieval .village-building-plot[data-building] .village-building-level { bottom: 26px; left: 50%; transform: translateX(-50%); }
+[data-mode="zeppelin"] .village-scene-medieval .village-building-plot[data-building] .village-building-favorite { bottom: 26px; right: auto; left: calc(50% + 16px); }
+[data-mode="zeppelin"] .village-scene-medieval .village-building-plot[data-building] .village-building-activities { top: 100%; left: 50%; }
+/* Le blindage n'est pas une porte d'enceinte : même cartouche que les autres bâtiments sans illustration. */
+[data-mode="zeppelin"] .village-scene-medieval .village-building-plot--wall { aspect-ratio: 8 / 7; }
+[data-mode="zeppelin"] .village-scene-medieval .village-building-name {
+  background: linear-gradient(#304348f5, #101f28fa);
+  border: 1px solid #b39158;
+  color: #f1e3c7;
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+[data-mode="zeppelin"] .village-scene-medieval .village-building-level {
+  background: #101e26;
+  border: 1px solid #b39158;
+  color: #e9c98b;
+  font-weight: 400;
+}
+
+/* Carte : mer de nuages à la place des prés, trouées sombres à la place de l'eau, pas d'arbres ni de rochers. */
+[data-mode="zeppelin"] [data-map-chunk] {
+  background-color: #4b4d5c;
+  background-image: linear-gradient(rgb(16 24 29 / .18), rgb(16 24 29 / .18)), url('/img/modes/zeppelin/map/clouds.webp');
+}
+[data-mode="zeppelin"] .map-frame .map-viewport { background-color: #3f4250; }
+[data-mode="zeppelin"] .map-water { background: #1b2b3d url('/img/modes/zeppelin/map/rift.webp') var(--water-bg-x) var(--water-bg-y) / calc(var(--tile-w) * 6) calc(var(--tile-w) * 6) repeat; }
+[data-mode="zeppelin"] .map-shore, [data-mode="zeppelin"] .map-shore-corner { background: none; }
+[data-mode="zeppelin"] .map-decor > span { background-image: none !important; }
+[data-mode="zeppelin"] .map-target-tile { background-image: url('/img/modes/zeppelin/map/clouds.webp'); }
+[data-mode="zeppelin"] .map-grid-lines { opacity: .35; }
+
+/* Villages de la carte : des zeppelins, plus grands avec les points (même échelle que les villages). */
+/* Le sprite (256 × 256) laisse beaucoup de vide autour du vaisseau : boîte agrandie au-delà de la case. */
+html[data-mode="zeppelin"] .village-marker[class] { --village-image: url('/img/modes/zeppelin/ships/angle-1.webp'); --village-inset: -40%; }
+html[data-mode="zeppelin"] .village-marker--1[class] { --village-scale: .75; }
+html[data-mode="zeppelin"] .village-marker--2[class] { --village-scale: .85; }
+html[data-mode="zeppelin"] .village-marker--3[class] { --village-scale: .95; }
+html[data-mode="zeppelin"] .village-marker--4[class] { --village-scale: 1.05; }
+html[data-mode="zeppelin"] .village-marker--5[class] { --village-scale: 1.15; }
+html[data-mode="zeppelin"] .village-marker--6[class] { --village-scale: 1.25; }
+/* Carte quadrillée en permanence : chaque case est une destination possible du vaisseau. */
+[data-mode="zeppelin"] .map-grid-lines { display: block !important; }
+
+/* Vaisseaux en vol (public/js/modes/zeppelin-map.js) : posés sur le plan de la carte, en coordonnées du monde. */
+.zeppelin-flight { position: absolute; z-index: 8; pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(0 6px 3px rgb(5 10 17 / .65)); }
+.zeppelin-flight > i { display: block; width: 100%; height: 100%; background: center / contain no-repeat; }
+.zeppelin-flight > b { position: absolute; left: 50%; top: 88%; transform: translateX(-50%); white-space: nowrap; font: 500 10px var(--font-sans); color: #eee3ca; background: #10242bdb; border: 1px solid #8e754d; padding: 0 4px; }
+.zeppelin-flight--mine > b { color: #c9ffe9; border-color: #70c3a2; }
+.zeppelin-route { position: absolute; z-index: 7; pointer-events: none; overflow: visible; }
+.zeppelin-route path { fill: none; stroke: #e3c484; stroke-width: 2; stroke-dasharray: 5 6; opacity: .8; }
+.zeppelin-route .zeppelin-route--mine { stroke: #9ff9c1; }
+@media (prefers-reduced-motion: no-preference) {
+  .zeppelin-route path { animation: zeppelin-route-flow 1.2s linear infinite; }
+}
+@keyframes zeppelin-route-flow { to { stroke-dashoffset: -22; } }

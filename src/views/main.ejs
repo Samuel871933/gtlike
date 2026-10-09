@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: 'Quartier général' }) %>
+<%- include('partials/header', { title: buildingName('main') }) %>
 <%
   // Quartier général, agencé comme sur Guerre Tribale : onglets Construction / Démolition, file en cours
   // (construction, durée, achèvement, annulation), puis tableau des bâtiments (besoins, bouton du niveau suivant).
@@ -17,7 +17,7 @@
   const rows = [...available, ...maxed];
   // Info-bulle d'un bâtiment (onglet Construction) : son rôle, son effet au niveau actuel et au suivant, et ce que le
   // niveau suivant débloque (bâtiments dont c'est la dernière condition manquante).
-  const unlocksAt = (id, level) => locked.filter((l) => l.missing.length && l.missing.every((m) => m.building === id && m.level <= level)).map((l) => l.type.name);
+  const unlocksAt = (id, level) => locked.filter((l) => l.missing.length && l.missing.every((m) => m.building === id && m.level <= level)).map((l) => nameOf(l.type));
   const infoTip = (o, level) => {
     const next = o.maxed ? null : level + 1;
     const now_ = level > 0 ? buildingStat(o.type.id, level, ctx.cfg) : null;
@@ -25,8 +25,8 @@
     const unlocks = next ? unlocksAt(o.type.id, next) : [];
     const stat = then || now_;
     return `<div class="pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden w-72 flex-col gap-1.5 border-2 border-black bg-panel-top p-2.5 text-left text-[13px] font-normal shadow-[inset_0_0_0_1px_var(--color-bronze-500),5px_5px_0_#000] group-hover/info:flex group-focus-within/info:flex" role="tooltip">
-      <span class="font-semibold text-parchment-100">${esc(o.type.name)} <span class="font-normal text-gold-400">· ${level > 0 ? `niveau ${level}` : 'non construit'}${next ? ` → ${next}` : ''}</span></span>
-      <span class="text-parchment-400">${esc(o.type.description)}</span>
+      <span class="font-semibold text-parchment-100">${esc(nameOf(o.type))} <span class="font-normal text-gold-400">· ${level > 0 ? `niveau ${level}` : 'non construit'}${next ? ` → ${next}` : ''}</span></span>
+      <span class="text-parchment-400">${esc(descOf(o.type))}</span>
       ${stat ? `<span class="flex flex-wrap items-baseline gap-x-1.5 border-t border-bronze-800 pt-1.5"><span class="text-parchment-500">${esc(stat.label)} :</span>
         <span class="font-semibold text-parchment-100 tabular-nums">${now_ ? esc(now_.value) : '—'}</span>
         ${then ? `<span class="text-gold-400">${icon('arrowRight', 'size-3', 2.6)}</span><span class="font-semibold text-gold-200 tabular-nums">${esc(then.value)}</span><span class="text-parchment-500">au niveau ${next}</span>` : ''}</span>` : ''}
@@ -41,7 +41,7 @@
       </span>
       <span class="flex min-w-0 flex-col">
         <span class="flex items-center gap-1">
-          <a href="/village/${vid}/${buildingPath(o.type.id, ctx.cfg)}" class="${ui.linkPlain} font-semibold">${esc(o.type.name)}</a>
+          <a href="/village/${vid}/${buildingPath(o.type.id, ctx.cfg)}" class="${ui.linkPlain} font-semibold">${esc(nameOf(o.type))}</a>
           ${favStar(vid, o.type.id, favs.has(o.type.id), csrfToken, 'size-5')}
         </span>
         <span class="text-[13px] text-parchment-500">${level > 0 ? `Niveau ${level}` : 'non construit'}</span>
@@ -193,7 +193,7 @@
             <li class="flex items-center gap-3 border-b border-bronze-800 px-3 py-2">
               <%- buildingImg(o.type.id, 0, 'h-7 w-8') %>
               <span class="flex min-w-0 flex-col">
-                <span class="font-semibold text-parchment-300"><%= o.type.name %></span>
+                <span class="font-semibold text-parchment-300"><%= nameOf(o.type) %></span>
                 <span class="text-[13px] text-parchment-500"><%= o.missing.map((m) => `${buildingName(m.building)} niveau ${m.level}`).join(' · ') %></span>
               </span>
             </li>
@@ -221,7 +221,7 @@
                 <% if (reason) { %>
                   <span class="text-[13px] text-parchment-500"><%= reason %></span>
                 <% } else { %>
-                  <form method="post" action="/village/<%= vid %>/demolish" class="inline" data-confirm="Démolir <%= o.type.name %> au niveau <%= o.level %> ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <form method="post" action="/village/<%= vid %>/demolish" class="inline" data-confirm="Démolir <%= nameOf(o.type) %> au niveau <%= o.level %> ?"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <input type="hidden" name="building" value="<%= o.type.id %>">
                     <button class="<%= btn('danger', 'sm', 'min-w-28') %>">Niveau <%= o.level %></button>
                   </form>

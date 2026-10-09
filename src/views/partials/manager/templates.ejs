@@ -64,9 +64,9 @@
         <% const label = `<span class="tabular-nums ${level ? '' : 'text-parchment-500'}">${level}</span>${max ? '<span class="text-[11px] font-semibold text-gold-400">max</span>' : ''}`; %>
         <% if (own) { %>
           <button name="building" value="<%= b.id %>" class="<%= chipCls %> <%= max ? 'cursor-default border-gold-400 bg-night' : 'cursor-pointer border-bronze-800 bg-night hover:border-gold-400 hover:bg-row-hover' %>"
-            title="<%= max ? `${b.name} : niveau maximum (${b.maxLevel}) atteint` : `${b.name} : niveau ${level} → ajouter le niveau ${level + 1}` %>" aria-label="<%= max ? `${b.name}, niveau maximum` : `${b.name} niveau ${level}, ajouter un niveau` %>" <%= max || !premium ? 'disabled' : '' %>><%- img %><%- label %></button>
+            title="<%= max ? `${nameOf(b)} : niveau maximum (${b.maxLevel}) atteint` : `${nameOf(b)} : niveau ${level} → ajouter le niveau ${level + 1}` %>" aria-label="<%= max ? `${nameOf(b)}, niveau maximum` : `${nameOf(b)} niveau ${level}, ajouter un niveau` %>" <%= max || !premium ? 'disabled' : '' %>><%- img %><%- label %></button>
         <% } else { %>
-          <span class="<%= chipCls %> <%= max ? 'border-gold-400' : 'border-bronze-800' %> bg-night" title="<%= b.name %><%= max ? ' : niveau maximum' : '' %>"><%- img %><%- label %></span>
+          <span class="<%= chipCls %> <%= max ? 'border-gold-400' : 'border-bronze-800' %> bg-night" title="<%= nameOf(b) %><%= max ? ' : niveau maximum' : '' %>"><%- img %><%- label %></span>
         <% } %>
       <% } %>
     </form>
@@ -115,7 +115,7 @@
         <span class="w-full font-display text-sm text-parchment-200">Ajouter un ordre</span>
         <label class="<%= ui.label %>">Bâtiment
           <select name="building" class="<%= ui.inputSm %>">
-            <% for (const b of buildings) { %><option value="<%= b.id %>"><%= b.name %></option><% } %>
+            <% for (const b of buildings) { %><option value="<%= b.id %>"><%= nameOf(b) %></option><% } %>
           </select>
         </label>
         <label class="<%= ui.label %>">Niveaux<input type="number" name="levels" min="1" max="30" value="1" class="<%= ui.inputSm %> w-20 text-right tabular-nums"></label>
@@ -160,7 +160,7 @@
               </td>
               <td>
                 <span class="inline-flex items-center gap-x-2.5 align-middle">
-                  <% for (const { b, level } of summary(tpl.steps)) { %><span class="inline-flex items-center gap-1 tabular-nums" title="<%= b.name %> <%= level %>"><%- buildingImg(b.id, level, 'h-5 w-6 max-w-none', { lazy: true }) %><%= level %></span><% } %>
+                  <% for (const { b, level } of summary(tpl.steps)) { %><span class="inline-flex items-center gap-1 tabular-nums" title="<%= nameOf(b) %> <%= level %>"><%- buildingImg(b.id, level, 'h-5 w-6 max-w-none', { lazy: true }) %><%= level %></span><% } %>
                 </span>
               </td>
               <td class="text-right font-semibold tabular-nums"><%= num(st.points) %></td>

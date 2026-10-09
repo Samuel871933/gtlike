@@ -51,7 +51,7 @@
       <a href="<%= qs({ mv: tab, tous: '1' }) %>" class="<%= ui.link %> text-[13px]">» Afficher les <%= moveCount - shown.length %> autres ordres</a>
     <% } else { %><span></span><% } %>
     <% if (ctx.state.level('place') > 0) { %>
-      <a href="/village/<%= vid %>/place" class="<%= ui.link %> text-[13px]">» Point de ralliement</a>
+      <a href="/village/<%= vid %>/place" class="<%= ui.link %> text-[13px]">» <%= buildingName('place') %></a>
     <% } %>
   </div>
 </section>

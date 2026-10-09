@@ -12,7 +12,7 @@
     <% } %>
   </div>
   <div class="flex flex-1 flex-col gap-2 px-3 py-2.5">
-    <% if (selected) { const { world, player } = selected; const cfg = world.getConfig(); const modules = modulesOf(cfg); %>
+    <% if (selected) { const { world, player } = selected; const cfg = world.getConfig(); const modules = modulesOf(cfg); const mode = GAME_MODES[cfg.mode] || GAME_MODES.classic; %>
       <%# Fiche du monde choisi %>
       <a href="/worlds" class="<%= ui.link %> inline-flex items-center gap-1.5 self-start text-[13px]"><%- icon('arrowLeft', 'size-3.5', 2.4) %>Retour</a>
       <div class="<%= ui.kicker %>"><%= world.isPrivate() ? `Serveur privé · ${accessName(world).toLowerCase()} · ` : '' %><%= world.endedAt ? 'Monde terminé' : world.isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' %></div>
@@ -25,6 +25,7 @@
       <% const dom = cfg.victory.dominance;
          const facts = [
            ['Ouvert', `${age(world)} (le ${new Date(world.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })})`],
+           ['Mode', mode.name + (cfg.mode === 'zeppelin' ? ` · vaisseau à ${cfg.zeppelin.minutesPerField} min par case à ×1, ${cfg.zeppelin.maxDistance ? `${cfg.zeppelin.maxDistance} cases par vol` : 'sans limite de distance'}` : '')],
            ['Vitesse', `×${cfg.speed} · unités ×${cfg.unitSpeed}`],
            ['Modules', modules.length ? modules.join(', ') : 'classique'],
            ['Carte', `${cfg.mapSize} × ${cfg.mapSize} · protection ${cfg.newbieDays} j`],

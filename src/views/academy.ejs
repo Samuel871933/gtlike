@@ -1,4 +1,4 @@
-<%- include('partials/header', { title: 'Académie' }) %>
+<%- include('partials/header', { title: buildingName('snob') }) %>
 <% const vid = ctx.village.id; const maxBtn = `${ui.link} cursor-pointer text-xs tabular-nums`; %>
 <div class="flex flex-col gap-5">
   <%- include('partials/building-header', { buildingId: 'snob', illustration: 'wide' }) %>
@@ -65,7 +65,7 @@
             <span class="flex min-w-0 items-center gap-3">
               <span class="<%= ui.medallionGold %> size-[42px] minimal:size-[32px]"><%- unitIcon(o.type.id, 'size-[21px]') %></span>
               <span class="flex min-w-0 flex-col gap-1">
-                <span class="font-display font-semibold text-gold-200"><%= o.type.name %></span>
+                <span class="font-display font-semibold text-gold-200"><%= nameOf(o.type) %></span>
                 <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <%- include('partials/cost', { cost: o.type.cost, pop: o.type.pop, have: ctx.state.resources }) %>
                   <span class="inline-flex items-center gap-1.5 text-parchment-300 tabular-nums"><span class="text-parchment-600"><%- icon('clock', 'size-3.5', 2) %></span><%= duration(o.duration) %></span>

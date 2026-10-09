@@ -11,9 +11,13 @@
 // Un monde créé est immuable : ces réglages ne servent qu'à la création (voir le hook beforeUpdate de World).
 
 const WorldConfig = require('./WorldConfig');
+const { MODES } = require('../modes/catalog');
 
 // `intro` : texte sous le titre du groupe ; `hint` : effet de l'option, affiché sous son libellé.
 const GROUPS = [
+  { title: 'Mode de jeu', intro: 'Le mode habille le monde et peut ajouter quelques règles ; le moteur, les bâtiments, les unités et tous les réglages ci-dessous restent ceux du jeu.', settings: [
+    { key: 'mode', label: 'Mode', type: 'select', options: Object.values(MODES).map((m) => [m.id, m.name]), hint: Object.values(MODES).map((m) => `${m.name} : ${m.description}`).join(' ') },
+  ] },
   { title: 'Vitesse et carte', intro: 'Le rythme de la partie. Les mondes classiques de Guerre Tribale tournent à ×1 ; les mondes « speed » se jouent en quelques jours à ×100 et plus.', settings: [
     { key: 'speed', label: 'Vitesse du monde', type: 'number', min: 0.5, max: 1000, step: 0.5, hint: 'Multiplie la production, et divise la durée des constructions, du recrutement et des recherches.' },
     { key: 'unitSpeed', label: 'Vitesse des unités', type: 'number', min: 0.5, max: 10, step: 0.5, hint: 'Multiplie la vitesse de déplacement des troupes et des marchands, en plus de la vitesse du monde.' },
@@ -91,9 +95,15 @@ const GROUPS = [
     { key: 'victory.runes.defenseFactor', label: 'Pénalité de défense des villages de rune (%)', type: 'number', min: 0, max: 90, step: 5, scale: -0.01, offset: 1, hint: 'Un village de rune conquis se défend avec ce pourcentage de force en moins, soutiens compris (50 % sur Guerre Tribale FR, 60 % sur le serveur anglais). 0 : aucune pénalité.' },
     { key: 'victory.runes.disableMorale', label: 'Pas de morale contre les villages de rune', type: 'bool', hint: 'Les attaques contre un village de rune ne sont pas affaiblies par la morale, même contre un petit joueur.' },
   ] },
+  // Réglages propres à un mode : enregistrés seulement si ce mode est choisi.
+  ...Object.values(MODES).filter((m) => m.settings).map((m) => ({
+    title: `Mode ${m.name}`, intro: `Seulement pour un monde en mode ${m.name}.`, settings: m.settings.map((x) => ({ ...x, mode: m.id })),
+  })),
 ];
 
 const SETTINGS = GROUPS.flatMap((g) => g.settings);
+// Valeurs par défaut fusionnées (réglages des modes compris).
+const DEFAULT_CONFIG = new WorldConfig({});
 
 const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
 function set(obj, path, value) {
@@ -111,7 +121,7 @@ function formValue(setting, input = {}) {
   const submitted = Object.prototype.hasOwnProperty.call(input, 'name');
   if (submitted && setting.type === 'bool') return input[setting.key] === '1';
   if (Object.prototype.hasOwnProperty.call(input, setting.key)) return input[setting.key];
-  const v = get(WorldConfig.DEFAULTS, setting.key);
+  const v = get(DEFAULT_CONFIG, setting.key);
   if (setting.type === 'number' && setting.scale) return Math.round(((v - (setting.offset || 0)) / setting.scale) * 1000) / 1000;
   return v;
 }
@@ -137,6 +147,7 @@ function parse(body = {}) {
     }
     set(config, s.key, value);
   }
+  for (const s of SETTINGS) if (s.mode && s.mode !== config.mode) delete config[s.key.split('.')[0]];
   // Avertissement de domination (35 % et 80 jours sur GT) : ramené sous le seuil et la durée choisis.
   const d = config.victory.dominance;
   d.warningPercent = Math.min(WorldConfig.DEFAULTS.victory.dominance.warningPercent, Math.round(d.endgamePercent * 0.7));
